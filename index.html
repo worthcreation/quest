@@ -188,6 +188,17 @@ function addShroom(sc, spot, plots = 3) {
     for (let i = 0; i < plots; i++) sc.feat.plots.push([c[0] + (i - 1) * 0.035, c[1]]);
   }
 }
+// ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
+function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); }
+function logGate(sc, bar, plateId, x0, y0, x1, y1) { barrier(sc, bar, 'log', x0, y0, x1, y1, 0.55); sc.solids.forEach(s => { if (s.bar === bar) s.plate = plateId; }); }
+function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
+  const n = Math.ceil(Math.PI * 2 * radU / 0.7);
+  for (let k = 0; k < n; k++) {
+    const a = k / n * Math.PI * 2;
+    if (gapAng != null && Math.abs(Math.atan2(Math.sin(a - gapAng), Math.cos(a - gapAng))) < gapHalf) continue;
+    sc.solids.push(solid(c[0] + Math.cos(a) * radU * UNIT / W, c[1] + Math.sin(a) * radU * UNIT / H, 0.45, 'stone'));
+  }
+}
 function newScene(o) {
   return Object.assign({ solids: [], deco: [], spawns: [], pullables: [], exits: [], pools: [], paths: [], feat: {}, npcs: [], initItems: [], speed: 0.5, accel: 10, shade: 0 }, o);
 }
@@ -279,6 +290,38 @@ function genWorld() {
       sc.paths = [makePath(wPt, [sword[0] - 0.06, sword[1]], 2), makePath([sword[0], sword[1]], sc.feat.stone, 1)];
       keep.push([...sword, 2.2], [...sc.feat.stone, 2.5]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
+    // rock puzzles on the way to the sword, one more idea each screen
+    if (i === 1) {                                   // a log gate held shut; hold its plate down with a rock
+      logGate(sc, 'gate1', 'p1', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03);
+      const p = freeSpot(sc, [0.55, 0.8, 0.2, 0.8], 2, [[...wPt, 6]]); plate(sc, 'p1', p);
+      const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...p, 4]]);
+      sc.pullables.push({ id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
+      sc.paths.push(makePath(wPt, r, 1), makePath(r, p, 1));
+      keep.push([...p, 2.5], [...r, 2.5]);
+    }
+    if (i === 2) {                                   // the plate sits inside a ring of stones: throw the rock over
+      logGate(sc, 'gate2', 'p2', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03);
+      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); plate(sc, 'p2', p); stoneRing(sc, p, 1.4);
+      const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
+      sc.pullables.push({ id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
+      sc.paths.push(makePath(wPt, r, 1), makePath(r, [p[0] - 0.12, p[1]], 1));
+      keep.push([...p, 7], [...r, 2.5]);
+    }
+    if (last) {                                      // thorns ring the sword; the only rock that can break them is penned in
+      const sw = sc.feat.sword;
+      ringBarrier(sc, 'swordthorns', 'bramble', sw[0], sw[1], 1.8, 0.55);
+      const pen = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 3, [[...wPt, 4], [...sw, 5]]);
+      const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
+      stoneRing(sc, pen, 1.5, gapAng, 0.75);
+      const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
+      logGate(sc, 'gate3', 'p3', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H);
+      sc.pullables.push({ id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
+      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); plate(sc, 'p3', p);
+      const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
+      sc.pullables.push({ id: 'rock3b', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
+      sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, [pen[0] + Math.cos(gapAng) * 0.08, pen[1] + Math.sin(gapAng) * 0.1], 0), makePath(pen, sw, 1));
+      keep.push([...pen, 3.2], [...p, 2.5], [...r, 2.5], [...sw, 3.5]);
+    }
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
     if (i === 1) addPlots(sc, 2, [0.3, 0.7, 0.3, 0.7]);
     if (i === 2) addShroom(sc);
@@ -532,7 +575,7 @@ state = {
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
   settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false,
-  choice: null, whirl: null, chain: { n: 0, t: -9 },
+  choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {},
 };
 state.hero = newHero();
 
@@ -949,8 +992,8 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
-  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
 }
@@ -997,6 +1040,7 @@ function enterScene(id, fx, fy) {
   state.bird = id === 'meadow' ? makeBird() : null;
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
   state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0;
+  state.plateOn = {}; updatePlates(true);
   refreshSceneGeometry();
   state.entry = { id, fx: pos[0], fy: pos[1] };
 
@@ -1150,7 +1194,7 @@ function update(dt) {
   }
 
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
-  if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); }
+  if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
 
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
@@ -1210,6 +1254,30 @@ function isChasm(x, y, pad = 0) {
   return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
 }
 
+// ---------------- stone plates: weight on them lifts their log gate ----------------
+function updatePlates(quiet) {
+  const plates = sceneDef().feat.plates;
+  if (!plates) return;
+  const h = state.hero;
+  let changed = false;
+  for (const p of plates) {
+    const x = p.fx * W, y = p.fy * H;
+    const rock = state.items.some(it => it.type === 'bigrock' && Math.hypot(it.x - x, it.y - y) < UNIT * 0.95);
+    const on = rock || (h.z <= 0 && !h.ride && Math.hypot(h.x - x, h.y - y) < UNIT * 0.7);
+    if (on !== !!state.plateOn[p.id]) {
+      state.plateOn[p.id] = on; changed = true;
+      if (!quiet) {
+        sfx.rumble(); sfx.tock(); state.shake = 0.2;
+        const g = sceneDef().solids.find(s => s.plate === p.id);
+        if (g) zoomPulse(g.fx * W, g.fy * H, on ? 'kill' : 'hit');
+        if (on && !rock) say('The log shifts... but you can\'t hold it and walk through.', x, y - UNIT * 1.2, { key: 'plate', tip: 'plate-self', life: 3.5 });
+        if (on && rock) say('The rock holds the plate down. The log rolls aside.', x, y - UNIT * 1.2, { key: 'plate', life: 3 });
+      }
+    }
+    if (!on && Math.hypot(h.x - x, h.y - y) < UNIT * 2.5) say('A stone plate, worn smooth. Something heavy would hold it down.', x, y - UNIT * 1.2, { key: 'platehint', tip: 'plate', life: 4 });
+  }
+  if (changed) refreshSceneGeometry();
+}
 // ---------------- scene features ----------------
 function updateFeatures(dt) {
   const sc = sceneDef(), h = state.hero, f = sc.feat, rt = rtFor(sc.id);
@@ -2392,6 +2460,12 @@ function breathe(from, mv) {
 }
 
 // ---------------- projectiles (rocks, acorns) ----------------
+const ROCK_THROW = { sp: 7, z: 1.2, vz: 5, g: 14, start: 0.6 };
+function rockLanding(h) {
+  const T = ROCK_THROW, t = (T.vz + Math.sqrt(T.vz * T.vz + 2 * T.g * T.z)) / T.g;
+  const d = UNIT * (T.start + T.sp * t);
+  return [h.x + h.fx * d, h.y + h.fy * d];
+}
 function launch(kind) {
   const h = state.hero, rock = kind === 'rock';
   const silk = rock ? 0 : state.inv.silk;
@@ -2414,7 +2488,8 @@ function updateShots(dt) {
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
     }
-    if (!done) for (const o of state.solids) {
+    if (!done) for (const o of state.solids) {        // high throws sail over low stones; thickets and logs stand tall
+      if (s.z > UNIT * (o.bar ? 3 : 0.7)) continue;
       if (Math.hypot(o.x - s.x, o.y - s.y) > o.r + UNIT * 0.2) continue;
       if (rock && o.bar && o.kind === 'bramble') breakBarrier(o.bar, 'rock');
       else if (!rock) { sfx.tock(); if (o.kind === 'tree') { state.treeShake[o.key] = state.time; sfx.rustle(); } }
@@ -2427,6 +2502,7 @@ function updateShots(dt) {
       if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
+      if (state.scene === 'w3' && rock && !broken('w3', 'swordthorns')) say('Thorns. A thrown rock broke the last lot.', s.x, s.y - UNIT, { key: 'rockhint3', life: 2.5, tip: 'rockhint3' });
     }
   }
 }
@@ -2485,7 +2561,7 @@ function updateGas(dt) {
       e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
       damage(e, 1, 'fire', 0, 0);
     }
-    for (const s of state.solids) if (s.bar && s.kind !== 'bramble' && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
+    for (const s of state.solids) if (s.bar && ['reeds', 'web', 'vine'].includes(s.kind) && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
     if (state.bird) scareBird(b.x, b.y, 4);
   }
 }
@@ -2763,7 +2839,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 6, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 7, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2775,7 +2851,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 6) return false;
+  if (!d || !d.seed || d.v !== 7) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3028,6 +3104,14 @@ function drawGround(sc) {
         } else if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
       });
     }
+    for (const p of f.plates || []) {                // stone plates, sunk and glowing when held down
+      const x = p.fx * W, y = p.fy * H, on = state.plateOn[p.id];
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.85, UNIT * 0.45, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = on ? '#6a6a62' : '#8e8e84'; ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.8, UNIT * 0.42, 0, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = on ? `rgba(160,230,140,${0.6 + 0.3 * Math.sin(state.time * 4)})` : 'rgba(60,60,55,.8)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.45, UNIT * 0.22, 0, 0, 6.28); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - UNIT * 0.2, y + (on ? 3 : 0)); ctx.lineTo(x + UNIT * 0.2, y + (on ? 3 : 0)); ctx.stroke();
+    }
     if (f.stone) {                                 // the sinkhole
       const x = f.stone[0] * W, y = f.stone[1] * H;
       ctx.fillStyle = '#0c0a08'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.9, UNIT * 0.6, 0, 0, 6.28); ctx.fill();
@@ -3208,6 +3292,17 @@ function drawSolid(s) {
       if (Math.random() < 0.03) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
       break;
     }
+    case 'stone':
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
+      break;
+    case 'log':                                    // a heavy log braced across the way
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 0.6, r * 0.45, 0, 0, 6.28); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
+      break;
     case 'bench':
       ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
       ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
@@ -3381,6 +3476,13 @@ function drawShots() {
 }
 function drawAim() {
   const h = state.hero, len = UNIT * (state.carry === 'rock' ? 2.5 : 3.5);
+  if (state.carry === 'rock') {                    // where the rock will come down
+    const [lx, ly] = rockLanding(h), pulse = 0.5 + 0.5 * Math.sin(state.time * 8);
+    ctx.strokeStyle = `rgba(255,230,140,${0.5 + pulse * 0.4})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(lx, ly, UNIT * 0.7, UNIT * 0.4, 0, 0, 6.28); ctx.stroke();
+    ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.quadraticCurveTo((h.x + lx) / 2, (h.y + ly) / 2 - UNIT * 2.5, lx, ly); ctx.stroke(); ctx.setLineDash([]);
+    return;
+  }
   ctx.strokeStyle = 'rgba(255,250,220,.6)'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
   ctx.beginPath(); ctx.moveTo(h.x, h.y); ctx.lineTo(h.x + h.fx * len, h.y + h.fy * len); ctx.stroke(); ctx.setLineDash([]);
 }
