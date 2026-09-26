@@ -97,7 +97,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 // World generation (done at a fixed virtual size so a seed always
 // produces the same world on any screen)
 // =====================================================================
-const AREA_NAMES = { indoor: 'Old Wick\'s Shack', river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
+const AREA_NAMES = { peak: 'The High Crags', indoor: 'Old Wick\'s Shack', river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 // after the rescue: a gremlin fled with Pip's journal, back through the glade and the woods to where the sword was
@@ -499,7 +499,7 @@ function genWorld() {
     const nPt = edgePoint('n', (north[0] + north[1]) / 2);
     if (i === 1) sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'foot' });
     edgeWall(sc, 'w', 'boulder', 1.0, i === 1 ? [[0.4, 0.6]] : []);
-    edgeWall(sc, 'e', 'boulder', 1.0, []);
+    edgeWall(sc, 'e', 'boulder', 1.0, F.end ? [[0.76, 0.93]] : []);   // past the tortoise, on its bank, the climb begins
     edgeWall(sc, 'n', 'boulder', 1.0, [north]);
     edgeWall(sc, 's', 'boulder', 1.0, south ? [south] : []);
     const keep = F.ups.map(u => [...u, 2.4]).concat(sc.feat.plants.map(s => [...s, 1.2]));
@@ -516,7 +516,34 @@ function genWorld() {
       sc.spawns.push({ type: 'rabbit', fx: p[0], fy: p[1] });
     }
     for (let t = 0; t < 90; t++) { const fx = rng(), fy = rng(); if (!inRects(F.chasms, fx, fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.6, 1.3), ph: rng() * 6 }); }
+    // rock banks: out in the ravines to hop across on, and slabs on the banks; the wind can't move you on rock
+    sc.rocks = [];
+    sc.rockCols = F.chasms.map(() => rng());                                 // where each ravine's rock column stands, fixed per seed
+    const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
+    for (let k = 0; k + 1 < edges.length; k += 2) if (edges[k + 1] - edges[k] > 0.08) { const q = freeSpot(sc, [0.25, 0.75, edges[k] + 0.03, edges[k + 1] - 0.03], 1.2); sc.rocks.push({ fx: q[0], fy: q[1], r: 1.1 }); }
+    if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
     if (south) north = south;
+  });
+
+  // ---------------- The High Crags: above the tortoise. Stone, cliffs, ravines you can jump, rocky outcrops ----------------
+  const CRAGS = [
+    { id: 'peak1', msg: 'The grass gives out. Only stone from here up.', ravines: [0.28], cliffs: [[0.47, 0.42, 1]], from: 'w' },
+    { id: 'peak2', msg: 'Cliffs and cracks all the way up', ravines: [0.2, 0.58], cliffs: [[0.4, 0.35, 1], [0.76, 0, 0.62]], from: 's' },
+    { id: 'peak3', msg: 'The summit. Something huge circles overhead.', ravines: [0.72], cliffs: [], from: 's', top: true },
+  ];
+  CRAGS.forEach((C, k) => {
+    const sc = add(newScene({ id: C.id, area: 'peak', depth: 8 + k, msg: C.msg, music: 'field', amb: 'wind', floor: '#8b8680', speed: 0.42, accel: 8, chasms: [] }));
+    sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
+    sc.exits = [];
+    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: 0.42, b: 0.58, to: CRAGS[k - 1].id });
+    if (!C.top) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: CRAGS[k + 1].id });
+    for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }
+    for (const [y, x0, x1] of C.cliffs) for (let x = x0; x <= x1; x += 0.045) sc.solids.push(solid(x, y, 0.75, 'cliff'));
+    const band = y => C.ravines.some(r => Math.abs(y - r) < 0.08) || C.cliffs.some(c => Math.abs(y - c[0]) < 0.06);
+    for (let t = 0; t < 7; t++) { const q = freeSpot(sc, [0.1, 0.9, 0.12, 0.88], 1.3); if (!band(q[1])) sc.solids.push(solid(q[0], q[1], rr(0.7, 1.2), 'boulder')); }
+    for (let t = 0; t < 14; t++) { const fx = rng(), fy = rng(); if (!band(fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.5, 0.9), ph: rng() * 6 }); }
+    sc.rocks = [];
+    if (C.top) { sc.solids.push(solid(0.5, 0.33, 0.9, 'cairn')); item(sc, { type: 'starseed', fx: 0.5, fy: 0.42 }); }
   });
 
   // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
@@ -1176,7 +1203,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -1248,6 +1275,8 @@ function enterScene(id, fx, fy) {
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
+  if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
+  if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
@@ -1298,7 +1327,7 @@ function transitionTo(id, fx, fy, quick) {
 }
 
 function checkEdges() {
-  const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 2;
+  const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 8;
   for (const ex of sc.exits) {
     let at = false, along = 0;
     if (ex.side === 'n') { at = h.y <= r && held.up(); along = h.x / W; }
@@ -1422,7 +1451,7 @@ function update(dt) {
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
     h.x += h.vx * dt; h.y += h.vy * dt;
-    if (sc.gusts && state.gustPhase === 'blow') { const w = gustVec(), k = 0.5 + (sc.depth || 0) * 0.15; h.x += w[0] * 0.12 * k * L() * dt; h.y += w[1] * 0.06 * k * L() * dt; }
+    if (sc.gusts && state.gustPhase === 'blow' && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = 0.5 + (sc.depth || 0) * 0.15; h.x += w[0] * 0.12 * k * L() * dt; h.y += w[1] * 0.06 * k * L() * dt; }
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
@@ -1431,6 +1460,7 @@ function update(dt) {
   if ((sc.chasms || sc.river || sc.deep) && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
     if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; h.fallKind = sc.deep ? 'deep' : sc.river ? 'water' : 'pit'; if (sc.river || sc.deep) sfx.splash(); else sfx.plummet(); }
     else if (!isChasm(h.x, h.y, UNIT * 1.2)) h.safe = [h.x / W, h.y / H];
+    else if (h.z <= 0 && (onRock(sc, h.x, h.y, UNIT * 0.4) || (sc.river && sc.river.stones && sc.river.stones.some(s => Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 0.4)))) h.safe = [h.x / W, h.y / H];
   }
 
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
@@ -1492,8 +1522,10 @@ function collideSolids(a, r) {
   return hit;
 }
 const inPool = (x, y) => state.pools.some(p => Math.hypot(x - p.x, y - p.y) < p.r * 0.85);
+const onRock = (sc, x, y, pad = 0) => (sc.rocks || []).some(r => Math.hypot(x - r.fx * W, y - r.fy * H) < r.r * UNIT - pad);
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
+  if (sc.rocks && onRock(sc, x, y, pad)) return false;
   if (sc.river && riverHit(sc, x, y, pad, pad === 0)) return true;
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
@@ -1586,6 +1618,7 @@ function updateJump(dt) {
     if (h.z <= 0) {
       h.z = 0; h.vz = 0;
       if (sc.river && sc.river.stones) catchStone(h, sc);
+      if (sc.rocks && sc.rocks.length) catchStone(h, { river: { stones: sc.rocks.filter(r => r.island).map(r => [r.fx, r.fy, r.r]) } });
       if (state.slam) slamDown();
       else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
     }
@@ -1607,6 +1640,30 @@ function layoutStones(sc) {
     out.push([x / W, y / H, 0.8]);
   }
   r.stones = out;
+}
+// The mountain path's ravines each get a column of rock banks, spaced in tiles for this screen so every hop
+// fits the shortest jump. The column stands where both banks are solid ground.
+function layoutRavineRocks(sc) {
+  sc.rocks = sc.rocks.filter(r => !r.island);
+  sc.chasms.forEach((c, i) => {
+    const inOther = (fx, fy) => sc.chasms.some((o, j) => j !== i && fx >= o[0] && fx <= o[2] && fy >= o[1] && fy <= o[3]);
+    const lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
+    // a clear run: solid ground above and below, nothing standing in the way of the hops
+    const blocked = (fx, fy) => sc.solids.some(s => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT);
+    let fx = null;
+    for (let t = 0; t < 30 && fx == null; t++) {
+      const x = lo + (hi - lo) * ((sc.rockCols[i] + t * 0.137) % 1);
+      if (!inOther(x, c[1] - 0.03) && !inOther(x, c[3] + 0.03) && !blocked(x, c[1] - UNIT * 0.8 / H) && !blocked(x, c[3] + UNIT * 0.8 / H) && !blocked(x, (c[1] + c[3]) / 2)) fx = x;
+    }
+    const full = c[0] <= 0.01 && c[2] >= 0.99;
+    if (fx == null && full) {                          // a full-width ravine must be crossable: clear boulders off the best spot
+      for (let t = 0; t < 30 && fx == null; t++) { const x = lo + (hi - lo) * ((sc.rockCols[i] + t * 0.137) % 1); if (!inOther(x, c[1] - 0.03) && !inOther(x, c[3] + 0.03)) fx = x; }
+      if (fx != null) sc.solids = sc.solids.filter(s => s.kind !== 'boulder' || ![c[1] - UNIT * 0.8 / H, (c[1] + c[3]) / 2, c[3] + UNIT * 0.8 / H].some(fy => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT));
+    }
+    if (fx == null) return;                           // this part of the ravine is walked around, not crossed
+    const y0 = c[1] * H, y1 = c[3] * H, n = Math.max(1, Math.ceil((y1 - y0) / (UNIT * 1.85)) - 1);
+    for (let k = 1; k <= n; k++) sc.rocks.push({ fx, fy: (y0 + (y1 - y0) * k / (n + 1)) / H, r: 0.85, island: true });
+  });
 }
 // landing just short of a stone counts: you catch its edge
 function catchStone(h, sc) {
@@ -1651,8 +1708,9 @@ function updateRide(dt) {
   if (!r.hop && Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * 2, t: 0, life: 0.6, color: 'leaf', spin: Math.random() * 6 });
   if (p >= 1 && r.blown) {
     h.ride = null; h.z = 0;
-    transitionTo('foot', 0.5, 0.3);
-    setTimeout(() => say('Blown all the way down the mountain. Softly, at least.', state.hero.x, state.hero.y - UNIT, { key: 'blown', life: 3.5 }), 0);
+    if (h.safe) { h.x = h.safe[0] * W; h.y = h.safe[1] * H; }
+    sfx.land(); state.shake = 0.3;
+    say('The gust tumbles you back. Wait on the rock for it to pass.', h.x, h.y - UNIT, { key: 'blown', life: 3 });
     return;
   }
   if (p >= 1 && r.hop) {
@@ -3583,8 +3641,10 @@ function updateCut(dt) {
     if (c.t > 1.3 && !c.moved) {
       c.moved = true;
       h.vig = maxVig();
-      const e = state.entry;
-      enterScene(e.id, e.fx, e.fy);
+      const e = state.entry, sc0 = sceneDef();
+      const resume = (sc0.chasms && sc0.chasms.length) || sc0.river || sc0.rocks ? h.safe : null;
+      if (resume && sc0.id === e.id) { h.x = resume[0] * W; h.y = resume[1] * H; state.enemies.forEach(en => { if (!en.dead && Math.hypot(en.x - h.x, en.y - h.y) < UNIT * 4) { en.x += (en.x - h.x) * 0.8; } }); }
+      else enterScene(e.id, e.fx, e.fy);
       state.fadeTarget = 0;
       sayHero('You come to, a little wiser.');
     }
@@ -4103,11 +4163,12 @@ function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
-  if (sc.wade) drawWaterScreen(sc); else drawGround(sc);
+  if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
   if (sc.feat.signs) drawArenaSigns(sc);
+  if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
   if (sc.feat.portals) drawPuzzlePortals(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
@@ -4440,6 +4501,34 @@ function drawWaterScreen(sc) {
     if (Math.random() < 0.7) state.fx.push({ x: x0 - UNIT * 0.4, y: y0 + Math.random() * (y1 - y0), vx: -UNIT * (1 + Math.random() * 2), vy: -UNIT * Math.random(), t: 0, life: 0.8, color: 'rgba(235,245,255,.7)', size: UNIT * 0.18 });
   }
 }
+// rock banks: flat grey slabs, mossy on top; the ones out in a ravine have a shadowed rim
+function drawRockBanks(sc) {
+  for (const r of sc.rocks) {
+    const x = r.fx * W, y = r.fy * H, R = r.r * UNIT;
+    if (r.island) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.25, R * 1.05, R * 0.8, 0, 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = '#7d7870'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.1, R, R * 0.72, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#a19b92'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.92, R * 0.62, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = 'rgba(110,140,80,.45)'; ctx.beginPath(); ctx.ellipse(x - R * 0.3, y - R * 0.15, R * 0.35, R * 0.18, -0.3, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(50,45,40,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + R * 0.1, y - R * 0.3); ctx.lineTo(x + R * 0.35, y + R * 0.2); ctx.stroke();
+  }
+}
+// the crags: bare stone, cracks, a few tough tufts, and ravines with dark depths
+function drawCrags(sc) {
+  ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 70; i++) {                        // speckle and cracks
+    const x = ((i * 0.618 + 0.13) % 1) * W, y = ((i * 0.377 + 0.07) % 1) * H;
+    ctx.fillStyle = i % 3 ? 'rgba(60,56,52,.18)' : 'rgba(200,195,188,.18)'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.3, UNIT * 0.14, i, 0, 6.28); ctx.fill();
+    if (i % 5 === 0) { ctx.strokeStyle = 'rgba(50,46,42,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + UNIT * 0.5, y + UNIT * 0.3); ctx.lineTo(x + UNIT * 0.7, y + UNIT * 0.8); ctx.stroke(); }
+  }
+  for (const [x0, y0, x1, y1] of sc.chasms || []) {
+    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H;
+    const g = ctx.createLinearGradient(0, Y0, 0, Y1); g.addColorStop(0, '#1c1a1e'); g.addColorStop(0.5, '#0c0b0e'); g.addColorStop(1, '#2a2629');
+    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
+    ctx.fillStyle = '#6b665f';                          // jagged lips
+    for (let x = X0; x < X1; x += UNIT * 0.5) { ctx.beginPath(); ctx.moveTo(x, Y0); ctx.lineTo(x + UNIT * 0.25, Y0 + UNIT * 0.18 * (1 + Math.sin(x))); ctx.lineTo(x + UNIT * 0.5, Y0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, Y1); ctx.lineTo(x + UNIT * 0.25, Y1 - UNIT * 0.15 * (1 + Math.cos(x))); ctx.lineTo(x + UNIT * 0.5, Y1); ctx.fill(); }
+  }
+  for (const d of sc.deco) if (d.kind === 'tuft') { const x = d.fx * W, y = d.fy * H; ctx.strokeStyle = '#7f8f5a'; ctx.lineWidth = 1.5; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 3, y); ctx.lineTo(x + i * 4 + Math.sin(state.time * 2 + d.ph) * 2, y - UNIT * 0.35 * d.s); ctx.stroke(); } }
+}
 // Old Wick's shack: plank floor, log walls, a window, a lived-in mess
 function drawRoom() {
   const u = UNIT;
@@ -4664,6 +4753,15 @@ function drawSolid(s) {
       ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
       break;
     case 'wall': break;                                // the room draws its own walls
+    case 'cliff': {                                    // a knee-high rock step, lit on top
+      ctx.fillStyle = '#5e5953'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, s.r * 1.15, s.r * 0.75, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#9b958d'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.12, s.r * 1.05, s.r * 0.55, 0, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,36,32,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s.r * 0.5, y - u * 0.1); ctx.lineTo(x - s.r * 0.1, y + u * 0.1); ctx.stroke();
+      break;
+    }
+    case 'cairn':
+      for (let i = 0; i < 4; i++) { const w0 = u * (0.9 - i * 0.18); ctx.fillStyle = i % 2 ? '#8e8880' : '#a7a197'; ctx.beginPath(); ctx.ellipse(x, y - i * u * 0.32, w0, u * 0.22, 0, 0, 6.28); ctx.fill(); }
+      break;
     case 'bed':
       ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
       ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
@@ -5233,7 +5331,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 41';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 42';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5276,13 +5374,13 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [5, 8], peak3: [5, 7], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
   c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
   fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
   sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
-const REGION_COLOR = { river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
+const MAP_NAMES = { peak3: 'Summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {
   const TW = 256, TH = 160, GAP = 40, M = 60, HEAD = 110;
@@ -5527,6 +5625,7 @@ const PUZZLES = [
   { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
   { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
   { id: 'strong', name: 'Too-strong gust', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
+  { id: 'crags', name: 'The crags', scene: 'peak1', at: [0.06, 0.5], solved: () => state.scene === 'peak3' },
   { id: 'ford', name: 'Stepping stones', scene: 'ford', at: [0.5, 0.95], solved: () => state.scene === 'farbank' || (state.scene === 'ford' && state.hero.y < H * (0.5 - WORLD.ford.river.wH / 2)) },
   { id: 'rapids', name: 'Rapids', scene: 'rapids', raft: true, solved: () => state.scene === 'gleampool' },
   { id: 'reeds', name: 'Marsh reeds', scene: 'm3', at: [0.06, 0.5], fire: true, solved: () => broken('m3', 'reeds') },
@@ -5540,7 +5639,7 @@ function genPuzzleHub(seed) {
   try {
     const hub = newScene({ id: 'puzzlehub', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4f9a52', heroStart: [0.5, 0.88] });
     for (const side of ['n', 'w', 'e', 's']) edgeWall(hub, side, side === 'n' || side === 's' ? 'tree' : 'boulder', 1.1, [], 1.4, 'green');
-    hub.feat.portals = PUZZLES.map((p, i) => ({ pid: p.id, fx: 0.16 + (i % 5) * 0.17, fy: i < 5 ? 0.32 : 0.62 }));
+    hub.feat.portals = PUZZLES.map((p, i) => ({ pid: p.id, fx: 0.12 + (i % 6) * 0.152, fy: i < 6 ? 0.32 : 0.62 }));
     hub.feat.portals.forEach(p => claim(hub, p.fx, p.fy, 1.4));
     decoFlowers(hub, 40);
     return hub;
