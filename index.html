@@ -3369,15 +3369,24 @@ function pipExit(sc) {                                // the exit that gets us c
   return best || sc.exits.find(ex => ex.to === 'w2' || ex.to === 'w1') || null;
 }
 function placePipNearHero() {
+  const old = state.pip && state.pip.visit;          // left before Pip got to say it: Pip can say it next time
+  if (old && !old.said && state.inv.pipTips) delete state.inv.pipTips[old.key];
   const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
-function pipSay(key, text) {
+function pipSay(key, text, at, sight = 7) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || state.time - (state.pipTalkT || -9) < 3.2) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2) return false;
+  if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
+  if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key }; return true; }   // go over there first
   say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
   return true;
+}
+// Pip's spot beside something: on the side facing you, a step away from it
+function pipBeside(v) {
+  const h = state.hero, dx = h.x - v.x, dy = h.y - v.y, d = Math.hypot(dx, dy) || 1;
+  return [v.x + dx / d * UNIT * 1.3, v.y + dy / d * UNIT * 1.3];
 }
 function updatePip(dt) {
   if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
@@ -3386,7 +3395,18 @@ function updatePip(dt) {
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
   const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
-  const tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  const v = p.visit;
+  if (v) {                                            // walking over to point something out
+    [tx, ty] = pipBeside(v);
+    const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
+    if (!v.said && (there || state.time - v.t0 > 2)) {
+      v.said = state.time;
+      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff' });
+      p.side = v.x > p.x ? 1 : -1;
+    }
+    if (v.said && state.time - v.said > 1.6) { p.visit = null; state.pipTalkT = state.time; }
+  }
   const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
   if (md > UNIT * 0.3) {
     const sp = Math.min(md * 4, L() * sc.speed * (md > UNIT * 3 ? 1.7 : 1.1)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;
@@ -3394,37 +3414,44 @@ function updatePip(dt) {
     p.side = mx > 0 ? 1 : -1;
   }
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
-  if (Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();       // got stuck behind something: catch up
+  if (Math.hypot(p.x - h.x, p.y - h.y) > UNIT * (p.visit ? 10 : 6.5)) { placePipNearHero(); if (state.pip.visit) state.pip.visit = null; }   // got stuck: catch up
   const home = ['camp', 'start', 'meadow', 'w1', 'w2'];
   if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   if (sc.id === 'camp') {
     pipSay('go', 'The glade\'s south. Come on!');
-    if (f.bench && near(...f.bench, 3)) pipSay('bench', 'My workbench. We can make stuff here.');
-    if (f.plots && f.plots.some(q => near(...q, 2))) pipSay('plots', 'Plant seeds here.');
-    if (f.shroom && near(...f.shroom, 3.5)) pipSay('shroom', 'That mushroom hums at night.');
+    const P = q => [q[0] * W, q[1] * H];
+    if (f.bench && near(...f.bench, 4)) pipSay('bench', 'My workbench. We can make stuff here.', P(f.bench));
+    const plot = f.plots && f.plots.find(q => near(...q, 3));
+    if (plot) pipSay('plots', 'Plant seeds here.', P(plot));
+    if (f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (sc.id === 'start') {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
     if (!rt.flags.thicket) {
-      pipSay('brambles', 'Brambles. We need something heavy.');
-      if (rock && !loose && !state.carry && near(rock.fx, rock.fy, 4)) pipSay('pull', 'Pull that rock loose!');
-      if (state.carry) pipSay('throw', 'Throw it at the brambles!');
+      const thicket = [W * 0.955, H * 0.5];
+      pipSay('brambles', 'Brambles. We need something heavy.', thicket, 14);
+      const told = (state.inv.pipTips || {}).brambles;
+      if (told && rock && !loose && !state.carry && near(rock.fx, rock.fy, 5)) pipSay('pull', 'Pull this rock loose!', [rock.fx * W, rock.fy * H]);
+      if (state.carry) pipSay('throw', 'Throw it at the brambles!', thicket);
     } else {
-      pipSay('smashed', 'Ha! The woods are east.');
-      pipSay('jump', 'Stomp by a tree for acorns.');
+      pipSay('smashed', 'Ha! The woods are east.', [W * 0.93, H * 0.5]);
+      const tree = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+      if (tree) pipSay('jump', 'Stomp by a tree for acorns.', [tree.x, tree.y]);
     }
   }
-  if (sc.id === 'meadow') pipSay('robin', 'Startle that robin for a seed.');
+  if (sc.id === 'meadow' && state.bird) pipSay('robin', 'Startle that robin for a seed.', [state.bird.x, state.bird.y + UNIT]);
   if (sc.id === 'w1') {
     if (!state.plateOn.p1) {
-      pipSay('gate', 'Weigh down that stone to open the gate.');
-      if (state.carry) pipSay('setdown', 'Set it on the stone.');
+      const pl = (f.plates || []).find(q => q.id === 'p1'), at = pl ? [pl.fx * W, pl.fy * H] : null;
+      pipSay('gate', 'Weigh down this stone to open the gate.', at);
+      if (state.carry) pipSay('setdown', 'Set it on the stone.', at);
     } else pipSay('opened', 'Onward!');
   }
   if (sc.id === 'w2') {
-    if (!state.plateOn.p2) pipSay('ring', 'Throw it over the ring!');
+    const pl = (f.plates || []).find(q => q.id === 'p2');
+    if (!state.plateOn.p2) pipSay('ring', 'Throw it over the ring!', pl ? [pl.fx * W, pl.fy * H] : null);
     else if (!state.cut) startAbduct();              // the gate groans open, and they were waiting
   }
 }
@@ -3493,8 +3520,8 @@ function updateCut(dt) {
     if (at(5.4)) {
       p.show = false; p.follow = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      showTitle('Find Pip', 'gremlins dragged them deeper into the woods', 'area', 3.5);
-      say('They went east. After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3 });
+      showTitle('Find Pip', 'the gremlins dragged Pip deeper into the woods', 'area', 3.5);
+      say('The gremlins took Pip east. After Pip!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3 });
     }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
@@ -3509,8 +3536,8 @@ function updateCut(dt) {
     if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
     if (at(7)) {
       p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      showTitle('Find Pip', 'gremlins took them into the woods', 'area', 3.5);
-      say('They piled thorns behind them. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
+      showTitle('Find Pip', 'the gremlins took Pip into the woods', 'area', 3.5);
+      say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
     const a = 0.3, b = 1.35;
@@ -5198,7 +5225,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 39';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 40';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
