@@ -122,6 +122,16 @@ function makePath(a, b, bends) {
   pts.push(b);
   return pts;
 }
+// A river is a centreline (upstream first) with a width, plus optional stepping stones of dry rock.
+function riverHit(sc, x, y, pad = 0, stonesCount = true) {
+  const r = sc.river; if (!r) return false;
+  const half = (r.wH ? r.wH * H : r.w * UNIT) / 2 + pad;
+  let d = Infinity;
+  for (let i = 0; i < r.pts.length - 1; i++) d = Math.min(d, distSeg(x, y, r.pts[i][0] * W, r.pts[i][1] * H, r.pts[i + 1][0] * W, r.pts[i + 1][1] * H));
+  if (d > half) return false;
+  if (stonesCount && (r.stones || []).some(s => Math.hypot(x - s[0] * W, y - s[1] * H) < s[2] * UNIT * 0.9)) return false;
+  return true;
+}
 function inRects(rects, fx, fy, pad = 0) { return rects.some(([x0, y0, x1, y1]) => fx > x0 - pad && fx < x1 + pad && fy > y0 - pad && fy < y1 + pad); }
 function clearSpot(sc, fx, fy, rU, pathW, keep) {
   const x = fx * W, y = fy * H, r = rU * UNIT;
@@ -130,6 +140,7 @@ function clearSpot(sc, fx, fy, rU, pathW, keep) {
   for (const k of keep) if (Math.hypot(x - k[0] * W, y - k[1] * H) < k[2] * UNIT + r) return false;
   for (const s of sc.solids) if (Math.hypot(x - s.fx * W, y - s.fy * H) < (s.r + rU) * UNIT * 0.85) return false;
   if (sc.chasms && inRects(sc.chasms, fx, fy, 0.04)) return false;
+  if (riverHit(sc, x, y, r + UNIT * 0.5, false)) return false;
   if (onClaim(sc, fx, fy, rU * 0.6)) return false;          // no tree or boulder on top of something you use
   return true;
 }
@@ -180,6 +191,7 @@ function freeSpot(sc, box, rU, keep = []) {
     const fx = rr(box[0], box[1]), fy = rr(box[2], box[3]);
     if (sc.chasms && inRects(sc.chasms, fx, fy, 0.05)) continue;
     const x = fx * W, y = fy * H;
+    if (riverHit(sc, x, y, rU * UNIT, false)) continue;
     let score = Infinity;
     for (const c of sc.claims) score = Math.min(score, (Math.hypot(x - c[0] * W, y - c[1] * H) - (c[2] + rU) * UNIT) * 4);
     for (const s of sc.solids) score = Math.min(score, Math.hypot(x - s.fx * W, y - s.fy * H) - (s.r + rU) * UNIT);
@@ -295,8 +307,8 @@ function genWorld() {
 
   // ---------------- Meadow (west): the robin's dead tree ----------------
   const meadow = add(newScene({ id: 'meadow', area: 'forest', msg: 'Birdsong drifts over the meadow', music: 'forest', amb: 'none', floor: '#4a9650' }));
-  meadow.exits = [{ side: 'e', a: 0.38, b: 0.62, to: 'start' }];
-  meadow.paths = [makePath([0.97, 0.5], [0.3, 0.5], 2)];
+  meadow.exits = [{ side: 'e', a: 0.38, b: 0.62, to: 'start' }, { side: 'n', a: 0.35, b: 0.65, to: 'riverbank' }, { side: 'w', a: 0.35, b: 0.65, to: 'meadow2' }];
+  meadow.paths = [makePath([0.97, 0.5], [0.3, 0.5], 2), makePath([0.5, 0.03], [0.5, 0.5], 1), makePath([0.03, 0.5], [0.5, 0.5], 1)];
   meadow.feat.perches = [];
   for (let i = 0; i < 3; i++) {
     const p = freeSpot(meadow, [0.12, 0.8, 0.18, 0.85], 2.8);
@@ -306,6 +318,43 @@ function genWorld() {
   scatter(meadow, 7, 'tree', 0.9, 1.3, 1.4, meadow.feat.perches.map(p => [...p, 2.2]), undefined, 'green');
   addPlots(meadow, 3, [0.5, 0.85, 0.2, 0.8]);
   decoFlowers(meadow, 60);
+
+  // ---------------- The river: it rises beyond the north edge of the riverbank, cuts across that screen's
+  // north-west corner and flows west, where it widens into the ford north of the rocky meadow ----------------
+  const riverbank = add(newScene({ id: 'riverbank', area: 'forest', msg: 'The river runs fast and deep here', music: 'forest', amb: 'rain', floor: '#4a9650' }));
+  riverbank.river = { pts: [[0.62, -0.08], [0.5, 0.14], [0.3, 0.34], [0.12, 0.47], [-0.08, 0.56]], w: 3.2 };
+  riverbank.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow' }, { side: 'w', a: 0.72, b: 0.95, to: 'ford' }];
+  edgeWall(riverbank, 'e', 'tree', 1.1, [], 1.5, 'green');
+  riverbank.paths = [makePath([0.5, 0.97], [0.55, 0.6], 1), makePath([0.55, 0.6], [0.03, 0.85], 1)];
+  scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
+  scatter(riverbank, 3, 'boulder', 0.6, 1.0, 1.4, [], [0.2, 0.9, 0.3, 0.8]);
+  decoFlowers(riverbank, 30);
+
+  const meadow2 = add(newScene({ id: 'meadow2', area: 'forest', msg: 'Rocks break through the grass', music: 'forest', amb: 'none', floor: '#51994f' }));
+  meadow2.exits = [{ side: 'e', a: 0.35, b: 0.65, to: 'meadow' }, { side: 'n', a: 0.35, b: 0.65, to: 'ford' }];
+  edgeWall(meadow2, 'w', 'boulder', 1.0, [], 1.6);
+  edgeWall(meadow2, 's', 'boulder', 1.0, [], 1.7);
+  meadow2.paths = [makePath([0.97, 0.5], [0.5, 0.03], 2)];
+  scatter(meadow2, 9, 'boulder', 0.6, 1.3, 1.5, [], [0.1, 0.9, 0.12, 0.88]);
+  scatter(meadow2, 5, 'tree', 0.9, 1.2, 1.5, [], [0.1, 0.9, 0.12, 0.88], 'green');
+  decoFlowers(meadow2, 35);
+
+  // the ford: the river spreads wide and shallow over stones; only jumping gets you across
+  const ford = add(newScene({ id: 'ford', area: 'forest', msg: 'Stepping stones. Too far apart to walk.', music: 'forest', amb: 'rain', floor: '#4f9a52' }));
+  const stones = [0.8, 0.66, 0.52, 0.38, 0.24].map((y, k) => [0.5 + (k % 2 ? 0.07 : -0.05) + rr(-0.03, 0.03), y + rr(-0.015, 0.015), 0.75]);
+  ford.river = { pts: [[1.08, 0.5], [0.5, 0.5], [-0.08, 0.5]], wH: 0.78, stones };
+  ford.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow2' }, { side: 'e', a: 0.9, b: 0.99, to: 'riverbank' }, { side: 'n', a: 0.3, b: 0.7, to: 'farbank' }];
+  stones.forEach(s => claim(ford, s[0], s[1], 1.2));
+  for (let t = 0; t < 12; t++) ford.deco.push({ kind: 'reedbank', fx: rng(), fy: rng() < 0.5 ? 0.08 : 0.92 });
+
+  const farbank = add(newScene({ id: 'farbank', area: 'forest', msg: 'The far bank. A path winds north into the hills.', music: 'forest', amb: 'none', floor: '#4a9650' }));
+  farbank.exits = [{ side: 's', a: 0.3, b: 0.7, to: 'ford' }];
+  edgeWall(farbank, 'n', 'tree', 1.1, [], 1.4, 'green'); edgeWall(farbank, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(farbank, 'e', 'tree', 1.1, [], 1.5, 'green');
+  farbank.paths = [makePath([0.5, 0.97], [0.5, 0.3], 1)];
+  item(farbank, { type: 'starseed', fx: 0.5, fy: 0.3 }, { type: 'thornseed', fx: 0.36, fy: 0.42 });
+  addPlots(farbank, 3, [0.2, 0.8, 0.4, 0.75]);
+  scatter(farbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.1, 0.9, 0.15, 0.85], 'green');
+  decoFlowers(farbank, 40);
 
   // ---------------- Deep woods (east): denser, darker, the sword in the shadows ----------------
   let west = [0.4, 0.6];
@@ -1227,6 +1276,7 @@ function update(dt) {
   if (sc.gusts) updateWind(dt, sc);
   if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
   if (sc.amb === 'marsh') ambLevel(0.05);
+  if (sc.river) ambLevel(0.07 + 0.08 * Math.max(0, 1 - Math.min(...sc.river.pts.map(p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H))) / (UNIT * 12)), 2200);   // rushing water, louder near it
   if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
   updateGas(dt);
   updateWebs(dt);
@@ -1266,8 +1316,8 @@ function update(dt) {
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
   updateJump(dt);
 
-  if (sc.chasms && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
-    if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; sfx.plummet(); }
+  if ((sc.chasms || sc.river) && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
+    if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; h.fallKind = sc.river ? 'water' : 'pit'; if (sc.river) sfx.splash(); else sfx.plummet(); }
     else if (!isChasm(h.x, h.y, UNIT * 1.2)) h.safe = [h.x / W, h.y / H];
   }
 
@@ -1330,6 +1380,7 @@ function collideSolids(a, r) {
 const inPool = (x, y) => state.pools.some(p => Math.hypot(x - p.x, y - p.y) < p.r * 0.85);
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
+  if (sc.river && riverHit(sc, x, y, pad, pad === 0)) return true;
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
   return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
@@ -1386,6 +1437,7 @@ function updateFeatures(dt) {
     const open = rt.bossDead && h.y > gap.a * H + UNIT * 0.5 && h.y < gap.b * H - UNIT * 0.5;
     if (h.x > lim && !open) { h.x = lim; h.vx = Math.min(0, h.vx); }
   }
+  if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) say(`Jump (${K.jump}) toward a stone to hop onto it.`, h.x, h.y - UNIT * 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
   if (f.plants && f.plants.length && (sc.id === 'f1' || sc.id === 'f3')) { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
 }
 
@@ -1400,6 +1452,7 @@ function updateJump(dt) {
     if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
+    if (sc.river && sc.river.stones && hopToStone(sc)) return;
   }
   if (h.z > 0 || h.vz > 0) {
     // holding jump while rising floats you higher, for a short while
@@ -1415,6 +1468,20 @@ function updateJump(dt) {
       else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
     }
   }
+}
+// stepping stones: a jump aimed at a stone lands you on it, so crossing is about choosing each hop
+function hopToStone(sc) {
+  const h = state.hero;
+  let best = null, bd = Infinity;
+  for (const [fx, fy] of sc.river.stones) {
+    const x = fx * W, y = fy * H, dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy);
+    if (d < UNIT * 0.8 || d > UNIT * 5.5 || (dx * h.fx + dy * h.fy) / d < 0.55) continue;   // ahead of you and within a hop
+    if (d < bd) { bd = d; best = [x, y]; }
+  }
+  if (!best) return false;
+  h.ride = { t: 0, dur: 0.45 + bd / (UNIT * 14), x0: h.x, y0: h.y, x1: best[0], y1: best[1], hgt: UNIT * 1.3, hop: true };
+  sfx.jump();
+  return true;
 }
 function rideGust(sc) {
   const h = state.hero, g = sc.gusts[state.gustIdx];
@@ -1435,12 +1502,17 @@ function updateRide(dt) {
   const p = Math.min(1, r.t / r.dur), e = p * p * (3 - 2 * p);
   h.x = r.x0 + (r.x1 - r.x0) * e;
   h.y = r.y0 + (r.y1 - r.y0) * e;
-  h.z = Math.sin(Math.PI * p) * UNIT * 3.2;
-  if (Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * 2, t: 0, life: 0.6, color: 'leaf', spin: Math.random() * 6 });
+  h.z = Math.sin(Math.PI * p) * (r.hgt || UNIT * 3.2);
+  if (!r.hop && Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * 2, t: 0, life: 0.6, color: 'leaf', spin: Math.random() * 6 });
   if (p >= 1 && r.blown) {
     h.ride = null; h.z = 0;
     transitionTo('foot', 0.5, 0.3);
     setTimeout(() => say('Blown all the way down the mountain. Softly, at least.', state.hero.x, state.hero.y - UNIT, { key: 'blown', life: 3.5 }), 0);
+    return;
+  }
+  if (p >= 1 && r.hop) {
+    h.ride = null; h.z = 0; h.vz = 0; h.vx = 0; h.vy = 0;
+    sfx.tock(); spark(h.x, h.y + UNIT * 0.3, 'rgba(210,235,245,.8)', 6, 1.5);
     return;
   }
   if (p >= 1) {
@@ -1457,7 +1529,7 @@ function updateFall(dt) {
     h.falling = 0;
     const s = h.safe || [state.entry.fx, state.entry.fy];
     h.x = s[0] * W; h.y = s[1] * H; h.vx = 0; h.vy = 0;
-    say('Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
+    say(h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
     hurtHero(1, h.x, h.y, { noKnock: true, force: true });
   }
 }
@@ -1873,7 +1945,8 @@ function slamDown() {
     if (!hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > UNIT * (armed ? 2.4 : 2) + e.r) continue;
-    const dmg = armed ? 2 + (inv.horn ? 1 : 0) + (inv.slime > 0 ? 1 : 0) : 1;   // bare feet still hurt
+    const swordDmg = 2 + (inv.horn ? 1 : 0) + (inv.slime > 0 ? 1 : 0);
+    const dmg = armed ? swordDmg : swordDmg / 2;                                 // bare-handed: half the sword's
     damage(e, dmg * power() * crazyMult(), 'stab', dx / d, dy / d, true);
   }
   if (armed) {
@@ -1885,6 +1958,7 @@ function slamDown() {
   }
   if (state.bird) scareBird(h.x, h.y, 6);
   scareFlock(h.x, h.y, 6);
+  shakeTreesAround(h, UNIT * 2.6);                                               // the thump knocks acorns loose
 }
 // vines give way to a few good cuts
 function cutVines(h) {
@@ -1899,6 +1973,22 @@ function cutVines(h) {
     return;
   }
 }
+function shakeTreesAround(h, radius) {
+  let any = false;
+  for (const s of state.solids) {
+    if (s.kind !== 'tree' || Math.hypot(s.x - h.x, s.y - h.y) > radius + s.r) continue;
+    state.treeShake[s.key] = state.time; any = true;
+    dropAcorn(s);
+  }
+  if (any) sfx.rustle();
+}
+function dropAcorn(s) {
+  if ((state.treeCool[s.key] || 0) >= state.playTime || rng() >= 0.7) return;
+  state.treeCool[s.key] = state.playTime + 10;
+  const a = Math.random() * 6.28;
+  state.items.push({ type: 'acorn', x: s.x + Math.cos(a) * (s.r + UNIT * 0.6), y: s.y + UNIT * 0.4 + Math.abs(Math.sin(a)) * UNIT * 0.4 });
+  spark(s.x, s.y - UNIT, '#3c7a3a', 6, 2);
+}
 // slashing a tree shakes it; sometimes an acorn falls
 function shakeTrees(h, reachK) {
   for (const s of state.solids) {
@@ -1907,12 +1997,7 @@ function shakeTrees(h, reachK) {
     if (d > UNIT * SLASH.reach * reachK + s.r || (dx * h.fx + dy * h.fy) / d < 0.1) continue;
     state.treeShake[s.key] = state.time;
     sfx.rustle();
-    if ((state.treeCool[s.key] || 0) < state.playTime && rng() < 0.7) {
-      state.treeCool[s.key] = state.playTime + 10;
-      const a = Math.random() * 6.28;
-      state.items.push({ type: 'acorn', x: s.x + Math.cos(a) * (s.r + UNIT * 0.6), y: s.y + UNIT * 0.4 + Math.abs(Math.sin(a)) * UNIT * 0.4 });
-      spark(s.x, s.y - UNIT, '#3c7a3a', 6, 2);
-    }
+    dropAcorn(s);
   }
 }
 const slashActive = () => state.atk && state.atk.type === 'slash' && state.atk.t < state.atk.dur;
@@ -3055,7 +3140,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 12, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 13, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3067,7 +3152,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 12) return false;
+  if (!d || !d.seed || d.v !== 13) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3123,7 +3208,7 @@ function loadSettings() {
 // =====================================================================
 // Forest birds: peck about, burst into the air when you come close
 // =====================================================================
-const FLOCK = { camp: 2, start: 3, meadow: 2, w1: 3, w2: 2, w3: 1, f1: 2 };
+const FLOCK = { camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
 function makeFlock(sc) {
   const n = FLOCK[sc.id] || 0, out = [];
   for (let i = 0; i < n; i++) out.push(landSpot({ mode: 'peck', t: Math.random() * 2, z: 0, c: ['#6b4a2a', '#5a5a62', '#8a6a3a'][i % 3] }));
@@ -3252,6 +3337,7 @@ function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   drawGround(sc);
+  if (sc.river) drawRiver(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
   drawPlots(sc);
@@ -3449,6 +3535,41 @@ function drawPools(sc) {
     const k = (state.time * 0.4 + p.x) % 1;
     ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 0.5 * (0.5 + k), p.r * 0.35 * (0.5 + k), 0, 0, 6.28); ctx.stroke();
     if (sc.area === 'marsh') { ctx.fillStyle = '#4c6b3a'; ctx.beginPath(); ctx.ellipse(p.x - p.r * 0.4, p.y + p.r * 0.2, UNIT * 0.3, UNIT * 0.2, 0, 0.3, 6); ctx.fill(); }
+  }
+}
+// the river: muddy banks, deep water, current streaks that run downstream, stepping stones
+function drawRiver(sc) {
+  const r = sc.river, width = r.wH ? r.wH * H : r.w * UNIT;
+  const path = () => { ctx.beginPath(); r.pts.forEach(([fx, fy], i) => ctx[i ? 'lineTo' : 'moveTo'](fx * W, fy * H)); };
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#6b5a3a'; ctx.lineWidth = width + UNIT * 0.9; path(); ctx.stroke();       // mud bank
+  ctx.strokeStyle = '#2f6f8a'; ctx.lineWidth = width; path(); ctx.stroke();                     // deep water
+  ctx.strokeStyle = '#3f86a0'; ctx.lineWidth = width * 0.55; path(); ctx.stroke();              // lighter channel
+  // current: dashes carried along lanes parallel to the centreline, always upstream to downstream
+  const lanes = r.wH ? [-0.3, -0.12, 0.06, 0.24] : [-0.22, 0, 0.22];
+  ctx.lineWidth = Math.max(1.5, UNIT * 0.06);
+  for (const off of lanes) {
+    ctx.save();
+    const [a, b] = [r.pts[0], r.pts[r.pts.length - 1]];
+    const dx = (b[0] - a[0]) * W, dy = (b[1] - a[1]) * H, l = Math.hypot(dx, dy) || 1;
+    ctx.translate(-dy / l * off * width, dx / l * off * width);                                  // shift sideways across the flow
+    ctx.strokeStyle = 'rgba(210,235,245,.45)';
+    ctx.setLineDash([UNIT * 0.6, UNIT * 1.4]);
+    ctx.lineDashOffset = -((state.time * UNIT * 3.5 + off * 400) % (UNIT * 2));
+    path(); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.lineCap = 'butt';
+  for (const [fx, fy, rU] of r.stones || []) {
+    const x = fx * W, y = fy * H, rr_ = rU * UNIT;
+    ctx.strokeStyle = 'rgba(220,240,245,.5)'; ctx.lineWidth = 2;                                 // wake on the upstream (east) side
+    ctx.beginPath(); ctx.arc(x, y, rr_ * 1.15, -Math.PI * 0.35, Math.PI * 0.35); ctx.stroke();
+    drawRock(x, y, rr_);
+  }
+  for (const d of sc.deco) if (d.kind === 'reedbank') {
+    const x = d.fx * W, y = d.fy * H;
+    ctx.strokeStyle = '#6b7a40'; ctx.lineWidth = 2;
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y); ctx.lineTo(x + i * 5 + Math.sin(state.time * 2 + i) * 2, y - UNIT * 0.6); ctx.stroke(); }
   }
 }
 // tall grass by each updraft: it leans the way the next gust will blow, harder for stronger gusts
@@ -4022,19 +4143,20 @@ function drawMenu() {
 // Open index.html?overview for a random world or ?overview=12345 for a seed.
 // =====================================================================
 const MAP_LAYOUT = {
-  camp: [3, 0],
-  meadow: [2, 1], start: [3, 1], w1: [4, 1], w2: [5, 1], w3: [6, 1],
-  foot: [2, 2], f1: [3, 2], f2: [3, 3], f3: [3, 4], f4: [3, 5], f5: [3, 6], f6: [3, 7], f7: [3, 8],
-  c1: [6, 2], c2: [6, 3], c3: [6, 4], c4: [6, 5], c5: [6, 6], c6: [6, 7], c7: [6, 8],
-  m1: [7, 8], m2: [8, 8], m3: [9, 8], h1: [10, 8], h2: [11, 8], h3: [12, 8],
-  sw1: [8, 9], sw2: [8, 10], sw3: [8, 11],
+  farbank: [1, 0],
+  ford: [1, 1], riverbank: [2, 1], camp: [3, 1],
+  meadow2: [1, 2], meadow: [2, 2], start: [3, 2], w1: [4, 2], w2: [5, 2], w3: [6, 2],
+  foot: [2, 3], f1: [3, 3], f2: [3, 4], f3: [3, 5], f4: [3, 6], f5: [3, 7], f6: [3, 8], f7: [3, 9],
+  c1: [6, 3], c2: [6, 4], c3: [6, 5], c4: [6, 6], c5: [6, 7], c6: [6, 8], c7: [6, 9],
+  m1: [7, 9], m2: [8, 9], m3: [9, 9], h1: [10, 9], h2: [11, 9], h3: [12, 9],
+  sw1: [8, 10], sw2: [8, 11], sw3: [8, 12],
 };
-const MAP_NAMES = { camp: 'Home camp', start: 'The glade', meadow: 'Meadow', foot: 'Foothill farm' };
+const MAP_NAMES = { camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {
   const TW = 256, TH = 160, GAP = 40, M = 60, HEAD = 110;
-  const cols = 13, rows = 12;
+  const cols = 13, rows = 13;
   resetRun(seed);
   W = GEN.W; H = GEN.H; computeUnit();
   lightCv.width = W / 2; lightCv.height = H / 2;
