@@ -172,19 +172,21 @@ function decoFlowers(sc, n) {
   for (let i = 0; i < 30; i++) sc.deco.push({ kind: 'grass', fx: rng(), fy: rng(), s: rr(0.5, 1) });
 }
 // farm patches: a few tilled plots near the path; what grows depends on the region
+// spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
+const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]));
 function addPlots(sc, n, box) {
   sc.feat.plots = sc.feat.plots || [];
-  const c = freeSpot(sc, box, 2.2);
+  const c = freeSpot(sc, box, 2.2, claimed(sc));
   for (let i = 0; i < n; i++) sc.feat.plots.push([c[0] + (i % 3) * 0.035 - 0.035, c[1] + Math.floor(i / 3) * 0.06]);
 }
 // a traveler's mushroom, with a little farm beside it
 function addShroom(sc, spot, plots = 3) {
-  const p = spot || freeSpot(sc, [0.2, 0.8, 0.2, 0.8], 2.6);
+  const p = spot || freeSpot(sc, [0.2, 0.8, 0.2, 0.8], 2.6, claimed(sc));
   sc.feat.shroom = p;
   sc.solids.push(solid(p[0], p[1], 0.7, 'shroom'));
   if (plots) {
     sc.feat.plots = sc.feat.plots || [];
-    const c = freeSpot(sc, [Math.max(0.12, p[0] - 0.2), Math.min(0.88, p[0] + 0.2), Math.max(0.15, p[1] - 0.25), Math.min(0.85, p[1] + 0.25)], 1.8, [[...p, 2]]);
+    const c = freeSpot(sc, [Math.max(0.12, p[0] - 0.2), Math.min(0.88, p[0] + 0.2), Math.max(0.15, p[1] - 0.25), Math.min(0.85, p[1] + 0.25)], 1.8, [[...p, 2], ...claimed(sc)]);
     for (let i = 0; i < plots; i++) sc.feat.plots.push([c[0] + (i - 1) * 0.035, c[1]]);
   }
 }
@@ -221,6 +223,7 @@ function genWorld() {
   camp.feat.fire = [0.5, 0.45];
   camp.feat.plots = [[0.2, 0.68], [0.28, 0.68], [0.36, 0.68], [0.2, 0.8], [0.28, 0.8], [0.36, 0.8]];
   camp.feat.pip = [0.58, 0.44];
+  camp.npcs.push({ kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
   camp.feat.bench = [0.64, 0.34];
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
@@ -242,7 +245,6 @@ function genWorld() {
   ];
   const rock = [rr(0.58, 0.7), rr(0.3, 0.7)];
   start.pullables.push({ id: 'rock', kind: 'rock', fx: rock[0], fy: rock[1], need: 5 });
-  start.feat.scarf = [0.93, 0.47];
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.solids.forEach(s => { if (s.bar === 'thicket') s.showFlag = 'ambush'; });
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
@@ -559,7 +561,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
 
@@ -764,6 +766,13 @@ const MUSIC = {
       [63,39],[0,0],[0,0],[0,0],[66,0],[0,0],[0,0],[65,0],[0,0],[0,0],[0,0],[0,0],
     ],
   },
+};
+// when the gremlins come: a slow, low pedal with a tritone lurch and creeping half steps
+MUSIC.sinister = {
+  step: 60 / 66 / 2, shift: 0,
+  lead: { type: 'sawtooth', vol: 0.03, len: 3 }, bass: { type: 'triangle', vol: 0.11, len: 3.5 },
+  loop: [[62,38],[0,0],[63,0],[0,0],[0,38],[0,0],[68,0],[0,0],[67,44],[0,0],[0,0],[63,0],[0,44],[0,0],[62,0],[61,0],
+         [62,38],[0,0],[63,0],[0,0],[0,38],[0,0],[70,0],[0,0],[69,44],[0,0],[68,0],[0,0],[0,44],[0,0],[0,0],[0,0]],
 };
 MUSIC.swamp = { ...MUSIC.marsh, step: 60 / 48 / 2, shift: -4, lead: { type: 'triangle', vol: 0.06, len: 5 } };
 MUSIC.woods.loop = MUSIC.forest.loop;
@@ -1001,7 +1010,7 @@ function breakBarrier(bar, how) {
   const rt = rtFor(state.scene);
   if (rt.flags[bar]) return;
   rt.flags[bar] = true;
-  if (bar === 'thicket') { const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
+  if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
   state.shake = 0.3;
@@ -1053,7 +1062,8 @@ function enterScene(id, fx, fy) {
   else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
   state.seen[id] = true;
   const bossAlive = id === 'c7' && !rt.bossDead;
-  setMusic(bossAlive ? 'cave2' : sc.music);
+  const tense = id === 'start' && rt.flags.ambush && !rt.flags.thicket;
+  setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : sc.music);
   setAmbience(sc.amb);
   refreshButtons();
 }
@@ -1262,7 +1272,7 @@ function updatePlates(quiet) {
   let changed = false;
   for (const p of plates) {
     const x = p.fx * W, y = p.fy * H;
-    const rock = state.items.some(it => it.type === 'bigrock' && Math.hypot(it.x - x, it.y - y) < UNIT * 0.95);
+    const rock = state.items.some(it => it.type === 'bigrock' && Math.hypot(it.x - x, it.y - y) < UNIT * 1.1);
     const on = rock || (h.z <= 0 && !h.ride && Math.hypot(h.x - x, h.y - y) < UNIT * 0.7);
     if (on !== !!state.plateOn[p.id]) {
       state.plateOn[p.id] = on; changed = true;
@@ -1285,10 +1295,6 @@ function updateFeatures(dt) {
     const sx = f.stone[0] * W, sy = f.stone[1] * H, d = Math.hypot(h.x - sx, h.y - sy);
     if (d < UNIT * 3) say('A sinkhole. The storm opened it.', sx, sy - UNIT * 0.9, { key: 'stone', tip: 'stone' });
     if (d < UNIT * 0.7) { say('You slip into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
-  }
-  if (f.scarf && !rt.flags.scarf && Math.hypot(h.x - f.scarf[0] * W, h.y - f.scarf[1] * H) < UNIT * 3) {
-    rt.flags.scarf = true;
-    say('Pip\'s scarf, snagged on the thorns. They went into the woods.', f.scarf[0] * W - UNIT, f.scarf[1] * H - UNIT * 1.4, { key: 'scarf', life: 5 });
   }
   if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {
     rtFor(sc.id).flags.shrine = true;
@@ -1592,6 +1598,7 @@ function collect(it) {
     }
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
+    case 'spores7': inv.spores += 7; sfx.spores(); showTitle('Seven spores', inv.pipSaved ? 'enough for a long jump between mushrooms' : 'the Warden kept a stash. Someone might know what they\'re for', 'relic', 3.5); break;
     case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++;
       if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
@@ -1639,6 +1646,7 @@ function updateCombat(dt) {
       if (ch.n >= WHIRL.chain) { ch.n = 0; startWhirl(); return; }
       if (ch.n >= 2) say('\u2022 '.repeat(ch.n).trim(), h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
+      state.active = 'sword';
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6), hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool;
       sfx.swoosh();
@@ -1658,6 +1666,7 @@ function updateCombat(dt) {
         const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
         cb.step = 'stab'; cb.t = state.time;
+        state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
@@ -1862,6 +1871,7 @@ function kill(e) {
     state.items.push({ type: t, x: e.x, y: e.y });
     if (RELICS[t] || t === 'scalp' || t === 'warden') relicMoment(t, e.x, e.y);
   }
+  if (e.type === 'warden') state.items.push({ type: 'spores7', x: e.x + UNIT * 1.2, y: e.y + UNIT * 0.6 });
   if (e.type === 'warden') {
     rtFor(state.scene).bossDead = true;
     zoomPulse(e.x, e.y, 'boss');
@@ -2254,12 +2264,15 @@ function updateTexts(dt) {
 // Interacting: talk, rest at the fire, farm, lift the loose rock
 // =====================================================================
 function npcPos(n) { return [n.fx * W, n.fy * H]; }
+function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : !state.inv.pipSaved); }
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   if (state.npcTalk) {
     if (pressedNow.act) advanceTalk();
     return true;
   }
+  if (state.carry && pressedNow.act) { dropRock(); return true; }
+  const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
     if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
@@ -2268,6 +2281,16 @@ function interact() {
       for (let i = 0; i < 20; i++) state.fx.push({ x: mx * W + (Math.random() - 0.5) * UNIT, y: my * H - UNIT, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 1.5, color: '#e8d8ff' });
       showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
       say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
+    }
+    // found mushrooms grow spores over time; walk up to gather them
+    if (d < UNIT * 2.3 && state.inv.shrooms[sc.id]) {
+      const inv = state.inv, last = inv.sporeAt[sc.id] ?? state.playTime, ready = Math.min(3, Math.floor((state.playTime - last) / SPORE_TIME));
+      if (inv.sporeAt[sc.id] == null) inv.sporeAt[sc.id] = state.playTime - SPORE_TIME;
+      else if (ready > 0) {
+        inv.spores += ready; inv.sporeAt[sc.id] = Math.max(last + ready * SPORE_TIME, state.playTime - SPORE_TIME * 2);
+        sfx.spores(); say(`+${ready} spore${ready > 1 ? 's' : ''} (${inv.spores})`, mx * W, my * H - UNIT * 2, { key: 'spore', life: 2, color: '#e8d8ff' });
+        say(inv.pipSaved ? `Spores: ${sporeCost()} carry you to any mushroom from anywhere. Menu, Spore travel.` : 'Glittering spores. You pocket them, though you\'re not sure what they\'re for.', mx * W, my * H + UNIT * 1.6, { key: 'sporetip', tip: 'spores', life: 4.5 });
+      }
     }
     if (d < UNIT * 1.9 && pressedNow.act) {
       const dest = Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id] && id !== sc.id);
@@ -2283,6 +2306,7 @@ function interact() {
     }
   }
   for (const n of sc.npcs) {
+    if (!npcHere(n)) continue;
     const [nx, ny] = npcPos(n), d = Math.hypot(h.x - nx, h.y - ny);
     if (d < UNIT * 3.2) say(`${K.act} to talk`, nx, ny - UNIT * 1.5, { key: 'talk-' + n.kind, tip: 'talk', life: 2.5 });
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
@@ -2302,7 +2326,7 @@ function interact() {
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
     if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
   }
-  if (sc.feat.plots) {
+  if (sc.feat.plots && !nearPull) {
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0 })));
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
@@ -2340,29 +2364,38 @@ const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / SEE
 function dropRock() {
   const h = state.hero;
   state.carry = null;
-  state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.2 });
+  state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.5, y: h.y + h.fy * UNIT * 0.5 + UNIT * 0.15 });
   sfx.land(); refreshButtons();
 }
 
+const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
+const sporeCost = () => Math.max(2, 8 - Object.keys(state.inv.shrooms).length);   // 7 with one mushroom, less with each found
 // ---------------- conversations ----------------
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
   if (n.kind === 'toad') {
-    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'], then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
+    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.', 'And stay off those purple mushroom spores. Last time I sniffed one I woke up in a cave.'], then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
     if (!rt.flags.metToad) { rt.flags.metToad = true; spawnBeans(); return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
     return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
   }
   if (n.kind === 'tortoise') {
-    if (inv.tortoise) return { lines: ['Slow and steady, young one.'] };
+    if (inv.tortoise) return { lines: [pick(['Slow and steady, young one.', 'The tall mushrooms? Their spores remember every place they\'ve been. Some folk use them to skip the walking. Hmph.'])] };
     return {
       lines: ['Oh! A visitor. The rabbits don\'t usually let anyone this close.', 'They aren\'t guarding treasure, you know. They\'re guarding me.', 'Old habit, from a race a long, long time ago.', 'Here. Take some of my patience with you.'],
       then: () => { inv.tortoise = true; setTimeout(() => learnRecipe('guard', 'The tortoise shows you how shells are layered.'), 0); sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); state.items.push({ type: 'starseed', x: state.hero.x + UNIT, y: state.hero.y + UNIT }); say('And a seed from the old race\'s finish line. Plant it somewhere sunny.', npcPos(n)[0], npcPos(n)[1] - UNIT * 1.5, { key: 'npc2', life: 4 }); },
     };
   }
+  if (n.kind === 'pip' && n.home) {
+    if (!rt.flags.pipSpores) {
+      rt.flags.pipSpores = true;
+      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Down in the Hollow the gremlins kept jars of glittering spores. From the big mushrooms, I think.', 'Those mushrooms remember places. Breathe in their spores and you\'re just... there.', `Gather ${sporeCost()} and you can jump to any mushroom you've found, from anywhere. The more mushrooms you find, the fewer it takes.`, 'Spore travel is in your menu now. Go on, try it.'] };
+    }
+    return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. ${inv.spores >= sporeCost() ? 'Enough for a jump!' : `${sporeCost()} for a jump.`}`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
+  }
   if (n.kind === 'pip') {
     if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
-    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Let\'s go home. I\'ll put the kettle on.'], then: startEnding };
+    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Let\'s go home. I\'ll put the kettle on.'], then: startRescue };
   }
   return { lines: ['...'] };
 }
@@ -2421,7 +2454,7 @@ function updateAbilities(dt) {
   else if (state.aim.on) {
     state.aim.on = false; state.aim.t = 0;
     if (state.carry === 'rock') { state.carry = null; spend(1) || true; launch('rock'); refreshButtons(); }
-    else if (inv.acorns > 0 && spend(0.2)) { inv.acorns--; launch('acorn'); refreshButtons(); }
+    else if (inv.acorns > 0 && spend(0.2)) { inv.acorns--; launch('acorn'); state.active = 'acorn'; refreshButtons(); }
   }
   // marsh fire: breathe out gas while held, spark it on release
   const fh = state.fireHold;
@@ -2598,6 +2631,13 @@ function startToadCut() {
   state.cut = { type: 'toad', t: 0, n, step: 0 };
   state.cam.focus = { z: 1.25, at: () => npcPos(n) };
 }
+function startRescue() {
+  const inv = state.inv;
+  inv.pipSaved = true;
+  sfx.victory(); zoomPulse(state.hero.x, state.hero.y, 'boss');
+  showTitle('Pip is safe', 'the woods still keep their secrets', 'relic', 4);
+  setTimeout(() => { transitionTo('camp', 0.5, 0.58); setTimeout(() => say('Pip wants a word by the fire.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', life: 4 }), 0); }, 0);
+}
 function startEnding() {
   state.won = true;
   sfx.victory();
@@ -2621,6 +2661,7 @@ function updateCut(dt) {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
     if (at(0.4)) say('Come on, slowpoke! The woods are right...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
     if (c.t > 2 && c.t < 3) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
+    if (at(1.6)) setMusic('sinister');
     if (at(2.1)) { sfx.cackle(); state.shake = 0.3; }
     if (at(2.8)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 }); zoomPulse(p.x, p.y, 'parry'); }
     if (c.t > 3.8 && c.t < 5.5) { p.x += UNIT * 5 * dt; gs.forEach((g, i) => { if (i < 2) g.x += UNIT * 5 * dt; }); }
@@ -2696,7 +2737,7 @@ function startWardenTalk(e) {
   say('The Falls Warden', e.x, e.y - e.r - UNIT * 1.8, { key: 'bosstitle', life: 3, size: 1.5, color: '#9fd4ff' });
 }
 const WARDEN_LINES = [
-  'WHO GOES THERE? ANOTHER ONE?!',
+  'WHO GOES THERE? ANOTHER ONE?! AFTER MY SPORES, ARE YOU?',
   'First that crusty old TORTOISE comes by to lecture me about PATIENCE.',
   'Then that bloated TOAD fills my whole waterfall with his... his FUMES!',
   'I have had IT with swamp creatures. So tell me, and tell me true.',
@@ -2771,7 +2812,7 @@ function forgeSelect(i) {
 // Menu: pause, equipment, save and load (3 slots), tips setting
 // =====================================================================
 const SLOTS = 3;
-const MAIN = () => ['Resume', 'Inventory', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'];
+const MAIN = () => ['Resume', 'Inventory', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'].concat(state.inv.pipSaved ? [`Spore travel (${state.inv.spores}/${sporeCost()} spores)`] : []);
 const ACTIONS = Object.keys(DEFAULT_KEYS);
 function toggleMenu() {
   if (!state.started) return;
@@ -2786,6 +2827,7 @@ function menuItems() {
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
   if (m.view === 'forge') return forgeItems();
+  if (m.view === 'spores') return Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id]).map(id => SHROOM_NAMES[id] + (id === state.scene ? ' (here)' : '')).concat('Back');
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
@@ -2820,6 +2862,17 @@ function menuSelect(i) {
     if (i === 4) { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
     if (i === 5) { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
     if (i === 6) Object.assign(m, { view: 'new', sel: 1 });
+    if (i === 7) Object.assign(m, { view: 'spores', sel: 0, note: `A jump costs ${sporeCost()} spores. You have ${state.inv.spores}.` });
+  } else if (m.view === 'spores') {
+    const ids = Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id]);
+    if (i >= ids.length) { Object.assign(m, { view: 'main', sel: 7 }); return; }
+    const cost = sporeCost();
+    if (state.inv.spores < cost) { m.note = `Not enough spores: ${state.inv.spores}/${cost}. Found mushrooms grow more over time.`; return; }
+    state.inv.spores -= cost; state.menu = null;
+    const to = WORLD[ids[i]].feat.shroom, h = state.hero;
+    sfx.spores();
+    for (let k = 0; k < 30; k++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (1 + Math.random() * 2), t: 0, life: 1.2, color: '#e8d8ff' });
+    transitionTo(ids[i], to[0], to[1] + 1.6 * UNIT / H);
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
@@ -2839,7 +2892,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 7, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 8, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2851,7 +2904,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 7) return false;
+  if (!d || !d.seed || d.v !== 8) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3001,7 +3054,7 @@ function drawScene(sc) {
   for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') layer.push([s.y, () => drawTree(s)]);
   for (const pl of sc.pullables) layer.push([pl.fy * H + UNIT * 0.35, () => drawPullable(sc, pl)]);
   for (const e of state.enemies) layer.push([e.y, () => drawEnemy(e)]);
-  for (const n of sc.npcs) layer.push([n.fy * H, () => drawNpc(n)]);
+  for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -3116,10 +3169,6 @@ function drawGround(sc) {
       const x = f.stone[0] * W, y = f.stone[1] * H;
       ctx.fillStyle = '#0c0a08'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.9, UNIT * 0.6, 0, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.stroke();
-    }
-    if (f.scarf && !broken(sc.id, 'thicket')) {
-      const x = f.scarf[0] * W, y = f.scarf[1] * H, w = Math.sin(state.time * 3) * 3;
-      ctx.fillStyle = '#d84a4a'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - UNIT * 0.6, y + UNIT * 0.2 + w); ctx.lineTo(x - UNIT * 0.55, y + UNIT * 0.35 + w); ctx.lineTo(x, y + UNIT * 0.15); ctx.fill();
     }
   } else if (sc.area === 'field') {
     for (let i = 0; i < 5; i++) {
@@ -3418,6 +3467,14 @@ function drawSword(h, pw, ph, y, heroic) {
     ctx.restore(); return;
   }
   if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
+  if (!a && state.active === 'acorn' && state.inv.acorns > 0) {
+    // an acorn ready in the hand; the sword rides on the back
+    ctx.save(); ctx.rotate(-0.8); ctx.translate(-UNIT * 0.1, -ph * 0.1); drawBlade(UNIT * 0.7, UNIT * 0.08); ctx.restore();
+    const s = h.side;
+    drawItemIcon('acorn', s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1, UNIT * 0.55);
+    if (state.inv.silk) { ctx.strokeStyle = 'rgba(232,228,240,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * pw * 0.45, UNIT * 0.25); ctx.lineTo(s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1); ctx.stroke(); }
+    ctx.restore(); return;
+  }
   if (!a) {
     // worn at the side the hero faces, point down and angled back from the way you walk
     const s = h.side, ang = Math.PI / 2 - s * 0.35;
@@ -3624,6 +3681,7 @@ function drawHUD() {
   const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
   if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
+  if (inv.spores) slot('spores', `x${inv.spores}`);
   if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
   if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
   const need = 25 * Math.pow(1.35, inv.tlevel);
@@ -3651,7 +3709,7 @@ function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory', spores: 'Spore travel' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
@@ -3818,6 +3876,10 @@ function drawItemIcon(type, x, y, s) {
     case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
     case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
     case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
+    case 'spores': case 'spores7':
+      for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
+      break;
     case 'recipe_temper': case 'recipe_star':
       ctx.fillStyle = '#e8dcb8'; ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.6, s * 0.7);
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
