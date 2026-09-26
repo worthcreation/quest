@@ -4193,8 +4193,7 @@ function drawSword(h, pw, ph, y, heroic) {
   }
   if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
   if (!a && state.equip === 'acorn' && state.inv.acorns > 0) {
-    // an acorn ready in the hand; the sword rides on the back
-    ctx.save(); ctx.rotate(-0.8); ctx.translate(-UNIT * 0.1, -ph * 0.1); drawBlade(UNIT * 0.7, UNIT * 0.08); ctx.restore();
+    // an acorn ready in the hand; the sword is put away, not shown
     const s = h.side;
     drawItemIcon('acorn', s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1, UNIT * 0.55);
     if (state.inv.silk) { ctx.strokeStyle = 'rgba(232,228,240,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * pw * 0.45, UNIT * 0.25); ctx.lineTo(s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1); ctx.stroke(); }
