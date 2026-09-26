@@ -97,7 +97,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 // World generation (done at a fixed virtual size so a seed always
 // produces the same world on any screen)
 // =====================================================================
-const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
+const AREA_NAMES = { river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 const BEANS = 7;              // always lying about: 1 on the toad's screen, 2 on each other marsh screen, 1 on each of the first two swamp screens
@@ -324,10 +324,14 @@ function genWorld() {
   const riverbank = add(newScene({ id: 'riverbank', area: 'forest', msg: 'The river runs fast and deep here', music: 'forest', amb: 'rain', floor: '#4a9650' }));
   riverbank.river = { pts: [[0.62, -0.08], [0.5, 0.14], [0.3, 0.34], [0.12, 0.47], [-0.08, 0.56]], w: 3.2 };
   riverbank.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow' }, { side: 'w', a: 0.72, b: 0.95, to: 'ford' }];
+  riverbank.feat.farside = [0.13, 0.13];          // across the water: a fisherman's hut, his sign, a half-built raft
+  riverbank.feat.dock = [0.47, 0.35];             // an old jetty on this side, where a raft could be launched
+  claim(riverbank, 0.47, 0.35, 1.6);
   edgeWall(riverbank, 'e', 'tree', 1.1, [], 1.5, 'green');
   riverbank.paths = [makePath([0.5, 0.97], [0.55, 0.6], 1), makePath([0.55, 0.6], [0.03, 0.85], 1)];
   scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
   scatter(riverbank, 3, 'boulder', 0.6, 1.0, 1.4, [], [0.2, 0.9, 0.3, 0.8]);
+  { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   decoFlowers(riverbank, 30);
 
   const meadow2 = add(newScene({ id: 'meadow2', area: 'forest', msg: 'Rocks break through the grass', music: 'forest', amb: 'none', floor: '#51994f' }));
@@ -337,6 +341,7 @@ function genWorld() {
   meadow2.paths = [makePath([0.97, 0.5], [0.5, 0.03], 2)];
   scatter(meadow2, 9, 'boulder', 0.6, 1.3, 1.5, [], [0.1, 0.9, 0.12, 0.88]);
   scatter(meadow2, 5, 'tree', 0.9, 1.2, 1.5, [], [0.1, 0.9, 0.12, 0.88], 'green');
+  { const q = freeSpot(meadow2, [0.2, 0.8, 0.2, 0.8], 0.8); item(meadow2, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   decoFlowers(meadow2, 35);
 
   // the ford: the river spreads wide and shallow over stones; only jumping gets you across
@@ -345,16 +350,54 @@ function genWorld() {
   ford.river = { pts: [[1.08, 0.5], [0.5, 0.5], [-0.08, 0.5]], wH: 0.78, stones };
   ford.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow2' }, { side: 'e', a: 0.9, b: 0.99, to: 'riverbank' }, { side: 'n', a: 0.3, b: 0.7, to: 'farbank' }];
   stones.forEach(s => claim(ford, s[0], s[1], 1.2));
+  item(ford, { type: 'driftwood', fx: rr(0.15, 0.3), fy: 0.955 });
   for (let t = 0; t < 12; t++) ford.deco.push({ kind: 'reedbank', fx: rng(), fy: rng() < 0.5 ? 0.08 : 0.92 });
 
   const farbank = add(newScene({ id: 'farbank', area: 'forest', msg: 'The far bank. A path winds north into the hills.', music: 'forest', amb: 'none', floor: '#4a9650' }));
   farbank.exits = [{ side: 's', a: 0.3, b: 0.7, to: 'ford' }];
   edgeWall(farbank, 'n', 'tree', 1.1, [], 1.4, 'green'); edgeWall(farbank, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(farbank, 'e', 'tree', 1.1, [], 1.5, 'green');
   farbank.paths = [makePath([0.5, 0.97], [0.5, 0.3], 1)];
-  item(farbank, { type: 'starseed', fx: 0.5, fy: 0.3 }, { type: 'thornseed', fx: 0.36, fy: 0.42 });
+  item(farbank, { type: 'starseed', fx: 0.5, fy: 0.3 }, { type: 'thornseed', fx: 0.36, fy: 0.42 }, { type: 'driftwood', fx: 0.66, fy: 0.62 });
   addPlots(farbank, 3, [0.2, 0.8, 0.4, 0.75]);
   scatter(farbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.1, 0.9, 0.15, 0.85], 'green');
   decoFlowers(farbank, 40);
+
+  // ---------------- Downriver (raft only): the cascade drops into the gleaming pool ----------------
+  const cascade = add(newScene({ id: 'cascade', area: 'river', msg: 'The raft shatters at the foot of a roaring cascade', music: 'forest', amb: 'falls', floor: '#4b9a55' }));
+  cascade.river = { pts: [[0.42, -0.08], [0.46, 0.22], [0.56, 0.42], [0.75, 0.55], [1.08, 0.6]], w: 3.4, rough: true, fall: [0.46, 0.2] };
+  cascade.exits = [{ side: 's', a: 0.2, b: 0.6, to: 'gleampool' }];
+  cascade.heroStart = [0.2, 0.55];
+  edgeWall(cascade, 'w', 'boulder', 1.0, [], 1.5); edgeWall(cascade, 'n', 'boulder', 1.1, [], 1.4);
+  cascade.paths = [makePath([0.2, 0.55], [0.4, 0.97], 1)];
+  scatter(cascade, 6, 'boulder', 0.6, 1.2, 1.5, [], [0.1, 0.9, 0.2, 0.9]);
+  scatter(cascade, 4, 'tree', 0.9, 1.2, 1.5, [], [0.1, 0.9, 0.3, 0.9], 'green');
+  decoFlowers(cascade, 25);
+
+  const gleampool = add(newScene({ id: 'gleampool', area: 'river', msg: 'A great pool, still and gleaming', music: 'marsh', amb: 'none', floor: '#4f9d58' }));
+  gleampool.exits = [{ side: 'n', a: 0.2, b: 0.6, to: 'cascade' }];
+  gleampool.pools = [{ fx: 0.55, fy: 0.55, r: 5.2, still: true }];          // still water: wade in, fish, dive
+  gleampool.feat.gleam = true;
+  gleampool.feat.tunnel = [0.6, 0.6];
+  gleampool.feat.fishing = [[0.3, 0.45], [0.58, 0.3], [0.78, 0.66], [0.45, 0.78]];
+  gleampool.feat.fishing.forEach(p => claim(gleampool, p[0], p[1], 0.8));
+  claim(gleampool, 0.6, 0.6, 1.2);
+  item(gleampool, { type: 'rod', fx: 0.2, fy: 0.3 });
+  edgeWall(gleampool, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 'e', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 's', 'tree', 1.1, [], 1.5, 'green');
+  gleampool.paths = [makePath([0.4, 0.03], [0.2, 0.3], 0)];
+  scatter(gleampool, 6, 'tree', 0.9, 1.3, 1.5, [[0.55, 0.55, 7]], [0.08, 0.92, 0.1, 0.9], 'green');
+  addPlots(gleampool, 3, [0.12, 0.35, 0.6, 0.85]);
+  decoFlowers(gleampool, 40);
+
+  const fallsbank = add(newScene({ id: 'fallsbank', area: 'river', msg: 'Out from behind the falls, the river runs east', music: 'marsh', amb: 'falls', floor: '#4a9452' }));
+  fallsbank.river = { pts: [[-0.08, 0.2], [0.3, 0.16], [0.6, 0.2], [1.08, 0.12]], w: 3.0 };
+  fallsbank.pools = [{ fx: 0.55, fy: 0.66, r: 2.4, still: true }];
+  fallsbank.feat.tunnel = [0.55, 0.68];
+  claim(fallsbank, 0.55, 0.66, 3);
+  fallsbank.exits = [{ side: 'w', a: 0.4, b: 0.6, to: 'c7' }, { side: 'e', a: 0.4, b: 0.6, to: 'm1' }];
+  edgeWall(fallsbank, 's', 'tree', 1.1, [], 1.5, 'green');
+  fallsbank.paths = [makePath([0.03, 0.5], [0.97, 0.5], 1)];
+  scatter(fallsbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.08, 0.92, 0.35, 0.9], 'green');
+  decoFlowers(fallsbank, 25);
 
   // ---------------- Deep woods (east): denser, darker, the sword in the shadows ----------------
   let west = [0.4, 0.6];
@@ -509,7 +552,7 @@ function genWorld() {
     const east = boss ? [0.4, 0.6] : gapAt(rr(0.25, 0.75), 0.09);
     if (west) sc.exits.push({ side: 'w', a: west[0], b: west[1], to: 'c' + (i - 1) });
     else sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'w3', arrive: 'sinkhole', say: 'You climb the roots back up.' });
-    sc.exits.push({ side: 'e', a: east[0], b: east[1], to: boss ? 'm1' : 'c' + (i + 1), locked: boss ? () => !(RT.c7 && RT.c7.bossDead) : null });
+    sc.exits.push({ side: 'e', a: east[0], b: east[1], to: boss ? 'fallsbank' : 'c' + (i + 1), locked: boss ? () => !(RT.c7 && RT.c7.bossDead) : null });
     edgeWall(sc, 'n', 'cavewall', 1.1, [], 1.4);
     edgeWall(sc, 's', 'cavewall', 1.1, [], 1.4);
     edgeWall(sc, 'w', 'cavewall', 1.1, west ? [west] : [[0.4, 0.6]], 1.4);
@@ -540,7 +583,7 @@ function genWorld() {
     const last = i === 3;
     const sc = add(newScene({ id: 'm' + i, area: 'marsh', depth: i, msg: MARSH_MSG[i - 1], music: 'marsh', amb: 'marsh', floor: '#3a4a2d', speed: 0.34, accel: 7, breeze: 0.02 }));
     const east = last ? [0.4, 0.6] : gapAt(rr(0.25, 0.75), 0.1);
-    sc.exits.push({ side: 'w', a: west[0], b: west[1], to: i === 1 ? 'c7' : 'm' + (i - 1) });
+    sc.exits.push({ side: 'w', a: west[0], b: west[1], to: i === 1 ? 'fallsbank' : 'm' + (i - 1) });
     sc.exits.push({ side: 'e', a: east[0], b: east[1], to: last ? 'h1' : 'm' + (i + 1), locked: last ? () => !broken('m3', 'reeds') : null });
     edgeWall(sc, 'n', 'deadtree', 1.0, [], 1.9, 'bog');
     edgeWall(sc, 's', 'deadtree', 1.0, i === 2 ? [[0.4, 0.6]] : [], 1.9, 'bog');
@@ -665,9 +708,9 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
-const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
+const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
 state = {
   scene: 'camp', hero: null, inv: newInv(), pull: newPull(null),
@@ -681,7 +724,7 @@ state = {
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
   settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false, equip: 'sword',
-  choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {},
+  choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {}, fish: null, fishCool: {},
 };
 state.hero = newHero();
 
@@ -1172,6 +1215,7 @@ function enterScene(id, fx, fy) {
     const to = sc.feat.glimpse.to, tx = to[0] * W, ty = to[1] * H;
     state.glimpse = { t: -0.4, x0: h.x + (tx - h.x) * 0.55, y0: h.y + (ty - h.y) * 0.55, x1: tx + (tx > W * 0.9 ? UNIT * 3 : 0), y1: ty, line: sc.feat.glimpse.line, x: 0, y: 0, down: sc.feat.stone && to === sc.feat.stone };
   }
+  if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
   if (id === 'start' && !rt.flags.ambush && state.started) startAmbush();
   else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
   state.seen[id] = true;
@@ -1281,6 +1325,7 @@ function update(dt) {
   if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
   updateGas(dt);
   updateWebs(dt);
+  if (state.fish && !state.cut) updateFishing(dt);
   for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
   if (state.won) return;
@@ -1289,12 +1334,13 @@ function update(dt) {
     if (!interact()) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
   }
-  for (const k of ['lumin', 'slime', 'pepper']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
+  for (const k of ['lumin', 'slime', 'pepper', 'fishBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
+  if (h.vig > maxVig()) h.vig = maxVig();
   const mv = maxVig();
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * dt);
 
   // movement
-  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk;
+  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
   if (h.ride) updateRide(dt);
   else if (h.falling > 0) updateFall(dt);
   else if (h.dashT > 0) {
@@ -1336,6 +1382,8 @@ function update(dt) {
 // At 1 vigor or less you're crawling, barely scratching things, and one good hit away from fainting.
 function weakness() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 0.35; return r < 0.35 ? 0.45 + r * 1.57 : 1; }
 function power() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 0.15; return r < 0.35 ? 0.3 + r * 2 : 1; }
+// how sluggish attacks are: 1 when fresh, up to 3 when spent
+function sluggish() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 3; return r < 0.35 ? 1 + (0.35 - r) * 5 : 1; }
 function frailty() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 2; return r < 0.25 ? 1 + (0.25 - r) * 4 : 1; }
 function spend(cost) {
   const h = state.hero;
@@ -1687,7 +1735,7 @@ const SEEDS = {
   ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
   starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
 };
-const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide' };
+const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
   silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
@@ -1762,6 +1810,9 @@ function collect(it) {
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
     }
+    case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
+    case 'rod': inv.rod = true; showTitle('Old fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
+    case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
     case 'spores7': inv.spores += 7; if (inv.pipSaved) say('+7 spores', h.x, h.y - UNIT * 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
@@ -1793,8 +1844,8 @@ const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
 function updateCombat(dt) {
   const inv = state.inv, h = state.hero;
-  // in the air, act slams down: sword or no sword, spinning or not
-  if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam && !state.carry && !h.ride) {
+  // in the air, act slams down: sword or no sword, spinning or not (not when spent)
+  if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam && !state.carry && !h.ride && h.vig >= 0.8) {
     state.slam = true; h.vz = -UNIT * 16;
     if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
     sfx.swoosh(); return;
@@ -1823,12 +1874,18 @@ function updateCombat(dt) {
       const ch = state.chain, gap = state.time - ch.t;
       ch.n = gap >= WHIRL.min && gap <= WHIRL.max ? ch.n + 1 : 1;
       ch.t = state.time;
-      if (ch.n >= WHIRL.chain) { ch.n = 0; startWhirl(); return; }
+      if (ch.n >= WHIRL.chain) {
+        ch.n = 0;
+        if (h.vig >= 3) { startWhirl(); return; }
+        say('Too tired to spin', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' });
+      }
       if (ch.n >= 2) say('\u2022 '.repeat(ch.n).trim(), h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
       state.active = 'sword';
-      state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6), hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
-      state.atkCool = SLASH.cool;
+      const slow = sluggish();                               // a tired arm swings slowly
+      state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
+      state.atkCool = SLASH.cool * slow;
+      if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
       scareFlock(h.x, h.y, 5);
@@ -1839,7 +1896,7 @@ function updateCombat(dt) {
   if (hold.on) {
     if (held.act()) {
       hold.t += dt;
-      const need = cb.step === 'slash' ? STAB.chainCharge : STAB.charge;
+      const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * sluggish();
       if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
       if (hold.charged && spend(0.6)) {
@@ -1891,6 +1948,7 @@ const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 
 function startWhirl() {
   const h = state.hero;
   state.atk = null; state.hold.on = false; state.hold.charged = false;
+  spend(1.5);
   state.whirl = { t: 0, end: state.time + WHIRL.length, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
   say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
@@ -2482,6 +2540,8 @@ function interact() {
     return true;
   }
   if (state.carry) return false;                    // hands full: F belongs to the rock
+  if (state.fish) return true;                      // fishing has the hands
+  if (riverSideQuest(sc, h)) return true;
   const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
@@ -2614,6 +2674,104 @@ function sporeJump(id, cost) {
   transitionTo(id, to[0], to[1] + 1.6 * UNIT / H);
   return true;
 }
+// ---------------- the Downriver sidequest: a sign across the water, a raft, a pool, a tunnel ----------------
+const RAFT = { driftwood: 4, thorn: 2 };
+function riverSideQuest(sc, h) {
+  const inv = state.inv, f = sc.feat;
+  if (f.farside) {                                   // read across the water from the near bank
+    const [fx, fy] = f.farside, d = Math.hypot(h.x - fx * W, h.y - fy * H);
+    if (d < UNIT * 9 && !inv.raft) {
+      inv.raft = 1;
+      say('Across the water, a sign: "GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW." A half-built raft sits beside it.', fx * W + UNIT * 3, fy * H + UNIT * 1.5, { key: 'farside', life: 7 });
+      setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns to lash it`, 'relic', 4.5), 0);
+    }
+  }
+  if (f.dock) {
+    const [dx, dy] = f.dock, d = Math.hypot(h.x - dx * W, h.y - dy * H);
+    if (d < UNIT * 2.2 && inv.raft) {
+      const have = `${inv.mats.driftwood}/${RAFT.driftwood} driftwood, ${inv.mats.thorn}/${RAFT.thorn} thorns`;
+      say(inv.raft >= 2 && inv.raft < 3 ? `${K.act} to push off downriver` : `The old jetty. A raft needs ${have}.`, dx * W, dy * H - UNIT * 1.3, { key: 'dock', life: 2.5 });
+      if (pressedNow.act) {
+        if (inv.raft === 1 || inv.raft >= 3) {
+          if (inv.mats.driftwood >= RAFT.driftwood && inv.mats.thorn >= RAFT.thorn) {
+            inv.mats.driftwood -= RAFT.driftwood; inv.mats.thorn -= RAFT.thorn; inv.raft = 2;
+            sfx.forge(); zoomPulse(dx * W, dy * H, 'pickup');
+            say('You lash the driftwood together with thorn twine. A raft!', dx * W, dy * H - UNIT * 1.3, { key: 'dock', life: 3 });
+          } else say(`Not enough yet: ${have}. Driftwood washes up along the river.`, dx * W, dy * H - UNIT * 1.3, { key: 'dock', life: 3 });
+        } else if (inv.raft === 2) startRaftRide();
+        return true;
+      }
+    }
+  }
+  if (f.tunnel) {                                    // a gleam deep in the water: the way between the two falls
+    const [tx, ty] = f.tunnel, d = Math.hypot(h.x - tx * W, h.y - ty * H);
+    if (d < UNIT * 2) {
+      if (!inv.tunnel) say('Something gleams far below the water. Too deep to reach from here.', tx * W, ty * H - UNIT * 1.4, { key: 'tunnel', life: 2.5 });
+      else {
+        say(`${K.act} to dive into the tunnel`, tx * W, ty * H - UNIT * 1.4, { key: 'tunnel', life: 2 });
+        if (pressedNow.act) {
+          const to = sc.id === 'gleampool' ? 'fallsbank' : 'gleampool', t = WORLD[to].feat.tunnel;
+          sfx.splash(); spark(h.x, h.y, 'rgba(210,235,245,.9)', 16, 3);
+          transitionTo(to, t[0], t[1] - 2.6 * UNIT / H);
+          return true;
+        }
+      }
+    }
+  }
+  if (f.fishing && inv.rod) {                        // cast at a ripple
+    for (const [fx, fy] of f.fishing) {
+      const d = Math.hypot(h.x - fx * W, h.y - fy * H);
+      if (d > UNIT * 2.3) continue;
+      const key = sc.id + fx, cool = (state.fishCool[key] || 0) - state.playTime;
+      say(cool > 0 ? 'The fish here are wary. Try another ripple.' : `${K.act} to cast`, fx * W, fy * H - UNIT * 1.2, { key: 'fish', life: 1.5 });
+      if (pressedNow.act && cool <= 0) { startFishing(key, fx * W, fy * H); return true; }
+    }
+  } else if (f.fishing) {
+    for (const [fx, fy] of f.fishing) if (Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * 2.3) say('Fish rise here. If only you had a rod.', fx * W, fy * H - UNIT * 1.2, { key: 'fish', life: 2 });
+  }
+  return false;
+}
+function startRaftRide() {
+  // push off from the jetty into the current, then follow the river downstream off the screen
+  const sc = sceneDef(), rp = sc.river.pts, [dx, dy] = sc.feat.dock;
+  let bi = 0, bd = Infinity, bp = rp[0];
+  for (let i = 0; i < rp.length - 1; i++) {
+    const [ax, ay] = rp[i], [bx, by] = rp[i + 1], vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy || 1;
+    const t = Math.max(0, Math.min(1, ((dx - ax) * vx + (dy - ay) * vy) / l2)), px = ax + vx * t, py = ay + vy * t, d = Math.hypot(px - dx, py - dy);
+    if (d < bd) { bd = d; bi = i; bp = [px, py]; }
+  }
+  const pts = [[dx, dy], bp, ...rp.slice(bi + 1)];
+  state.cut = { type: 'raft', t: 0, pts, step: 0 };
+  state.inv.raft = 3;
+  sfx.whoosh(); state.cam.focus = { z: 1.2, at: () => [state.hero.x, state.hero.y] };
+}
+// ---------------- fishing: cast, wait, strike when it bites ----------------
+function startFishing(key, x, y) {
+  state.fish = { key, x, y, t: rr(1.5, 4), phase: 'wait' };
+  sfx.throw(); say('Wait for a bite...', x, y - UNIT * 1.2, { key: 'fish', life: 2 });
+}
+function updateFishing(dt) {
+  const f = state.fish, h = state.hero;
+  if (!f) return;
+  if (pressedNow.jump || pressedNow.up || pressedNow.down || pressedNow.left || pressedNow.right) { state.fish = null; say('You reel in.', h.x, h.y - UNIT, { key: 'fish', life: 1 }); return; }
+  f.t -= dt;
+  if (f.phase === 'wait') {
+    if (pressedNow.act) { state.fish = null; say('Too early. It swims off.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); state.fishCool[f.key] = state.playTime + 6; return; }
+    if (f.t <= 0) { f.phase = 'bite'; f.t = 0.7; sfx.tock(); sfx.splash(); zoomPulse(f.x, f.y, 'tap'); say('!', f.x, f.y - UNIT, { key: 'fish', life: 0.7, size: 2, color: '#ffe38a' }); }
+  } else if (f.phase === 'bite') {
+    if (pressedNow.act) {
+      state.fish = null; state.fishCool[f.key] = state.playTime + 20;
+      sfx.pickup(); zoomPulse(f.x, f.y, 'pickup'); spark(f.x, f.y, 'rgba(210,235,245,.9)', 10, 3);
+      state.items.push({ type: 'fish', x: h.x + h.fx * UNIT, y: h.y + h.fy * UNIT });
+      if (rng() < 0.35) {                            // sometimes a seed in its belly
+        const r = rng(), seed = r < 0.5 ? 'seed' : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
+        state.items.push({ type: seed, x: h.x - h.fx * UNIT * 0.6 + UNIT * 0.5, y: h.y + UNIT * 0.6 });
+        say('Something was in its belly!', h.x, h.y - UNIT * 1.6, { key: 'belly', life: 2 });
+      }
+      train(0.5);
+    } else if (f.t <= 0) { state.fish = null; state.fishCool[f.key] = state.playTime + 6; say('It got away.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); }
+  }
+}
 // ---------------- conversations ----------------
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
@@ -2682,11 +2840,12 @@ function updateAbilities(dt) {
   if (pressedNow.eat && inv.food.length) {
     if (h.vig >= maxVig()) sayHero('Not hungry right now.', { life: 1.5 });
     else {
-      const miss = 1 - h.vig / maxVig(), order = miss > 0.45 ? ['squash', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'squash', 'pepper'];
+      const miss = 1 - h.vig / maxVig(), order = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
       const pickF = order.find(f => inv.food.includes(f)), i = pickF ? inv.food.indexOf(pickF) : 0;
       const food = inv.food.splice(i, 1)[0];
       sfx.munch(); zoomPulse(h.x, h.y, 'tap');
-      heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15 }[food] || 0.2);
+      if (food === 'fish') { inv.fishBuff = 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
+      heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15, fish: 0.3 }[food] || 0.2);
       if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus++; sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
       if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
       refreshButtons();
@@ -2703,7 +2862,7 @@ function updateAbilities(dt) {
     if (state.aim.on) {
       if (held.act()) state.aim.t += dt;
       else {
-        const k = throwPower(), tap = state.aim.t < 0.18;
+        const k = Math.min(throwPower(), h.vig <= 1 ? 0.1 : 1), tap = state.aim.t < 0.18;   // spent arms can't throw hard
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
         else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
@@ -2961,6 +3120,15 @@ function updateCut(dt) {
       showTitle('Marsh Fire', `hold ${K.fire} to breathe it out, let go to light it`, 'area', 3.5);
       say('Doesn\'t care much for wind, mind. Come back and see me once you\'ve grown some embers. I know a trick.', tx, ty - UNIT * 1.4, { key: 'npc', life: 5 });
     }
+  } else if (c.type === 'raft') {
+    // drift along the river to the edge of the screen, then the rapids take over
+    const pts = c.pts, seg = pts.length - 1, p = Math.min(1, c.t / 3.2) * seg, i2 = Math.min(seg - 1, Math.floor(p)), u = p - i2;
+    h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
+    h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y));
+    if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
+    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5 });
+    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a' }); }
+    if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('cascade'); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
   } else if (c.type === 'faint') {
@@ -3170,7 +3338,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 14, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 15, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3182,7 +3350,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 14) return false;
+  if (!d || !d.seed || d.v !== 15) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3193,7 +3361,7 @@ function loadSlot(i) {
   return true;
 }
 // every line of the inventory: [icon, title, detail]
-const FOOD_INFO = { carrot: 'restores about a third of your vigor', turnip: 'restores a quarter, and adds 1 max vigor for good', squash: 'restores half your vigor', berries: 'a small snack', pepper: 'a little vigor, and bigger marsh fire for a minute' };
+const FOOD_INFO = { fish: 'restores 30% and raises max vigor by 30% for two minutes', carrot: 'restores about a third of your vigor', turnip: 'restores a quarter, and adds 1 max vigor for good', squash: 'restores half your vigor', berries: 'a small snack', pepper: 'a little vigor, and bigger marsh fire for a minute' };
 function inventoryLines() {
   const inv = state.inv, L2 = [];
   const sec = t => L2.push([null, t, null]);
@@ -3238,7 +3406,7 @@ function loadSettings() {
 // =====================================================================
 // Forest birds: peck about, burst into the air when you come close
 // =====================================================================
-const FLOCK = { camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
+const FLOCK = { gleampool: 3, cascade: 2, fallsbank: 2, camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
 function makeFlock(sc) {
   const n = FLOCK[sc.id] || 0, out = [];
   for (let i = 0; i < n; i++) out.push(landSpot({ mode: 'peck', t: Math.random() * 2, z: 0, c: ['#6b4a2a', '#5a5a62', '#8a6a3a'][i % 3] }));
@@ -3368,6 +3536,8 @@ function drawScene(sc) {
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   drawGround(sc);
   if (sc.river) drawRiver(sc);
+  if (sc.area === 'river' && sc.pools.length) drawPools(sc);
+  drawRiverQuest(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
   drawPlots(sc);
@@ -3488,7 +3658,7 @@ function drawSmallBird(b) {
 // ---------------- ground ----------------
 function drawGround(sc) {
   const f = sc.feat;
-  if (sc.area === 'forest' || sc.area === 'woods') {
+  if (sc.area === 'forest' || sc.area === 'woods' || sc.area === 'river') {
     for (const d of sc.deco) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
       if (d.kind === 'grass') { ctx.strokeStyle = sc.area === 'woods' ? '#24552c' : '#357a40'; ctx.lineWidth = 1.5; const x = d.fx * W, y = d.fy * H, s = UNIT * 0.3 * d.s; ctx.beginPath(); ctx.moveTo(x - s * 0.4, y); ctx.lineTo(x - s * 0.6, y - s); ctx.moveTo(x, y); ctx.lineTo(x, y - s * 1.2); ctx.moveTo(x + s * 0.4, y); ctx.lineTo(x + s * 0.6, y - s); ctx.stroke(); }
@@ -3556,6 +3726,21 @@ function drawGround(sc) {
   }
 }
 function drawPools(sc) {
+  if (sc.area === 'river') {                           // still, gleaming water you can wade into
+    for (const p of state.pools) {
+      ctx.fillStyle = '#6b5a3a'; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r + UNIT * 0.35, (p.r + UNIT * 0.35) * 0.72, 0, 0, 6.28); ctx.fill();
+      const g = ctx.createRadialGradient(p.x - p.r * 0.2, p.y - p.r * 0.2, 0, p.x, p.y, p.r);
+      g.addColorStop(0, '#6fc0d0'); g.addColorStop(0.6, '#3f8fa8'); g.addColorStop(1, '#2f6f8a');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * 0.72, 0, 0, 6.28); ctx.fill();
+      if (sc.feat.gleam) for (let i = 0; i < 14; i++) {
+        const a = i * 2.4, rr2 = p.r * (0.2 + (i % 5) * 0.15), k = 0.5 + 0.5 * Math.sin(state.time * 2.5 + i * 1.7);
+        ctx.fillStyle = `rgba(255,255,240,${0.7 * k})`;
+        const x = p.x + Math.cos(a) * rr2, y = p.y + Math.sin(a) * rr2 * 0.72;
+        ctx.fillRect(x - 1, y - 4 * k, 2, 8 * k); ctx.fillRect(x - 4 * k, y - 1, 8 * k, 2);
+      }
+    }
+    return;
+  }
   for (const p of state.pools) {
     ctx.fillStyle = sc.area === 'hollow' ? '#0f1512' : '#1c2a24'; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * 0.7, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = sc.area === 'hollow' ? 'rgba(60,90,90,.25)' : 'rgba(90,140,150,.3)';        // water sheen
@@ -3600,6 +3785,58 @@ function drawRiver(sc) {
     const x = d.fx * W, y = d.fy * H;
     ctx.strokeStyle = '#6b7a40'; ctx.lineWidth = 2;
     for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y); ctx.lineTo(x + i * 5 + Math.sin(state.time * 2 + i) * 2, y - UNIT * 0.6); ctx.stroke(); }
+  }
+}
+// the sidequest's pieces: the far-bank camp, the jetty and raft, ripples, the tunnel's gleam, the cascade
+function drawRiverQuest(sc) {
+  const f = sc.feat, u = UNIT, inv = state.inv;
+  if (f.farside) {
+    const x = f.farside[0] * W, y = f.farside[1] * H;
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.6, u * 1.1);           // hut
+    ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.moveTo(x - u * 1.1, y - u * 0.55); ctx.lineTo(x - u * 0.1, y - u * 1.3); ctx.lineTo(x + u * 0.9, y - u * 0.55); ctx.fill();
+    ctx.fillStyle = '#2a1c10'; ctx.fillRect(x - u * 0.25, y - u * 0.1, u * 0.4, u * 0.6);
+    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x + u * 1.3, y - u * 0.9, u * 0.1, u * 1.1); ctx.fillRect(x + u * 0.95, y - u * 1.05, u * 0.8, u * 0.4);   // sign
+    ctx.fillStyle = '#3a2614'; ctx.fillRect(x + u * 1.05, y - u * 0.95, u * 0.6, u * 0.05); ctx.fillRect(x + u * 1.05, y - u * 0.82, u * 0.45, u * 0.05);
+    ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 3; i++) ctx.fillRect(x - u * 0.4 + i * u * 0.3, y + u * 0.9, u * 0.22, u * 0.9);   // half-built raft
+    ctx.strokeStyle = '#c9c2b6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + u * 0.95, y + u * 0.4); ctx.lineTo(x + u * 1.5, y - u * 0.6); ctx.stroke();   // rod leaning
+  }
+  if (f.dock) {
+    const x = f.dock[0] * W, y = f.dock[1] * H;
+    ctx.fillStyle = '#7a5a34';
+    for (let i = 0; i < 4; i++) ctx.fillRect(x - u * 0.9 + i * u * 0.1, y - u * 0.6 - i * u * 0.35, u * 1.1, u * 0.28);   // planks out over the water
+    ctx.fillStyle = '#4a3420'; ctx.fillRect(x - u * 0.95, y - u * 1.7, u * 0.14, u * 1.5); ctx.fillRect(x + u * 0.1, y - u * 1.9, u * 0.14, u * 1.5);
+    if (inv.raft === 2) { ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(x - u * 1.6 + i * u * 0.3, y - u * 2.2, u * 0.26, u * 1.1); ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - u * 1.6, y - u * 1.9); ctx.lineTo(x - u * 0.45, y - u * 1.9); ctx.moveTo(x - u * 1.6, y - u * 1.4); ctx.lineTo(x - u * 0.45, y - u * 1.4); ctx.stroke(); }
+  }
+  for (const [fx, fy] of f.fishing || []) {             // rising fish: rings that spread and fade
+    const x = fx * W, y = fy * H, k = (state.time * 0.7 + fx * 3) % 1;
+    ctx.strokeStyle = `rgba(230,245,250,${0.7 * (1 - k)})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(x, y, u * (0.2 + k * 0.8), u * (0.12 + k * 0.5), 0, 0, 6.28); ctx.stroke();
+  }
+  if (f.tunnel) {                                       // a gleam deep under the water
+    const x = f.tunnel[0] * W, y = f.tunnel[1] * H, k = 0.5 + 0.5 * Math.sin(state.time * 2);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, u * 1.2);
+    g.addColorStop(0, `rgba(200,255,240,${0.35 + 0.35 * k})`); g.addColorStop(1, 'rgba(200,255,240,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, u * 1.2, u * 0.85, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = 'rgba(10,30,40,.55)'; ctx.beginPath(); ctx.ellipse(x, y, u * 0.55, u * 0.35, 0, 0, 6.28); ctx.fill();
+  }
+  if (sc.river && sc.river.fall) {                       // the cascade: a white wall of falling water and spray
+    const [fx, fy] = sc.river.fall, x = fx * W, y = fy * H, w = sc.river.w * u;
+    ctx.fillStyle = 'rgba(240,250,255,.85)'; ctx.fillRect(x - w * 0.6, y - u * 0.4, w * 1.2, u * 1.1);
+    ctx.strokeStyle = 'rgba(200,225,240,.8)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 10; i++) { const xx = x - w * 0.55 + i * w * 0.12, off = (state.time * u * 8 + i * 17) % (u * 1.1); ctx.beginPath(); ctx.moveTo(xx, y - u * 0.4 + off); ctx.lineTo(xx, y - u * 0.1 + off); ctx.stroke(); }
+    if (Math.random() < 0.6) state.fx.push({ x: x + (Math.random() - 0.5) * w, y: y + u * 0.8, vx: (Math.random() - 0.5) * u * 2, vy: -u * (0.5 + Math.random()), t: 0, life: 0.9, color: 'rgba(235,245,255,.7)', size: u * 0.2 });
+  }
+  const fi = state.fish;                                // the line and bobber while fishing
+  if (fi) {
+    const h = state.hero, bob = fi.phase === 'bite' ? Math.sin(state.time * 40) * 3 + 3 : Math.sin(state.time * 3) * 1.5;
+    ctx.strokeStyle = 'rgba(230,230,220,.8)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(h.x + h.side * UNIT * 0.6, h.y - UNIT * 0.9); ctx.quadraticCurveTo((h.x + fi.x) / 2, Math.min(h.y, fi.y) - UNIT, fi.x, fi.y + bob); ctx.stroke();
+    ctx.fillStyle = '#e04a3a'; ctx.beginPath(); ctx.arc(fi.x, fi.y + bob, UNIT * 0.12, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#f2efe6'; ctx.beginPath(); ctx.arc(fi.x, fi.y + bob - UNIT * 0.06, UNIT * 0.06, 0, 6.28); ctx.fill();
+  }
+  if (state.cut && state.cut.type === 'raft') {         // the raft under your feet
+    const h = state.hero;
+    ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(h.x - UNIT * 0.8 + i * UNIT * 0.4, h.y - UNIT * 0.2, UNIT * 0.36, UNIT * 1.0);
   }
 }
 // tall grass by each updraft: it leans the way the next gust will blow, harder for stronger gusts
@@ -4102,6 +4339,7 @@ function drawHUD() {
   if (inv.spores && inv.pipSaved) slot('spores', `x${inv.spores}`);
   if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
   if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
+  if (inv.fishBuff > 0) slot('fish', null, inv.fishBuff / 120);
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   if (inv.slime > 0) slot('slime', null, inv.slime / 25);
@@ -4183,20 +4421,20 @@ function drawMenu() {
 // Open index.html?overview for a random world or ?overview=12345 for a seed.
 // =====================================================================
 const MAP_LAYOUT = {
-  farbank: [1, 0],
-  ford: [1, 1], riverbank: [2, 1], camp: [3, 1],
-  meadow2: [1, 2], meadow: [2, 2], start: [3, 2], w1: [4, 2], w2: [5, 2], w3: [6, 2],
-  foot: [2, 3], f1: [3, 3], f2: [3, 4], f3: [3, 5], f4: [3, 6], f5: [3, 7], f6: [3, 8], f7: [3, 9],
-  c1: [6, 3], c2: [6, 4], c3: [6, 5], c4: [6, 6], c5: [6, 7], c6: [6, 8], c7: [6, 9],
-  m1: [7, 9], m2: [8, 9], m3: [9, 9], h1: [10, 9], h2: [11, 9], h3: [12, 9],
-  sw1: [8, 10], sw2: [8, 11], sw3: [8, 12],
+  farbank: [2, 0],
+  cascade: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
+  gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
+  foot: [3, 3], f1: [4, 3], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
+  fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
+  sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
-const REGION_COLOR = { forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
+const MAP_NAMES = { cascade: 'Cascade', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const REGION_COLOR = { river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {
   const TW = 256, TH = 160, GAP = 40, M = 60, HEAD = 110;
-  const cols = 13, rows = 13;
+  const cols = 15, rows = 13;
   resetRun(seed);
   W = GEN.W; H = GEN.H; computeUnit();
   lightCv.width = W / 2; lightCv.height = H / 2;
@@ -4209,7 +4447,7 @@ function renderOverview(seed) {
   ctx.fillStyle = '#14121a'; ctx.fillRect(0, 0, OW, OH);
   ctx.fillStyle = '#fdf6e3'; ctx.font = 'bold 44px Georgia, serif'; ctx.fillText('Quest: world overview', M, M + 40);
   ctx.font = '22px "Courier New", monospace'; ctx.fillStyle = '#d8d0c0';
-  ctx.fillText(`seed ${seed}   ·   ${Object.keys(MAP_LAYOUT).length} screens   ·   lines are walkable connections, dashed is the sinkhole`, M, M + 80);
+  ctx.fillText(`seed ${seed}   ·   ${Object.keys(MAP_LAYOUT).length} screens   ·   lines are walkable, dashed purple is the sinkhole, dashed blue the raft and the tunnel`, M, M + 80);
   let lx = M + 1900;
   for (const [area, col] of Object.entries(REGION_COLOR)) { ctx.fillStyle = col; ctx.fillRect(lx, M + 62, 22, 22); ctx.fillStyle = '#d8d0c0'; ctx.fillText(AREA_NAMES[area].replace('The ', ''), lx + 30, M + 80); lx += 30 + ctx.measureText(AREA_NAMES[area].replace('The ', '')).width + 34; }
 
@@ -4226,6 +4464,9 @@ function renderOverview(seed) {
   }
   ctx.setLineDash([14, 12]); ctx.strokeStyle = '#8a7aa8';
   { const [ax, ay] = center('w3'), [bx, by] = center('c1'); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
+  ctx.strokeStyle = '#5ab0c8';                                                          // downriver by raft, and the tunnel
+  { const [ax, ay] = center('riverbank'), [bx, by] = center('cascade'); ctx.beginPath(); ctx.moveTo(ax, ay - 40); ctx.quadraticCurveTo((ax + bx) / 2, ay - 120, bx, by); ctx.stroke(); }
+  { const [ax, ay] = center('gleampool'), [bx, by] = center('fallsbank'); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo((ax + bx) / 2, by + 260, bx, by); ctx.stroke(); }
   ctx.setLineDash([]);
 
   // each screen, drawn by the game's own painter at thumbnail scale
@@ -4393,6 +4634,20 @@ function drawItemIcon(type, x, y, s) {
     case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
     case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
     case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
+    case 'fish':
+      ctx.fillStyle = '#8ab8c8'; ctx.beginPath(); ctx.ellipse(-s * 0.05, 0, s * 0.35, s * 0.17, 0, 0, 6.28); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(s * 0.25, 0); ctx.lineTo(s * 0.48, -s * 0.18); ctx.lineTo(s * 0.48, s * 0.18); ctx.fill();
+      ctx.fillStyle = '#e8f4f8'; ctx.beginPath(); ctx.ellipse(-s * 0.1, s * 0.05, s * 0.2, s * 0.06, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#1a2a30'; ctx.beginPath(); ctx.arc(-s * 0.28, -s * 0.03, s * 0.035, 0, 6.28); ctx.fill();
+      break;
+    case 'driftwood':
+      ctx.fillStyle = '#9a8468'; ctx.save(); ctx.rotate(-0.3); ctx.fillRect(-s * 0.42, -s * 0.09, s * 0.84, s * 0.18);
+      ctx.strokeStyle = '#6b5a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.35, 0); ctx.lineTo(s * 0.35, 0); ctx.stroke(); ctx.restore();
+      break;
+    case 'rod':
+      ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.moveTo(-s * 0.4, s * 0.4); ctx.lineTo(s * 0.4, -s * 0.4); ctx.stroke();
+      ctx.strokeStyle = '#e8e4d8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * 0.4, -s * 0.4); ctx.quadraticCurveTo(s * 0.5, 0, s * 0.3, s * 0.3); ctx.stroke();
+      break;
     case 'ear':
       ctx.fillStyle = '#4a2218'; ctx.beginPath(); ctx.moveTo(-s * 0.25, s * 0.3); ctx.lineTo(0, -s * 0.4); ctx.lineTo(s * 0.25, s * 0.3); ctx.fill();
       ctx.fillStyle = '#b8736a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, s * 0.25); ctx.lineTo(0, -s * 0.2); ctx.lineTo(s * 0.12, s * 0.25); ctx.fill();
