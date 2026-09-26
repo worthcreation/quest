@@ -1325,6 +1325,7 @@ function checkEdges() {
 function resetRun(seed) {
   SEED = seed;
   WORLD = ARENA ? buildArena(seed) : buildWorld(seed);
+  if (PUZZLE) WORLD.puzzlehub = genPuzzleHub(seed);
   RT = {};
   state.inv = newInv();
   state.hero = newHero();
@@ -1339,7 +1340,7 @@ function newGame() {
   state.fadeTarget = 1; state.fadeRate = 4;
   setTimeout(() => {
     resetRun((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-    if (ARENA) startArena(); else { enterScene('camp'); startIntro(); }
+    if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else { enterScene('camp'); startIntro(); }
     state.fadeTarget = 0;
     state.busy = false;
   }, 900);
@@ -1361,7 +1362,7 @@ function update(dt) {
   readPresses();
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
-  if (state.rapids) { updateFx(dt); updateRapids(dt); return; }
+  if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
@@ -1379,6 +1380,7 @@ function update(dt) {
   if (state.fish && !state.cut) updateFishing(dt);
   if (!state.cut && !state.busy) updatePip(dt);
   if (ARENA) updateArena(dt);
+  if (PUZZLE) updatePuzzle(dt);
   for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
   if (state.won) return;
@@ -2687,6 +2689,7 @@ function interact() {
     return true;
   }
   if (state.carry) return false;                    // hands full: F belongs to the rock
+  for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) { enterPuzzle(PUZZLES.find(p => p.id === q.pid)); return true; }
   if (state.fish) return true;                      // fishing has the hands
   if (riverSideQuest(sc, h)) return true;
   const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -2852,6 +2855,7 @@ function findInteractable() {
   if (state.menu || state.cut || state.busy || h.z > 0 || state.fish || state.npcTalk || state.choice || state.rapids) return null;
   const add = (x, y, verb, range) => { const d = Math.hypot(h.x - x, h.y - y); if (d < range * UNIT) c.push({ x, y, verb, d }); };
   for (const n of sc.npcs) if (npcHere(n)) { const [x, y] = npcPos(n); add(x, y, 'Talk', 2); }
+  for (const q of f.portals || []) add(q.fx * W, q.fy * H, 'Enter', 1.6);
   if (!state.carry) {
     for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', 1.8);
     for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
@@ -3361,7 +3365,7 @@ function startIntro() {
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
 function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
-  return !ARENA && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
+  return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
 }
 function pipExit(sc) {                                // the exit that gets us closer to the woods gate
   let best = null, bd = screensBetween(sc.id, 'w2');
@@ -3711,6 +3715,7 @@ const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
+  ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
   ...(state.inv.pipSaved && !ARENA ? [['spores', `Spore travel (${state.inv.spores} spores)`]] : []),
   ['save', 'Save game'],
   ['load', 'Load game'],
@@ -3729,6 +3734,8 @@ function systemSelect(i) {
   const m = state.menu, key = (SYSTEM_ITEMS()[i] || [])[0];
   sfx.pickup();
   if (key === 'resume') state.menu = null;
+  if (key === 'retry') { state.menu = null; enterPuzzle(state.puzzle.p); }
+  if (key === 'hub') { state.menu = null; state.puzzle = null; transitionTo('puzzlehub', 0.5, 0.88, true); }
   if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
   if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
   if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
@@ -4101,6 +4108,7 @@ function drawScene(sc) {
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
   if (sc.feat.signs) drawArenaSigns(sc);
+  if (sc.feat.portals) drawPuzzlePortals(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
   drawPlots(sc);
@@ -5225,7 +5233,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 40';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 41';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5504,6 +5512,81 @@ function drawArenaSigns(sc) {
     ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - w / 2, y - u * 0.75, w, u * 0.62);
     ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y - u * 0.44);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+}
+
+// =====================================================================
+// Puzzle test mode: index.html?puzzle. A hub of portal stones, one per puzzle in the real world.
+// Each portal drops you into that puzzle, reset, with enemies cleared; solving it records your time.
+// =====================================================================
+var PUZZLE = typeof location !== 'undefined' && /(^|[?&])puzzle(=|&|$)/.test(location.search);
+const PUZZLES = [
+  { id: 'thicket', name: 'Glade brambles', scene: 'start', at: [0.2, 0.5], solved: () => broken('start', 'thicket') },
+  { id: 'gate', name: 'Woods gate', scene: 'w1', at: [0.06, 0.5], solved: () => !!state.plateOn.p1 },
+  { id: 'ring', name: 'Stone ring', scene: 'w2', at: [0.06, 0.5], solved: () => !!state.plateOn.p2 },
+  { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
+  { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
+  { id: 'strong', name: 'Too-strong gust', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
+  { id: 'ford', name: 'Stepping stones', scene: 'ford', at: [0.5, 0.95], solved: () => state.scene === 'farbank' || (state.scene === 'ford' && state.hero.y < H * (0.5 - WORLD.ford.river.wH / 2)) },
+  { id: 'rapids', name: 'Rapids', scene: 'rapids', raft: true, solved: () => state.scene === 'gleampool' },
+  { id: 'reeds', name: 'Marsh reeds', scene: 'm3', at: [0.06, 0.5], fire: true, solved: () => broken('m3', 'reeds') },
+  { id: 'webs', name: 'Web wall', scene: 'h2', at: [0.06, 0.5], fire: true, solved: () => broken('h2', 'webs') },
+];
+function puzzleRecords() { try { return JSON.parse(localStorage.getItem('quest-puzzles') || '{}'); } catch (e) { return {}; } }
+function savePuzzleRecords(r) { try { localStorage.setItem('quest-puzzles', JSON.stringify(r)); } catch (e) {} }
+function genPuzzleHub(seed) {
+  const saved = [W, H, UNIT];
+  W = GEN.W; H = GEN.H; computeUnit();
+  try {
+    const hub = newScene({ id: 'puzzlehub', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4f9a52', heroStart: [0.5, 0.88] });
+    for (const side of ['n', 'w', 'e', 's']) edgeWall(hub, side, side === 'n' || side === 's' ? 'tree' : 'boulder', 1.1, [], 1.4, 'green');
+    hub.feat.portals = PUZZLES.map((p, i) => ({ pid: p.id, fx: 0.16 + (i % 5) * 0.17, fy: i < 5 ? 0.32 : 0.62 }));
+    hub.feat.portals.forEach(p => claim(hub, p.fx, p.fy, 1.4));
+    decoFlowers(hub, 40);
+    return hub;
+  } finally { [W, H, UNIT] = saved; }
+}
+function startPuzzleHub() {
+  state.cut = null; state.night = 0; state.rain = 0; state.puzzle = null;
+  enterScene('puzzlehub');
+  showTitle('Puzzles', 'step up to a stone and enter', 'area', 2.5);
+}
+function enterPuzzle(p) {
+  const inv = state.inv;
+  for (const id of [p.scene, 'f4', 'f6', 'farbank', 'gleampool', 'h1', 'h3']) delete RT[id];
+  state.plateOn = {}; state.carry = null; state.aim.on = false;
+  Object.assign(inv, { sword: false, fire: !!p.fire, raft: p.raft ? 2 : 0, tunnel: false });
+  state.hero.vig = maxVig();
+  state.puzzle = { p, t0: null, solved: false, tries: 0 };
+  const recs = puzzleRecords(); (recs[p.id] = recs[p.id] || { tries: 0, solves: 0 }).tries++; savePuzzleRecords(recs);
+  if (p.raft) { const [dx, dy] = WORLD.riverbank.feat.dock; enterScene('riverbank', dx + 1.2 * UNIT / W, dy + 1.4 * UNIT / H); startRaftRide(); }
+  else transitionTo(p.scene, p.at[0], p.at[1], true);
+}
+function updatePuzzle(dt) {
+  const pz = state.puzzle;
+  if (!pz || pz.solved) return;
+  if (pz.t0 == null && state.scene !== 'puzzlehub') { pz.t0 = state.time; state.enemies = []; }   // the clock starts on arrival, no monsters
+  if (pz.t0 != null && pz.p.solved()) {
+    pz.solved = true;
+    const t = state.time - pz.t0, recs = puzzleRecords(), r = recs[pz.p.id] || (recs[pz.p.id] = { tries: 0, solves: 0 });
+    r.solves++; const best = !r.best || t < r.best; if (best) r.best = +t.toFixed(1); savePuzzleRecords(recs);
+    sfx.victory();
+    showTitle('Solved', `${pz.p.name} in ${t.toFixed(1)}s${best ? ', a new best' : ''}`, 'relic', 3.5);
+    setTimeout(() => { if (state.puzzle === pz) transitionTo('puzzlehub', 0.5, 0.88); }, 4200);
+  }
+}
+function drawPuzzlePortals(sc) {
+  const recs = puzzleRecords();
+  for (const q of sc.feat.portals || []) {
+    const p = PUZZLES.find(o => o.id === q.pid), r = recs[p.id] || {}, x = q.fx * W, y = q.fy * H, u = UNIT, t = state.time;
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.35, u * 0.9, u * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = r.solves ? '#b8d8a0' : '#b0aaa0'; ctx.beginPath(); ctx.ellipse(x, y, u * 0.85, u * 0.5, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = `rgba(160,220,255,${0.5 + 0.3 * Math.sin(t * 3 + q.fx * 9)})`; ctx.lineWidth = 3; ctx.stroke();
+    ctx.font = `bold ${Math.round(Math.max(12, u * 0.36))}px "Courier New", monospace`; ctx.textAlign = 'center';
+    ctx.fillStyle = '#fdf6e3'; ctx.fillText(p.name, x, y - u * 0.9);
+    ctx.fillStyle = r.best ? '#ffe38a' : 'rgba(253,246,227,.55)';
+    ctx.fillText(r.best ? `best ${r.best}s \u00b7 ${r.solves}/${r.tries}` : r.tries ? `0/${r.tries}` : 'untried', x, y + u * 1.2);
+    ctx.textAlign = 'left';
   }
 }
 
@@ -6086,7 +6169,7 @@ function begin() {
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else startIntro();
   startMusic();
 }
 startEl.addEventListener('pointerdown', begin);
@@ -6117,7 +6200,7 @@ if (OVERVIEW) startOverview(PARAMS.get('overview'));
 else {
   const chosen = PARAMS.get('seed');
   resetRun(chosen && /^\d+$/.test(chosen) ? Number(chosen) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-  enterScene(ARENA ? 'arena' : 'camp');
+  enterScene(ARENA ? 'arena' : PUZZLE ? 'puzzlehub' : 'camp');
   state.cam.x = W / 2; state.cam.y = H / 2;
 }
 
