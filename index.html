@@ -476,15 +476,15 @@ function genWorld() {
   // Every crossing also has a way back: a strong north gust.
   // Higher up the mountain, some gusts are too strong (s 2): jump into one and it throws you back to the foothill farm.
   // Ride a gust by jumping while it blows.
-  const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 2 };
+  const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 1 };
   const FIELD = [
-    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 0.6 }, { a: Math.PI + 0.3, s: 0.6 }, { a: 0.3, s: 0.6 }, { a: Math.PI - 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
-    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 0.8 }, { a: Math.PI, s: 0.8 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
-    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
-    { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
-    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
-    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 0.5 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true, extra: TOO },
+    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
+    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
+    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
+    { msg: 'Two ravines', gusts: [{ a: 0, s: 1 }, { a: 0, s: 1 }, { a: 0.3, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
+    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
+    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true, extra: TOO },
   ];
   let north = [0.42, 0.58];
   FIELD.forEach((F, k) => {
@@ -547,7 +547,7 @@ function genWorld() {
   });
 
   // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
-  const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: Math.PI - 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }, { a: Math.PI + 0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
+  const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 1 }, { a: Math.PI - 0.2, s: 1 }, { a: -0.2, s: 1 }, { a: Math.PI + 0.2, s: 1 }], chasms: [], heroStart: [0.5, 0.3] }));
   foot.exits = [{ side: 'e', a: 0.4, b: 0.6, to: 'f1' }];
   foot.feat.plants = [];
   edgeWall(foot, 'n', 'boulder', 1.0, []); edgeWall(foot, 'w', 'boulder', 1.0, []); edgeWall(foot, 's', 'boulder', 1.0, []);
@@ -1427,6 +1427,9 @@ function update(dt) {
 
   // movement
   const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
+  if (h.ride && !h.ride.hop && pressedNow.act && h.z > UNIT * 0.3 && h.vig >= 0.8 && !state.carry) {   // stomp out of a gust
+    h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT;
+  }
   if (h.ride) updateRide(dt);
   else if (h.falling > 0) updateFall(dt);
   else if (h.dashT > 0) {
@@ -1451,7 +1454,7 @@ function update(dt) {
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
     h.x += h.vx * dt; h.y += h.vy * dt;
-    if (sc.gusts && state.gustPhase === 'blow' && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = 0.5 + (sc.depth || 0) * 0.15; h.x += w[0] * 0.12 * k * L() * dt; h.y += w[1] * 0.06 * k * L() * dt; }
+    if (sc.gusts && state.gustPhase === 'blow' && !onRock(sc, h.x, h.y)) { const w = gustVec(); h.x += w[0] * 0.09 * L() * dt; h.y += w[1] * 0.09 * L() * dt; }   // same push, same direction as the streaks
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
@@ -1687,14 +1690,9 @@ function hopToStone(sc) {
 }
 function rideGust(sc) {
   const h = state.hero, g = sc.gusts[state.gustIdx];
-  if (g.s >= 2) {                                 // too strong: it throws you off the mountain
-    h.ride = { t: 0, dur: 1.6, x0: h.x, y0: h.y, x1: h.x, y1: -UNIT * 4, blown: true };
-    sfx.whoosh(); sfx.whoosh(); state.shake = 0.5;
-    say('The wind is too strong!', h.x, h.y - UNIT * 1.3, { key: 'blown', life: 1.6, color: '#ffe38a' });
-    return;
-  }
-  const dist = H * (g.s >= 1 ? 0.3 : 0.14), dy = Math.cos(g.a) < 0 ? -dist : dist, dx = Math.tan(g.a) * dist;
-  h.ride = { t: 0, dur: 1.2 + g.s * 0.8, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
+  // every ride carries you the same distance, straight along the direction the streaks are going
+  const dist = H * 0.3, dx = Math.sin(g.a) * dist, dy = Math.cos(g.a) * dist;
+  h.ride = { t: 0, dur: 2, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
   h.invuln = 2.2; sfx.whoosh();
   zoomPulse(h.x, h.y, 'pickup');
 }
@@ -1738,7 +1736,7 @@ function updateFall(dt) {
 }
 
 // ---------------- wind: a schedule of gusts the windsock announces ----------------
-const gustVec = () => { const g = sceneDef().gusts[state.gustIdx]; return [Math.sin(g.a) * g.s, Math.cos(g.a) * g.s]; };
+const gustVec = () => { const g = sceneDef().gusts[state.gustIdx]; return [Math.sin(g.a), Math.cos(g.a)]; };   // every gust the same strength
 function updateWind(dt, sc) {
   state.gustT += dt;
   const T = { lull: 2.4, build: 1.2, blow: 1.4 };
@@ -1760,7 +1758,7 @@ function updateWind(dt, sc) {
     state.fx.push({ x: Math.random() * W - wx / mag * UNIT * 3, y: up, vx: wx / mag * L() * (0.5 + state.gust), vy: wy / mag * L() * (0.5 + state.gust), t: 0, life: 2.5, color: 'streak', size: UNIT * (0.8 + state.gust * 1.6) });
   }
   if (Math.random() < 0.05 + state.gust * 0.3) state.fx.push({ x: Math.random() * W, y: wy < 0 ? H + 10 : -10, vx: wx / mag * L() * 0.3, vy: wy / mag * L() * 0.3 + (wy < 0 ? -UNIT : UNIT), t: 0, life: 4, color: 'leaf', spin: Math.random() * 6 });
-  for (const c of state.clouds) { c.x += L() * 0.02 * dt * (wy < 0 ? -1 : 1); if (c.x > W + c.r) c.x = -c.r; if (c.x < -c.r) c.x = W + c.r; }
+  for (const c of state.clouds) { c.x += L() * 0.02 * dt * wx / mag; c.y += L() * 0.02 * dt * wy / mag; if (c.x > W + c.r) c.x = -c.r; if (c.x < -c.r) c.x = W + c.r; if (c.y > H + c.r) c.y = -c.r; if (c.y < -c.r) c.y = H + c.r; }
 }
 
 // =====================================================================
@@ -2291,7 +2289,7 @@ function updateFx(dt) {
 }
 
 function damage(e, amount, kind, nx, ny, bowl) {
-  e.hp -= amount;
+  e.hp -= amount; e.hitT = state.time;
   e.flash = kind === 'fire' ? 0.06 : 0.15;
   if (kind !== 'fire') { spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4); sfx.whack(); zoomPulse(e.x, e.y, 'hit'); }
   if (e.hp <= 0) return kill(e);
@@ -2361,6 +2359,12 @@ function updateEnemies(dt) {
     const ease = (tx, ty, rate) => { const k = 1 - Math.exp(-rate * dt); e.vx += (tx - e.vx) * k; e.vy += (ty - e.vy) * k; };
     e.t -= dt; e.cool -= dt; e.flash -= dt;
     if (e.mode === 'dead') { if (e.t <= 0) state.enemies.splice(i, 1); continue; }
+    if (e.falling > 0) {                                // tumbling into a ravine or the river
+      e.falling -= dt;
+      if (e.falling <= 0) { e.mode = 'dead'; e.dead = true; e.t = 0; if (e.idx >= 0) rtFor(state.scene).deadAt[e.idx] = state.playTime; }
+      continue;
+    }
+    const ox = e.x, oy = e.y;
     const burning = (e.burn || 0) > 0;
     if (burning) {
       e.burn -= dt;
@@ -2386,6 +2390,14 @@ function updateEnemies(dt) {
     const lunging = e.mode === 'lunge' || e.mode === 'charge';
     if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
     if (!escaping) bump = clampTo(e, e.r) || bump;
+    const scn = sceneDef();
+    if (ground && !escaping && e.type !== 'warden' && (scn.chasms || scn.river || scn.deep) && isChasm(e.x, e.y)) {
+      const carried = ['dart', 'charge', 'lunge', 'flee'].includes(e.mode) || state.time - (e.hitT || -9) < 0.8 || (e.panicT || 0) > 0;
+      if (carried) {                                   // no stopping at that speed: over the edge
+        e.falling = 0.7; e.vx *= 0.3; e.vy *= 0.3; sfx.plummet(); spark(e.x, e.y, 'rgba(160,140,110,.8)', 6, 2);
+        say('Over the edge!', e.x, e.y - UNIT, { key: 'fallen', life: 1.2, color: '#b8f28a' });
+      } else { e.x = ox; e.y = oy; e.vx *= -0.3; e.vy *= -0.3; }   // walking, it stops at the lip
+    }
     if (lunging && h.dashT > 0 && !state.dodged && dist < e.r + UNIT * 1.3) {
       state.dodged = true; state.slowmo = state.inv.step >= 2 ? 0.7 : 0.45;
       zoomPulse(h.x, h.y, 'parry'); sfx.flip();
@@ -4183,7 +4195,11 @@ function drawScene(sc) {
   const layer = [];
   for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') layer.push([s.y, () => drawTree(s)]);
   for (const pl of sc.pullables) layer.push([pl.fy * H + UNIT * 0.35, () => drawPullable(sc, pl)]);
-  for (const e of state.enemies) layer.push([e.y, () => drawEnemy(e)]);
+  for (const e of state.enemies) layer.push([e.y, () => {
+    if (e.falling > 0) {                               // shrinking away into the depths
+      const k = e.falling / 0.7; ctx.save(); ctx.globalAlpha = k; ctx.translate(e.x, e.y + (1 - k) * UNIT * 0.6); ctx.scale(k, k); ctx.translate(-e.x, -e.y); drawEnemy(e); ctx.restore();
+    } else drawEnemy(e);
+  }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
@@ -5331,7 +5347,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 42';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 43';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5519,7 +5535,7 @@ function genArena() {
   edgeWall(s, 'n', 'deadtree', 1.0, gap, 1.7, 'bog');
   // east: open field with gusts both ways
   const e = add(newScene({ id: 'arena_e', area: 'field', msg: 'Windy field', music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8, heroStart: [0.1, 0.5],
-    gusts: [{ a: -0.3, s: 0.7 }, { a: Math.PI + 0.3, s: 0.7 }, { a: 0.4, s: 0.6 }, { a: Math.PI - 0.2, s: 0.8 }], chasms: [], feat: { updrafts: [], plants: [[0.55, 0.3]] } }));
+    gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.4, s: 1 }, { a: Math.PI - 0.2, s: 1 }], chasms: [], feat: { updrafts: [], plants: [[0.55, 0.3]] } }));
   e.exits = [{ side: 'w', a: 0.42, b: 0.58, to: 'arena' }];
   for (const side of ['n', 's', 'e']) edgeWall(e, side, 'boulder', 1.0, [], 1.6);
   edgeWall(e, 'w', 'boulder', 1.0, gap, 1.6);
