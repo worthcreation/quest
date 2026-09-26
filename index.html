@@ -100,7 +100,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
-const BEANS = 5;              // always lying about the marsh: 1 on the toad's screen, 2 on each of the others
+const BEANS = 7;              // always lying about: 1 on the toad's screen, 2 on each other marsh screen, 1 on each of the first two swamp screens
 
 function edgePoint(side, along) {
   if (side === 'n') return [along, 0.03];
@@ -180,7 +180,7 @@ function decoFlowers(sc, n) {
 }
 // farm patches: a few tilled plots near the path; what grows depends on the region
 // spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
-const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]));
+const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
 function addPlots(sc, n, box) {
   sc.feat.plots = sc.feat.plots || [];
   const c = freeSpot(sc, box, 2.2, claimed(sc));
@@ -194,7 +194,10 @@ function addShroom(sc, spot, plots = 3) {
   if (plots) {
     sc.feat.plots = sc.feat.plots || [];
     const c = freeSpot(sc, [Math.max(0.12, p[0] - 0.2), Math.min(0.88, p[0] + 0.2), Math.max(0.15, p[1] - 0.25), Math.min(0.85, p[1] + 0.25)], 1.8, [[...p, 2], ...claimed(sc)]);
-    for (let i = 0; i < plots; i++) sc.feat.plots.push([c[0] + (i - 1) * 0.035, c[1]]);
+    for (let i = 0; i < plots; i++) {
+      const q = [c[0] + (i - 1) * 0.035, c[1]];
+      if (!sc.pools.some(o => Math.hypot((q[0] - o.fx) * W, (q[1] - o.fy) * H) < (o.r + 0.9) * UNIT)) sc.feat.plots.push(q);   // never in the water
+    }
   }
 }
 // ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
@@ -471,9 +474,9 @@ function genWorld() {
       sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.2, 2.1) });
     }
     scatter(sc, 2 + i, 'deadtree', 0.7, 1.0, 1.8, sc.pools.map(o => [o.fx, o.fy, o.r + 0.5]), [0.1, 0.9, 0.15, 0.85], 'bog');
-    if (i === 1) addShroom(sc);
     const lurkers = [1, 1, 2][i - 1];
     for (let l = 0; l < lurkers; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
+    if (i === 1) addShroom(sc);
     for (let b = 0; b < (i === 2 ? 1 : 2); b++) {
       const q = freeSpot(sc, [0.1, 0.9, 0.15, 0.85], 0.8, sc.pools.map(o => [o.fx, o.fy, o.r]).concat(npcSpot ? [[...npcSpot, 3]] : []));
       sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] });
@@ -499,16 +502,18 @@ function genWorld() {
     edgeWall(sc, 'e', 'deadtree', 1.0, [], 1.6, 'bog');
     const nPt = edgePoint('n', (north2[0] + north2[1]) / 2), sPt = south ? edgePoint('s', (south[0] + south[1]) / 2) : [0.5, 0.75];
     sc.paths = [makePath(nPt, sPt, 3)];
-    if (i === 2) addShroom(sc);
+    if (i === 2) sc.feat.shroomSpot = freeSpot(sc, [0.25, 0.75, 0.25, 0.75], 3, [[...nPt, 4], [...sPt, 4]]);
     if (last) { sc.feat.shrine = [0.5, 0.72]; sc.solids.push(solid(0.38, 0.72, 0.7, 'pillar', 'moss'), solid(0.62, 0.72, 0.7, 'pillar', 'moss')); }
     for (let p = 0; p < 4 + i; p++) {
-      const q = freeSpot(sc, [0.15, 0.85, 0.2, 0.8], 2.2, [[...nPt, 4], [...sPt, 3], ...(sc.feat.shroom ? [[...sc.feat.shroom, 4]] : []), ...(last ? [[0.5, 0.72, 4]] : []), ...sc.pools.map(o => [o.fx, o.fy, o.r + 1.5])]);
+      const q = freeSpot(sc, [0.15, 0.85, 0.2, 0.8], 2.2, [[...nPt, 4], [...sPt, 3], ...(sc.feat.shroomSpot ? [[...sc.feat.shroomSpot, 6]] : []), ...(last ? [[0.5, 0.72, 4]] : []), ...sc.pools.map(o => [o.fx, o.fy, o.r + 1.5])]);
       sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.3, 2.4) });
     }
     scatter(sc, 5 + i * 2, 'deadtree', 0.7, 1.1, 1.5, sc.pools.map(o => [o.fx, o.fy, o.r + 0.4]).concat(sc.feat.shroom ? [[...sc.feat.shroom, 3]] : []), [0.1, 0.9, 0.12, 0.88], 'bog');
+    if (i === 2) addShroom(sc, sc.feat.shroomSpot);
     const lurk = Math.min(sc.pools.length, i + 1);
     for (let l = 0; l < lurk; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
     for (const type of [['glowworm'], ['gremlin', 'glowworm'], ['gremlin', 'gremlin', 'glowworm']][i - 1]) { const q = freeSpot(sc, [0.2, 0.8, 0.3, 0.8], 1.2, [[...nPt, 5]]); sc.spawns.push({ type, fx: q[0], fy: q[1] }); }
+    if (i <= 2) { const q = freeSpot(sc, [0.15, 0.85, 0.2, 0.8], 0.8, sc.pools.map(o => [o.fx, o.fy, o.r])); sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] }); }
     if (last) sc.initItems.push({ type: 'recipe_star', fx: 0.5, fy: 0.64 }, { type: 'starseed', fx: 0.5, fy: 0.7 }, { type: 'emberseed', fx: 0.46, fy: 0.76 }, { type: 'ironseed', fx: 0.54, fy: 0.76 });
     for (let t = 0; t < 60; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
     if (south) north2 = south;
@@ -2479,7 +2484,7 @@ function npcLines(n) {
     if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'].concat(inv.pipSaved ? ['And stay off those purple mushroom spores. Last time I sniffed a pile of them I woke up in a cave.'] : []), then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
     if (!rt.flags.metToad) { rt.flags.metToad = true; return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
-    return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
+    return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`].concat(inv.beans >= 5 ? ['A couple rolled south, down into the swamp. Mind the lurkers.'] : []) };
   }
   if (n.kind === 'tortoise') {
     if (inv.tortoise) return { lines: [inv.pipSaved ? pick(['Slow and steady, young one.', 'Spores, is it? Skipping all that lovely walking. Hmph.']) : 'Slow and steady, young one.'] };
@@ -3017,7 +3022,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 10, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 11, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3029,7 +3034,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 10) return false;
+  if (!d || !d.seed || d.v !== 11) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3068,6 +3073,7 @@ function inventoryLines() {
   }
   sec('You');
   L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
+  L2.push([null, `World seed ${SEED}`, `Open the game with ?overview=${SEED} to see this world as a map.`]);
   L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
   if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
   return L2;
@@ -3215,6 +3221,7 @@ function drawScene(sc) {
   drawGround(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
+  drawPlots(sc);
   drawWebs();
   drawItems();
   drawGas(false);
@@ -3337,23 +3344,6 @@ function drawGround(sc) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
       if (d.kind === 'grass') { ctx.strokeStyle = sc.area === 'woods' ? '#24552c' : '#357a40'; ctx.lineWidth = 1.5; const x = d.fx * W, y = d.fy * H, s = UNIT * 0.3 * d.s; ctx.beginPath(); ctx.moveTo(x - s * 0.4, y); ctx.lineTo(x - s * 0.6, y - s); ctx.moveTo(x, y); ctx.lineTo(x, y - s * 1.2); ctx.moveTo(x + s * 0.4, y); ctx.lineTo(x + s * 0.6, y - s); ctx.stroke(); }
     }
-    if (f.plots) {
-      const plots = rtFor(sc.id).flags.plots || [];
-      f.plots.forEach(([px, py], i) => {
-        const x = px * W, y = py * H, p = plots[i] || { s: 0 }, st = plotStage(p);
-        ctx.fillStyle = '#5a3f26'; ctx.fillRect(x - UNIT * 0.45, y - UNIT * 0.35, UNIT * 0.9, UNIT * 0.7);
-        ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2;
-        for (const o of [-0.2, 0, 0.2]) { ctx.beginPath(); ctx.moveTo(x - UNIT * 0.4, y + o * UNIT); ctx.lineTo(x + UNIT * 0.4, y + o * UNIT); ctx.stroke(); }
-        const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
-        if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
-          ctx.save(); ctx.translate(x, y);
-          ctx.strokeStyle = S.color; ctx.lineWidth = 2;
-          for (let b = -1; b <= 1; b++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(b * UNIT * 0.2, -UNIT * 0.3 * st, b * UNIT * 0.25, -UNIT * 0.25 * st); ctx.stroke(); }
-          if (st >= 3) { drawItemIcon(S.yields[0], 0, -UNIT * 0.8, UNIT * 0.7); if (Math.sin(state.time * 3 + i) > 0.9) spark(x, y - UNIT * 0.8, S.color, 1, 1); }
-          ctx.restore();
-        } else if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
-      });
-    }
     for (const p of f.plates || []) {                // stone plates, sunk and glowing when held down
       const x = p.fx * W, y = p.fy * H, on = state.plateOn[p.id];
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.85, UNIT * 0.45, 0, 0, 6.28); ctx.fill();
@@ -3419,6 +3409,9 @@ function drawGround(sc) {
 function drawPools(sc) {
   for (const p of state.pools) {
     ctx.fillStyle = sc.area === 'hollow' ? '#0f1512' : '#1c2a24'; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * 0.7, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = sc.area === 'hollow' ? 'rgba(60,90,90,.25)' : 'rgba(90,140,150,.3)';        // water sheen
+    ctx.beginPath(); ctx.ellipse(p.x - p.r * 0.2, p.y - p.r * 0.18, p.r * 0.55, p.r * 0.22, -0.2, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,55,40,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r, p.r * 0.7, 0, 0, 6.28); ctx.stroke();   // muddy bank
     ctx.strokeStyle = 'rgba(150,180,160,.25)'; ctx.lineWidth = 1.5;
     const k = (state.time * 0.4 + p.x) % 1;
     ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 0.5 * (0.5 + k), p.r * 0.35 * (0.5 + k), 0, 0, 6.28); ctx.stroke();
@@ -3441,6 +3434,30 @@ function drawGustGrass(x, y, sc) {
   }
   ctx.lineCap = 'butt';
 }
+
+// tilled plots: a wooden frame with corner stakes around furrowed soil, in every region
+function drawPlots(sc) {
+  const f = sc.feat;
+  if (!f.plots) return;
+      const plots = rtFor(sc.id).flags.plots || [];
+      f.plots.forEach(([px, py], i) => {
+        const x = px * W, y = py * H, p = plots[i] || { s: 0 }, st = plotStage(p);
+        ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - UNIT * 0.5 + 2, y - UNIT * 0.4 + 3, UNIT, UNIT * 0.8);
+        ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - UNIT * 0.45, y - UNIT * 0.35, UNIT * 0.9, UNIT * 0.7);
+        ctx.strokeStyle = '#4e331b'; ctx.lineWidth = 2;
+        for (const o of [-0.2, 0, 0.2]) { ctx.beginPath(); ctx.moveTo(x - UNIT * 0.38, y + o * UNIT); ctx.lineTo(x + UNIT * 0.38, y + o * UNIT); ctx.stroke(); }
+        ctx.strokeStyle = '#a07a48'; ctx.lineWidth = 3; ctx.strokeRect(x - UNIT * 0.47, y - UNIT * 0.37, UNIT * 0.94, UNIT * 0.74);   // wooden frame
+        ctx.fillStyle = '#c9a46a'; for (const [cx, cy] of [[-0.47, -0.37], [0.47, -0.37], [-0.47, 0.37], [0.47, 0.37]]) ctx.fillRect(x + cx * UNIT - 2.5, y + cy * UNIT - 5, 5, 7);
+        const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
+        if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
+          ctx.save(); ctx.translate(x, y);
+          ctx.strokeStyle = S.color; ctx.lineWidth = 2;
+          for (let b = -1; b <= 1; b++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(b * UNIT * 0.2, -UNIT * 0.3 * st, b * UNIT * 0.25, -UNIT * 0.25 * st); ctx.stroke(); }
+          if (st >= 3) { drawItemIcon(S.yields[0], 0, -UNIT * 0.8, UNIT * 0.7); if (Math.sin(state.time * 3 + i) > 0.9) spark(x, y - UNIT * 0.8, S.color, 1, 1); }
+          ctx.restore();
+        } else if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
+      });
+    }
 
 // ---------------- trees and solids ----------------
 function drawShadows() {
@@ -3968,6 +3985,104 @@ function drawMenu() {
 }
 
 // =====================================================================
+// World overview: every screen of one seed laid out as a map.
+// Open index.html?overview for a random world or ?overview=12345 for a seed.
+// =====================================================================
+const MAP_LAYOUT = {
+  camp: [3, 0],
+  meadow: [2, 1], start: [3, 1], w1: [4, 1], w2: [5, 1], w3: [6, 1],
+  foot: [2, 2], f1: [3, 2], f2: [3, 3], f3: [3, 4], f4: [3, 5], f5: [3, 6], f6: [3, 7], f7: [3, 8],
+  c1: [6, 2], c2: [6, 3], c3: [6, 4], c4: [6, 5], c5: [6, 6], c6: [6, 7], c7: [6, 8],
+  m1: [7, 8], m2: [8, 8], m3: [9, 8], h1: [10, 8], h2: [11, 8], h3: [12, 8],
+  sw1: [8, 9], sw2: [8, 10], sw3: [8, 11],
+};
+const MAP_NAMES = { camp: 'Home camp', start: 'The glade', meadow: 'Meadow', foot: 'Foothill farm' };
+const REGION_COLOR = { forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
+
+function renderOverview(seed) {
+  const TW = 256, TH = 160, GAP = 40, M = 60, HEAD = 110;
+  const cols = 13, rows = 12;
+  resetRun(seed);
+  W = GEN.W; H = GEN.H; computeUnit();
+  lightCv.width = W / 2; lightCv.height = H / 2;
+  const OW = M * 2 + cols * TW + (cols - 1) * GAP, OH = M * 2 + HEAD + rows * TH + (rows - 1) * GAP;
+  canvas.width = OW; canvas.height = OH;
+  const at = id => { const [c, r] = MAP_LAYOUT[id]; return [M + c * (TW + GAP), M + HEAD + r * (TH + GAP)]; };
+  const center = id => { const [x, y] = at(id); return [x + TW / 2, y + TH / 2]; };
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#14121a'; ctx.fillRect(0, 0, OW, OH);
+  ctx.fillStyle = '#fdf6e3'; ctx.font = 'bold 44px Georgia, serif'; ctx.fillText('Quest: world overview', M, M + 40);
+  ctx.font = '22px "Courier New", monospace'; ctx.fillStyle = '#d8d0c0';
+  ctx.fillText(`seed ${seed}   ·   ${Object.keys(MAP_LAYOUT).length} screens   ·   lines are walkable connections, dashed is the sinkhole`, M, M + 80);
+  let lx = M + 1900;
+  for (const [area, col] of Object.entries(REGION_COLOR)) { ctx.fillStyle = col; ctx.fillRect(lx, M + 62, 22, 22); ctx.fillStyle = '#d8d0c0'; ctx.fillText(AREA_NAMES[area].replace('The ', ''), lx + 30, M + 80); lx += 30 + ctx.measureText(AREA_NAMES[area].replace('The ', '')).width + 34; }
+
+  // connections first, underneath the screens
+  const drawn = new Set();
+  ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) {
+    const key = [id, ex.to].sort().join('-');
+    if (drawn.has(key) || !MAP_LAYOUT[ex.to]) continue;
+    drawn.add(key);
+    const [ax, ay] = center(id), [bx, by] = center(ex.to);
+    ctx.strokeStyle = ex.locked ? '#a0885a' : '#6a6478';
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+  }
+  ctx.setLineDash([14, 12]); ctx.strokeStyle = '#8a7aa8';
+  { const [ax, ay] = center('w3'), [bx, by] = center('c1'); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
+  ctx.setLineDash([]);
+
+  // each screen, drawn by the game's own painter at thumbnail scale
+  const s = TW / W;
+  for (const id of Object.keys(MAP_LAYOUT)) {
+    const sc = WORLD[id];
+    enterScene(id);
+    const h = state.hero; h.x = -9999; h.y = -9999;
+    state.texts = []; state.title = null; state.fx = []; state.glimpse = null;
+    const shade = sc.shade; sc.shade = Math.min(shade || 0, 0.35);   // dim, not black, so dark screens can be read
+    const [x, y] = at(id);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, TW, TH); ctx.clip();
+    ctx.setTransform(s, 0, 0, s, x, y);
+    try { drawScene(sc); } catch (e) { console.error('overview', id, e); }
+    ctx.restore();
+    sc.shade = shade;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.strokeStyle = REGION_COLOR[sc.area] || '#888'; ctx.lineWidth = 4; ctx.strokeRect(x - 2, y - 2, TW + 4, TH + 4);
+    // label and notes
+    const notes = [];
+    if (sc.feat.shroom) notes.push('mushroom');
+    if (sc.feat.plots && sc.feat.plots.length) notes.push(`${sc.feat.plots.length} plots`);
+    const beans = sc.initItems.filter(i => i.type === 'bean').length; if (beans) notes.push(`${beans} bean${beans > 1 ? 's' : ''}`);
+    if (sc.spawns.length) notes.push(`${sc.spawns.length} foe${sc.spawns.length > 1 ? 's' : ''}`);
+    ctx.fillStyle = 'rgba(10,8,14,.78)'; ctx.fillRect(x, y + TH - 26, TW, 26);
+    ctx.fillStyle = '#fdf6e3'; ctx.font = 'bold 15px "Courier New", monospace';
+    ctx.fillText(`${id}  ${MAP_NAMES[id] || ''}`.trim(), x + 6, y + TH - 9);
+    ctx.fillStyle = '#c9c0a8'; ctx.font = '12px "Courier New", monospace';
+    const n = notes.join(', '); ctx.fillText(n, x + TW - 6 - ctx.measureText(n).width, y + TH - 9);
+  }
+  return { width: OW, height: OH };
+}
+
+// in the browser: ?overview shows the map instead of the game
+function startOverview(param) {
+  const seed = param && /^\d+$/.test(param) ? Number(param) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+  document.querySelectorAll('#pad, .abtn, #start, #fsTip').forEach(el => el.remove && el.remove());
+  const meta = document.querySelector('meta[name="viewport"]'); if (meta) meta.setAttribute('content', 'width=device-width, initial-scale=0.3');
+  document.documentElement.style.overflow = 'auto'; document.body.style.overflow = 'auto'; document.body.style.touchAction = 'auto'; document.body.style.height = 'auto';
+  const size = renderOverview(seed);
+  canvas.style.position = 'static'; canvas.style.width = size.width + 'px'; canvas.style.height = size.height + 'px';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;top:10px;right:10px;display:flex;gap:8px;font:14px "Courier New",monospace;z-index:9';
+  const btn = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.style.cssText = 'background:#2a2632;color:#fdf6e3;border:0;border-radius:6px;padding:8px 12px;font:inherit'; b.onclick = fn; bar.appendChild(b); };
+  btn('Download PNG', () => { const a = document.createElement('a'); a.download = `quest-map-${seed}.png`; a.href = canvas.toDataURL('image/png'); a.click(); });
+  btn('New seed', () => { location.search = '?overview'; });
+  btn('Play this world', () => { location.search = `?seed=${seed}`; });
+  document.body.appendChild(bar);
+}
+
+// =====================================================================
 // Drawing
 // =====================================================================
 // ---------- shared pieces ----------
@@ -4454,13 +4569,14 @@ function begin() {
   startMusic();
 }
 startEl.addEventListener('pointerdown', begin);
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { if (!OVERVIEW) resize(); });
 
 function resizeCanvasOnly() {
   canvas.width = W * DPR; canvas.height = H * DPR;
   lightCv.width = Math.ceil(W / 2); lightCv.height = Math.ceil(H / 2);
 }
 function resize() {
+  if (OVERVIEW) return;                              // the map page keeps its own size
   const oW = W, oH = H;
   DPR = window.devicePixelRatio || 1;
   W = window.innerWidth; H = window.innerHeight;
@@ -4471,11 +4587,17 @@ function resize() {
   refreshSceneGeometry();
 }
 
+const PARAMS = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams('');
+var OVERVIEW = PARAMS.has('overview');
 resizeCanvasOnly();
 loadSettings();
-resetRun((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-enterScene('camp');
-state.cam.x = W / 2; state.cam.y = H / 2;
+if (OVERVIEW) startOverview(PARAMS.get('overview'));
+else {
+  const chosen = PARAMS.get('seed');
+  resetRun(chosen && /^\d+$/.test(chosen) ? Number(chosen) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
+  enterScene('camp');
+  state.cam.x = W / 2; state.cam.y = H / 2;
+}
 
 let last = performance.now();
 function loop(now) {
@@ -4485,7 +4607,7 @@ function loop(now) {
   try { update(dt); draw(); } catch (e) { if (!loop.warned) { loop.warned = true; console.error('Frame error (game continues):', e); } }
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
+if (!OVERVIEW) requestAnimationFrame(loop);
 </script>
 </body>
 </html>
