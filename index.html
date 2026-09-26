@@ -1251,7 +1251,7 @@ function enterScene(id, fx, fy) {
   state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
   state.bird = id === 'meadow' ? makeBird() : null;
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
-  state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0;
+  state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0;
   state.plateOn = {}; updatePlates(true);
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
@@ -1449,6 +1449,10 @@ function update(dt) {
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
+    if (h.z > 0 && h.vz < 0) {                         // coming down over a stepping stone or a rock bank: settle onto it, don't sail past
+      const sc2 = sceneDef(), spots = (sc2.rocks || []).filter(r => r.island).map(r => [r.fx, r.fy, r.r]).concat(sc2.river && sc2.river.stones ? sc2.river.stones : []);
+      if (spots.some(([fx, fy, rU]) => Math.hypot(h.x - fx * W, h.y - fy * H) < rU * UNIT * 0.7) && !spots.some(([fx, fy]) => Math.hypot(h.x - fx * W, h.y - fy * H) < 1)) { h.vx *= 0.4; h.vy *= 0.4; }
+    }
     if (h.z > 0) {                                     // in the air you only carry so far, then drop
       const step = Math.hypot(h.vx, h.vy) * dt, left = jumpReach() * UNIT - (h.airDist || 0);
       if (left <= 0) { h.vx = 0; h.vy = 0; }
@@ -1456,7 +1460,7 @@ function update(dt) {
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
     h.x += h.vx * dt; h.y += h.vy * dt;
-    if (sc.gusts && state.gustPhase === 'blow' && !onRock(sc, h.x, h.y)) { const w = gustVec(); h.x += w[0] * 0.09 * L() * dt; h.y += w[1] * 0.09 * L() * dt; }   // same push, same direction as the streaks
+    if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
@@ -1745,14 +1749,16 @@ function updateFall(dt) {
 const gustVec = () => { const g = sceneDef().gusts[state.gustIdx]; return [Math.sin(g.a), Math.cos(g.a)]; };   // every gust the same strength
 function updateWind(dt, sc) {
   state.gustT += dt;
-  const T = { lull: 2.4, build: 1.2, blow: 1.4 };
+  const SEQ = ['lull', 'gentle', 'lull', 'gentle', 'lull', 'blow'], T = { lull: 1.3, gentle: 1.1, blow: 1.8 };
   if (state.gustT > T[state.gustPhase]) {
     state.gustT = 0;
-    if (state.gustPhase === 'lull') { state.gustPhase = 'build'; state.gustIdx = (state.gustIdx + 1) % sc.gusts.length; sfx.tock(); }
-    else if (state.gustPhase === 'build') { state.gustPhase = 'blow'; sfx.whoosh(); }
-    else state.gustPhase = 'lull';
+    state.gustStep = ((state.gustStep || 0) + 1) % SEQ.length;
+    state.gustPhase = SEQ[state.gustStep];
+    if (state.gustStep === 1) state.gustIdx = (state.gustIdx + 1) % sc.gusts.length;   // a new series, maybe a new direction
+    if (state.gustPhase === 'gentle') sfx.whoosh();
+    if (state.gustPhase === 'blow') { sfx.whoosh(); sfx.whoosh(); state.shake = Math.max(state.shake, 0.12); }
   }
-  const target = state.gustPhase === 'blow' ? 1 : state.gustPhase === 'build' ? 0.35 : 0.1;
+  const target = state.gustPhase === 'blow' ? 1 : state.gustPhase === 'gentle' ? 0.4 : 0.08;
   state.gust += (target - state.gust) * (1 - Math.exp(-4 * dt));
   const g = sc.gusts[state.gustIdx];
   ambLevel(0.04 + state.gust * g.s * 0.2, 380 + state.gust * g.s * 800);
@@ -4205,7 +4211,7 @@ function drawScene(sc) {
   drawRiverQuest(sc);
   if (sc.feat.signs) drawArenaSigns(sc);
   if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
-  if (sc.gusts && sc.feat.vane) { drawVane(sc); drawWindPath(sc); }
+  if (sc.gusts) drawLandingShadow();
   if (sc.feat.portals) drawPuzzlePortals(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
@@ -4634,7 +4640,7 @@ function drawRiverQuest(sc) {
 // tall grass by each updraft: it leans the way the next gust will blow, harder for stronger gusts
 function drawGustGrass(x, y, sc) {
   const g = sc.gusts[state.gustIdx];
-  const up = state.gustPhase === 'blow' ? 1 : state.gustPhase === 'build' ? 0.75 : 0.12;
+  const up = state.gust;                               // the plants are the gauge: a gentle lean, then flattened by the strong gust
   const lean = up * g.s, wx = Math.sin(g.a), wy = Math.cos(g.a);
   ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.6, UNIT * 0.18, 0, 0, 6.28); ctx.fill();
   ctx.lineCap = 'round';
@@ -4890,7 +4896,7 @@ function drawHero() {
   const sp = Math.hypot(h.vx, h.vy), stretch = Math.min(0.18, sp / 3000);
   const pw = UNIT * (1 + stretch * Math.abs(h.vx) / (sp || 1)), ph = UNIT * (1 + stretch * Math.abs(h.vy) / (sp || 1));
   const y = h.y - h.z, sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + ph * 0.45, pw * 0.55 * sh, pw * 0.2 * sh, 0, 0, 6.28); ctx.fill();
+  if (!(h.ride && h.ride.wind)) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + ph * 0.45, pw * 0.55 * sh, pw * 0.2 * sh, 0, 0, 6.28); ctx.fill(); }
   if (blink) return;
   if (state.hold.charged) { ctx.fillStyle = `rgba(255,240,180,${0.35 + 0.25 * Math.sin(state.time * 30)})`; ctx.fillRect(h.x - pw / 2 - 3, y - ph / 2 - 3, pw + 6, ph + 6); }
   const heroic = state.cut && state.cut.type === 'sword';
@@ -5323,8 +5329,8 @@ function tipLibrary() {
     `${K.eat} eats. Choose which food comes first in the Food tab.`,
     `Carrying a rock: hold ${K.act} to aim, tap to set it down.`,
     'More max vigor means longer, higher jumps.',
-    'On the mountain, the weathervane turns to where the next gust will blow. Its ring fills as the gust comes.',
-    'While a gust builds, dots show where a ride would land. Jump when it blows and you land right there.',
+    'Mountain gusts come in threes: two gentle, then a strong one from the same way. Watch the tall grass.',
+    'Jump any time during the strong gust and it carries you to the next ledge downwind.',
     'The wind can\'t move you on a grassy ledge or a rock. Wait there for the gust you want.',
     'Turnips raise your max vigor for good.',
     'When vigor runs low every swing is slow and weak. Rest a moment.',
@@ -5373,7 +5379,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 47';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 48';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -5882,7 +5888,7 @@ function drawHeroModelInWorld(h, heroic) {
   const u = UNIT * (h.falling > 0 ? Math.max(0.05, h.falling / 0.8) : 1);
   const footY = h.y + UNIT * 0.42 - h.z + (h.falling > 0 ? (1 - h.falling / 0.8) * UNIT : 0);
   ctx.fillStyle = 'rgba(0,0,0,.22)'; const sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
-  ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + UNIT * 0.42, UNIT * 0.42 * sh, UNIT * 0.14 * sh, 0, 0, 6.28); ctx.fill();
+  if (!(h.ride && h.ride.wind)) { ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + UNIT * 0.42, UNIT * 0.42 * sh, UNIT * 0.14 * sh, 0, 0, 6.28); ctx.fill(); }
   if (!state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2) return;
   if (state.hold.charged) { ctx.fillStyle = `rgba(255,240,180,${0.3 + 0.2 * Math.sin(state.time * 30)})`; ctx.beginPath(); ctx.ellipse(h.x, footY - UNIT * 0.7, UNIT * 0.6, UNIT * 0.9, 0, 0, 6.28); ctx.fill(); }
   const info = drawHeroModel(h.x, footY, u, pose, k, view, flip, state.time, h.walkPh);
@@ -5944,7 +5950,7 @@ function layoutLedges(sc) {
     const x = fx * W, y = vy * H - UNIT * 0.4;
     if (!isChasm(x, y, UNIT) && !state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.4) && !sc.rocks.some(r => r.ledge && Math.hypot(r.fx * W - x, r.fy * H - y) < UNIT * 1.6)) { vane = [fx, y / H]; break; }
   }
-  sc.feat.vane = vane || [0.5, vy];
+  sc.feat.vane = null;                                // no vane: the plants tell you
 }
 // where a gust ride from here would land: the nearest ledge within a cone around the wind's direction
 function windTarget(sc, from) {
@@ -6041,6 +6047,17 @@ function drawLedge(x, y, R) {
   ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.15, R, R * 0.58, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = '#7a9a48'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.95, R * 0.5, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = 'rgba(150,120,80,.55)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.02, R * 0.45, R * 0.2, 0, 0, 6.28); ctx.fill();
+}
+// the landing shadow: nothing on the way up; from the top of the arc a small shadow appears where you'll land,
+// growing to your full size as you come down onto it
+function drawLandingShadow() {
+  const h = state.hero, r = h.ride;
+  if (!r || !r.wind) return;
+  const p = Math.min(1, r.t / r.dur);
+  if (p < 0.5) return;
+  const k = 0.15 + 0.85 * ((p - 0.5) / 0.5);
+  ctx.fillStyle = `rgba(0,0,0,${0.3 + 0.2 * k})`;
+  ctx.beginPath(); ctx.ellipse(r.x1 + 2, r.y1 + UNIT * 0.45, UNIT * 0.55 * k, UNIT * 0.2 * k, 0, 0, 6.28); ctx.fill();
 }
 // during a ride: the edges of the screen dim so the crossing is the focus
 function drawRideVignette() {
