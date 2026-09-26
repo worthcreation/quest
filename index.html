@@ -1133,16 +1133,24 @@ const toScreen = (x, y) => [(x - state.cam.ex) * state.cam.ez + W / 2, (y - stat
 // =====================================================================
 // Floating text, anchored near whatever it talks about
 // =====================================================================
+// Minimal text: tips never appear in the world (they scroll along the bottom of the menu instead),
+// "F to do something" prompts shrink to a key badge, and while someone is talking, hints and titles wait.
+const SPEECH = new Set(['pip', 'npc']);
+function rememberTip(text) { const p = state.tipPool || (state.tipPool = []); if (!p.includes(text)) p.push(text); }
+function promptKey(text) {
+  for (const k of Object.values(K).filter(Boolean).sort((a, b) => b.length - a.length)) if (text.startsWith(k + ' to ') || text.startsWith(k + ' now to ')) return k;
+  return null;
+}
+function speakingNow() { return !!state.npcTalk || state.texts.some(t => SPEECH.has(t.key) && t.t < t.life - 0.3); }
 function say(text, x, y, opts = {}) {
-  if (opts.tip) {
-    if (state.settings.tips === 'intro' && state.tipsSeen[opts.tip]) return;
-    state.tipsSeen[opts.tip] = true;
-  }
+  if (opts.tip) { rememberTip(text); return; }
+  const badge = promptKey(text);
+  if (badge) rememberTip(text);
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
     const o = state.texts.find(o => o.key === opts.key && o.text === text);
     if (o) { o.x = x; o.y = y; o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
   }
-  const t = { text, x, y, t: 0, life: opts.life || 3.2, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3' };
+  const t = { text, x, y, t: 0, life: opts.life || 3.2, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
@@ -1153,7 +1161,11 @@ function say(text, x, y, opts = {}) {
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
-function showTitle(text, sub, style = 'area', life = 3) { state.title = { text, sub, style, t: 0, life }; }
+function showTitle(text, sub, style = 'area', life = 3) {
+  const t = { text, sub, style, t: 0, life, at: state.time };
+  if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
+  state.title = t;
+}
 
 // =====================================================================
 // Scenes: entering, leaving, geometry
@@ -1220,8 +1232,9 @@ function enterScene(id, fx, fy) {
   state.entry = { id, fx: pos[0], fy: pos[1] };
   state.enterT = state.time;
 
+  let titled = false;
   if (state.area !== sc.area) {
-    state.area = sc.area;
+    state.area = sc.area; titled = true;
     showTitle(AREA_NAMES[sc.area], null, 'area', 2.8);
     zoomPulse(h.x, h.y, 'title');
   }
@@ -1251,7 +1264,7 @@ function enterScene(id, fx, fy) {
     else say('Cornered! It won\'t give the journal up without a fight.', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 3, color: '#ffe38a' });
   }
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
-  if (sc.msg && !state.seen[id] && !pipWithYou()) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
+  if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
   if (pipWithYou()) placePipNearHero();
   const bossAlive = id === 'c7' && !rt.bossDead;
@@ -2630,6 +2643,10 @@ function updateBird(dt) {
 
 // floating text timers
 function updateTexts(dt) {
+  if (!state.title && state.titleQ && state.titleQ.length && !speakingNow()) {
+    const t = state.titleQ.shift();
+    if (t.style !== 'area' || state.time - t.at < 8) { t.t = 0; state.title = t; }   // stale place names are dropped
+  }
   for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life) state.texts.splice(i, 1); }
   if (state.title) { state.title.t += dt; if (state.title.t > state.title.life) state.title = null; }
 }
@@ -3300,7 +3317,7 @@ function pipSay(key, text) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
   if (tips[key] || state.time - (state.pipTalkT || -9) < 3.2) return false;
   tips[key] = true; state.pipTalkT = state.time;
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(7, 2.4 + text.length / 20), color: '#bfe4ff' });
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
   return true;
 }
 function updatePip(dt) {
@@ -3320,35 +3337,35 @@ function updatePip(dt) {
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
   if (Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();       // got stuck behind something: catch up
   const home = ['camp', 'start', 'meadow', 'w1', 'w2'];
-  if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, sc.area === 'field' ? 'The mountain? Fun, but the woods are back north, past the glade.' : 'Pretty out here! The woods are back the other way, though.'); }
+  if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   if (sc.id === 'camp') {
-    pipSay('go', TOUCH ? 'Use the pad to walk. The glade is south, come on!' : 'Arrow keys to walk. The glade is south, come on!');
-    if (f.bench && near(...f.bench, 3)) pipSay('bench', 'My workbench. Bring back the right bits and we can make things here.');
-    if (f.plots && f.plots.some(q => near(...q, 2))) pipSay('plots', `Tilled soil. Birds drop seeds when you startle them. Plant them here with ${K.act}.`);
-    if (f.shroom && near(...f.shroom, 3.5)) pipSay('shroom', 'That big mushroom hums at night. Creepy, right?');
+    pipSay('go', 'The glade\'s south. Come on!');
+    if (f.bench && near(...f.bench, 3)) pipSay('bench', 'My workbench. We can make stuff here.');
+    if (f.plots && f.plots.some(q => near(...q, 2))) pipSay('plots', 'Plant seeds here.');
+    if (f.shroom && near(...f.shroom, 3.5)) pipSay('shroom', 'That mushroom hums at night.');
   }
   if (sc.id === 'start') {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
     if (!rt.flags.thicket) {
-      pipSay('brambles', 'Brambles block the woods to the east. We need something heavy to smash through.');
-      if (rock && !loose && !state.carry && near(rock.fx, rock.fy, 4)) pipSay('pull', `Grab that rock: hold ${K.act} on it and pull away. Wiggle it loose!`);
-      if (state.carry) pipSay('throw', `Now hold ${K.act} to aim, and let go to throw it at the brambles!`);
+      pipSay('brambles', 'Brambles. We need something heavy.');
+      if (rock && !loose && !state.carry && near(rock.fx, rock.fy, 4)) pipSay('pull', 'Pull that rock loose!');
+      if (state.carry) pipSay('throw', 'Throw it at the brambles!');
     } else {
-      pipSay('smashed', 'Ha! Right through. The woods are east.');
-      pipSay('jump', `${K.jump} jumps. Jump, then ${K.act} in the air to stomp. It shakes acorns out of trees.`);
+      pipSay('smashed', 'Ha! The woods are east.');
+      pipSay('jump', 'Stomp by a tree for acorns.');
     }
   }
-  if (sc.id === 'meadow') pipSay('robin', 'See the robin in that dead tree? Startle a bird and it drops a seed.');
+  if (sc.id === 'meadow') pipSay('robin', 'Startle that robin for a seed.');
   if (sc.id === 'w1') {
     if (!state.plateOn.p1) {
-      pipSay('gate', 'A log gate. That flat stone opens it, but only while something heavy sits on it.');
-      if (state.carry) pipSay('setdown', `Carry it onto the stone, then tap ${K.act} to set it down.`);
-    } else pipSay('opened', 'It held! Onward.');
+      pipSay('gate', 'Weigh down that stone to open the gate.');
+      if (state.carry) pipSay('setdown', 'Set it on the stone.');
+    } else pipSay('opened', 'Onward!');
   }
   if (sc.id === 'w2') {
-    if (!state.plateOn.p2) pipSay('ring', 'This stone is inside a ring of rocks. You can\'t carry it over... so throw it in!');
+    if (!state.plateOn.p2) pipSay('ring', 'Throw it over the ring!');
     else if (!state.cut) startAbduct();              // the gate groans open, and they were waiting
   }
 }
@@ -3614,7 +3631,6 @@ const SYSTEM_ITEMS = () => [
   ['keys', 'Controls'],
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
-  ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
   ['new', 'New adventure'],
 ];
 const SYS_TAB = () => PACK_TABS.indexOf('System');
@@ -4896,17 +4912,11 @@ function drawHUD() {
   };
   if (inv.scalp) slot('scalp');
   if (inv.horn) slot('horn', 'I'.repeat(inv.horn));
-  if (inv.step) slot('step', K.dash + ' ' + 'I'.repeat(inv.step));
+  if (inv.step) slot('step', 'I'.repeat(inv.step));
   if (inv.silk) slot('silk', 'I'.repeat(inv.silk));
-  if (inv.fire) slot('fire', K.fire);
-  if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `${K.eat} x${inv.food.length}`);
+  if (inv.fire) slot('fire', null);
+  if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `x${inv.food.length}`);
   if (inv.acorns) slot('acorn', `x${inv.acorns}`);
-  if (inv.sword && inv.acorns) {                                // what F does right now
-    ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2;
-    const idx = state.equip === 'acorn' ? 'acorn' : null;
-    ctx.font = `bold ${Math.round(s * 0.42)}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a';
-    ctx.fillText(`${K.swap}: ${state.equip === 'acorn' ? 'acorns' : 'sword'}`, x0, y + s * 2.1);
-  }
   const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
   if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
@@ -4985,7 +4995,7 @@ function drawPack(m, x, y, pw, fs) {
     });
     if (m.note) { ctx.fillStyle = '#b8f28a'; ctx.fillText(m.note, W / 2, y + items.length * (rh + 4) + fs * 1.4); }
     ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
-    ctx.fillText(TOUCH ? 'tap to choose' : `\u2191 \u2193 to move \u00b7 ${K.act} to choose \u00b7 ${K.menu} closes`, W / 2, H - fs * 0.8);
+    drawTipMarquee(fs);
     return;
   }
   if (tab === 'Map') {
@@ -5039,7 +5049,45 @@ function drawPack(m, x, y, pw, fs) {
     ctx.textAlign = 'center';
   }
   ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
-  ctx.fillText(TOUCH ? 'tap an icon; tap again for actions' : `arrows move \u00b7 ${K.act} for actions \u00b7 ${K.menu} closes`, W / 2, H - fs * 0.8);
+  drawTipMarquee(fs);
+}
+// tips live here: one at a time, scrolling right to left along the bottom of the menu
+function tipLibrary() {
+  const inv = state.inv, t = [
+    TOUCH ? 'Tap an icon, then tap it again for what you can do with it.' : `Arrows move around the pack. ${K.act} shows what you can do with something. ${K.menu} closes.`,
+    `Seven slashes in rhythm become a whirlwind.`,
+    `Hold ${K.act} and let go to stab. Stab, slash, stab chains hit harder.`,
+    `Jump, then ${K.act} in the air to pound the ground.`,
+    `Tap ${K.swap} to swap weapons. Hold it for the quick-select wheel.`,
+    `${K.eat} eats. Choose which food comes first in the Food tab.`,
+    `Carrying a rock: hold ${K.act} to aim, tap to set it down.`,
+    'More max vigor means longer, higher jumps.',
+    'Turnips raise your max vigor for good.',
+    'When vigor runs low every swing is slow and weak. Rest a moment.',
+    'Startled birds drop seeds. Plant them in tilled soil.',
+    `Hold ${K.act} on a big rock and pull away from it to wiggle it free.`,
+    'Stone plates hold gates open while something heavy sits on them.',
+    TOUCH ? 'Use the pad to walk.' : 'Arrow keys walk.',
+    'Slash, stomp or throw a rock at a tree to shake acorns loose.',
+  ];
+  if (inv.fire) t.push(`Hold ${K.fire} to breathe marsh gas, let go to spark it.`);
+  if (inv.step) t.push(`${K.dash} dodges. Dodge a lunge at the last moment and time slows.`);
+  if (inv.rod) t.push('Fish rise in still water. Strike the moment it bites.');
+  if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
+  return t.concat(state.tipPool || []);
+}
+function drawTipMarquee(fs) {
+  const m = state.marquee || (state.marquee = { text: null, t0: 0 });
+  ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+  const speed = Math.max(60, W * 0.07), y = H - fs * 0.8;
+  if (!m.text || W - (state.time - m.t0) * speed + ctx.measureText(m.text).width < 0) {
+    const pool = tipLibrary(); m.text = pool[Math.floor(Math.random() * pool.length)]; m.t0 = state.time;
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, y - fs * 0.95, W, fs * 1.35);
+  ctx.save(); ctx.beginPath(); ctx.rect(0, y - fs, W - 90, fs * 1.4); ctx.clip();
+  ctx.fillStyle = 'rgba(253,246,227,.8)'; ctx.textAlign = 'left';
+  ctx.fillText(m.text, W - (state.time - m.t0) * speed, y);
+  ctx.restore();
 }
 // the quick-select wheel around the hero (drawn over the world, under the menu)
 function drawRadial() {
@@ -5061,7 +5109,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 37';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 38';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5796,12 +5844,13 @@ function layoutTexts() {
     boxes.push(b); placed.push(b);
   }
   // the rest: the hero's own words first, then newest to oldest; anything that can't find clear room waits
-  const floats = state.texts.filter(t => t.text.length <= TEXT.readChars).slice(-TEXT.maxShown)
+  const speaking = speakingNow();
+  const floats = state.texts.filter(t => t.text.length <= TEXT.readChars && !(speaking && t.hint)).slice(-TEXT.maxShown)
     .sort((a, b) => (b.follow ? 1 : 0) - (a.follow ? 1 : 0) || a.t - b.t);
   for (const t of floats) {
     const fs = Math.round(size * t.size);
     ctx.font = `bold ${fs}px "Courier New", monospace`;
-    const lines = wrap(t.text, Math.min(W * 0.7, UNIT * 10 * t.size, 460));
+    const lines = t.badge ? [t.badge] : wrap(t.text, Math.min(W * 0.7, UNIT * 10 * t.size, 460));
     const lh = fs * 1.3, bh = lines.length * lh + TEXT.pad * 1.4, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + TEXT.pad * 2.4;
     const wx = t.follow ? h.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : t.y;
     const [ax, ay] = toScreen(wx, wy);
@@ -5836,8 +5885,9 @@ function drawTexts() {
     ctx.globalAlpha = a;
     const y = b.panel ? b.y : b.drawY;
     ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : 'rgba(10,8,14,.82)';
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
-    if (b.panel) { ctx.strokeStyle = 'rgba(255,227,138,.5)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    if (b.panel || t.badge) { ctx.strokeStyle = t.badge ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = t.badge ? 2 : 1.5; ctx.stroke(); }
+    if (t.badge) { ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(t.badge, b.x + b.w / 2, y + TEXT.pad * 0.7); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; continue; }
     ctx.fillStyle = t.color; ctx.textBaseline = 'top';
     if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
     else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
