@@ -160,6 +160,12 @@ function decoFlowers(sc, n) {
   for (let i = 0; i < n; i++) sc.deco.push({ kind: 'flower', fx: rng(), fy: rng(), c: pick(cols) });
   for (let i = 0; i < 30; i++) sc.deco.push({ kind: 'grass', fx: rng(), fy: rng(), s: rr(0.5, 1) });
 }
+// farm patches: a few tilled plots near the path; what grows depends on the region
+function addPlots(sc, n, box) {
+  sc.feat.plots = sc.feat.plots || [];
+  const c = freeSpot(sc, box, 2.2);
+  for (let i = 0; i < n; i++) sc.feat.plots.push([c[0] + (i % 3) * 0.035 - 0.035, c[1] + Math.floor(i / 3) * 0.06]);
+}
 function newScene(o) {
   return Object.assign({ solids: [], deco: [], spawns: [], pullables: [], exits: [], pools: [], paths: [], feat: {}, npcs: [], initItems: [], speed: 0.5, accel: 10, shade: 0 }, o);
 }
@@ -177,7 +183,7 @@ function genWorld() {
   const add = sc => (S[sc.id] = sc);
 
   // ---------------- Camp (north of start): home, fire, tent, farm plots ----------------
-  const camp = add(newScene({ id: 'camp', area: 'forest', msg: 'Home camp', music: 'forest', amb: 'none', floor: '#4a8f4c', heroStart: [0.44, 0.5] }));
+  const camp = add(newScene({ id: 'camp', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4a8f4c', heroStart: [0.44, 0.5] }));
   camp.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'start' }];
   camp.feat.fire = [0.5, 0.45];
   camp.feat.plots = [[0.2, 0.68], [0.28, 0.68], [0.36, 0.68], [0.2, 0.8], [0.28, 0.8], [0.36, 0.8]];
@@ -191,7 +197,8 @@ function genWorld() {
   decoFlowers(camp, 20);
 
   // ---------------- Start glade: the big rock, the thicket into the woods ----------------
-  const start = add(newScene({ id: 'start', area: 'forest', msg: 'The storm has passed', music: 'forest', amb: 'none', floor: '#3f8f4c', heroStart: [0.5, 0.12] }));
+  const start = add(newScene({ id: 'start', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#3f8f4c', heroStart: [0.5, 0.12] }));
+  start.feat.pip = [0.84, 0.5];
   start.exits = [
     { side: 'n', a: 0.4, b: 0.6, to: 'camp' },
     { side: 'w', a: 0.38, b: 0.62, to: 'meadow' },
@@ -202,8 +209,10 @@ function genWorld() {
   start.pullables.push({ id: 'rock', kind: 'rock', fx: rock[0], fy: rock[1], need: 5 });
   start.feat.scarf = [0.93, 0.47];
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
+  start.solids.forEach(s => { if (s.bar === 'thicket') s.showFlag = 'ambush'; });
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
+  addPlots(start, 2, [0.15, 0.4, 0.6, 0.85]);
   decoFlowers(start, 26);
 
   // ---------------- Meadow (west): the robin's dead tree ----------------
@@ -217,6 +226,7 @@ function genWorld() {
     meadow.feat.perches.push(p);
   }
   scatter(meadow, 7, 'tree', 0.9, 1.3, 1.4, meadow.feat.perches.map(p => [...p, 2.2]), undefined, 'green');
+  addPlots(meadow, 3, [0.5, 0.85, 0.2, 0.8]);
   decoFlowers(meadow, 60);
 
   // ---------------- Deep woods (east): denser, darker, the sword in the shadows ----------------
@@ -224,7 +234,7 @@ function genWorld() {
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({
-      id: 'w' + i, area: 'woods', depth: i, msg: ['Pip\'s footprints lead deeper', 'The canopy swallows the sun', 'Something glints in the shadows'][i - 1],
+      id: 'w' + i, area: 'woods', depth: i, msg: ['Drag marks lead deeper', 'Cackling, somewhere ahead', 'Something glints in the shadows'][i - 1],
       music: 'woods', amb: 'none', floor: ['#35743e', '#2d6436', '#26552f'][i - 1], shade: [0.3, 0.5, 0.68][i - 1], speed: 0.48,
     }));
     const east = last ? null : gapAt(rr(0.25, 0.75), 0.1);
@@ -246,6 +256,8 @@ function genWorld() {
       keep.push([...sword, 2.2], [...sc.feat.stone, 2.5]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
+    if (i === 1) addPlots(sc, 2, [0.3, 0.7, 0.3, 0.7]);
+    for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
     // sun dapples drift through the canopy; one always wanders over the sword
     sc.feat.dapples = Array.from({ length: 14 - i * 2 }, () => ({ fx: rng(), fy: rng(), r: rr(0.8, 2.0), ax: rr(0.02, 0.06), ay: rr(0.02, 0.05), sp: rr(0.08, 0.2), ph: rng() * 6 }));
@@ -254,23 +266,25 @@ function genWorld() {
   }
 
   // ---------------- Windswept field (south): a wind puzzle that builds up ----------------
-  // Gusts blow roughly south. a = angle (radians, + toward east), s = strength (1 strong, .5 weak).
+  // a = angle (0 blows south, + toward east, PI blows north), s = strength (1 strong, .5 weak).
   // A strong gust carries you 0.3 of the screen height; a weak one only 0.14.
+  // Every crossing also has a way back: a strong north gust and an updraft on the far side.
+  const N = { a: Math.PI, s: 1 };
   const FIELD = [
     { msg: 'Watch the windsock', gusts: [{ a: -0.3, s: 0.6 }, { a: 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
     { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 0.8 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35]], rabbits: 1, south: [0.2, 0.8] },
-    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35]], rabbits: 1, south: [0.12, 0.3] },
-    { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52]], rabbits: 2, south: [0.2, 0.8] },
-    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52]], rabbits: 2, south: [0.12, 0.3] },
-    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 0.5 }], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51]], rabbits: 3, end: true },
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
+    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
+    { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8] },
+    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3] },
+    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 0.5 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true },
   ];
   let north = [0.42, 0.58];
   FIELD.forEach((F, k) => {
     const i = k + 1;
     const sc = add(newScene({
       id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8,
-      gusts: F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, socks: F.ups.length ? F.ups.map(u => [u[0] + 0.08, u[1] - 0.02]) : [F.sock] },
+      gusts: F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
     }));
     const south = F.end ? null : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
     sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
@@ -280,12 +294,13 @@ function genWorld() {
     edgeWall(sc, 'e', 'boulder', 1.0, []);
     edgeWall(sc, 'n', 'boulder', 1.0, [north]);
     edgeWall(sc, 's', 'boulder', 1.0, south ? [south] : []);
-    const keep = F.ups.map(u => [...u, 2.4]).concat(sc.feat.socks.map(s => [...s, 1.2]));
+    const keep = F.ups.map(u => [...u, 2.4]).concat(sc.feat.plants.map(s => [...s, 1.2]));
     sc.paths = F.ups.length ? [makePath(nPt, F.ups[0], 1)] : [makePath(nPt, south ? edgePoint('s', (south[0] + south[1]) / 2) : [0.5, 0.8], 2)];
     if (south && F.ups.length) sc.paths.push(makePath([0.5, 0.86], edgePoint('s', (south[0] + south[1]) / 2), 0));
     const top = F.chasms.length ? F.chasms[0][1] - 0.06 : 0.88;
     scatter(sc, 3 + i, 'boulder', 0.7, 1.3, 1.8, keep, [0.1, 0.9, 0.12, Math.max(0.2, top)]);
     if (F.end) { sc.npcs.push({ kind: 'tortoise', fx: 0.5, fy: 0.87 }); }
+    if (i <= 2) addPlots(sc, 3, [0.2, 0.8, 0.3, 0.8]);
     for (let r = 0; r < F.rabbits; r++) {
       const box = F.end ? [0.2, 0.8, 0.76, 0.9] : F.chasms.length ? [0.15, 0.85, F.chasms[F.chasms.length - 1][3] + 0.04, 0.9] : [0.15, 0.85, 0.3, 0.85];
       const p = freeSpot(sc, box, 1.0);
@@ -312,6 +327,7 @@ function genWorld() {
     }));
     const east = boss ? [0.4, 0.6] : gapAt(rr(0.25, 0.75), 0.09);
     if (west) sc.exits.push({ side: 'w', a: west[0], b: west[1], to: 'c' + (i - 1) });
+    else sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'w3', arrive: 'sinkhole', say: 'You climb the roots back up.' });
     sc.exits.push({ side: 'e', a: east[0], b: east[1], to: boss ? 'm1' : 'c' + (i + 1), locked: boss ? () => !(RT.c7 && RT.c7.bossDead) : null });
     edgeWall(sc, 'n', 'cavewall', 1.1, [], 1.4);
     edgeWall(sc, 's', 'cavewall', 1.1, [], 1.4);
@@ -319,8 +335,11 @@ function genWorld() {
     if (!boss) edgeWall(sc, 'e', 'cavewall', 1.1, [east], 1.4);
     const wPt = west ? edgePoint('w', (west[0] + west[1]) / 2) : [0.06, 0.5];
     sc.paths = [makePath(wPt, boss ? [0.8, 0.5] : edgePoint('e', (east[0] + east[1]) / 2), 2)];
-    if (!boss) scatter(sc, 1 + i, 'pillar', 0.8, 1.3, 2.2, [], [0.15, 0.85, 0.15, 0.85]);
-    else sc.feat.falls = true;
+    if (!boss) scatter(sc, 1 + i, 'stalagmite', 0.8, 1.2, 2.2, [], [0.15, 0.85, 0.15, 0.85]);
+    else {
+      sc.feat.falls = true;
+      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.5; sc.solids.push(solid(0.55 + Math.cos(a) * 0.22, 0.5 + Math.sin(a) * 0.3, 0.8, 'stalagmite')); }
+    }
     CAVE_SPAWNS[i - 1].forEach(type => {
       const p = type === 'warden' ? [0.62, 0.5] : freeSpot(sc, [0.35, 0.85, 0.2, 0.8], 1.3, [[...wPt, 6]]);
       sc.spawns.push({ type, fx: p[0], fy: p[1] });
@@ -350,6 +369,7 @@ function genWorld() {
       sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.2, 2.1) });
     }
     scatter(sc, 2 + i, 'deadtree', 0.7, 1.0, 1.8, sc.pools.map(o => [o.fx, o.fy, o.r + 0.5]), [0.1, 0.9, 0.15, 0.85], 'bog');
+    if (i === 1) addPlots(sc, 3, [0.15, 0.85, 0.15, 0.85]);
     const lurkers = [1, 1, 2][i - 1];
     for (let l = 0; l < lurkers; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
     for (let b = 0; b < 2; b++) {
@@ -365,7 +385,7 @@ function genWorld() {
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({
-      id: 'h' + i, area: 'hollow', depth: i, msg: ['Your light barely reaches the floor', 'Webs, thick as rope', 'Something is breathing'][i - 1],
+      id: 'h' + i, area: 'hollow', depth: i, msg: ['Your light barely reaches the floor', 'Webs, thick as rope', 'Gremlin cackling echoes ahead'][i - 1],
       shade: 0.975, lightScale: [0.75, 0.55, 0.4][i - 1], music: 'cave2', amb: 'marsh', drips: true, floor: '#1a1d17', speed: 0.3, accel: 6, heroStart: [0.08, 0.5],
     }));
     const east = last ? null : gapAt(rr(0.3, 0.7), 0.1);
@@ -379,13 +399,13 @@ function genWorld() {
     const ePt = east ? edgePoint('e', (east[0] + east[1]) / 2) : [0.8, 0.5];
     sc.paths = [makePath(wPt, ePt, 2)];
     if (i === 2) barrier(sc, 'webs', 'web', 0.94, east[0] - 0.04, 0.94, east[1] + 0.04, 0.6);
-    if (last) { sc.npcs.push({ kind: 'pip', fx: 0.8, fy: 0.5 }); ringBarrier(sc, 'cocoon', 'web', 0.8, 0.5, 1.3); }
-    scatter(sc, 2 + i, 'pillar', 0.8, 1.2, 2.0, last ? [[0.8, 0.5, 3]] : [], [0.15, 0.85, 0.15, 0.85], 'moss');
+    if (last) { sc.npcs.push({ kind: 'pip', fx: 0.8, fy: 0.5 }); ringBarrier(sc, 'cocoon', 'vine', 0.8, 0.5, 1.3); }
+    scatter(sc, 2 + i, 'stalagmite', 0.8, 1.2, 2.0, last ? [[0.8, 0.5, 3]] : [], [0.15, 0.85, 0.15, 0.85], 'moss');
     for (let p = 0; p < i; p++) {
       const q = freeSpot(sc, [0.3, 0.7, 0.2, 0.8], 2, [[...wPt, 5], [0.8, 0.5, 3.5]]);
       sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.1, 1.6) });
     }
-    const spawns = [['glowworm', 'lurker'], ['diver', 'diver', 'glowworm'], ['diver', 'stalker', 'lurker']][i - 1];
+    const spawns = [['glowworm', 'lurker', 'gremlin'], ['diver', 'diver', 'glowworm', 'gremlin'], ['gremlin', 'gremlin', 'gremlin', 'lurker']][i - 1];
     let li = 0;
     spawns.forEach(type => {
       if (type === 'lurker') { const p = sc.pools[li]; sc.spawns.push({ type, fx: p.fx, fy: p.fy, pool: li++ }); return; }
@@ -407,15 +427,16 @@ let RT = {};                   // runtime memory per scene: dead spawns, items, 
 function rtFor(id) {
   if (!RT[id]) {
     const sc = WORLD[id];
-    RT[id] = { dead: new Set(), items: sc ? sc.initItems.map(i => ({ ...i })) : [], pulled: new Set(), flags: {}, bossDead: false };
+    RT[id] = { deadAt: {}, items: sc ? sc.initItems.map(i => ({ ...i })) : [], pulled: new Set(), flags: {}, bossDead: false };
   }
   return RT[id];
 }
 const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 
 const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
-function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
-function newInv() { return { sword: false, scalp: false, wing: false, horn: false, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, glow: 0, slime: 0, depth: 0, tortoise: false }; }
+function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
+// step, silk, horn are levelled relics (0 = not found, up to 3)
+function newInv() { return { sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => baseVig(state.inv.depth);
 
@@ -424,7 +445,7 @@ const state = {
   enemies: [], items: [], hazards: [], rings: [], fx: [], texts: [], solids: [], pools: [], shots: [], gas: [],
   drops: [], splashes: [], dripTimer: 1, bird: null, clouds: [], gust: 0, gustT: 0, gustIdx: 0, gustPhase: 'lull',
   atk: null, atkCool: 0, hold: { on: false, t: 0, charged: false }, aim: { on: false, t: 0 }, fireHold: { on: false, emit: 0 }, spark: null,
-  carry: null, sw: { pose: 1, flipT: 0, idle: 0, next: 7 }, treeCool: {}, treeShake: {},
+  carry: null, combo: { step: null, t: -9, level: 0 }, treeCool: {}, treeShake: {}, stalCool: {}, flock: [], blind: 0, slowmo: 0,
   cut: null, title: null, menu: null, npcTalk: null,
   night: 0, rain: 0, flash: 0, playTime: 0,
   cam: { z: 1, x: 0, y: 0, focus: null, pulses: [], ez: 1, ex: 0, ey: 0 },
@@ -493,7 +514,7 @@ function inputVector() {
 }
 function refreshButtons() {
   const inv = state.inv;
-  document.getElementById('dash').classList.toggle('hidden', !inv.wing);
+  document.getElementById('dash').classList.toggle('hidden', !inv.step);
   document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
   document.getElementById('throw').classList.toggle('hidden', !inv.acorns && !state.carry);
@@ -734,6 +755,7 @@ const sfx = {
   lift()   { noise(0, 0.3, { vol: 0.15, freq: 400 }); tone(150, 0, 0.3, { type: 'sawtooth', vol: 0.04, to: 220 }); },
   plant()  { noise(0, 0.2, { vol: 0.12, freq: 700 }); tone(660, 0.1, 0.2, { type: 'sine', vol: 0.06, to: 880 }); },
   tired()  { tone(300, 0, 0.3, { type: 'sine', vol: 0.06, to: 180 }); },
+  cackle() { for (let i = 0; i < 6; i++) tone(700 + Math.random() * 500, i * 0.08, 0.07, { type: 'square', vol: 0.04, to: 500 + Math.random() * 300 }); },
   talk()   { for (let i = 0; i < 3; i++) tone(300 + Math.random() * 200, i * 0.07, 0.06, { type: 'square', vol: 0.03 }); },
   croak()  { tone(120, 0, 0.35, { type: 'square', vol: 0.06, to: 85 }); tone(100, 0.25, 0.3, { type: 'square', vol: 0.05, to: 75 }); },
   victory() {
@@ -821,8 +843,8 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1 };
-  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
 }
@@ -853,7 +875,15 @@ function enterScene(id, fx, fy) {
   const h = state.hero;
   const pos = fx != null ? [fx, fy] : (sc.heroStart || [0.5, 0.5]);
   Object.assign(h, { x: pos[0] * W, y: pos[1] * H, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0.6, ride: null, falling: 0, dashT: 0, safe: [pos[0], pos[1]] });
-  state.enemies = sc.spawns.map((s, i) => rt.dead.has(i) ? null : makeEnemy(s.type, s.fx * W, s.fy * H, i, s.pool)).filter(Boolean);
+  // the dead come back if you've been away a while (never the boss); some only show up later
+  state.enemies = sc.spawns.map((s, i) => {
+    const d = rt.deadAt[i];
+    if (d != null && (s.type === 'warden' || state.playTime - d < 60)) return null;
+    if (s.req && !state.inv[s.req]) return null;
+    delete rt.deadAt[i];
+    return makeEnemy(s.type, s.fx * W, s.fy * H, i, s.pool);
+  }).filter(Boolean);
+  state.flock = makeFlock(sc);
   state.items = rt.items.map(it => ({ type: it.type, x: it.fx * W, y: it.fy * H }));
   state.hazards = []; state.rings = []; state.fx = []; state.texts = []; state.shots = []; state.gas = []; state.spark = null;
   state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
@@ -868,7 +898,8 @@ function enterScene(id, fx, fy) {
     showTitle(AREA_NAMES[sc.area], null, 'area', 2.8);
     zoomPulse(h.x, h.y, 'title');
   }
-  if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
+  if (id === 'start' && !rt.flags.ambush && state.started) startAmbush();
+  else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
   state.seen[id] = true;
   const bossAlive = id === 'c7' && !rt.bossDead;
   setMusic(bossAlive ? 'cave2' : sc.music);
@@ -897,6 +928,12 @@ function checkEdges() {
     if (ex.side === 'e') { at = h.x >= W - r && held.right(); along = h.y / H; }
     if (!at || along < ex.a - 0.03 || along > ex.b + 0.03) continue;
     if (ex.locked && ex.locked()) return;
+    if (ex.arrive === 'sinkhole') {
+      const s = WORLD[ex.to].feat.stone;
+      transitionTo(ex.to, s[0] - 2.2 * UNIT / W, s[1], true);
+      if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
+      return;
+    }
     const tgt = WORLD[ex.to], back = tgt.exits.find(o => o.side === OPP[ex.side] && o.to === state.scene);
     const lo = back ? back.a + 0.02 : 0.1, hi = back ? back.b - 0.02 : 0.9;
     const al = Math.max(lo, Math.min(hi, along));
@@ -926,6 +963,7 @@ function newGame() {
     resetRun((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
     enterScene('camp');
     startIntro();
+    state.fadeTarget = 0;
     state.busy = false;
   }, 900);
 }
@@ -938,6 +976,7 @@ function update(dt) {
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
   state.shake = Math.max(0, state.shake - dt);
   state.flash = Math.max(0, state.flash - dt * 2.5);
+  state.blind = Math.max(0, state.blind - dt);
   updateCam(dt);
   updateTexts(dt);
   if (!state.started) return;
@@ -948,6 +987,7 @@ function update(dt) {
   const sc = sceneDef(), h = state.hero, inv = state.inv;
   if (sc.drips) updateDrips(dt);
   if (state.bird) updateBird(dt);
+  if (state.flock.length) updateFlock(dt);
   if (sc.gusts) updateWind(dt, sc);
   if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
   if (sc.amb === 'marsh') ambLevel(0.05);
@@ -959,10 +999,8 @@ function update(dt) {
   if (!state.busy) {
     if (!interact()) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
-    updateSwordPose(dt);
   }
-  if (inv.glow > 0) inv.glow = Math.max(0, inv.glow - dt);
-  if (inv.slime > 0) inv.slime = Math.max(0, inv.slime - dt);
+  for (const k of ['lumin', 'slime', 'pepper']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
   const mv = maxVig();
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * dt);
 
@@ -1061,15 +1099,15 @@ function updateFeatures(dt) {
   }
   if (f.updrafts) f.updrafts.forEach((u, i) => {
     const ux = u[0] * W, uy = u[1] * H, d = Math.hypot(h.x - ux, h.y - uy);
-    if (d < UNIT * 3) say('Leaves swirl here. A gust could lift you. Watch the windsock.', ux, uy - UNIT * 1.2, { key: 'up', tip: 'updraft', life: 4.5 });
+    if (d < UNIT * 3) say('Leaves swirl here. A gust could lift you. The tall grass shows which way the next one blows.', ux, uy - UNIT * 1.2, { key: 'up', tip: 'updraft', life: 5 });
     if (d < UNIT * 1.1 && state.gustPhase === 'blow' && state.carry !== 'rock' && !(h.rideCool > state.time)) {
-      const g = sc.gusts[state.gustIdx], dy = H * (g.s >= 1 ? 0.3 : 0.14), dx = Math.tan(g.a) * dy;
+      const g = sc.gusts[state.gustIdx], dist = H * (g.s >= 1 ? 0.3 : 0.14), dy = Math.cos(g.a) < 0 ? -dist : dist, dx = Math.tan(g.a) * dist;
       h.ride = { t: 0, dur: 1.2 + g.s * 0.8, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
       h.invuln = 2.2; sfx.whoosh();
       zoomPulse(h.x, h.y, 'pickup');
     }
   });
-  if (f.socks && sc.id === 'f1') { const s = f.socks[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say('The windsock shows where the next gust will blow, and how hard.', s[0] * W, s[1] * H - UNIT * 1.6, { key: 'sock', tip: 'sock', life: 5 }); }
+  if (f.plants && sc.id === 'f1') { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say('Tall grass leans the way the next gust will blow. The harder it bends, the stronger the gust.', s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock', life: 5 }); }
 }
 
 function updateRide(dt) {
@@ -1128,7 +1166,7 @@ function updateWind(dt, sc) {
 // =====================================================================
 const PULL = {
   rock: {
-    approach: () => `A big rock, loosened by the storm. Hold ${K.act} to grab it`,
+    approach: () => `A big rock, half sunk in soft earth. Hold ${K.act} to grab it`,
     fails: () => [`It's sunk deep in the mud. Keep holding ${K.act} and rock it ${K.l} ${K.r}`, `Pulling straight won't work. Hold on and rock it ${K.l} ${K.r}`],
     rock: ['It shifts.', 'Mud sucks at it.', 'Almost...', `Loose! Now pull ${K.u}`],
     notYet: () => `Not yet. Rock it more ${K.l} ${K.r}`,
@@ -1202,7 +1240,7 @@ function freePullable(pl, x, y) {
 function hurtHero(dmg, fromX, fromY, opts = {}) {
   const h = state.hero;
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
-  h.vig -= dmg * 2; h.rest = state.time + 0.8;
+  h.vig -= dmg * 2; h.rest = state.time + 0.8; h.hurtT = state.time;
   h.invuln = 1.2;
   sfx.hit();
   state.shake = 0.35;
@@ -1228,16 +1266,39 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
 // =====================================================================
 // Drops: every monster leaves something tied to what it was
 // =====================================================================
-const DROP_OF = { stalker: 'scalp', diver: 'wing', charger: 'horn', glowworm: 'glow', rabbit: 'carrot', lurker: 'slime', warden: 'warden' };
-const UNIQUE = ['scalp', 'wing', 'horn', 'warden'];
+// Drop tables: rolled in order, first hit wins. Relics are rare and level up (to 3).
+const DROPS = {
+  stalker:  [['step', 0.12], ['scalp', 0.08], ['wisp', 0.3]],
+  diver:    [['silk', 0.12], ['wisp', 0.3]],
+  charger:  [['horn', 0.14], ['wisp', 0.35]],
+  glowworm: [['lumin', 0.3]],
+  rabbit:   [['carrot', 0.35], ['seed', 0.1]],
+  lurker:   [['slime', 0.25], ['wisp', 0.2]],
+  gremlin:  [['seed', 0.25], ['acorn', 0.3]],
+  warden:   [['warden', 1]],
+};
+const RELICS = {
+  step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
+  silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
+  horn: { name: 'Charger Horn', levels: ['Lashed to your blade: stabs hit harder and always knock back.', 'Chained stabs hit harder still.', 'Your stabs reach farther.'] },
+};
 function itemExists(type) {
   if (state.items.some(i => i.type === type)) return true;
   return Object.values(RT).some(rt => rt.items.some(i => i.type === type));
 }
 function dropFor(e) {
-  let t = DROP_OF[e.type];
-  if (UNIQUE.includes(t) && (state.inv[t] || itemExists(t))) t = 'wisp';
-  return t;
+  for (const [t, p] of DROPS[e.type] || []) {
+    if (rng() >= p) continue;
+    if (RELICS[t] && (state.inv[t] >= 3 || itemExists(t))) return 'wisp';
+    if (t === 'scalp' && (state.inv.scalp || itemExists('scalp'))) return 'wisp';
+    return t;
+  }
+  return null;
+}
+// a relic landing is an event: light, fanfare, a slow breath, its name
+function relicMoment(type, x, y) {
+  sfx.fanfare(); zoomPulse(x, y, 'boss'); state.slowmo = 0.8;
+  state.fx.push({ x, y, vx: 0, vy: 0, t: 0, life: 2.5, color: 'beam' });
 }
 function heal(frac, label) {
   const h = state.hero, mv = maxVig(), before = h.vig;
@@ -1253,12 +1314,19 @@ function collect(it) {
   const inv = state.inv, h = state.hero;
   const tell = (s, life = 4, tip) => say(s, h.x, h.y - UNIT * 1.1, { key: 'item', life, tip });
   zoomPulse(it.x, it.y, 'pickup');
-  if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || it.type === 'seed' || it.type === 'bean') sfx.tock(); else sfx.pickup();
+  if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
+  else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || it.type === 'seed' || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
-    case 'scalp': inv.scalp = true; tell('A stalker scalp, ears and all. Anything that drops on your head will bounce off.', 5); break;
-    case 'wing': inv.wing = true; tell(`A diver's leathery wing. ${K.dash} to dash through danger.`, 5); break;
-    case 'horn': inv.horn = true; tell('You lash the charger\'s horn to your blade. Stabs hit harder and always knock back.', 5); break;
-    case 'glow': inv.glow = 45; tell('A glow sac. Your light burns brighter, for now.', 4, 'glow'); break;
+    case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
+    case 'step': case 'silk': case 'horn': {
+      inv[it.type] = Math.min(3, inv[it.type] + 1);
+      const R = RELICS[it.type];
+      showTitle(`${R.name}${inv[it.type] > 1 ? ' ' + 'I'.repeat(inv[it.type]) : ''}`, R.levels[inv[it.type] - 1], 'relic', 4);
+      break;
+    }
+    case 'lumin': inv.lumin = Math.min(90, inv.lumin + 45); tell('Luminescence. Your light burns brighter, and their flashes can\'t blind you.', 4, 'lumin'); break;
+    case 'pepper': inv.food.push('pepper'); tell(`A bog pepper. ${K.eat} to eat: a little vigor, and your marsh fire burns bigger for a while.`, 4, 'pepper'); break;
+    case 'turnip': inv.food.push('turnip'); break;
     case 'carrot':
       if (inv.food.length < 8) { inv.food.push('carrot'); tell(`A carrot. ${K.eat} to eat and restore vigor.`, 4, 'carrot'); }
       else heal(0.35);
@@ -1277,43 +1345,56 @@ function collect(it) {
 }
 
 // =====================================================================
-// Combat: tap F = slash (also blocks), hold then release = stab
+// Combat. Tap F = slash (also blocks). Hold and release = stab, which lunges.
+// Chain: stab, slash while lunging, then stab again in time, and the next
+// stab lunges farther, hits harder, and bowls small things over. Chains to x3.
 // =====================================================================
-const SLASH = { dur: 0.22, cool: 0.28, reach: 1.7 };
-const STAB  = { dur: 0.22, cool: 0.35, reach: 2.2, charge: 0.35, knockChance: 0.6 };
+const SLASH = { dur: 0.22, cool: 0.22, reach: 1.7 };
+const STAB  = { dur: 0.22, cool: 0.1, reach: 2.2, charge: 0.35, chainCharge: 0.18, knockChance: 0.6 };
+const COMBO = { slashWindow: 0.7, stabWindow: 0.9 };
+const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
 function updateCombat(dt) {
   const inv = state.inv;
   if (!inv.sword || state.pull.grip || state.hero.ride || state.carry) return;
-  const h = state.hero, hold = state.hold;
+  const h = state.hero, hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
   if (nearPullable) return;
 
-  if (pressedNow.act) {
-    hold.on = true; hold.t = 0; hold.charged = false;
+  if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
+  // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
+  if (state.time - (state.slashBuf ?? -9) < 0.25) {
     if (state.atkCool <= 0) {
-      const flip = state.sw.flipT > 0;           // caught the blade mid-turn
-      state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (flip ? 1.3 : 1), hit: new Set(), ax: h.fx, ay: h.fy, flip };
+      state.slashBuf = -9;
+      const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
+      if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
+      state.atk = { type: 'slash', t: 0, dur: SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0 };
       state.atkCool = SLASH.cool;
-      if (flip) { sfx.flipStrike(); zoomPulse(h.x, h.y, 'parry'); say('Flip strike!', h.x, h.y - UNIT * 1.2, { key: 'flip', life: 1.2, color: '#ffe38a' }); }
-      else sfx.swoosh();
+      sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
-      shakeTrees(h, flip ? 1.35 : 1);
+      scareFlock(h.x, h.y, 5);
+      shakeTrees(h, 1);
+      cutVines(h);
     }
   }
   if (hold.on) {
     if (held.act()) {
       hold.t += dt;
-      if (!hold.charged && hold.t > STAB.charge) { hold.charged = true; sfx.charge(); }
+      const need = cb.step === 'slash' ? STAB.chainCharge : STAB.charge;
+      if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
       if (hold.charged && spend(0.6)) {
-        const flip = state.sw.flipT > 0;
-        state.atk = { type: 'stab', t: 0, dur: STAB.dur, hit: new Set(), ax: h.fx, ay: h.fy, flip };
-        if (flip) { sfx.flipStrike(); zoomPulse(h.x, h.y, 'parry'); }
+        const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
+        cb.level = chained ? Math.min(3, cb.level + 1) : 0;
+        cb.step = 'stab'; cb.t = state.time;
+        state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
         state.atkCool = STAB.cool;
-        h.vx += h.fx * 0.4 * L(); h.vy += h.fy * 0.4 * L();
-        sfx.stab();
+        h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
+        h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
+        if (cb.level) { sfx.flipStrike(); zoomPulse(h.x, h.y, cb.level >= 3 ? 'kill' : 'parry'); say('x' + (cb.level + 1), h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.9, color: '#ffe38a', size: 1 + cb.level * 0.2 }); }
+        else sfx.stab();
+        say('Stab, then slash while you lunge, then stab again: each chained stab goes farther.', h.x, h.y - UNIT * 1.6, { key: 'combotip', tip: 'combo', life: 5 });
       }
       hold.on = false; hold.charged = false;
     }
@@ -1325,23 +1406,35 @@ function updateCombat(dt) {
     if (a.hit.has(e) || !hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     let hit;
-    const reachK = a.flip ? 1.35 : 1;
-    if (a.type === 'slash') hit = d < UNIT * SLASH.reach * reachK + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
+    if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
-      hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn ? 0.3 : 0)) * reachK + e.r && perp < e.r + UNIT * 0.35;
+      hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
     }
     if (hit) {
       a.hit.add(e);
       let dmg = a.type === 'slash' ? 1 : 2;
       if (a.type === 'stab' && inv.horn) dmg += 1;
+      if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
-      if (a.flip) dmg *= 2;
       dmg *= power();
-      damage(e, dmg, a.type, dx / d, dy / d);
+      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
     }
   }
   if (a.t >= a.dur) state.atk = null;
+}
+// vines give way to a few good cuts
+function cutVines(h) {
+  const rt = rtFor(state.scene);
+  for (const s of state.solids) {
+    if (s.kind !== 'vine' || Math.hypot(s.x - h.x, s.y - h.y) > UNIT * SLASH.reach + s.r) continue;
+    const k = 'cut_' + s.bar;
+    rt.flags[k] = (rt.flags[k] || 0) + 1;
+    spark(s.x, s.y, '#4a8a3a', 5, 2); sfx.rustle();
+    if (rt.flags[k] >= 4) breakBarrier(s.bar, 'cut');
+    else say('The vines give a little.', s.x, s.y - UNIT, { key: 'vine', life: 1.2 });
+    return;
+  }
 }
 // slashing a tree shakes it; sometimes an acorn falls
 function shakeTrees(h, reachK) {
@@ -1371,8 +1464,9 @@ function makeEnemy(type, x, y, idx, poolIdx) {
     case 'stalker':  return { ...b, r: u * 0.7, hp: 4, dmg: 1, mode: 'sleep', t: rr(1.5, 2.5) };
     case 'charger':  return { ...b, r: u * 0.75, hp: 5, dmg: 2, mode: 'sleep', t: 1.5 };
     case 'diver':    return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'ceiling', t: rr(1.5, 3.5), hgt: 1 };
-    case 'glowworm': return { ...b, r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6 };
+    case 'glowworm': return { ...b, r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6, flashCool: rr(1, 3) };
     case 'rabbit':     return { ...b, r: u * 0.45, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1) };
+    case 'gremlin':  return { ...b, r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 };
     case 'lurker':   return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'submerged', t: 0, cool: rr(0.5, 2) };
     case 'warden':   return { ...b, r: u * 1.3, hp: 18, maxHp: 18, dmg: 2, mode: 'dormant', t: 0 };
   }
@@ -1385,7 +1479,7 @@ function hittable(e) {
   return true;
 }
 function resumeMode(e) {
-  const m = { stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
+  const m = { stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], gremlin: ['flee', 0.6], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
   e.mode = m[0]; e.t = m[1];
 }
 function spark(x, y, color, n, speed) {
@@ -1403,7 +1497,7 @@ function updateFx(dt) {
   }
 }
 
-function damage(e, amount, kind, nx, ny) {
+function damage(e, amount, kind, nx, ny, bowl) {
   e.hp -= amount;
   e.flash = 0.15;
   spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4);
@@ -1416,7 +1510,7 @@ function damage(e, amount, kind, nx, ny) {
     if (kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance)) { e.mode = 'stunned'; e.t = 1.0; }
     return;
   }
-  const knock = kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance);
+  const knock = bowl || (kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance));
   if (knock) { e.vx = nx * 0.9 * L(); e.vy = ny * 0.9 * L(); e.mode = 'stunned'; e.t = 0.7; state.shake = 0.2; }
   else { e.vx += nx * 0.2 * L(); e.vy += ny * 0.2 * L(); }
 }
@@ -1426,10 +1520,12 @@ function kill(e) {
   sfx.death();
   state.shake = 0.3;
   spark(e.x, e.y, '#6b1a1a', 14, 3);
-  rtFor(state.scene).dead.add(e.idx);
+  rtFor(state.scene).deadAt[e.idx] = state.playTime;
   const t = dropFor(e);
-  const dy = e.type === 'diver' || e.type === 'lurker' ? 0 : 0;
-  state.items.push({ type: t, x: e.x, y: e.y + dy });
+  if (t) {
+    state.items.push({ type: t, x: e.x, y: e.y });
+    if (RELICS[t] || t === 'scalp' || t === 'warden') relicMoment(t, e.x, e.y);
+  }
   if (e.type === 'warden') {
     rtFor(state.scene).bossDead = true;
     zoomPulse(e.x, e.y, 'boss');
@@ -1459,6 +1555,7 @@ const TOUCHES = {
   charger: e => ['aim', 'charge', 'recover'].includes(e.mode),
   glowworm: e => e.mode === 'crawl' && e.cool <= 0,
   rabbit: e => e.mode === 'dart',
+  gremlin: e => e.mode === 'dart',
   warden: e => ['prowl', 'aim', 'charge', 'rear', 'recover'].includes(e.mode),
 };
 
@@ -1477,9 +1574,16 @@ function updateEnemies(dt) {
     const ground = !(e.type === 'diver' && e.mode === 'ceiling') && e.type !== 'lurker';
     let bump = false;
     if (ground) bump = collideSolids(e, e.r * 0.85);
+    const lunging = e.mode === 'lunge' || e.mode === 'charge';
+    if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
     bump = clampTo(e, e.r) || bump;
+    if (lunging && h.dashT > 0 && !state.dodged && dist < e.r + UNIT * 1.3) {
+      state.dodged = true; state.slowmo = state.inv.step >= 2 ? 0.7 : 0.45;
+      zoomPulse(h.x, h.y, 'parry'); sfx.flip();
+      say('Perfect dodge!', h.x, h.y - UNIT * 1.2, { key: 'dodge', life: 1, color: '#ffe38a' });
+    }
     if (sceneDef().feat.falls && e.x > W - UNIT * 2.3 - e.r) { e.x = W - UNIT * 2.3 - e.r; bump = true; }
-    if (bump && e.mode === 'charge') {
+    if (bump && (e.mode === 'charge' || e.mode === 'lunge') && e.type !== 'stalker') {
       e.mode = 'stunned'; e.t = e.type === 'warden' ? 2.0 : 1.2;
       state.shake = e.type === 'warden' ? 0.5 : 0.2; sfx.crash();
       zoomPulse(e.x, e.y, e.type === 'warden' ? 'kill' : 'hit');
@@ -1496,7 +1600,7 @@ function updateEnemies(dt) {
 }
 function afterHit(e) {
   if (e.type === 'stalker' || e.type === 'charger') { e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3; }
-  if (e.type === 'rabbit') { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
+  if (e.type === 'rabbit' || e.type === 'gremlin') { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
   if (e.type === 'glowworm') e.cool = 1.5;
   if (e.type === 'warden') { e.mode = 'recover'; e.t = 1.0; }
 }
@@ -1528,12 +1632,27 @@ const AI = {
       case 'recover': ease(0, 0, 5); if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9 + Math.random() * 0.6; } break;
     }
   },
-  glowworm(e, dx, dy, dist, ease) {
+  glowworm(e, dx, dy, dist, ease, dt) {
     e.seg += 0.1;
+    e.flashCool -= dt;
+    if (e.mode === 'glowup') {                      // their weapon: a blinding flash
+      ease(0, 0, 8);
+      if (e.t <= 0) {
+        e.mode = 'crawl'; e.flashCool = rr(4, 6);
+        sfx.flash(); spark(e.x, e.y, '#f4ffc0', 16, 5);
+        if (dist < UNIT * 4.5) {
+          if (state.inv.lumin > 0) say('Your own glow shrugs off the flash.', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5 });
+          else { state.blind = 1.8; zoomPulse(e.x, e.y, 'hurt'); say('Blinded!', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5, color: '#ffffff' }); }
+        }
+      }
+      return;
+    }
+    if (dist < UNIT * 3.5 && e.flashCool <= 0) { e.mode = 'glowup'; e.t = 0.8; sfx.charge(); return; }
     if (dist < UNIT * 5 && e.cool <= 0) ease(dx / dist * 0.07 * L(), dy / dist * 0.07 * L(), 2);
     else { if (e.t <= 0) { e.t = 2; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); } ease(e.lx * 0.03 * L(), e.ly * 0.03 * L(), 2); }
   },
-  rabbit(e, dx, dy, dist, ease) {
+  gremlin(e, dx, dy, dist, ease, dt) { AI.rabbit(e, dx, dy, dist, ease, dt, 1.25); },
+  rabbit(e, dx, dy, dist, ease, dt, fast = 1) {
     switch (e.mode) {
       case 'idle':
         ease(0, 0, 4);
@@ -1542,7 +1661,7 @@ const AI = {
         break;
       case 'dart': {
         const zig = Math.sin(state.time * 14) * 0.7, px = -dy / dist, py = dx / dist;
-        ease((dx / dist + px * zig) * 0.6 * L(), (dy / dist + py * zig) * 0.6 * L(), 8);
+        ease((dx / dist + px * zig) * 0.6 * fast * L(), (dy / dist + py * zig) * 0.6 * fast * L(), 8);
         if (e.t <= 0) { e.mode = 'flee'; e.t = 0.8; e.cool = 1.5; }
         break;
       }
@@ -1652,6 +1771,18 @@ const AI = {
   },
 };
 
+// something lunging into a stalagmite shakes the stalactites above loose
+function quake(sg, e) {
+  if ((state.stalCool[sg.key] || 0) > state.time) return;
+  state.stalCool[sg.key] = state.time + 6;
+  sfx.crash(); state.shake = 0.5;
+  const n = e.type === 'warden' ? 3 : 1;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, d = i ? UNIT * rr(0.2, 0.7) : 0;
+    state.hazards.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, t: -0.25 - i * 0.12, dur: 0.75, r: UNIT * 0.75, edmg: e.type === 'warden' ? 3 : 3, kind: 'stalactite' });
+  }
+  say('The ceiling shakes loose!', sg.x, sg.y - UNIT * 1.6, { key: 'quake', tip: 'quake', life: 2.5 });
+}
 // falling rocks and shockwaves from the boss
 function updateHazards(dt) {
   const h = state.hero;
@@ -1661,6 +1792,10 @@ function updateHazards(dt) {
     if (z.t >= z.dur) {
       state.hazards.splice(i, 1);
       sfx.crash(); spark(z.x, z.y, '#7a6a5a', 8, 3); state.shake = Math.max(state.shake, 0.15);
+      if (z.edmg) for (const e of state.enemies) if (!e.dead && e.mode !== 'ceiling' && Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r) {
+        damage(e, z.edmg, 'fire', 0, 1); if (!e.dead) { e.mode = 'stunned'; e.t = e.type === 'warden' ? 2.2 : 1.4; }
+        zoomPulse(e.x, e.y, 'kill');
+      }
       if (Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 0.4 && h.z < UNIT * 0.5) {
         if (state.inv.scalp) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
         else hurtHero(1, z.x, z.y);
@@ -1792,15 +1927,18 @@ function interact() {
       say(`${K.menu} opens the menu. Save your progress there.`, h.x, h.y + UNIT * 2.2, { key: 'savetip', tip: 'save', life: 4 });
       return true;
     }
+  }
+  if (sc.feat.plots) {
+    const crop = CROP[sc.area] || 'turnip';
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0 })));
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (d2 > UNIT * 0.8) continue;
       const p = plots[i], stage = plotStage(p);
-      if (p.s === 0) say(state.inv.seeds ? `${K.act} to plant a seed` : 'Tilled soil. Robins drop seeds when they fly off.', px * W, py * H - UNIT, { key: 'plot', tip: state.inv.seeds ? null : 'plot', life: 2.5 });
+      if (p.s === 0) say(state.inv.seeds ? `${K.act} to plant a seed` : 'Tilled soil. Birds drop seeds when they fly off; gremlins carry them too.', px * W, py * H - UNIT, { key: 'plot', tip: state.inv.seeds ? null : 'plot', life: 2.5 });
       if (!pressedNow.act) return false;
-      if (p.s === 0 && state.inv.seeds > 0) { state.inv.seeds--; p.s = 1; p.t = state.playTime; sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2); say('Planted. Give it time.', px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
-      else if (p.s === 1 && stage >= 3) { p.s = 0; state.inv.food.push('turnip'); sfx.pop(); zoomPulse(px * W, py * H, 'pickup'); say(`A turnip! ${K.eat} to eat.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); refreshButtons(); }
+      if (p.s === 0 && state.inv.seeds > 0) { state.inv.seeds--; p.s = 1; p.t = state.playTime; sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2); say(`Planted. ${CROP_NAME[crop]} grow here. Come back later.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); }
+      else if (p.s === 1 && stage >= 3) { p.s = 0; collect({ type: crop, x: px * W, y: py * H }); sfx.pop(); say(`A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
     }
@@ -1811,6 +1949,8 @@ function interact() {
   } else if (pressedNow.act) { dropRock(); return true; }
   return false;
 }
+const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper' };
+const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers' };
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / 20)) : 0;
 function dropRock() {
   const h = state.hero;
@@ -1836,8 +1976,8 @@ function npcLines(n) {
     };
   }
   if (n.kind === 'pip') {
-    if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! MMMPH!'], then: () => say(state.inv.fire ? 'Webs burn.' : 'The webs are too tough to cut.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'item', life: 2.5 }) };
-    return { lines: ['You found me!', 'I chased my pack all the way into the marsh. Then something dragged me down here.', 'I don\'t want to know what. Let\'s go home. I\'ll put the kettle on.'], then: startEnding };
+    if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
+    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Let\'s go home. I\'ll put the kettle on.'], then: startEnding };
   }
   return { lines: ['...'] };
 }
@@ -1861,9 +2001,10 @@ function advanceTalk() {
 // =====================================================================
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
-  if (pressedNow.dash && inv.wing && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(1.2)) {
-    h.dashT = 0.18; h.dashCool = 0.7; h.invuln = Math.max(h.invuln, 0.3);
-    h.vx = h.fx * 1.15 * L(); h.vy = h.fy * 1.15 * L();
+  if (pressedNow.dash && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
+    h.dashT = inv.step >= 3 ? 0.22 : 0.18; h.dashCool = inv.step >= 2 ? 0.5 : 0.85; h.invuln = Math.max(h.invuln, inv.step >= 3 ? 0.45 : 0.3);
+    h.vx = h.fx * 1.2 * L(); h.vy = h.fy * 1.2 * L();
+    state.dodged = false;
     sfx.dash();
   }
   if (pressedNow.eat && inv.food.length) {
@@ -1872,7 +2013,8 @@ function updateAbilities(dt) {
       const i = inv.food.indexOf('carrot') >= 0 ? inv.food.indexOf('carrot') : 0;
       const food = inv.food.splice(i, 1)[0];
       sfx.munch(); zoomPulse(h.x, h.y, 'tap');
-      heal(food === 'carrot' ? 0.35 : 0.25);
+      heal(food === 'carrot' ? 0.35 : food === 'pepper' ? 0.2 : 0.25);
+      if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
       refreshButtons();
     }
   }
@@ -1906,14 +2048,16 @@ function breathe(from, mv) {
   const face = Math.atan2(from.fy, from.fx);
   const a = Math.random() < 0.7 ? face + rr(-1.0, 1.0) : Math.random() * 6.28;
   const sp = UNIT * (1.2 + mv * 0.06) * rr(0.6, 1.25);
-  spawnPuff(from.x + Math.cos(face) * UNIT * 0.5, from.y + Math.sin(face) * UNIT * 0.5, Math.cos(a) * sp, Math.sin(a) * sp, UNIT * (0.7 + mv * 0.02) * rr(0.8, 1.2));
+  const hot = state.inv.pepper > 0 ? 1.4 : 1;
+  spawnPuff(from.x + Math.cos(face) * UNIT * 0.5, from.y + Math.sin(face) * UNIT * 0.5, Math.cos(a) * sp * hot, Math.sin(a) * sp * hot, UNIT * (0.7 + mv * 0.02) * rr(0.8, 1.2) * hot);
 }
 
 // ---------------- projectiles (rocks, acorns) ----------------
 function launch(kind) {
   const h = state.hero, rock = kind === 'rock';
-  const sp = UNIT * (rock ? 7 : 13);
-  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: h.fx * sp, vy: h.fy * sp, z: UNIT * (rock ? 1.2 : 0.6), vz: UNIT * (rock ? 5 : 2.5), g: UNIT * (rock ? 14 : 8), spin: 0 });
+  const silk = rock ? 0 : state.inv.silk;
+  const sp = UNIT * (rock ? 7 : 13 * (silk ? 1.35 : 1));
+  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: h.fx * sp, vy: h.fy * sp, z: UNIT * (rock ? 1.2 : 0.6), vz: UNIT * (rock ? 5 : 2.5), g: UNIT * (rock ? 14 : silk ? 5 : 8), spin: 0, silk, hit: new Set() });
   sfx.throw();
   if (rock) state.shake = 0.1;
   if (state.bird) scareBird(h.x, h.y, 6);
@@ -1924,10 +2068,12 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.vz -= s.g * dt; s.z += s.vz * dt; s.spin += dt * 12;
     let done = s.z <= 0 || s.x < -UNIT || s.x > W + UNIT || s.y < -UNIT || s.y > H + UNIT;
     for (const e of state.enemies) {
-      if (done || !hittable(e) || Math.hypot(e.x - s.x, e.y - s.y) > e.r + UNIT * 0.3) continue;
+      if (done || s.hit.has(e) || !hittable(e) || Math.hypot(e.x - s.x, e.y - s.y) > e.r + UNIT * 0.3) continue;
       const d = Math.hypot(s.vx, s.vy) || 1;
-      damage(e, (rock ? 3 : 1) * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d);
-      done = true;
+      s.hit.add(e);
+      damage(e, (rock ? 3 : s.silk ? 2 : 1) * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d);
+      if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
+      if (!(s.silk >= 2)) done = true;
     }
     if (!done) for (const o of state.solids) {
       if (Math.hypot(o.x - s.x, o.y - s.y) > o.r + UNIT * 0.2) continue;
@@ -1999,33 +2145,22 @@ function updateGas(dt) {
 }
 
 // =====================================================================
-// The sword turns in its sheath now and then. Strike as it turns.
-// =====================================================================
-function updateSwordPose(dt) {
-  if (!state.inv.sword) return;
-  const sw = state.sw, h = state.hero;
-  sw.flipT = Math.max(0, sw.flipT - dt);
-  const moving = Math.hypot(h.vx, h.vy) > 0.05 * L();
-  if (moving) { sw.idle = 0; sw.next -= dt; if (sw.next <= 0) { flipSword(); sw.next = rr(6, 10); } }
-  else { sw.idle += dt; if (sw.idle > 3.5) { flipSword(); sw.idle = 0; } }
-}
-function flipSword() {
-  const sw = state.sw, h = state.hero;
-  sw.pose *= -1; sw.flipT = 0.32;
-  sfx.flip();
-  say('The blade turns. Strike right then for a flip strike.', h.x, h.y - UNIT * 1.3, { key: 'fliptip', tip: 'flip', life: 4 });
-}
-
-// =====================================================================
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
   state.cut = { type: 'intro', t: 0, step: 0 };
-  state.night = 1; state.rain = 0; state.clouds2 = 0; state.fireLit = 1;
+  state.night = 0; state.rain = 0; state.clouds2 = 0; state.fireLit = 1;
   state.pip = { x: WORLD.camp.feat.pip[0] * W, y: WORLD.camp.feat.pip[1] * H, show: true };
   const h = state.hero; h.fx = 1; h.fy = 0; h.side = 1;
-  setMusic('night');
-  setAmbience('rain');
+  setMusic('forest');
+  setAmbience('none');
+}
+function startAmbush() {
+  const f = WORLD.start.feat.pip;
+  state.cut = { type: 'ambush', t: 0, step: 0 };
+  state.pip = { x: f[0] * W, y: f[1] * H, show: true, bound: 0 };
+  state.gremlins = [0, 1, 2].map(i => ({ x: W + UNIT * (1 + i), y: f[1] * H + (i - 1) * UNIT * 1.4, show: true }));
+  state.cam.focus = { z: 1.2, at: () => [W * 0.75, f[1] * H] };
 }
 function startSwordCut() {
   const h = state.hero;
@@ -2053,26 +2188,27 @@ function updateCut(dt) {
   const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
   c.t += dt;
   if (c.type === 'intro') {
-    const p = state.pip, [px, py] = [p.x, p.y];
-    if (c.t < 15 && (pressedNow.act || pressedNow.fire)) { c.t = 15; c.step = 150; unsay('npc'); state.fadeTarget = 1; state.fadeRate = 4; }
-    if (at(0.8)) say('Look at all those stars.', px, py - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(2)) say(`${K.act} skips`, W / 2, H - UNIT * 1.5, { key: 'skip', life: 3, tip: 'skip' });
-    if (at(4.2)) { say('Was that thunder?', px, py - UNIT * 1.3, { key: 'npc', life: 2.5 }); sfx.rumble(); }
-    if (c.t > 6) { state.clouds2 = Math.min(1, (c.t - 6) / 2); state.rain = Math.min(1, Math.max(0, (c.t - 7) / 2)); }
-    if (at(9)) { state.flash = 1; sfx.thunder(); state.shake = 0.5; state.fireLit = 0; zoomPulse(h.x, h.y, 'boss'); say('My pack! The wind\'s got it!', px, py - UNIT * 1.3, { key: 'npc', life: 2.5 }); }
-    if (c.t > 10.5 && c.t < 14) { p.x += UNIT * 5 * dt; p.y += UNIT * 5.5 * dt; }
-    if (at(11.5)) { state.flash = 0.6; sfx.thunder(); }
-    if (at(13)) say('Pip vanished into the storm.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 2.5 });
-    if (at(15)) { state.fadeTarget = 1; state.fadeRate = 3; }
-    if (at(16.5)) {
-      state.night = 0; state.rain = 0; state.clouds2 = 0; state.fireLit = 1; p.show = false;
-      setAmbience('none'); setMusic('forest');
-      state.fadeTarget = 0;
-      showTitle('Find Pip', 'the storm has passed', 'area', 3.5);
-    }
-    if (at(18.5)) {
-      state.cut = null; state.area = 'forest';
-      say(TOUCH ? 'Use the d-pad to move' : 'Arrow keys to move', h.x, h.y - UNIT * 1.2, { key: 'move', tip: 'move', life: 4 });
+    const p = state.pip;
+    if (c.t < 5 && (pressedNow.act || pressedNow.fire)) { c.t = 5; c.step = 50; unsay('npc'); }
+    if (at(0.8)) say('Perfect day to explore the old woods!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
+    if (at(1.5)) say(`${K.act} skips`, W / 2, H - UNIT * 1.5, { key: 'skip', life: 3, tip: 'skip' });
+    if (at(3.1)) say('Race you to the glade!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
+    if (c.t > 3.8 && c.t < 6) { p.y += UNIT * 7 * dt; p.x -= UNIT * 0.4 * dt; }
+    if (at(5.5)) { p.show = false; state.cut = null; say(TOUCH ? 'Use the d-pad to follow Pip south' : 'Arrow keys to follow Pip south', h.x, h.y - UNIT * 1.2, { key: 'move', tip: 'move', life: 4 }); }
+  } else if (c.type === 'ambush') {
+    const p = state.pip, gs = state.gremlins, rt = rtFor('start');
+    if (at(0.4)) say('Come on, slowpoke! The woods are right...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
+    if (c.t > 2 && c.t < 3) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
+    if (at(2.1)) { sfx.cackle(); state.shake = 0.3; }
+    if (at(2.8)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 }); zoomPulse(p.x, p.y, 'parry'); }
+    if (c.t > 3.8 && c.t < 5.5) { p.x += UNIT * 5 * dt; gs.forEach((g, i) => { if (i < 2) g.x += UNIT * 5 * dt; }); }
+    if (c.t > 4.2 && c.t < 5.4) { const g = gs[2]; g.x += (W * 0.95 - g.x) * (1 - Math.exp(-4 * dt)); }
+    if (at(5.5)) { rt.flags.ambush = true; refreshSceneGeometry(); sfx.crash(); state.shake = 0.4; zoomPulse(W * 0.95, H * 0.5, 'kill'); sfx.cackle(); }
+    if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
+    if (at(7)) {
+      p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
+      showTitle('Find Pip', 'gremlins took them into the woods', 'area', 3.5);
+      say('They piled thorns behind them. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
     const a = 0.3, b = 1.35;
@@ -2164,8 +2300,8 @@ function menuSelect(i) {
 function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
-  for (const [k, r] of Object.entries(RT)) rtOut[k] = { dead: [...r.dead], items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 2, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
+  return { v: 3, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2177,9 +2313,9 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed) return false;
+  if (!d || !d.seed || d.v !== 3) return false;
   resetRun(d.seed);
-  for (const [k, r] of Object.entries(d.rt)) RT[k] = { dead: new Set(r.dead), items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
+  for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   enterScene(d.scene, d.hero.fx, d.hero.fy);
@@ -2189,6 +2325,53 @@ function loadSlot(i) {
 }
 function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stringify({ settings: state.settings, tipsSeen: state.tipsSeen })); } catch (e) {} }
 function loadSettings() { try { const d = JSON.parse(localStorage.getItem('quest-settings') || 'null'); if (d) { Object.assign(state.settings, d.settings); } } catch (e) {} }
+
+// =====================================================================
+// Forest birds: peck about, burst into the air when you come close
+// =====================================================================
+const FLOCK = { camp: 2, start: 3, meadow: 2, w1: 3, w2: 2, w3: 1, f1: 2 };
+function makeFlock(sc) {
+  const n = FLOCK[sc.id] || 0, out = [];
+  for (let i = 0; i < n; i++) out.push(landSpot({ mode: 'peck', t: Math.random() * 2, z: 0, c: ['#6b4a2a', '#5a5a62', '#8a6a3a'][i % 3] }));
+  return out;
+}
+function landSpot(b) {
+  for (let k = 0; k < 30; k++) {
+    const x = W * (0.1 + Math.random() * 0.8), y = H * (0.15 + Math.random() * 0.75);
+    if (state.solids.every(s => Math.hypot(s.x - x, s.y - y) > s.r + UNIT) && !isChasm(x, y)) { b.x = x; b.y = y; break; }
+  }
+  return b;
+}
+function scareFlock(x, y, range) {
+  for (const b of state.flock) {
+    if (b.mode !== 'peck' || Math.hypot(b.x - x, b.y - y) > UNIT * range) continue;
+    const a = Math.atan2(b.y - y, b.x - x) + (Math.random() - 0.5);
+    b.mode = 'fly'; b.vx = Math.cos(a) * 0.4 * L(); b.vy = Math.sin(a) * 0.4 * L() - UNIT * 3;
+    sfx.flap(panOf(b.x));
+    if (Math.random() < 0.12) state.items.push({ type: 'seed', x: b.x, y: b.y });
+  }
+}
+function updateFlock(dt) {
+  const h = state.hero;
+  for (const b of state.flock) {
+    b.t -= dt;
+    if (b.mode === 'peck') {
+      if (b.t <= 0) { b.t = 0.5 + Math.random() * 1.5; b.x += (Math.random() - 0.5) * UNIT * 0.6; b.hop = 0.15; }
+      b.hop = Math.max(0, (b.hop || 0) - dt);
+      if (Math.hypot(h.x - b.x, h.y - b.y) < UNIT * 3) scareFlock(h.x, h.y, 3);
+    } else if (b.mode === 'fly') {
+      b.x += b.vx * dt; b.y += b.vy * dt; b.z += UNIT * 5 * dt;
+      if (b.z > UNIT * 8) { b.mode = 'gone'; b.t = 15 + Math.random() * 15; }
+    } else if (b.mode === 'gone' && b.t <= 0) {
+      landSpot(b);
+      if (Math.hypot(h.x - b.x, h.y - b.y) < UNIT * 5) { b.t = 3; continue; }
+      b.mode = 'land'; b.z = UNIT * 6; b.t = 1.2;
+    } else if (b.mode === 'land') {
+      b.z = Math.max(0, UNIT * 6 * b.t / 1.2);
+      if (b.t <= 0) { b.mode = 'peck'; b.z = 0; }
+    }
+  }
+}
 
 // =====================================================================
 // Drawing: one scene painter for every area. Areas differ by palette,
@@ -2236,12 +2419,14 @@ function drawScene(sc) {
   for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); ctx.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * k, z.r * 0.5 * k, 0, 0, 6.28); ctx.fill(); }
   for (const e of state.enemies) drawEnemy(e);
   for (const n of sc.npcs) drawNpc(n);
-  if (state.pip && state.pip.show && sc.id === 'camp') drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0);
+  if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }
+  if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 });
+  for (const b of state.flock) drawSmallBird(b);
   drawHero();
   drawShots();
   if (state.bird) drawBird();
   for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') drawTree(s);
-  for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); if (k > 0) drawRock(z.x, z.y - (1 - k) * H * 0.6, z.r * 0.7); }
+  for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); if (k > 0) { if (z.kind === 'stalactite') drawStalactite(z.x, z.y - (1 - k) * H * 0.6, z.r); else drawRock(z.x, z.y - (1 - k) * H * 0.6, z.r * 0.7); } }
   for (const g of state.rings) { const rad = g.r0 + (g.r1 - g.r0) * (g.t / g.dur); ctx.strokeStyle = `rgba(200,190,170,${0.7 * (1 - g.t / g.dur)})`; ctx.lineWidth = UNIT * 0.3; ctx.beginPath(); ctx.ellipse(g.x, g.y, rad, rad * 0.8, 0, 0, 6.28); ctx.stroke(); }
   drawDiverThreads();
   if (!dark) drawEyesDaylight();
@@ -2255,6 +2440,32 @@ function drawScene(sc) {
   drawSwordGlint(sc);
   if (sc.id === 'camp' && state.night > 0) drawSky();
   if (state.aim.on) drawAim();
+  if (state.blind > 0) { ctx.fillStyle = `rgba(250,255,235,${Math.min(0.92, state.blind / 1.8)})`; ctx.fillRect(-W, -H, W * 3, H * 3); }
+}
+function drawVineWrap(x, y) {
+  ctx.strokeStyle = '#3f7a32'; ctx.lineWidth = 3;
+  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.ellipse(x, y - UNIT * 0.3 + i * UNIT * 0.22, UNIT * 0.6, UNIT * 0.14, 0.2 * (i % 2 ? 1 : -1), 0, 6.28); ctx.stroke(); }
+}
+function drawStalactite(x, y, r) {
+  ctx.fillStyle = '#4a4450'; ctx.beginPath(); ctx.moveTo(x - r * 0.5, y - r * 1.4); ctx.lineTo(x + r * 0.5, y - r * 1.4); ctx.lineTo(x, y + r * 0.6); ctx.fill();
+  ctx.fillStyle = '#5c5664'; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 1.4); ctx.lineTo(x + r * 0.05, y - r * 1.4); ctx.lineTo(x, y + r * 0.3); ctx.fill();
+}
+function drawSmallBird(b) {
+  if (b.mode === 'gone') return;
+  const s = UNIT * 0.26 * (1 + b.z / (UNIT * 5)), y = b.y - b.z - (b.hop ? UNIT * 0.1 : 0);
+  if (b.z > 0) { ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + UNIT * 0.3, s * 0.5, s * 0.2, 0, 0, 6.28); ctx.fill(); }
+  ctx.fillStyle = b.c;
+  if (b.mode === 'peck') {
+    const dip = Math.sin(state.time * 6 + b.x) > 0.7 ? s * 0.15 : 0;
+    ctx.beginPath(); ctx.ellipse(b.x, y, s * 0.5, s * 0.36, 0, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x + s * 0.4, y - s * 0.2 + dip, s * 0.22, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#e8c04a'; ctx.fillRect(b.x + s * 0.58, y - s * 0.22 + dip, s * 0.18, s * 0.08);
+  } else {
+    const flap = Math.sin(state.time * 32 + b.x) * s * 0.8;
+    ctx.beginPath(); ctx.ellipse(b.x, y, s * 0.4, s * 0.28, 0, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(b.x, y); ctx.lineTo(b.x - s * 1.1, y - flap); ctx.lineTo(b.x - s * 0.2, y + s * 0.1); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(b.x, y); ctx.lineTo(b.x + s * 1.1, y - flap); ctx.lineTo(b.x + s * 0.2, y + s * 0.1); ctx.fill();
+  }
 }
 
 // ---------------- ground ----------------
@@ -2315,7 +2526,7 @@ function drawGround(sc) {
       for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(ux, uy, UNIT * (0.5 + i * 0.35), UNIT * (0.2 + i * 0.12), 0, state.time * (2 + i) + i, state.time * (2 + i) + i + 4); ctx.stroke(); }
       if (Math.random() < 0.1 + on * 0.5) state.fx.push({ x: ux + (Math.random() - 0.5) * UNIT * 1.4, y: uy, vx: (Math.random() - 0.5) * UNIT, vy: -UNIT * (1 + on * 3), t: 0, life: 0.9, color: 'leaf', spin: Math.random() * 6 });
     }
-    for (const s of f.socks || []) drawWindsock(s[0] * W, s[1] * H, sc);
+    for (const s of f.plants || []) drawGustGrass(s[0] * W, s[1] * H, sc);
   } else if (sc.area === 'cave' || sc.area === 'hollow') {
     for (const r of sc.deco) {
       ctx.fillStyle = r.shade > 0.5 ? (sc.area === 'hollow' ? '#232a1e' : '#26222c') : '#15131a';
@@ -2342,21 +2553,21 @@ function drawPools(sc) {
     if (sc.area === 'marsh') { ctx.fillStyle = '#4c6b3a'; ctx.beginPath(); ctx.ellipse(p.x - p.r * 0.4, p.y + p.r * 0.2, UNIT * 0.3, UNIT * 0.2, 0, 0.3, 6); ctx.fill(); }
   }
 }
-function drawWindsock(x, y, sc) {
-  const g = sc.gusts[state.gustIdx], ready = state.gustPhase !== 'lull';
-  const up = ready ? (state.gustPhase === 'blow' ? 1 : 0.6) : 0.15;
-  const len = UNIT * (0.5 + g.s * 1.1 * up), a = Math.PI / 2 - g.a;   // south is down the screen
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 3, UNIT * 0.3, UNIT * 0.12, 0, 0, 6.28); ctx.fill();
-  ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - UNIT * 1.3); ctx.stroke();
-  const top = y - UNIT * 1.3, droop = (1 - up) * 1.2, ang = a * up + (Math.PI / 2) * (1 - up) * 0 + droop * 0.6;
-  const flap = Math.sin(state.time * (6 + g.s * 10)) * 0.08 * up;
-  ctx.save(); ctx.translate(x, top); ctx.rotate(ang + flap);
-  for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = i % 2 ? '#f2efe6' : '#e0602a';
-    const x0 = len * i / 4, w0 = UNIT * 0.22 * (1 - i * 0.15);
-    ctx.fillRect(x0, -w0 / 2, len / 4 + 1, w0);
+// tall grass by each updraft: it leans the way the next gust will blow, harder for stronger gusts
+function drawGustGrass(x, y, sc) {
+  const g = sc.gusts[state.gustIdx];
+  const up = state.gustPhase === 'blow' ? 1 : state.gustPhase === 'build' ? 0.75 : 0.12;
+  const lean = up * g.s, wx = Math.sin(g.a), wy = Math.cos(g.a);
+  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.6, UNIT * 0.18, 0, 0, 6.28); ctx.fill();
+  ctx.lineCap = 'round';
+  for (let i = -3; i <= 3; i++) {
+    const bx = x + i * UNIT * 0.12, hgt = UNIT * (1.3 + (i % 2 ? 0.25 : 0)), sway = Math.sin(state.time * (3 + g.s * 8) + i) * 0.08 * up;
+    const tx = bx + (wx * lean * 0.9 + sway) * hgt, ty = y - hgt * (1 - lean * 0.55) + wy * lean * hgt * 0.45;
+    ctx.strokeStyle = i % 2 ? '#8a9a4a' : '#a4ae5a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(bx, y); ctx.quadraticCurveTo(bx, y - hgt * 0.5, tx, ty); ctx.stroke();
+    ctx.fillStyle = '#c9b870'; ctx.beginPath(); ctx.ellipse(tx, ty, 3, 6, Math.atan2(ty - y, tx - bx) + Math.PI / 2, 0, 6.28); ctx.fill();
   }
-  ctx.restore();
+  ctx.lineCap = 'butt';
 }
 
 // ---------------- trees and solids ----------------
@@ -2407,6 +2618,19 @@ function drawRock(x, y, r) {
 function drawSolid(s) {
   const { x, y, vis: r, kind } = s, u = UNIT;
   switch (kind) {
+    case 'stalagmite': {
+      const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
+      ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
+      if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
+      break;
+    }
+    case 'vine':
+      ctx.strokeStyle = '#2f5a26'; ctx.lineWidth = 4;
+      for (let i = 0; i < 3; i++) { const a = i * 2.1 + s.fx * 7; ctx.beginPath(); ctx.arc(x, y, r * (0.6 + i * 0.2), a, a + 2.4); ctx.stroke(); }
+      ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
+      break;
     case 'boulder': case 'cavewall': case 'pillar': {
       const cave = kind !== 'boulder', moss = s.pal === 'moss';
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
@@ -2497,7 +2721,7 @@ function drawHero() {
     ctx.fillStyle = '#f5d06f'; ctx.fillRect(h.x - s / 2, h.y - s / 2 + (1 - k) * UNIT, s, s);
     return;
   }
-  const blink = h.invuln > 0 && h.stun > -0.6 && !h.ride && Math.floor(state.time * 14) % 2;
+  const blink = !state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2;
   const sp = Math.hypot(h.vx, h.vy), stretch = Math.min(0.18, sp / 3000);
   const pw = UNIT * (1 + stretch * Math.abs(h.vx) / (sp || 1)), ph = UNIT * (1 + stretch * Math.abs(h.vy) / (sp || 1));
   const y = h.y - h.z, sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
@@ -2526,7 +2750,7 @@ function drawBlade(len, w) {
 }
 function drawHilt() { ctx.fillStyle = '#7a4a1c'; ctx.fillRect(-UNIT * 0.05, -UNIT * 0.18, UNIT * 0.08, UNIT * 0.36); ctx.fillRect(-UNIT * 0.26, -UNIT * 0.04, UNIT * 0.22, UNIT * 0.08); }
 function drawSword(h, pw, ph, y, heroic) {
-  const a = state.atk, sw = state.sw;
+  const a = state.atk;
   ctx.save(); ctx.translate(h.x, y);
   if (heroic) {
     ctx.rotate(-Math.PI / 2); ctx.translate(ph * 0.5, 0);
@@ -2537,31 +2761,28 @@ function drawSword(h, pw, ph, y, heroic) {
     ctx.restore(); return;
   }
   if (!a) {
-    // worn at the side the hero faces, angled a little outward; point down or up
-    const s = h.side, down = Math.PI / 2 - s * 0.3, up = s > 0 ? -Math.PI / 2 + 0.3 : 3 * Math.PI / 2 - 0.3;
-    const from = sw.pose > 0 ? up : down, to = sw.pose > 0 ? down : up;
-    const p = sw.flipT > 0 ? 1 - sw.flipT / 0.32 : 1;
-    const ang = from + (to - from) * p;
+    // worn at the side the hero faces, point down and angled back from the way you walk
+    const s = h.side, ang = Math.PI / 2 - s * 0.35;
     ctx.translate(s * (pw * 0.5 + UNIT * 0.08), UNIT * 0.08 + h.fy * UNIT * 0.08);
     ctx.rotate(ang); ctx.translate(UNIT * 0.1, 0);
     drawBlade(UNIT * 0.75, UNIT * 0.1); drawHilt();
-    if (sw.flipT > 0) { ctx.fillStyle = `rgba(255,250,210,${sw.flipT * 2.5})`; ctx.beginPath(); ctx.arc(UNIT * 0.5, 0, UNIT * 0.25, 0, 6.28); ctx.fill(); }
     ctx.restore(); return;
   }
   const ab = Math.atan2(a.ay, a.ax), p = Math.min(1, a.t / a.dur);
   if (a.type === 'slash') {
-    const sweep = a.flip ? 1.6 : 1.25, ang = ab - sweep + p * sweep * 2;
-    ctx.strokeStyle = a.flip ? `rgba(255,220,110,${0.8 * (1 - p)})` : `rgba(255,250,230,${0.55 * (1 - p)})`;
-    ctx.lineWidth = UNIT * (a.flip ? 0.5 : 0.35);
-    ctx.beginPath(); ctx.arc(0, 0, UNIT * (a.flip ? 1.55 : 1.2), ab - sweep, ang); ctx.stroke();
+    const sweep = 1.25, ang = ab - sweep + p * sweep * 2, lv = a.level || 0;
+    ctx.strokeStyle = lv ? `rgba(255,220,110,${0.8 * (1 - p)})` : `rgba(255,250,230,${0.55 * (1 - p)})`;
+    ctx.lineWidth = UNIT * 0.35;
+    ctx.beginPath(); ctx.arc(0, 0, UNIT * 1.2, ab - sweep, ang); ctx.stroke();
     ctx.rotate(ang); ctx.translate(UNIT * 0.5, 0);
     drawBlade(UNIT * 1.15, UNIT * 0.12); drawHilt();
   } else {
     const ext = Math.sin(p * Math.PI);
     ctx.rotate(ab); ctx.translate(UNIT * (0.4 + ext * 0.7), 0);
     drawBlade(UNIT * 1.2, UNIT * 0.12); drawHilt();
-    ctx.strokeStyle = `rgba(255,250,230,${0.5 * ext})`; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(UNIT * 0.2, 0); ctx.lineTo(UNIT * (1.4 + ext * 0.8), 0); ctx.stroke();
+    const lv = a.level || 0;
+    ctx.strokeStyle = lv ? `rgba(255,220,110,${0.8 * ext})` : `rgba(255,250,230,${0.5 * ext})`; ctx.lineWidth = 2 + lv * 2;
+    ctx.beginPath(); ctx.moveTo(UNIT * 0.2, 0); ctx.lineTo(UNIT * (1.4 + ext * (0.8 + lv * 0.4)), 0); ctx.stroke();
   }
   ctx.restore();
 }
@@ -2639,8 +2860,8 @@ function drawLighting(sc) {
     if (state.pip && state.pip.show) light(state.pip.x, state.pip.y, UNIT * 2.2, 0.7);
     light(h.x, h.y, UNIT * 1.2, 0.4);
   } else {
-    light(h.x, h.y - h.z, UNIT * 5.5 * flicker * (sc.lightScale || 1) * (1 + 0.8 * state.inv.glow / 45));
-    for (const e of state.enemies) if (e.type === 'glowworm' && !e.dead) light(e.x, e.y, UNIT * 2.2, 0.8);
+    light(h.x, h.y - h.z, UNIT * 5.5 * flicker * (sc.lightScale || 1) * (1 + 0.8 * Math.min(1, state.inv.lumin / 45)));
+    for (const e of state.enemies) if (e.type === 'glowworm' && !e.dead) light(e.x, e.y, UNIT * (e.mode === 'glowup' ? 2.2 + (0.8 - e.t) * 4 : 2.2), 0.8);
     for (const it of state.items) light(it.x, it.y, UNIT * 1.3, 0.7);
     if (sc.area === 'cave') for (const ex of sc.exits) { const [px, py] = edgePoint(ex.side, (ex.a + ex.b) / 2); if (!(ex.locked && ex.locked())) light(px * W, py * H, UNIT * 3, 0.5); }
     if (sc.feat.falls) for (let y = 0; y < H; y += UNIT * 2) light(W - UNIT, y, UNIT * 4, 0.55);
@@ -2727,14 +2948,16 @@ function drawHUD() {
     x += s * 1.55;
   };
   if (inv.scalp) slot('scalp');
-  if (inv.horn) slot('horn');
-  if (inv.wing) slot('wing', K.dash);
+  if (inv.horn) slot('horn', 'I'.repeat(inv.horn));
+  if (inv.step) slot('step', K.dash + ' ' + 'I'.repeat(inv.step));
+  if (inv.silk) slot('silk', 'I'.repeat(inv.silk));
   if (inv.fire) slot('fire', K.fire);
-  if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : 'turnip', `${K.eat} x${inv.food.length}`);
+  if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `${K.eat} x${inv.food.length}`);
   if (inv.acorns) slot('acorn', `${K.throw} x${inv.acorns}`);
   if (inv.seeds) slot('seed', `x${inv.seeds}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
-  if (inv.glow > 0) slot('glow', null, inv.glow / 45);
+  if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
+  if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
   if (inv.slime > 0) slot('slime', null, inv.slime / 25);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && !e.dead);
   if (boss) {
@@ -2746,10 +2969,11 @@ function drawHUD() {
 
 // ---------------- menu ----------------
 const EQUIP = [
-  ['sword', 'Rusted sword', `${K.act}: tap to slash, hold and release to stab. Strike as it turns for a flip strike.`],
+  ['sword', 'Rusted sword', `${K.act}: tap to slash, hold and release to stab and lunge. Stab, slash, stab in rhythm to chain.`],
   ['scalp', 'Stalker scalp', 'Things falling from above bounce off.'],
+  ['step', 'Stalker\'s Step', `${K.dash}: dodge. Last-moment dodges slow time.`],
   ['horn', 'Charger horn', 'Stabs hit harder and always knock back.'],
-  ['wing', 'Diver wing', `${K.dash}: dash through danger.`],
+  ['silk', 'Diver silk', 'A sling for your acorns.'],
   ['fire', 'Marsh fire', `${K.fire}: hold to breathe gas, let go to spark it. Wind scatters it.`],
   ['tortoise', 'Tortoise\'s patience', 'Your vigor runs deeper.'],
 ];
@@ -2769,8 +2993,9 @@ function drawMenu() {
     const owned = EQUIP.filter(([k]) => inv[k]);
     if (!owned.length) { ctx.fillText('Nothing yet.', x + 10, y); y += lh; }
     for (const [k, name, desc] of owned) {
-      drawItemIcon(k === 'sword' ? 'horn' : k === 'tortoise' ? 'wisp' : k, x + 16, y - fs * 0.3, fs * 1.4);
-      ctx.fillStyle = '#ffe38a'; ctx.fillText(name, x + 40, y);
+      drawItemIcon(k === 'sword' ? 'acorn' : k === 'tortoise' ? 'wisp' : k, x + 16, y - fs * 0.3, fs * 1.4);
+      const lv = typeof inv[k] === 'number' && inv[k] > 0 && RELICS[k] ? ' ' + 'I'.repeat(inv[k]) : '';
+      ctx.fillStyle = '#ffe38a'; ctx.fillText(name + lv, x + 40, y);
       ctx.fillStyle = '#d8d0c0'; wrap(desc, pw - 50).forEach((l, i) => ctx.fillText(l, x + 40, y + fs * 1.2 * (i + 1)));
       y += fs * 1.2 * (wrap(desc, pw - 50).length + 1) + 6;
     }
@@ -2838,7 +3063,20 @@ function drawItemIcon(type, x, y, s) {
       ctx.lineWidth = s * 0.12; ctx.beginPath(); ctx.arc(-s * 0.05, s * 0.2, s * 0.38, Math.PI * 1.6, Math.PI * 1.95); ctx.stroke();
       ctx.lineCap = 'butt';
       break;
-    case 'glow': {
+    case 'step':                                  // a stalker's hind claw on a cord
+      ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = Math.max(1, s * 0.06); ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.3, Math.PI * 0.1, Math.PI * 0.9, true); ctx.stroke();
+      ctx.fillStyle = '#4a1414'; ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 0.05); ctx.quadraticCurveTo(s * 0.3, s * 0.1, s * 0.05, s * 0.5); ctx.lineTo(s * 0.02, s * 0.1); ctx.fill();
+      ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(-s * 0.05, s * 0.2); ctx.quadraticCurveTo(s * 0.2, s * 0.3, s * 0.05, s * 0.5); ctx.fill();
+      break;
+    case 'silk':
+      ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 1.5;
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(0, 0, s * (0.15 + i * 0.07), s * (0.3 - i * 0.03), i * 0.5, 0, 6.28); ctx.stroke(); }
+      break;
+    case 'pepper':
+      ctx.fillStyle = '#c8321e'; ctx.beginPath(); ctx.moveTo(-s * 0.15, -s * 0.2); ctx.quadraticCurveTo(s * 0.4, -s * 0.1, s * 0.1, s * 0.5); ctx.quadraticCurveTo(-s * 0.1, s * 0.1, -s * 0.15, -s * 0.2); ctx.fill();
+      ctx.fillStyle = '#4a8a3a'; ctx.fillRect(-s * 0.2, -s * 0.32, s * 0.12, s * 0.15);
+      break;
+    case 'lumin': case 'glow': {
       const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.6);
       g.addColorStop(0, '#f2ffb0'); g.addColorStop(0.5, '#9ee85a'); g.addColorStop(1, 'rgba(120,220,80,0)');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, 6.28); ctx.fill();
@@ -2924,10 +3162,20 @@ function drawEnemy(e) {
       break;
     }
     case 'glowworm': {
+      if (e.mode === 'glowup') { const k = 1 - e.t / 0.8, g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, UNIT * (0.6 + k * 1.4)); g.addColorStop(0, `rgba(245,255,200,${0.4 + k * 0.5})`); g.addColorStop(1, 'rgba(245,255,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, UNIT * (0.6 + k * 1.4), 0, 6.28); ctx.fill(); }
       for (let i = 3; i >= 0; i--) {
         const ox = Math.cos(e.seg + i * 0.8) * UNIT * 0.1 - i * UNIT * 0.22 * Math.sign(e.vx || 1), oy = Math.sin(e.seg * 1.3 + i) * UNIT * 0.08;
         ctx.fillStyle = C(i === 0 ? '#d8f58a' : '#9ec65a'); ctx.beginPath(); ctx.arc(e.x + ox, e.y + oy, e.r * (1 - i * 0.15), 0, 6.28); ctx.fill();
       }
+      break;
+    }
+    case 'gremlin': {
+      const hop = Math.abs(Math.sin(state.time * 18 + e.x)) * UNIT * (e.mode === 'dart' ? 0.2 : 0.08), y = e.y - hop, r = e.r * scale;
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.3, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = C('#3c4a2a'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.85, r, 0, 0, 6.28); ctx.fill();
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.5, y - r * 0.5); ctx.lineTo(e.x + s * r * 1.5, y - r * 1.0); ctx.lineTo(e.x + s * r * 0.7, y - r * 0.1); ctx.fill(); }
+      ctx.fillStyle = '#ff4a2a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.3, y - r * 0.25, UNIT * 0.07, 0, 6.28); ctx.fill(); }
+      ctx.strokeStyle = '#e9e2d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, y + r * 0.1, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke();
       break;
     }
     case 'rabbit': {
@@ -3058,7 +3306,11 @@ function drawBird() {
 function drawFx() {
   for (const p of state.fx) {
     const a = Math.max(0, 1 - p.t / p.life);
-    if (p.color === 'rain') {
+    if (p.color === 'beam') {                       // light rising from a relic
+      const g = ctx.createLinearGradient(p.x, p.y - UNIT * 8, p.x, p.y);
+      g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, `rgba(255,240,180,${0.5 * a})`);
+      ctx.fillStyle = g; ctx.fillRect(p.x - UNIT * 0.6, p.y - UNIT * 8, UNIT * 1.2, UNIT * 8);
+    } else if (p.color === 'rain') {
       ctx.strokeStyle = `rgba(190,210,240,${0.45 * a})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.vx * 0.02, p.y + p.vy * 0.02); ctx.stroke();
     } else if (p.color === 'smoke') {
@@ -3160,9 +3412,12 @@ function drawTitle() {
     const size = Math.min(W / 12, UNIT * (T.style === 'end' ? 1.6 : 1.1));
     ctx.globalAlpha = Math.min(1, k / 0.4) * fadeOut;
     ctx.font = `bold ${Math.round(size)}px Georgia, serif`;
+    const relic = T.style === 'relic';
+    if (relic) { ctx.shadowColor = '#ffcf5a'; ctx.shadowBlur = size * 0.4; }
     ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillText(T.text, W / 2 + 2, H * 0.22 + 2);
-    ctx.fillStyle = '#fdf6e3'; ctx.fillText(T.text, W / 2, H * 0.22);
-    if (T.sub) { ctx.font = `${Math.round(size * 0.45)}px "Courier New", monospace`; ctx.fillText(T.sub, W / 2, H * 0.22 + size * 1.1); }
+    ctx.fillStyle = relic ? '#ffe38a' : '#fdf6e3'; ctx.fillText(T.text, W / 2, H * 0.22);
+    ctx.shadowBlur = 0;
+    if (T.sub) { ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(size * 0.45)}px "Courier New", monospace`; wrap(T.sub, Math.min(W * 0.85, 560)).forEach((l, i) => ctx.fillText(l, W / 2, H * 0.22 + size * (1.1 + i * 0.6))); }
   }
   ctx.restore();
 }
@@ -3205,7 +3460,8 @@ state.cam.x = W / 2; state.cam.y = H / 2;
 
 let last = performance.now();
 function loop(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }
   update(dt);
   draw();
   requestAnimationFrame(loop);
