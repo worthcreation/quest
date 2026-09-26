@@ -594,10 +594,12 @@ function genWorld() {
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({ id: 'm' + i, area: 'marsh', depth: i, msg: MARSH_MSG[i - 1], music: 'marsh', amb: 'marsh', floor: '#3a4a2d', speed: 0.34, accel: 7, breeze: 0.02 }));
+    // the river out of the falls bank enters at the top of the west edge and runs off the north edge
+    if (i === 1) sc.river = { pts: [[-0.08, 0.12], [0.1, 0.08], [0.24, -0.08]], w: 2.8 };
     const east = last ? [0.4, 0.6] : gapAt(rr(0.25, 0.75), 0.1);
     sc.exits.push({ side: 'w', a: west[0], b: west[1], to: i === 1 ? 'fallsbank' : 'm' + (i - 1) });
     sc.exits.push({ side: 'e', a: east[0], b: east[1], to: last ? 'h1' : 'm' + (i + 1), locked: last ? () => !broken('m3', 'reeds') : null });
-    edgeWall(sc, 'n', 'deadtree', 1.0, [], 1.9, 'bog');
+    edgeWall(sc, 'n', 'deadtree', 1.0, i === 1 ? [[0, 0.34]] : [], 1.9, 'bog');
     edgeWall(sc, 's', 'deadtree', 1.0, i === 2 ? [[0.4, 0.6]] : [], 1.9, 'bog');
     if (i === 2) sc.exits.push({ side: 's', a: 0.4, b: 0.6, to: 'sw1' });
     if (last) barrier(sc, 'reeds', 'reeds', 0.95, 0.34, 0.95, 0.66, 0.7);
@@ -720,7 +722,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -768,8 +770,18 @@ document.querySelectorAll('#pad button').forEach(b => {
   bindHold(b, map[b.dataset.dir]);
 });
 function bindHold(el, key) {
-  el.addEventListener('pointerdown', e => { e.preventDefault(); state.keys[key] = true; begin(); });
-  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { state.keys[key] = false; }));
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); state.keys[key] = true; begin();
+    if (key === 'btnswap') { try { el.setPointerCapture(e.pointerId); } catch (_) {} state.radialPtr = null; }
+  });
+  // on the swap button, dragging the thumb points the quick-select wheel
+  if (key === 'btnswap') el.addEventListener('pointermove', e => {
+    if (!state.keys.btnswap) return;
+    const r = el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    state.radialPtr = Math.hypot(dx, dy) > 18 ? [dx, dy] : null;
+  });
+  ['pointerup', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { state.keys[key] = false; }));
+  el.addEventListener('pointerleave', () => { if (key !== 'btnswap') state.keys[key] = false; });
 }
 bindHold(document.getElementById('act'), 'btnact');
 bindHold(document.getElementById('jump'), 'btnjump');
@@ -802,6 +814,7 @@ function readPresses() {
   for (const k in held) { const v = held[k](); pressedNow[k] = v && !state.prevKeys[k]; state.prevKeys[k] = v; }
 }
 function inputVector() {
+  if (state.radial) return { x: 0, y: 0 };          // arrows point the wheel instead
   let x = 0, y = 0;
   if (held.up()) y -= 1;
   if (held.down()) y += 1;
@@ -816,7 +829,7 @@ function refreshButtons() {
   document.getElementById('dash').textContent = 'dodge';
   document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
-  document.getElementById('throw').classList.toggle('hidden', !(inv.sword && inv.acorns));
+  document.getElementById('throw').classList.toggle('hidden', !(inv.sword || inv.acorns || inv.food.length));
   document.getElementById('throw').textContent = 'swap';
 }
 
@@ -1324,6 +1337,7 @@ function newGame() {
 // Update
 // =====================================================================
 function update(dt) {
+  if (state.radial) dt *= 0.2;                        // the quick-select wheel slows the world
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
   state.shake = Math.max(0, state.shake - dt);
@@ -2685,7 +2699,8 @@ function interact() {
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
         say(kind === 'seed' ? `Planted. ${CROP_NAME[crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
-      if (p.s === 0 && have.length === 1) plant(have[0]);
+      if (p.s === 0 && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
+      else if (p.s === 0 && have.length === 1) plant(have[0]);
       else if (p.s === 0 && have.length > 1) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`), i2 => plant(have[i2]));
       else if (p.s === 1 && stage >= 3) {
         const S = SEEDS[p.seed || 'seed'];
@@ -2711,6 +2726,30 @@ function dropRock() {                               // set down a step ahead, th
   state.carry = null;
   state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.15 });
   sfx.land(); refreshButtons();
+}
+// the wheel: weapons first, then each kind of food you carry
+function radialOptions() {
+  const inv = state.inv, o = [];
+  if (inv.sword) o.push({ kind: 'weapon', id: 'sword', icon: 'sword', label: 'Sword' });
+  if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn', icon: 'acorn', label: `Acorns ${inv.acorns}` });
+  for (const f of [...new Set(inv.food)]) if (o.length < 8) o.push({ kind: 'food', id: f, icon: f, label: `${f} ${inv.food.filter(x => x === f).length}` });
+  return o;
+}
+function applyRadial(opt) {
+  const h = state.hero;
+  if (opt.kind === 'weapon') { state.equip = opt.id; state.active = opt.id; sfx.tock(); say(opt.label, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' }); }
+  else eatFood(opt.id);
+}
+function eatFood(food) {
+  const inv = state.inv, h = state.hero, i = inv.food.indexOf(food);
+  if (i < 0) return;
+  inv.food.splice(i, 1);
+  sfx.munch();
+  if (food === 'fish') { inv.fishBuff = 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
+  heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15, fish: 0.3 }[food] || 0.2);
+  if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus++; sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+  if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
+  refreshButtons();
 }
 function cycleEquip() {
   const inv = state.inv, opts = [];
@@ -2946,7 +2985,8 @@ function updateAbilities(dt) {
   if (pressedNow.eat && inv.food.length) {
     if (h.vig >= maxVig()) sayHero('Not hungry right now.', { life: 1.5 });
     else {
-      const miss = 1 - h.vig / maxVig(), order = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
+      const miss = 1 - h.vig / maxVig(), auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
+      const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
       const pickF = order.find(f => inv.food.includes(f)), i = pickF ? inv.food.indexOf(pickF) : 0;
       const food = inv.food.splice(i, 1)[0];
       sfx.munch(); zoomPulse(h.x, h.y, 'tap');
@@ -2958,7 +2998,24 @@ function updateAbilities(dt) {
     }
   }
   // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
-  if (pressedNow.swap && !state.carry) cycleEquip();
+  // R: tap swaps weapons; hold opens the quick-select wheel (the world slows), point and let go
+  if (pressedNow.swap && !state.carry) state.swapT = state.time;
+  if (state.swapT != null) {
+    if (held.swap()) {
+      if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { opts: radialOptions(), sel: -1 };
+      if (state.radial) {
+        let x = 0, y = 0;
+        if (state.radialPtr) [x, y] = state.radialPtr;
+        else { if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1; }
+        if (x || y) { const n = state.radial.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); state.radial.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
+      }
+    } else {
+      const r = state.radial;
+      if (r) { if (r.sel >= 0) applyRadial(r.opts[r.sel]); }
+      else cycleEquip();
+      state.radial = null; state.swapT = null; state.radialPtr = null;
+    }
+  }
   if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
@@ -3355,17 +3412,86 @@ const SLOTS = 3;
 // the main menu is a list of [key, label]; every option lives here, nothing on the play screen
 const MAIN_ITEMS = () => [
   ['resume', 'Resume'],
-  ['equip', 'Inventory'],
+  ['pack', 'Pack'],
   ...(state.inv.pipSaved ? [['spores', `Spore travel (${state.inv.spores} spores)`]] : []),
   ['save', 'Save game'],
   ['load', 'Load game'],
+  ['settings', 'Settings'],
+  ['new', 'New adventure'],
+];
+const SETTINGS_ITEMS = () => [
   ['keys', 'Controls'],
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
-  ...(state.inv.journal >= 3 ? [['map', 'Map (Pip\'s journal)']] : []),
   ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
-  ['new', 'New adventure'],
+  ['back', 'Back'],
 ];
+const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
+// ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
+const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map'];
+const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
+const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
+function packCells(tab) {
+  const inv = state.inv, cells = [], h = state.hero;
+  const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
+  if (tab === 'Gear') {
+    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }] });
+    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }] });
+    if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
+    if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark` });
+    for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1] });
+    if (inv.scalp) cells.push({ icon: 'scalp', name: 'Stalker cap', line: 'falling things bounce off' });
+    for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
+    if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+  }
+  if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
+    const fav = inv.favFood === f;
+    cells.push({ icon: f, name: f[0].toUpperCase() + f.slice(1), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
+      acts: [{ label: 'Eat', fn: () => { state.menu = null; eatFood(f); } }, { label: fav ? 'Stop eating first' : `Eat first (${K.eat})`, fn: () => { inv.favFood = fav ? null : f; } }, drop(f, () => inv.food.splice(inv.food.indexOf(f), 1))] });
+  }
+  if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
+    const fav = inv.favSeed === k;
+    cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : 'grows the local food',
+      acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, drop(k, () => inv.bag[k]--)] });
+  }
+  if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
+  if (tab === 'Quests') {
+    cells.push({ icon: 'heart', name: 'Find Pip', done: inv.pipSaved, line: inv.pipSaved ? 'Pip is safe at camp' : 'the gremlins took Pip' });
+    if (rtFor('m2').flags.metToad || inv.beans) cells.push({ icon: 'bean', name: 'The toad\'s beans', done: !!inv.fire, count: inv.fire ? 0 : inv.beans, line: inv.fire ? 'the toad taught you fire' : `${inv.beans} of ${BEANS} beans` });
+    if (inv.journal) cells.push({ icon: 'journal', name: 'The stolen journal', done: inv.journal >= 3, line: inv.journal >= 3 ? 'found' : `pages: ${inv.pages}; the thief runs toward the woods` });
+    if (inv.raft) cells.push({ icon: 'driftwood', name: 'Downriver', done: inv.raft >= 3, line: inv.raft >= 3 ? 'you reached the gleaming pool' : inv.raft === 2 ? 'the raft waits at the jetty' : `raft: driftwood ${inv.mats.driftwood}/4, thorns ${inv.mats.thorn}/2` });
+    cells.push({ icon: 'spores', name: 'Traveler\'s mushrooms', count: Object.keys(inv.shrooms).length, line: `${Object.keys(inv.shrooms).length} of 6 found` });
+  }
+  return cells;
+}
+function updatePack() {
+  const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' ? [] : packCells(tab), cols = m.cols || 5;
+  const mv = (d) => { m.sel = Math.max(0, Math.min(cells.length - 1, m.sel + d)); sfx.tock(); };
+  if (m.focus === 'tabs') {
+    if (pressedNow.left) { m.tab = Math.max(-1, m.tab - 1); m.sel = 0; sfx.tock(); }
+    if (pressedNow.right) { m.tab = Math.min(PACK_TABS.length - 1, m.tab + 1); m.sel = 0; sfx.tock(); }
+    if (pressedNow.act || pressedNow.down) {
+      if (m.tab < 0) { Object.assign(m, { view: 'main', sel: mainIndex('pack') }); sfx.pickup(); return; }
+      if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
+    }
+    return;
+  }
+  const cell = cells[m.sel];
+  if (m.focus === 'acts') {
+    const acts = (cell && cell.acts) || [];
+    if (pressedNow.left || pressedNow.up) { m.act = Math.max(0, m.act - 1); sfx.tock(); }
+    if (pressedNow.right || pressedNow.down) { m.act = Math.min(acts.length - 1, m.act + 1); sfx.tock(); }
+    if (pressedNow.act && acts[m.act]) { acts[m.act].fn(); sfx.pickup(); if (state.menu) { m.focus = 'grid'; const n = packCells(tab).length; m.sel = Math.min(m.sel, Math.max(0, n - 1)); if (!n) m.focus = 'tabs'; } }
+    if (pressedNow.jump) m.focus = 'grid';
+    return;
+  }
+  if (!cells.length) { m.focus = 'tabs'; return; }
+  if (pressedNow.left) mv(-1);
+  if (pressedNow.right) mv(1);
+  if (pressedNow.down) mv(cols);
+  if (pressedNow.up) { if (m.sel < cols) { m.focus = 'tabs'; sfx.tock(); } else mv(-cols); }
+  if (pressedNow.act && cell && cell.acts && cell.acts.length) { m.focus = 'acts'; m.act = 0; sfx.tock(); }
+}
 const MAIN = () => MAIN_ITEMS().map(o => o[1]);
 const mainIndex = key => MAIN_ITEMS().findIndex(o => o[0] === key);
 const ACTIONS = Object.keys(DEFAULT_KEYS);
@@ -3382,7 +3508,8 @@ function menuItems() {
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
   if (m.view === 'forge') return forgeItems();
-  if (m.view === 'map') return ['Back'];
+  if (m.view === 'settings') return SETTINGS_ITEMS().map(o => o[1]);
+  if (m.view === 'pack') return [];
   if (m.view === 'spores') return travelOptions(state.scene).map(o => `${SHROOM_NAMES[o.id]}: ${o.cost} spore${o.cost > 1 ? 's' : ''}`).concat('Back');
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
@@ -3390,19 +3517,14 @@ function menuItems() {
 function updateMenu() {
   if (state.remap) return;
   const m = state.menu, items = menuItems();
-  if (m.view === 'equip') {                          // the inventory scrolls
-    if (pressedNow.up) m.scroll = Math.max(0, m.scroll - 1);
-    if (pressedNow.down) m.scroll = Math.min(Math.max(0, (m.lines || 0) - 3), m.scroll + 1);
-    if (pressedNow.act) menuSelect(0);
-    return;
-  }
+  if (m.view === 'pack') { updatePack(); return; }
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
   if (pressedNow.act) menuSelect(m.sel);
 }
 function menuTap(x, y) {
   const m = state.menu;
-  if (m.view === 'equip') { if (y > H - 90) menuSelect(0); else if (y < H / 2) m.scroll = Math.max(0, m.scroll - 2); else m.scroll = Math.min(Math.max(0, (m.lines || 0) - 3), m.scroll + 2); return; }
+  if (m.view === 'pack') { const hit = (state.packHits || []).find(o => x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h); if (hit) hit.fn(); return; }
   const r = (state.menuRects || []).find(o => x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h);
   if (r) { state.menu.sel = r.i; menuSelect(r.i); }
 }
@@ -3413,16 +3535,19 @@ function menuSelect(i) {
   if (m.view === 'main') {
     const key = (MAIN_ITEMS()[i] || [])[0];
     if (key === 'resume') state.menu = null;
-    if (key === 'equip') Object.assign(m, { view: 'equip', sel: 0, scroll: 0 });
+    if (key === 'pack') Object.assign(m, { view: 'pack', tab: 0, sel: 0, focus: 'grid', act: 0 });
+    if (key === 'settings') Object.assign(m, { view: 'settings', sel: 0 });
     if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
     if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
+    if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
+    if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
+  } else if (m.view === 'settings') {
+    const key = (SETTINGS_ITEMS()[i] || [])[0];
     if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
     if (key === 'sound') setSound(!soundOn);
     if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
-    if (key === 'map') Object.assign(m, { view: 'map', sel: 0 });
     if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
-    if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
-    if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
+    if (key === 'back') Object.assign(m, { view: 'main', sel: mainIndex('settings') });
   } else if (m.view === 'spores') {
     const opts = travelOptions(state.scene);
     if (i >= opts.length) { Object.assign(m, { view: 'main', sel: mainIndex('spores') }); return; }
@@ -3432,7 +3557,7 @@ function menuSelect(i) {
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
-    else Object.assign(m, { view: 'main', sel: mainIndex('keys') });
+    else Object.assign(m, { view: 'settings', sel: setIndex('keys') });
   } else if (m.view === 'save' || m.view === 'load') {
     if (i >= SLOTS) { Object.assign(m, { view: 'main', sel: mainIndex(m.view) }); return; }
     if (m.view === 'save') m.note = saveSlot(i) ? `Saved to slot ${i + 1}` : 'Could not save on this device';
@@ -3441,8 +3566,7 @@ function menuSelect(i) {
     else m.note = 'That save could not be read';
   } else if (m.view === 'new') {
     if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: mainIndex('new') });
-  } else if (m.view === 'map') Object.assign(m, { view: 'main', sel: mainIndex('map') });
-  else Object.assign(m, { view: 'main', sel: mainIndex('equip') });
+  } else Object.assign(m, { view: 'main', sel: 0 });
 }
 
 function serialize() {
@@ -3500,7 +3624,7 @@ function inventoryLines() {
   }
   sec('You');
   L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
-  if (state.inv.journal === 1) L2.push(['page', `The stolen journal`, `The thief is somewhere along ${THIEF_ROUTE.join(', ')}. Pages found: ${state.inv.pages}.`]);
+  if (false) L2.push(['page', `The stolen journal`, `The thief is somewhere along ${THIEF_ROUTE.join(', ')}. Pages found: ${state.inv.pages}.`]);
   L2.push([null, `World seed ${SEED}`, `Open the game with ?overview=${SEED} to see this world as a map.`]);
   L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
   if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
@@ -3635,6 +3759,7 @@ function draw() {
   drawScene(sc);
   ctx.restore();
   drawHUD();
+  drawRadial();
   if (state.flash > 0) { ctx.fillStyle = `rgba(235,240,255,${state.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
   drawTexts();
@@ -4508,67 +4633,133 @@ const EQUIP = [
   ['fire', 'Marsh fire', `${K.fire}: hold to breathe gas, let go to spark it. Wind scatters it.`],
   ['tortoise', 'Tortoise\'s patience', 'Your vigor runs deeper.'],
 ];
+// Pip's maps: every place you've been, blanks where you haven't, found mushrooms, a pulse where you are
+function drawJournalMap(ox, oy, aw, ah, fs) {
+  const ids = Object.keys(MAP_LAYOUT), cols = 15, rows = 13, cw = aw / cols, chh = ah / rows;
+  const at = id => [ox + MAP_LAYOUT[id][0] * cw + cw * 0.12, oy + MAP_LAYOUT[id][1] * chh + chh * 0.12];
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,190,170,.35)';
+  for (const id of ids) for (const ex of WORLD[id].exits) if (MAP_LAYOUT[ex.to] && state.seen[id] && state.seen[ex.to]) {
+    const [ax, ay] = at(id), [bx, by] = at(ex.to);
+    ctx.beginPath(); ctx.moveTo(ax + cw * 0.38, ay + chh * 0.38); ctx.lineTo(bx + cw * 0.38, by + chh * 0.38); ctx.stroke();
+  }
+  for (const id of ids) {
+    const [bx, by] = at(id), seen = state.seen[id], here = id === state.scene;
+    ctx.fillStyle = seen ? (REGION_COLOR[WORLD[id].area] || '#888') : 'rgba(255,255,255,.05)';
+    ctx.fillRect(bx, by, cw * 0.76, chh * 0.76);
+    if (here) { ctx.strokeStyle = `rgba(255,227,138,${0.6 + 0.4 * Math.sin(state.time * 6)})`; ctx.lineWidth = 3; ctx.strokeRect(bx - 2, by - 2, cw * 0.76 + 4, chh * 0.76 + 4); }
+    if (seen && WORLD[id].feat.shroom) { ctx.fillStyle = state.inv.shrooms[id] ? '#b48af0' : '#6a5a88'; ctx.beginPath(); ctx.arc(bx + cw * 0.62, by + chh * 0.2, Math.max(3, cw * 0.09), 0, 6.28); ctx.fill(); }
+  }
+}
+// the pack: a row of tabs, a grid of icons, one short line and a few actions for the selected icon
+function drawPack(m, x, y, pw, fs) {
+  const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
+  const rr_ = (x0, y0, w0, h0, r0) => { ctx.beginPath(); ctx.moveTo(x0 + r0, y0); ctx.arcTo(x0 + w0, y0, x0 + w0, y0 + h0, r0); ctx.arcTo(x0 + w0, y0 + h0, x0, y0 + h0, r0); ctx.arcTo(x0, y0 + h0, x0, y0, r0); ctx.arcTo(x0, y0, x0 + w0, y0, r0); ctx.closePath(); };
+  const pwide = Math.min(W - 24, 680), px = (W - pwide) / 2;
+  // tabs, with a back chip first
+  const chips = [['\u2039', -1], ...PACK_TABS.map((t, i) => [t, i])];
+  ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.textAlign = 'center';
+  const cw = pwide / chips.length, th = fs * 1.9;
+  chips.forEach(([label, i], k) => {
+    const cx = px + k * cw, on = m.tab === i, foc = on && m.focus === 'tabs';
+    ctx.fillStyle = on ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.06)'; rr_(cx + 2, y - th * 0.75, cw - 4, th, 6); ctx.fill();
+    if (foc) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.fillStyle = on ? '#ffe38a' : '#d8d0c0'; ctx.fillText(label, cx + cw / 2, y + fs * 0.1);
+    hits.push({ x: cx, y: y - th * 0.75, w: cw, h: th, fn: () => { if (i < 0) { Object.assign(m, { view: 'main', sel: mainIndex('pack') }); return; } m.tab = i; m.sel = 0; m.focus = 'grid'; } });
+  });
+  y += th * 0.9;
+  const areaH = H - y - fs * 7.5;
+  if (tab === 'Map') {
+    if (state.inv.journal >= 3) {
+      const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
+      drawJournalMap(px, y, aw, ah, fs);
+      ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+      ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${Object.keys(MAP_LAYOUT).length} places \u00b7 you are at ${MAP_NAMES[state.scene] || state.scene}`, W / 2, y + ah + fs * 1.2);
+    } else {
+      drawItemIcon('journal', W / 2, y + fs * 3, fs * 3);
+      ctx.fillStyle = '#d8d0c0'; ctx.fillText('Pip\'s maps are in Pip\'s journal.', W / 2, y + fs * 6);
+    }
+    return;
+  }
+  const cells = packCells(tab);
+  const cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
+  m.cols = cols;
+  const gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
+  if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
+  cells.forEach((c, i) => {
+    const cx = gx + (i % cols) * (cs + gap), cy = y + Math.floor(i / cols) * (cs + gap), sel = i === m.sel && m.focus !== 'tabs';
+    if (cy + cs > y + areaH) return;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.22)' : 'rgba(255,255,255,.07)'; rr_(cx, cy, cs, cs, 8); ctx.fill();
+    if (sel) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+    if (c.mark) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; rr_(cx + 3, cy + 3, cs - 6, cs - 6, 6); ctx.stroke(); }
+    ctx.globalAlpha = c.done === false ? 0.55 : 1;
+    drawItemIcon(c.icon, cx + cs / 2, cy + cs * 0.45, cs * 0.55);
+    ctx.globalAlpha = 1;
+    if (c.count != null && c.count > 0) { ctx.fillStyle = '#fdf6e3'; ctx.font = `bold ${Math.round(cs * 0.22)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(c.count, cx + cs - 5, cy + cs - 6); ctx.textAlign = 'center'; }
+    if (c.pips) for (let p = 0; p < 3; p++) { ctx.fillStyle = p < c.pips ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.beginPath(); ctx.arc(cx + 9 + p * 9, cy + cs - 9, 3, 0, 6.28); ctx.fill(); }
+    if (c.star) { ctx.fillStyle = '#ffe38a'; ctx.beginPath(); for (let p = 0; p < 10; p++) { const a = p * Math.PI / 5 - Math.PI / 2, r0 = p % 2 ? 3 : 7; ctx.lineTo(cx + 12 + Math.cos(a) * r0, cy + 12 + Math.sin(a) * r0); } ctx.fill(); }
+    if (c.done) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + cs - 20, cy + 12); ctx.lineTo(cx + cs - 14, cy + 18); ctx.lineTo(cx + cs - 6, cy + 7); ctx.stroke(); }
+    hits.push({ x: cx, y: cy, w: cs, h: cs, fn: () => { if (m.sel === i && m.focus !== 'tabs' && c.acts && c.acts.length) { m.focus = 'acts'; m.act = 0; } else { m.sel = i; m.focus = 'grid'; } } });
+  });
+  // detail: name, one line, actions
+  const c = m.focus !== 'tabs' ? cells[m.sel] : null, dy = H - fs * 6.8;
+  if (c) {
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; rr_(px, dy - fs * 1.5, pwide, fs * 5.4, 10); ctx.fill();
+    ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(c.name, px + 14, dy);
+    ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.82)}px "Courier New", monospace`; ctx.fillText(c.line || '', px + 14, dy + fs * 1.3);
+    let ax = px + 14;
+    (c.acts || []).forEach((a, k) => {
+      ctx.font = `${Math.round(fs * 0.82)}px "Courier New", monospace`;
+      const w0 = ctx.measureText(a.label).width + 22, on = m.focus === 'acts' && m.act === k;
+      ctx.fillStyle = on ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.1)'; rr_(ax, dy + fs * 2.1, w0, fs * 1.6, 6); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+      ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.fillText(a.label, ax + 11, dy + fs * 3.2);
+      hits.push({ x: ax, y: dy + fs * 2.1, w: w0, h: fs * 1.6, fn: () => { m.sel = cells.indexOf(c); m.focus = 'grid'; a.fn(); sfx.pickup(); } });
+      ax += w0 + 8;
+    });
+    ctx.textAlign = 'center';
+  }
+  ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+  ctx.fillText(TOUCH ? 'tap an icon; tap again for actions' : `arrows move \u00b7 ${K.act} for actions \u00b7 ${K.menu} closes`, W / 2, H - fs * 0.8);
+}
+// the quick-select wheel around the hero (drawn over the world, under the menu)
+function drawRadial() {
+  const r = state.radial;
+  if (!r) return;
+  const c = state.cam, h = state.hero, sx = W / 2 + (h.x - c.ex) * c.ez, sy = H / 2 + (h.y - c.ey) * c.ez - UNIT * 0.4;
+  const R = Math.max(UNIT * 2.4, 90), n = r.opts.length, s = Math.max(UNIT * 0.9, 34);
+  ctx.fillStyle = 'rgba(8,6,12,.35)'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = s * 1.3; ctx.beginPath(); ctx.arc(sx, sy, R, 0, 6.28); ctx.stroke();
+  r.opts.forEach((o, i) => {
+    const a = i / n * Math.PI * 2 - Math.PI / 2, x = sx + Math.cos(a) * R, y = sy + Math.sin(a) * R, on = i === r.sel;
+    ctx.fillStyle = on ? 'rgba(242,201,76,.45)' : 'rgba(20,18,26,.8)'; ctx.beginPath(); ctx.arc(x, y, s * (on ? 0.72 : 0.6), 0, 6.28); ctx.fill();
+    if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 3; ctx.stroke(); }
+    if (o.kind === 'weapon' && state.equip === o.id) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 6.28); ctx.stroke(); }
+    drawItemIcon(o.icon, x, y, s * 0.75);
+  });
+  const sel = r.opts[r.sel];
+  ctx.textAlign = 'center'; ctx.font = `bold ${Math.round(Math.max(14, UNIT * 0.45))}px "Courier New", monospace`;
+  ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
+  ctx.textAlign = 'left';
+}
+const BUILD = 'build 32';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.font = '12px "Courier New", monospace';
+  ctx.fillText(BUILD, W - 10, H - 8); ctx.textAlign = 'left';
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory', spores: 'Spore travel', map: 'Pip\'s map' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', pack: 'Pack', spores: 'Spore travel', settings: 'Settings' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
   ctx.font = `bold ${Math.round(fs * 1.6)}px Georgia, serif`; ctx.fillText(titles[m.view], W / 2, y); y += fs * 2;
   ctx.font = `${fs}px "Courier New", monospace`;
-  if (m.view === 'map') {                            // Pip's maps: the world as you've seen it
-    const ids = Object.keys(MAP_LAYOUT), cols = 15, rows = 13;
-    const aw = Math.min(W - 40, 900), ah = Math.min(H - y - lh * 2.5, aw * rows / cols * 0.8);
-    const cw = aw / cols, chh = ah / rows, ox = (W - aw) / 2, oy = y;
-    const at = id => [ox + MAP_LAYOUT[id][0] * cw + cw * 0.12, oy + MAP_LAYOUT[id][1] * chh + chh * 0.12];
-    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,190,170,.35)';
-    for (const id of ids) for (const ex of WORLD[id].exits) if (MAP_LAYOUT[ex.to] && state.seen[id] && state.seen[ex.to]) {
-      const [ax, ay] = at(id), [bx, by] = at(ex.to);
-      ctx.beginPath(); ctx.moveTo(ax + cw * 0.38, ay + chh * 0.38); ctx.lineTo(bx + cw * 0.38, by + chh * 0.38); ctx.stroke();
-    }
-    for (const id of ids) {
-      const [bx, by] = at(id), seen = state.seen[id], here = id === state.scene;
-      ctx.fillStyle = seen ? (REGION_COLOR[WORLD[id].area] || '#888') : 'rgba(255,255,255,.05)';
-      ctx.fillRect(bx, by, cw * 0.76, chh * 0.76);
-      if (here) { ctx.strokeStyle = `rgba(255,227,138,${0.6 + 0.4 * Math.sin(state.time * 6)})`; ctx.lineWidth = 3; ctx.strokeRect(bx - 2, by - 2, cw * 0.76 + 4, chh * 0.76 + 4); }
-      if (seen && WORLD[id].feat.shroom) { ctx.fillStyle = state.inv.shrooms[id] ? '#b48af0' : '#6a5a88'; ctx.beginPath(); ctx.arc(bx + cw * 0.62, by + chh * 0.2, Math.max(3, cw * 0.09), 0, 6.28); ctx.fill(); }
-    }
-    ctx.textAlign = 'left'; ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
-    ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${ids.length} places seen · you are at ${MAP_NAMES[state.scene] || state.scene}`, ox, oy + ah + fs * 0.9);
-    ctx.textAlign = 'center';
-    y = oy + ah + lh * 1.4;
-  }
   if (m.view === 'forge') {
     ctx.textAlign = 'left'; ctx.fillStyle = '#d8d0c0';
     ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${state.inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.8;
     ctx.textAlign = 'center';
   }
-  if (m.view === 'equip') {                        // inventory: scrollable list with icons and what things do
-    const lines = inventoryLines(), rows = [];
-    for (const [icon, title, detail] of lines) {
-      rows.push({ icon, title, head: !detail && !icon, detail: detail ? wrap(detail, pw - 56) : [] });
-    }
-    m.lines = rows.length;
-    const top = y, bottom = H - lh * 2.2;
-    ctx.save(); ctx.beginPath(); ctx.rect(x - 4, top - fs * 1.2, pw + 8, bottom - top + fs * 1.2); ctx.clip();
-    ctx.textAlign = 'left';
-    let yy = top;
-    rows.slice(m.scroll).forEach(r => {
-      if (yy > bottom) return;
-      if (r.head) { ctx.fillStyle = '#9fd4ff'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.title, x + 6, yy + fs * 0.4); yy += fs * 1.7; return; }
-      if (r.icon) drawItemIcon(r.icon, x + 16, yy - fs * 0.3, fs * 1.3);
-      ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a'; ctx.fillText(r.title, x + 40, yy);
-      ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillStyle = '#d8d0c0';
-      r.detail.forEach((l, i) => ctx.fillText(l, x + 40, yy + fs * 1.1 * (i + 1)));
-      yy += fs * 1.1 * (r.detail.length + 1) + 8;
-    });
-    ctx.restore();
-    ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'center';
-    if (m.scroll > 0 || yy > bottom) { ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.fillText(TOUCH ? 'swipe or tap arrows to scroll' : '\u2191 \u2193 to scroll', W / 2, bottom + fs * 0.4); }
-    y = bottom + lh * 0.9;
-  }
+  if (m.view === 'pack') { drawPack(m, x, y, pw, fs); ctx.textAlign = 'left'; return; }
   state.menuRects = [];
   items.forEach((label, i) => {
     const sel = i === m.sel;
@@ -4625,7 +4816,7 @@ function renderOverview(seed) {
   ctx.lineWidth = 6; ctx.lineCap = 'round';
   for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) {
     const key = [id, ex.to].sort().join('-');
-    if (drawn.has(key) || !MAP_LAYOUT[ex.to]) continue;
+    if (drawn.has(key) || !MAP_LAYOUT[ex.to] || !MAP_LAYOUT[id]) continue;
     drawn.add(key);
     const [ax, ay] = center(id), [bx, by] = center(ex.to);
     ctx.strokeStyle = ex.locked ? '#a0885a' : '#6a6478';
@@ -4829,6 +5020,12 @@ function drawItemIcon(type, x, y, s) {
       for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
       break;
+    case 'sword':
+      ctx.save(); ctx.rotate(-0.8);
+      ctx.fillStyle = bladeColor(); ctx.fillRect(-s * 0.05, -s * 0.5, s * 0.1, s * 0.62);
+      ctx.beginPath(); ctx.moveTo(-s * 0.05, -s * 0.5); ctx.lineTo(0, -s * 0.6); ctx.lineTo(s * 0.05, -s * 0.5); ctx.fill();
+      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(-s * 0.2, s * 0.1, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.04, s * 0.17, s * 0.08, s * 0.25);
+      ctx.restore(); break;
     case 'letter':
       ctx.fillStyle = '#f2e6c8'; ctx.fillRect(-s * 0.32, -s * 0.24, s * 0.64, s * 0.48);
       ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.24); ctx.lineTo(0, s * 0.05); ctx.lineTo(s * 0.32, -s * 0.24); ctx.stroke();
