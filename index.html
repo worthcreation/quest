@@ -90,7 +90,8 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 // World generation (done at a fixed virtual size so a seed always
 // produces the same world on any screen)
 // =====================================================================
-const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', hollow: 'The Hollow Beneath' };
+const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
+const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 const BEANS = 6;              // one lies about early; the rest turn up once you've met the one who lost them
 
@@ -176,6 +177,17 @@ function addPlots(sc, n, box) {
   const c = freeSpot(sc, box, 2.2);
   for (let i = 0; i < n; i++) sc.feat.plots.push([c[0] + (i % 3) * 0.035 - 0.035, c[1] + Math.floor(i / 3) * 0.06]);
 }
+// a traveler's mushroom, with a little farm beside it
+function addShroom(sc, spot, plots = 3) {
+  const p = spot || freeSpot(sc, [0.2, 0.8, 0.2, 0.8], 2.6);
+  sc.feat.shroom = p;
+  sc.solids.push(solid(p[0], p[1], 0.7, 'shroom'));
+  if (plots) {
+    sc.feat.plots = sc.feat.plots || [];
+    const c = freeSpot(sc, [Math.max(0.12, p[0] - 0.2), Math.min(0.88, p[0] + 0.2), Math.max(0.15, p[1] - 0.25), Math.min(0.85, p[1] + 0.25)], 1.8, [[...p, 2]]);
+    for (let i = 0; i < plots; i++) sc.feat.plots.push([c[0] + (i - 1) * 0.035, c[1]]);
+  }
+}
 function newScene(o) {
   return Object.assign({ solids: [], deco: [], spawns: [], pullables: [], exits: [], pools: [], paths: [], feat: {}, npcs: [], initItems: [], speed: 0.5, accel: 10, shade: 0 }, o);
 }
@@ -204,7 +216,8 @@ function genWorld() {
   edgeWall(camp, 'n', 'tree', 1.1, [], 1.5, 'green');
   edgeWall(camp, 'w', 'tree', 1.1, [], 1.6, 'green');
   edgeWall(camp, 'e', 'tree', 1.1, [], 1.6, 'green');
-  scatter(camp, 6, 'tree', 0.9, 1.2, 1.4, [[0.45, 0.5, 5], [0.28, 0.74, 4]], undefined, 'green');
+  addShroom(camp, [0.78, 0.62], 0);
+  scatter(camp, 6, 'tree', 0.9, 1.2, 1.4, [[0.45, 0.5, 5], [0.28, 0.74, 4], [0.78, 0.62, 2.5]], undefined, 'green');
   decoFlowers(camp, 20);
 
   // ---------------- Start glade: the big rock, the thicket into the woods ----------------
@@ -268,6 +281,7 @@ function genWorld() {
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
     if (i === 1) addPlots(sc, 2, [0.3, 0.7, 0.3, 0.7]);
+    if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
     // sun dapples drift through the canopy; one always wanders over the sword
@@ -335,7 +349,8 @@ function genWorld() {
   foot.feat.crops = [];
   const CROPS = ['squash', 'carrot', 'berries', 'turnip', 'pepper', 'squash'];
   for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { foot.feat.plots.push([0.22 + c * 0.06, 0.45 + r * 0.12]); foot.feat.crops.push(CROPS[c]); }
-  scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6]], [0.1, 0.9, 0.12, 0.88]);
+  addShroom(foot, [0.82, 0.28], 0);
+  scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6], [0.82, 0.28, 2.5]], [0.1, 0.9, 0.12, 0.88]);
   for (let t = 0; t < 60; t++) foot.deco.push({ kind: 'tuft', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
 
   // ---------------- Cave: 7 screens, entered through the sinkhole in the woods ----------------
@@ -363,7 +378,8 @@ function genWorld() {
     if (!boss) edgeWall(sc, 'e', 'cavewall', 1.1, [east], 1.4);
     const wPt = west ? edgePoint('w', (west[0] + west[1]) / 2) : [0.06, 0.5];
     sc.paths = [makePath(wPt, boss ? [0.8, 0.5] : edgePoint('e', (east[0] + east[1]) / 2), 2)];
-    if (!boss) scatter(sc, 1 + i, 'stalagmite', 0.8, 1.2, 2.2, [], [0.15, 0.85, 0.15, 0.85]);
+    if (i === 4) addShroom(sc);
+    if (!boss) scatter(sc, 1 + i, 'stalagmite', 0.8, 1.2, 2.2, sc.feat.shroom ? [[...sc.feat.shroom, 3]] : [], [0.15, 0.85, 0.15, 0.85]);
     else {
       sc.feat.falls = true;
       for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.5; sc.solids.push(solid(0.55 + Math.cos(a) * 0.22, 0.5 + Math.sin(a) * 0.3, 0.8, 'stalagmite')); }
@@ -386,7 +402,8 @@ function genWorld() {
     sc.exits.push({ side: 'w', a: west[0], b: west[1], to: i === 1 ? 'c7' : 'm' + (i - 1) });
     sc.exits.push({ side: 'e', a: east[0], b: east[1], to: last ? 'h1' : 'm' + (i + 1), locked: last ? () => !broken('m3', 'reeds') : null });
     edgeWall(sc, 'n', 'deadtree', 1.0, [], 1.9, 'bog');
-    edgeWall(sc, 's', 'deadtree', 1.0, [], 1.9, 'bog');
+    edgeWall(sc, 's', 'deadtree', 1.0, i === 2 ? [[0.4, 0.6]] : [], 1.9, 'bog');
+    if (i === 2) sc.exits.push({ side: 's', a: 0.4, b: 0.6, to: 'sw1' });
     if (last) barrier(sc, 'reeds', 'reeds', 0.95, 0.34, 0.95, 0.66, 0.7);
     const wPt = edgePoint('w', (west[0] + west[1]) / 2), ePt = edgePoint('e', (east[0] + east[1]) / 2);
     sc.paths = [makePath(wPt, ePt, 2)];
@@ -397,7 +414,7 @@ function genWorld() {
       sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.2, 2.1) });
     }
     scatter(sc, 2 + i, 'deadtree', 0.7, 1.0, 1.8, sc.pools.map(o => [o.fx, o.fy, o.r + 0.5]), [0.1, 0.9, 0.15, 0.85], 'bog');
-    if (i === 1) addPlots(sc, 3, [0.15, 0.85, 0.15, 0.85]);
+    if (i === 1) addShroom(sc);
     const lurkers = [1, 1, 2][i - 1];
     for (let l = 0; l < lurkers; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
     sc.feat.beanSpots = [];
@@ -408,6 +425,36 @@ function genWorld() {
     }
     for (let t = 0; t < 50; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.2), ph: rng() * 6 });
     west = east;
+  }
+
+  // ---------------- Sunken Swamp: south of the marsh, murkier, older ----------------
+  const SWAMP_MSG = ['The marsh sinks into swamp', 'Things float here that shouldn\'t', 'Old stones rise from the water'];
+  let north2 = [0.4, 0.6];
+  for (let i = 1; i <= 3; i++) {
+    const last = i === 3;
+    const sc = add(newScene({ id: 'sw' + i, area: 'swamp', depth: i, msg: SWAMP_MSG[i - 1], music: 'swamp', amb: 'marsh', floor: ['#2f3d27', '#2b3824', '#283422'][i - 1], shade: 0.3 + i * 0.08, lightScale: 1.3, speed: 0.32, accel: 7, breeze: 0.01 }));
+    sc.exits.push({ side: 'n', a: north2[0], b: north2[1], to: i === 1 ? 'm2' : 'sw' + (i - 1) });
+    const south = last ? null : gapAt(rr(0.25, 0.75), 0.1);
+    if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'sw' + (i + 1) });
+    edgeWall(sc, 'n', 'deadtree', 1.0, [north2], 1.6, 'bog');
+    edgeWall(sc, 's', 'deadtree', 1.0, south ? [south] : [], 1.6, 'bog');
+    edgeWall(sc, 'w', 'deadtree', 1.0, [], 1.6, 'bog');
+    edgeWall(sc, 'e', 'deadtree', 1.0, [], 1.6, 'bog');
+    const nPt = edgePoint('n', (north2[0] + north2[1]) / 2), sPt = south ? edgePoint('s', (south[0] + south[1]) / 2) : [0.5, 0.75];
+    sc.paths = [makePath(nPt, sPt, 3)];
+    if (i === 2) addShroom(sc);
+    if (last) { sc.feat.shrine = [0.5, 0.72]; sc.solids.push(solid(0.38, 0.72, 0.7, 'pillar', 'moss'), solid(0.62, 0.72, 0.7, 'pillar', 'moss')); }
+    for (let p = 0; p < 4 + i; p++) {
+      const q = freeSpot(sc, [0.15, 0.85, 0.2, 0.8], 2.2, [[...nPt, 4], [...sPt, 3], ...(sc.feat.shroom ? [[...sc.feat.shroom, 4]] : []), ...(last ? [[0.5, 0.72, 4]] : []), ...sc.pools.map(o => [o.fx, o.fy, o.r + 1.5])]);
+      sc.pools.push({ fx: q[0], fy: q[1], r: rr(1.3, 2.4) });
+    }
+    scatter(sc, 5 + i * 2, 'deadtree', 0.7, 1.1, 1.5, sc.pools.map(o => [o.fx, o.fy, o.r + 0.4]).concat(sc.feat.shroom ? [[...sc.feat.shroom, 3]] : []), [0.1, 0.9, 0.12, 0.88], 'bog');
+    const lurk = Math.min(sc.pools.length, i + 1);
+    for (let l = 0; l < lurk; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
+    for (const type of [['glowworm'], ['gremlin', 'glowworm'], ['gremlin', 'gremlin', 'glowworm']][i - 1]) { const q = freeSpot(sc, [0.2, 0.8, 0.3, 0.8], 1.2, [[...nPt, 5]]); sc.spawns.push({ type, fx: q[0], fy: q[1] }); }
+    if (last) sc.initItems.push({ type: 'starseed', fx: 0.5, fy: 0.7 }, { type: 'emberseed', fx: 0.46, fy: 0.76 }, { type: 'ironseed', fx: 0.54, fy: 0.76 });
+    for (let t = 0; t < 60; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
+    if (south) north2 = south;
   }
 
   // ---------------- The Hollow Beneath: darker each screen; only fire lights it ----------------
@@ -468,7 +515,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
 
@@ -674,6 +721,7 @@ const MUSIC = {
     ],
   },
 };
+MUSIC.swamp = { ...MUSIC.marsh, step: 60 / 48 / 2, shift: -4, lead: { type: 'triangle', vol: 0.06, len: 5 } };
 MUSIC.woods.loop = MUSIC.forest.loop;
 MUSIC.night.loop = MUSIC.forest.loop;
 function scheduleMusic() {
@@ -812,6 +860,7 @@ const sfx = {
   whirlUp(n) { tone(440 * Math.pow(1.06, n), 0, 0.2, { type: 'triangle', vol: 0.08, to: 660 * Math.pow(1.06, n) }); noise(0, 0.2, { vol: 0.2, freq: 2400, q: 1, type: 'bandpass' }); },
   dizzy()  { tone(600, 0, 0.5, { type: 'sine', vol: 0.08, to: 250 }); },
   forge()  { [1500, 1500, 2200].forEach((f, i) => { tone(f, i * 0.18, 0.3, { type: 'square', vol: 0.04, to: f * 0.9 }); noise(i * 0.18, 0.08, { vol: 0.2, freq: 5000, type: 'highpass' }); }); },
+  spores() { for (let i = 0; i < 8; i++) tone(900 + Math.random() * 1400, i * 0.06, 0.25, { type: 'sine', vol: 0.03, to: 2400 }); noise(0, 0.8, { vol: 0.12, freq: 1800, q: 1, type: 'bandpass' }); },
   talk()   { for (let i = 0; i < 3; i++) tone(300 + Math.random() * 200, i * 0.07, 0.06, { type: 'square', vol: 0.03 }); },
   croak()  { tone(120, 0, 0.35, { type: 'square', vol: 0.06, to: 85 }); tone(100, 0.25, 0.3, { type: 'square', vol: 0.05, to: 75 }); },
   victory() {
@@ -899,7 +948,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -1172,6 +1221,11 @@ function updateFeatures(dt) {
     rt.flags.scarf = true;
     say('Pip\'s scarf, snagged on the thorns. They went into the woods.', f.scarf[0] * W - UNIT, f.scarf[1] * H - UNIT * 1.4, { key: 'scarf', life: 5 });
   }
+  if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {
+    rtFor(sc.id).flags.shrine = true;
+    say('A sunken shrine. The stones hum, as if something beneath is waiting. For now, its offerings are yours.', f.shrine[0] * W, f.shrine[1] * H - UNIT * 2, { key: 'shrine', life: 6 });
+    zoomPulse(f.shrine[0] * W, f.shrine[1] * H, 'boss');
+  }
   if (f.falls) {
     const lim = W - UNIT * 2.3 - UNIT * 0.45, gap = sc.exits.find(e => e.side === 'e');
     const open = rt.bossDead && h.y > gap.a * H + UNIT * 0.5 && h.y < gap.b * H - UNIT * 0.5;
@@ -1185,13 +1239,17 @@ function updateJump(dt) {
   const h = state.hero, sc = sceneDef();
   if (h.ride || h.falling > 0) return;
   if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
-    h.vz = UNIT * 9; h.z = 0.01; state.slam = false;
+    // deeper vigor, higher jumps; a tired hero barely leaves the ground
+    const k = (1 + Math.min(0.9, Math.log2(maxVig() / 8) * 0.22)) * (0.6 + 0.4 * weakness());
+    h.vz = UNIT * 7.5 * k; h.z = 0.01; state.slam = false; h.jumpHold = 0;
     if (state.whirl) endWhirl('quiet');
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
   }
   if (h.z > 0 || h.vz > 0) {
-    h.vz -= UNIT * (state.slam ? 60 : 30) * dt; h.z += h.vz * dt;
+    // holding jump while rising floats you higher, for a short while
+    const floating = !state.slam && h.vz > 0 && held.jump() && (h.jumpHold += dt) < 0.3;
+    h.vz -= UNIT * (state.slam ? 60 : floating ? 11 : 30) * dt; h.z += h.vz * dt;
     if (h.z <= 0) {
       h.z = 0; h.vz = 0;
       if (state.slam) slamDown();
@@ -2121,6 +2179,28 @@ function interact() {
     if (pressedNow.act) advanceTalk();
     return true;
   }
+  if (sc.feat.shroom) {
+    const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
+    if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
+      state.inv.shrooms[sc.id] = true;
+      sfx.spores(); zoomPulse(mx * W, my * H, 'kill');
+      for (let i = 0; i < 20; i++) state.fx.push({ x: mx * W + (Math.random() - 0.5) * UNIT, y: my * H - UNIT, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 1.5, color: '#e8d8ff' });
+      showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
+      say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
+    }
+    if (d < UNIT * 1.9 && pressedNow.act) {
+      const dest = Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id] && id !== sc.id);
+      if (!dest.length) say('No other mushrooms found yet. Each region hides one.', mx * W, my * H - UNIT * 1.4, { key: 'shroom', life: 2.5 });
+      else ask('Travel where?', mx * W, my * H - UNIT * 1.2, dest.map(id => SHROOM_NAMES[id]).concat('Stay'), i2 => {
+        if (i2 >= dest.length) return;
+        const to = WORLD[dest[i2]].feat.shroom;
+        sfx.spores();
+        for (let i = 0; i < 24; i++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (1 + Math.random() * 2), t: 0, life: 1, color: '#e8d8ff' });
+        transitionTo(dest[i2], to[0], to[1] + 1.6 * UNIT / H);
+      });
+      return true;
+    }
+  }
   for (const n of sc.npcs) {
     const [nx, ny] = npcPos(n), d = Math.hypot(h.x - nx, h.y - ny);
     if (d < UNIT * 3.2) say(`${K.act} to talk`, nx, ny - UNIT * 1.5, { key: 'talk-' + n.kind, tip: 'talk', life: 2.5 });
@@ -2173,7 +2253,7 @@ function interact() {
   } else if (pressedNow.act) { dropRock(); return true; }
   return false;
 }
-const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper' };
+const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper', swamp: 'pepper', cave: 'squash' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / SEEDS[p.seed || 'seed'].grow)) : 0;
 function dropRock() {
@@ -2648,7 +2728,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 4, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 5, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2660,7 +2740,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 4) return false;
+  if (!d || !d.seed || d.v !== 5) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -2791,7 +2871,7 @@ function drawScene(sc) {
   if (!dark) drawEyesDaylight();
   drawFx();
   if (sc.area === 'field') drawClouds(sc);
-  if (sc.area === 'marsh') drawFog();
+  if (sc.area === 'marsh' || sc.area === 'swamp') drawFog();
   drawLighting(sc);
   if (sc.drips) drawDrips();
   if (dark) for (const e of state.enemies) drawEnemyEyes(e);
@@ -2922,7 +3002,7 @@ function drawGround(sc) {
     }
     drawPools(sc);
     if (f.falls) drawFalls(rtFor(sc.id).bossDead);
-  } else if (sc.area === 'marsh') {
+  } else if (sc.area === 'marsh' || sc.area === 'swamp') {
     drawPools(sc);
     ctx.strokeStyle = '#6b7a40'; ctx.lineWidth = 2;
     for (const d of sc.deco) {
@@ -3046,6 +3126,18 @@ function drawSolid(s) {
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.5 * fl, 0, 6.28); ctx.fill();
         if (Math.random() < 0.1) state.fx.push({ x, y: y - u * 0.4, vx: (Math.random() - 0.5) * u, vy: -u * 1.5, t: 0, life: 0.8, color: '#ffb347' });
       } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
+      break;
+    }
+    case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
+      const found = state.inv.shrooms[sceneDef().id], pulse = 0.6 + 0.4 * Math.sin(state.time * 2);
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
+      const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * 1.6);
+      g.addColorStop(0, `rgba(200,160,255,${0.25 * pulse * (found ? 1.4 : 1)})`); g.addColorStop(1, 'rgba(200,160,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - u * 1.6, y - u * 2.8, u * 3.2, u * 3.2);
+      ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#efe0ff'; for (const [dx, dy] of [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]]) { ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * 0.08, 0, 6.28); ctx.fill(); }
+      if (Math.random() < 0.03) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
       break;
     }
     case 'bench':
@@ -3249,7 +3341,7 @@ function drawLighting(sc) {
   lctx.setTransform(0.5, 0, 0, 0.5, 0, 0);
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, W, H);
-  lctx.fillStyle = woods ? `rgba(4,14,8,${shade})` : night ? `rgba(6,8,22,${shade})` : `rgba(4,2,8,${shade})`;
+  lctx.fillStyle = woods ? `rgba(4,14,8,${shade})` : sc.area === 'swamp' ? `rgba(8,16,10,${shade})` : night ? `rgba(6,8,22,${shade})` : `rgba(4,2,8,${shade})`;
   lctx.fillRect(0, 0, W, H);
   lctx.globalCompositeOperation = 'destination-out';
   const light = (x, y, r, a = 1) => { const g = lctx.createRadialGradient(x, y, r * 0.2, x, y, r); g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, 'rgba(0,0,0,0)'); lctx.fillStyle = g; lctx.fillRect(x - r, y - r, r * 2, r * 2); };
@@ -3270,6 +3362,7 @@ function drawLighting(sc) {
     if (sc.feat.falls) for (let y = 0; y < H; y += UNIT * 2) light(W - UNIT, y, UNIT * 4, 0.55);
     if (sc.id === 'c1') light(0, H * 0.5, UNIT * 2.5, 0.3);
   }
+  if (sc.feat.shroom) light(sc.feat.shroom[0] * W, sc.feat.shroom[1] * H - UNIT, UNIT * 2.6, 0.8);
   for (const p of state.gas) if (p.burn) light(p.x, p.y, p.r * 2.6, 0.95 * (1 - p.burn / p.burnDur * 0.6));
   ctx.drawImage(lightCv, 0, 0, W, H);
 }
