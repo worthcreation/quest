@@ -1157,8 +1157,11 @@ function say(text, x, y, opts = {}) {
   const t = { text, x, y, t: 0, life: opts.life || 3.2, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3' };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
+  // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
+  const dup = state.texts.find(o => o.text === text);
+  if (dup) { dup.life = Math.max(dup.life, dup.t + t.life); return; }
   state.texts.push(t);
-  if (state.texts.length > 5) state.texts.shift();
+  while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
@@ -1241,6 +1244,7 @@ function enterScene(id, fx, fy) {
     const to = sc.feat.glimpse.to, tx = to[0] * W, ty = to[1] * H;
     state.glimpse = { t: -0.4, x0: h.x + (tx - h.x) * 0.55, y0: h.y + (ty - h.y) * 0.55, x1: tx + (tx > W * 0.9 ? UNIT * 3 : 0), y1: ty, line: sc.feat.glimpse.line, x: 0, y: 0, down: sc.feat.stone && to === sc.feat.stone };
   }
+  if (ARENA) arenaEnter(id);
   const ti = THIEF_ROUTE.indexOf(id);
   if (state.inv.journal === 1 && ti === state.inv.thiefAt) {
     const last = ti === THIEF_ROUTE.length - 1;
@@ -1311,7 +1315,7 @@ function checkEdges() {
 
 function resetRun(seed) {
   SEED = seed;
-  WORLD = buildWorld(seed);
+  WORLD = ARENA ? buildArena(seed) : buildWorld(seed);
   RT = {};
   state.inv = newInv();
   state.hero = newHero();
@@ -1326,8 +1330,7 @@ function newGame() {
   state.fadeTarget = 1; state.fadeRate = 4;
   setTimeout(() => {
     resetRun((Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-    enterScene('camp');
-    startIntro();
+    if (ARENA) startArena(); else { enterScene('camp'); startIntro(); }
     state.fadeTarget = 0;
     state.busy = false;
   }, 900);
@@ -1364,6 +1367,7 @@ function update(dt) {
   updateGas(dt);
   updateWebs(dt);
   if (state.fish && !state.cut) updateFishing(dt);
+  if (ARENA) updateArena(dt);
   for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
   if (state.won) return;
@@ -3455,6 +3459,10 @@ function packCells(tab) {
       acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, drop(k, () => inv.bag[k]--)] });
   }
   if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
+  if (tab === 'Quests' && ARENA) {
+    for (const [id, z] of Object.entries(ARENA_ZONES)) cells.push({ icon: { arena_n: 'gremlin', arena_w: 'stalker', arena_s: 'lurker', arena_e: 'rabbit' }[id], name: z.name, line: `${z.waves.length} waves` });
+    return cells;
+  }
   if (tab === 'Quests') {
     cells.push({ icon: 'heart', name: 'Find Pip', done: inv.pipSaved, line: inv.pipSaved ? 'Pip is safe at camp' : 'the gremlins took Pip' });
     if (rtFor('m2').flags.metToad || inv.beans) cells.push({ icon: 'bean', name: 'The toad\'s beans', done: !!inv.fire, count: inv.fire ? 0 : inv.beans, line: inv.fire ? 'the toad taught you fire' : `${inv.beans} of ${BEANS} beans` });
@@ -3642,7 +3650,7 @@ function loadSettings() {
 // =====================================================================
 // Forest birds: peck about, burst into the air when you come close
 // =====================================================================
-const FLOCK = { gleampool: 3, cascade: 2, fallsbank: 2, camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
+const FLOCK = { arena: 3, arena_n: 2, gleampool: 3, cascade: 2, fallsbank: 2, camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
 function makeFlock(sc) {
   const n = FLOCK[sc.id] || 0, out = [];
   for (let i = 0; i < n; i++) out.push(landSpot({ mode: 'peck', t: Math.random() * 2, z: 0, c: ['#6b4a2a', '#5a5a62', '#8a6a3a'][i % 3] }));
@@ -3775,6 +3783,7 @@ function drawScene(sc) {
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
+  if (sc.feat.signs) drawArenaSigns(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
   drawPlots(sc);
@@ -4621,6 +4630,8 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
+  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y + s * 1.3 };   // text keeps out of here
+  drawArenaBanner();
 }
 
 // ---------------- menu ----------------
@@ -4741,7 +4752,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 32';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 33';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -4876,6 +4887,142 @@ function startOverview(param) {
   btn('New seed', () => { location.search = '?overview'; });
   btn('Play this world', () => { location.search = `?seed=${seed}`; });
   document.body.appendChild(bar);
+}
+
+// =====================================================================
+// Arena: a glade ringed with stones and trees, one test zone off each edge.
+// Open index.html?arena. Each zone throws five waves of its region's monsters, each harder.
+// =====================================================================
+var ARENA = typeof location !== 'undefined' && /(^|[?&])arena(=|&|$)/.test(location.search);
+const ARENA_ZONES = {
+  arena_n: { name: 'Forest river', waves: [[['rabbit', 2]], [['gremlin', 3]], [['gremlin', 3], ['rabbit', 2]], [['gremlin', 5]], [['thief', 1], ['gremlin', 4]]] },
+  arena_w: { name: 'Cave', waves: [[['stalker', 2]], [['stalker', 2], ['glowworm', 2]], [['charger', 1], ['diver', 2]], [['stalker', 2], ['charger', 1], ['diver', 2]], [['charger', 2], ['stalker', 3], ['diver', 2], ['glowworm', 2]]] },
+  arena_s: { name: 'Swamp', waves: [[['lurker', 2]], [['lurker', 3], ['glowworm', 2]], [['gremlin', 3], ['lurker', 3]], [['lurker', 4], ['gremlin', 3]], [['lurker', 4], ['glowworm', 3], ['gremlin', 4]]] },
+  arena_e: { name: 'Windy field', waves: [[['rabbit', 3]], [['rabbit', 5]], [['gremlin', 3], ['rabbit', 3]], [['charger', 2]], [['charger', 2], ['rabbit', 4], ['gremlin', 2]]] },
+};
+function buildArena(seed) {
+  const saved = [W, H, UNIT];
+  W = GEN.W; H = GEN.H; computeUnit();
+  rng = mulberry32(seed >>> 0);
+  try { return genArena(); } finally { [W, H, UNIT] = saved; rng = mulberry32((seed ^ 0x9e3779b9) >>> 0); }
+}
+function genArena() {
+  const S = {}, add = sc => (S[sc.id] = sc), gap = [[0.42, 0.58]];
+  // the hub: stones on the east and west, trees on the north and south, a gap in the middle of each
+  const hub = add(newScene({ id: 'arena', area: 'forest', msg: 'The arena glade. A path leads off each side.', music: 'forest', amb: 'none', floor: '#4f9a52', heroStart: [0.5, 0.55] }));
+  hub.exits = [{ side: 'n', a: 0.42, b: 0.58, to: 'arena_n' }, { side: 'w', a: 0.42, b: 0.58, to: 'arena_w' }, { side: 's', a: 0.42, b: 0.58, to: 'arena_s' }, { side: 'e', a: 0.42, b: 0.58, to: 'arena_e' }];
+  edgeWall(hub, 'n', 'tree', 1.2, gap, 1.3, 'green'); edgeWall(hub, 's', 'tree', 1.2, gap, 1.3, 'green');
+  edgeWall(hub, 'w', 'boulder', 1.1, gap, 1.5); edgeWall(hub, 'e', 'boulder', 1.1, gap, 1.5);
+  for (const [fx, fy] of [[0.18, 0.2], [0.82, 0.2], [0.18, 0.8], [0.82, 0.8]]) { hub.solids.push(solid(fx, fy, 1.1, 'boulder'), solid(fx + (fx < 0.5 ? 0.05 : -0.05), fy + (fy < 0.5 ? 0.08 : -0.08), 1.0, 'tree', 'green')); }
+  hub.feat.signs = [[0.5, 0.16, 'Forest river'], [0.1, 0.36, 'Cave'], [0.5, 0.84, 'Swamp'], [0.9, 0.36, 'Windy field']];
+  hub.paths = [makePath([0.5, 0.03], [0.5, 0.97], 0), makePath([0.03, 0.5], [0.97, 0.5], 0)];
+  decoFlowers(hub, 50);
+  // north: a river along the top, trees down the sides
+  const n = add(newScene({ id: 'arena_n', area: 'forest', msg: 'Forest river', music: 'forest', amb: 'rain', floor: '#4a9650', heroStart: [0.5, 0.88] }));
+  n.river = { pts: [[-0.08, 0.2], [0.5, 0.14], [1.08, 0.22]], w: 3 };
+  n.exits = [{ side: 's', a: 0.42, b: 0.58, to: 'arena' }];
+  edgeWall(n, 'w', 'tree', 1.2, [], 1.3, 'green'); edgeWall(n, 'e', 'tree', 1.2, [], 1.3, 'green'); edgeWall(n, 's', 'tree', 1.2, gap, 1.3, 'green');
+  scatter(n, 5, 'tree', 0.9, 1.2, 2, [[0.5, 0.6, 6]], [0.1, 0.9, 0.35, 0.85], 'green');
+  // west: a cave with stalagmites to bait chargers and stalkers into
+  const w = add(newScene({ id: 'arena_w', area: 'cave', msg: 'Cave', shade: 0.82, lightScale: 1.4, music: 'cave', amb: 'none', drips: true, floor: '#2e2a33', speed: 0.34, accel: 7, heroStart: [0.9, 0.5] }));
+  w.exits = [{ side: 'e', a: 0.42, b: 0.58, to: 'arena' }];
+  for (const side of ['n', 's', 'w']) edgeWall(w, side, 'cavewall', 1.1, [], 1.4);
+  edgeWall(w, 'e', 'cavewall', 1.1, gap, 1.4);
+  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.4; w.solids.push(solid(0.5 + Math.cos(a) * 0.24, 0.5 + Math.sin(a) * 0.3, 0.8, 'stalagmite')); }
+  // south: a swamp with pools for lurkers
+  const s = add(newScene({ id: 'arena_s', area: 'swamp', msg: 'Swamp', shade: 0.35, music: 'swamp', amb: 'marsh', floor: '#2f3d27', speed: 0.34, accel: 7, heroStart: [0.5, 0.12] }));
+  s.exits = [{ side: 'n', a: 0.42, b: 0.58, to: 'arena' }];
+  s.pools = [[0.25, 0.4], [0.72, 0.38], [0.3, 0.72], [0.7, 0.72]].map(([fx, fy]) => ({ fx, fy, r: 1.6 }));
+  for (const side of ['s', 'w', 'e']) edgeWall(s, side, 'deadtree', 1.0, [], 1.7, 'bog');
+  edgeWall(s, 'n', 'deadtree', 1.0, gap, 1.7, 'bog');
+  // east: open field with gusts both ways
+  const e = add(newScene({ id: 'arena_e', area: 'field', msg: 'Windy field', music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8, heroStart: [0.1, 0.5],
+    gusts: [{ a: -0.3, s: 0.7 }, { a: Math.PI + 0.3, s: 0.7 }, { a: 0.4, s: 0.6 }, { a: Math.PI - 0.2, s: 0.8 }], chasms: [], feat: { updrafts: [], plants: [[0.55, 0.3]] } }));
+  e.exits = [{ side: 'w', a: 0.42, b: 0.58, to: 'arena' }];
+  for (const side of ['n', 's', 'e']) edgeWall(e, side, 'boulder', 1.0, [], 1.6);
+  edgeWall(e, 'w', 'boulder', 1.0, gap, 1.6);
+  scatter(e, 4, 'boulder', 0.7, 1.2, 2, [[0.5, 0.5, 5]], [0.15, 0.85, 0.15, 0.85]);
+  return S;
+}
+// a proper kit for testing: sword, acorns, fire, the relics at level I, food
+function arenaKit() {
+  const inv = state.inv;
+  Object.assign(inv, { sword: true, acorns: 30, fire: true, step: 1, silk: 1, horn: 1, depth: 1, pipSaved: true });
+  inv.food = ['squash', 'squash', 'carrot', 'carrot', 'fish', 'turnip'];
+  state.equip = 'sword';
+  state.hero.vig = maxVig();
+  refreshButtons();
+}
+function startArena() {
+  state.cut = null; state.night = 0; state.rain = 0;
+  arenaKit();
+  enterScene('arena');
+  showTitle('Arena', 'pick a path: each zone sends five waves', 'area', 3);
+}
+function arenaEnter(id) {
+  const z = ARENA_ZONES[id];
+  state.arena = z ? { id, zone: z, wave: 0, phase: 'ready', t: 2 } : null;
+  if (id === 'arena') {                             // the glade patches you up and restocks
+    arenaKit();
+    say('Rested and restocked.', null, null, { key: 'arena', life: 1.6, color: '#b8f28a' });
+  }
+}
+function arenaSpawnWave() {
+  const a = state.arena, h = state.hero, sc = sceneDef(), spec = a.zone.waves[a.wave];
+  let pool = 0;
+  for (const [type, count] of spec) for (let k = 0; k < count; k++) {
+    let x, y, tries = 0;
+    do { x = W * rr(0.15, 0.85); y = H * rr(0.2, 0.8); tries++; }
+    while (tries < 60 && (Math.hypot(x - h.x, y - h.y) < UNIT * 5 || isChasm(x, y, UNIT) || state.solids.some(s => Math.hypot(x - s.x, y - s.y) < s.r + UNIT)));
+    let e;
+    if (type === 'lurker') { const p = state.pools[pool % state.pools.length]; e = makeEnemy('lurker', p.x, p.y, -1, pool % state.pools.length); e.pool = p; pool++; }
+    else e = makeEnemy(type, x, y, -1);
+    if (type === 'thief') { e.cornered = true; e.mode = 'idle'; }
+    e.t = Math.min(e.t || 1, 1.2) + k * 0.15;          // wake quickly, a little staggered
+    state.enemies.push(e);
+    spark(e.x, e.y, 'rgba(255,255,255,.7)', 8, 2);
+  }
+  sfx.cackle && sfx.cackle();
+}
+function updateArena(dt) {
+  const a = state.arena;
+  if (!a) return;
+  a.t -= dt;
+  const alive = state.enemies.filter(e => !e.dead).length;
+  if (a.phase === 'ready' && a.t <= 0) { a.phase = 'fight'; arenaSpawnWave(); zoomPulse(state.hero.x, state.hero.y, 'title'); }
+  else if (a.phase === 'fight' && alive === 0) {
+    a.wave++;
+    if (a.wave >= a.zone.waves.length) { a.phase = 'done'; sfx.victory(); showTitle(`${a.zone.name} cleared`, 'head back to the glade to rest', 'relic', 3.5); }
+    else { a.phase = 'ready'; a.t = 3; heal(0.3); say(`Wave ${a.wave} cleared. Catch your breath.`, null, null, { key: 'arena', life: 2.5, color: '#b8f28a' }); }
+  }
+  a.left = alive;
+}
+// wave status, top centre, kept out of the text layout
+function drawArenaBanner() {
+  const a = ARENA && state.arena;
+  state.arenaBanner = null;
+  if (!a || state.menu) return;
+  const n = a.zone.waves.length, label = a.phase === 'done' ? `${a.zone.name}: cleared` : a.phase === 'ready' ? `${a.zone.name}: wave ${a.wave + 1} of ${n} in ${Math.max(0, Math.ceil(a.t))}` : `${a.zone.name}: wave ${a.wave + 1} of ${n}, ${a.left || 0} left`;
+  const fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.55)));
+  ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const w = ctx.measureText(label).width + 28, h = fs * 1.9, x = (W - w) / 2, y = 10;
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  for (let i = 0; i < n; i++) { ctx.fillStyle = i < a.wave || a.phase === 'done' ? '#b8f28a' : i === a.wave ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.fillRect(x + 14 + i * ((w - 28) / n), y + h - 6, (w - 28) / n - 3, 3); }
+  ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, y + h / 2 - 2);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  state.arenaBanner = { x, y, w, h };
+}
+// the hub's wooden signs
+function drawArenaSigns(sc) {
+  for (const [fx, fy, label] of sc.feat.signs || []) {
+    const x = fx * W, y = fy * H, u = UNIT;
+    ctx.font = `bold ${Math.round(Math.max(13, u * 0.4))}px "Courier New", monospace`;
+    const w = ctx.measureText(label).width + 16;
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.06, y - u * 0.2, u * 0.12, u * 0.9);
+    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - w / 2, y - u * 0.75, w, u * 0.62);
+    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y - u * 0.44);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
 }
 
 // =====================================================================
@@ -5301,26 +5448,81 @@ function wrap(text, maxW) {
   if (line) lines.push(line);
   return lines;
 }
-function drawTexts() {
-  const h = state.hero;
-  for (const t of state.texts) {
-    const size = Math.round(Math.max(13, Math.min(19, UNIT * 0.52)) * t.size);
-    ctx.font = `bold ${size}px "Courier New", monospace`;
-    const lines = wrap(t.text, Math.min(W * 0.8, UNIT * 11 * t.size));
+// ---------- floating text: laid out so no two boxes, the HUD, the title or the touch buttons overlap ----------
+const TEXT = { min: 14, max: 19, pad: 8, gap: 6, readChars: 110, maxShown: 4 };
+// areas of the screen text must stay out of
+function reservedRects() {
+  const r = [];
+  if (state.hudRect) r.push(state.hudRect);
+  if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
+  if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.started && state.hero) {                  // never cover the hero
+    const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
+    r.push({ x: hx - u * 0.7, y: hy - u * 1.1, w: u * 1.4, h: u * 1.5 });
+  }
+  if (TOUCH && !state.menu) { r.push({ x: 0, y: H - 230, w: 230, h: 230 }); r.push({ x: W - 250, y: H - 230, w: 250, h: 230 }); }
+  return r;
+}
+const overlaps = (a, b, g = 0) => a.x < b.x + b.w + g && b.x < a.x + a.w + g && a.y < b.y + b.h + g && b.y < a.y + a.h + g;
+function layoutTexts() {
+  const h = state.hero, placed = [], res = reservedRects(), boxes = [];
+  const size = Math.round(Math.max(TEXT.min, Math.min(TEXT.max, UNIT * 0.52)));
+  // long reads (letters, pages, signs) go in one panel at the bottom; only the newest shows
+  const reads = state.texts.filter(t => t.text.length > TEXT.readChars);
+  const read = reads[reads.length - 1];
+  if (read) {
+    ctx.font = `${size}px Georgia, serif`;
+    const w = Math.min(W - 24, 720), lines = wrap(read.text, w - TEXT.pad * 3), lh = size * 1.4, bh = lines.length * lh + TEXT.pad * 2;
+    const y = Math.max(20, H - bh - (TOUCH ? 240 : 24));
+    const b = { t: read, x: (W - w) / 2, y, w, h: bh, lines, size, lh, panel: true };
+    boxes.push(b); placed.push(b);
+  }
+  // the rest: the hero's own words first, then newest to oldest; anything that can't find clear room waits
+  const floats = state.texts.filter(t => t.text.length <= TEXT.readChars).slice(-TEXT.maxShown)
+    .sort((a, b) => (b.follow ? 1 : 0) - (a.follow ? 1 : 0) || a.t - b.t);
+  for (const t of floats) {
+    const fs = Math.round(size * t.size);
+    ctx.font = `bold ${fs}px "Courier New", monospace`;
+    const lines = wrap(t.text, Math.min(W * 0.7, UNIT * 10 * t.size, 460));
+    const lh = fs * 1.3, bh = lines.length * lh + TEXT.pad * 1.4, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + TEXT.pad * 2.4;
     const wx = t.follow ? h.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : t.y;
-    let [sx, sy] = toScreen(wx, wy);
-    const lh = size * 1.25, bh = lines.length * lh + 10;
-    const bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + 18;
-    sy -= bh;
-    if (sy < 50) sy = Math.min(H - bh - 10, toScreen(wx, wy)[1] + UNIT * 1.8);
-    sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
-    const a = Math.min(1, t.t / 0.15) * Math.min(1, (t.life - t.t) / 0.5);
-    const rise = (1 - Math.min(1, t.t / 0.25)) * 6;
+    const [ax, ay] = toScreen(wx, wy);
+    const x = Math.max(8, Math.min(W - bw - 8, ax - bw / 2));
+    const pref = ay - bh;                             // above the thing it talks about
+    let best = null, bestCost = Infinity;
+    for (let k = 0; k < 24; k++) {                    // try the preferred spot, then step up and down around it
+      const off = k === 0 ? 0 : (k % 2 ? -1 : 1) * Math.ceil(k / 2) * (bh * 0.5 + TEXT.gap);
+      const y = pref + off;
+      if (y < 6 || y + bh > H - 6) continue;
+      const cand = { x, y, w: bw, h: bh };
+      const hit = placed.some(p => overlaps(cand, p, TEXT.gap)) || res.some(p => overlaps(cand, p, 2));
+      const cost = Math.abs(off) + (hit ? 1e6 : 0);
+      if (cost < bestCost) { bestCost = cost; best = cand; }
+      if (!hit) break;
+    }
+    if (!best || bestCost >= 1e6) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
+    // glide toward the chosen spot, but never through another box
+    let y = t.ly == null ? best.y : t.ly + (best.y - t.ly) * 0.35;
+    const glide = { x: best.x, y, w: bw, h: bh };
+    if (Math.abs(y - best.y) > bh * 3 || placed.some(p => overlaps(glide, p, 2)) || res.some(p => overlaps(glide, p, 0))) y = best.y;
+    t.ly = y;
+    const b = { t, x: best.x, y, drawY: y, w: bw, h: bh, lines, size: fs, lh };
+    boxes.push(b); placed.push(b);
+  }
+  state.textBoxes = boxes;                           // kept for the legibility tests
+  return boxes;
+}
+function drawTexts() {
+  for (const b of layoutTexts()) {
+    const t = b.t, a = Math.min(1, t.t / 0.15) * Math.min(1, (t.life - t.t) / 0.5);
     ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(10,8,14,.55)';
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(sx - bw / 2, sy + rise, bw, bh, 6) : ctx.rect(sx - bw / 2, sy + rise, bw, bh); ctx.fill();
-    ctx.fillStyle = t.color; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    lines.forEach((l, i) => ctx.fillText(l, sx, sy + rise + 5 + i * lh));
+    const y = b.panel ? b.y : b.drawY;
+    ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : 'rgba(10,8,14,.82)';
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    if (b.panel) { ctx.strokeStyle = 'rgba(255,227,138,.5)'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    ctx.fillStyle = t.color; ctx.textBaseline = 'top';
+    if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
+    else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
   ctx.globalAlpha = 1;
@@ -5399,7 +5601,7 @@ function begin() {
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  startIntro();
+  if (ARENA) startArena(); else startIntro();
   startMusic();
 }
 startEl.addEventListener('pointerdown', begin);
@@ -5429,7 +5631,7 @@ if (OVERVIEW) startOverview(PARAMS.get('overview'));
 else {
   const chosen = PARAMS.get('seed');
   resetRun(chosen && /^\d+$/.test(chosen) ? Number(chosen) >>> 0 : (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0);
-  enterScene('camp');
+  enterScene(ARENA ? 'arena' : 'camp');
   state.cam.x = W / 2; state.cam.y = H / 2;
 }
 
