@@ -2348,19 +2348,13 @@ function interact() {
       else if (ready > 0) {
         inv.spores += ready; inv.sporeAt[sc.id] = Math.max(last + ready * SPORE_TIME, state.playTime - SPORE_TIME * 2);
         sfx.spores(); say(`+${ready} spore${ready > 1 ? 's' : ''} (${inv.spores})`, mx * W, my * H - UNIT * 2, { key: 'spore', life: 2, color: '#e8d8ff' });
-        say(inv.pipSaved ? `Spores: ${sporeCost()} carry you to any mushroom from anywhere. Menu, Spore travel.` : 'Glittering spores. You pocket them, though you\'re not sure what they\'re for.', mx * W, my * H + UNIT * 1.6, { key: 'sporetip', tip: 'spores', life: 4.5 });
+        say('Mushroom travel costs spores: the farther the jump, the more it takes.', mx * W, my * H + UNIT * 1.6, { key: 'sporetip', tip: 'spores', life: 4.5 });
       }
     }
     if (d < UNIT * 1.9 && pressedNow.act) {
-      const dest = Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id] && id !== sc.id);
+      const dest = travelOptions(sc.id);
       if (!dest.length) say('No other mushrooms found yet. Each region hides one.', mx * W, my * H - UNIT * 1.4, { key: 'shroom', life: 2.5 });
-      else ask('Travel where?', mx * W, my * H - UNIT * 1.2, dest.map(id => SHROOM_NAMES[id]).concat('Stay'), i2 => {
-        if (i2 >= dest.length) return;
-        const to = WORLD[dest[i2]].feat.shroom;
-        sfx.spores();
-        for (let i = 0; i < 24; i++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (1 + Math.random() * 2), t: 0, life: 1, color: '#e8d8ff' });
-        transitionTo(dest[i2], to[0], to[1] + 1.6 * UNIT / H);
-      });
+      else ask(`Travel where? (${state.inv.spores} spores)`, mx * W, my * H - UNIT * 1.2, dest.map(o => `${SHROOM_NAMES[o.id]}: ${o.cost}`).concat('Stay'), i2 => { if (i2 < dest.length) sporeJump(dest[i2].id, dest[i2].cost); });
       return true;
     }
   }
@@ -2428,7 +2422,31 @@ function dropRock() {
 }
 
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
-const sporeCost = () => Math.max(2, 8 - Object.keys(state.inv.shrooms).length);   // 7 with one mushroom, less with each found
+// Travel costs spores by distance: 1 spore per 3 screens you'd otherwise walk (at least 1).
+function screensBetween(a, b) {
+  if (a === b) return 0;
+  const adj = {};
+  const link = (x, y) => { (adj[x] = adj[x] || new Set()).add(y); (adj[y] = adj[y] || new Set()).add(x); };
+  for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) link(id, ex.to);
+  link('w3', 'c1');                                   // the sinkhole
+  const seen = { [a]: 0 }, q = [a];
+  while (q.length) { const x = q.shift(); for (const y of adj[x] || []) if (seen[y] == null) { seen[y] = seen[x] + 1; if (y === b) return seen[y]; q.push(y); } }
+  return 12;
+}
+const sporeCost = (to, from = state.scene) => Math.max(1, Math.ceil(screensBetween(from, to) / 3));
+function travelOptions(from) {
+  return Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id] && id !== from).map(id => ({ id, cost: sporeCost(id, from) }));
+}
+function sporeJump(id, cost) {
+  const inv = state.inv, h = state.hero;
+  if (inv.spores < cost) { say(`Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`, h.x, h.y - UNIT * 1.3, { key: 'spore', life: 2.5 }); return false; }
+  inv.spores -= cost;
+  const to = WORLD[id].feat.shroom;
+  sfx.spores();
+  for (let i = 0; i < 28; i++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (1 + Math.random() * 2), t: 0, life: 1.1, color: '#e8d8ff' });
+  transitionTo(id, to[0], to[1] + 1.6 * UNIT / H);
+  return true;
+}
 // ---------------- conversations ----------------
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
@@ -2448,9 +2466,9 @@ function npcLines(n) {
   if (n.kind === 'pip' && n.home) {
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
-      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Down in the Hollow the gremlins kept jars of glittering spores. From the big mushrooms, I think.', 'Those mushrooms remember places. Breathe in their spores and you\'re just... there.', `Gather ${sporeCost()} and you can jump to any mushroom you've found, from anywhere. The more mushrooms you find, the fewer it takes.`, 'Spore travel is in your menu now. Go on, try it.'] };
+      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Down in the Hollow the gremlins kept jars of glittering spores. From the big mushrooms, I think.', 'Those mushrooms remember places. Breathe in their spores and you\'re just... there.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
     }
-    return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. ${inv.spores >= sporeCost() ? 'Enough for a jump!' : `${sporeCost()} for a jump.`}`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
+    return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. A short hop is only 1.`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
   }
   if (n.kind === 'pip') {
     if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
@@ -2880,7 +2898,7 @@ function forgeSelect(i) {
 // Menu: pause, equipment, save and load (3 slots), tips setting
 // =====================================================================
 const SLOTS = 3;
-const MAIN = () => ['Resume', 'Inventory', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'].concat(state.inv.pipSaved ? [`Spore travel (${state.inv.spores}/${sporeCost()} spores)`] : []);
+const MAIN = () => ['Resume', 'Inventory', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'].concat(state.inv.pipSaved ? [`Spore travel (${state.inv.spores} spores)`] : []);
 const ACTIONS = Object.keys(DEFAULT_KEYS);
 function toggleMenu() {
   if (!state.started) return;
@@ -2895,7 +2913,7 @@ function menuItems() {
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
   if (m.view === 'forge') return forgeItems();
-  if (m.view === 'spores') return Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id]).map(id => SHROOM_NAMES[id] + (id === state.scene ? ' (here)' : '')).concat('Back');
+  if (m.view === 'spores') return travelOptions(state.scene).map(o => `${SHROOM_NAMES[o.id]}: ${o.cost} spore${o.cost > 1 ? 's' : ''}`).concat('Back');
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
@@ -2930,17 +2948,13 @@ function menuSelect(i) {
     if (i === 4) { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
     if (i === 5) { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
     if (i === 6) Object.assign(m, { view: 'new', sel: 1 });
-    if (i === 7) Object.assign(m, { view: 'spores', sel: 0, note: `A jump costs ${sporeCost()} spores. You have ${state.inv.spores}.` });
+    if (i === 7) Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
   } else if (m.view === 'spores') {
-    const ids = Object.keys(SHROOM_NAMES).filter(id => state.inv.shrooms[id]);
-    if (i >= ids.length) { Object.assign(m, { view: 'main', sel: 7 }); return; }
-    const cost = sporeCost();
-    if (state.inv.spores < cost) { m.note = `Not enough spores: ${state.inv.spores}/${cost}. Found mushrooms grow more over time.`; return; }
-    state.inv.spores -= cost; state.menu = null;
-    const to = WORLD[ids[i]].feat.shroom, h = state.hero;
-    sfx.spores();
-    for (let k = 0; k < 30; k++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (1 + Math.random() * 2), t: 0, life: 1.2, color: '#e8d8ff' });
-    transitionTo(ids[i], to[0], to[1] + 1.6 * UNIT / H);
+    const opts = travelOptions(state.scene);
+    if (i >= opts.length) { Object.assign(m, { view: 'main', sel: 7 }); return; }
+    if (state.inv.spores < opts[i].cost) { m.note = `Not enough spores: ${state.inv.spores}/${opts[i].cost}. Found mushrooms grow more over time.`; return; }
+    state.menu = null;
+    sporeJump(opts[i].id, opts[i].cost);
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
