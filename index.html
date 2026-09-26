@@ -1145,7 +1145,7 @@ function speakingNow() { return !!state.npcTalk || state.texts.some(t => SPEECH.
 function say(text, x, y, opts = {}) {
   if (opts.tip) { rememberTip(text); return; }
   const badge = promptKey(text);
-  if (badge) rememberTip(text);
+  if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
     const o = state.texts.find(o => o.key === opts.key && o.text === text);
     if (o) { o.x = x; o.y = y; o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
@@ -1247,6 +1247,7 @@ function enterScene(id, fx, fy) {
   }
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
+  if (sc.river && sc.river.stones) layoutStones(sc);
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
@@ -1571,7 +1572,6 @@ function updateJump(dt) {
     if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
-    if (sc.river && sc.river.stones && hopToStone(sc)) return;
   }
   if (h.z > 0 || h.vz > 0) {
     // holding jump while rising floats you higher, for a short while
@@ -1583,10 +1583,34 @@ function updateJump(dt) {
     if (gliding && Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT, t: 0, life: 0.5, color: 'streak', size: UNIT * 0.4 });
     if (h.z <= 0) {
       h.z = 0; h.vz = 0;
+      if (sc.river && sc.river.stones) catchStone(h, sc);
       if (state.slam) slamDown();
       else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
     }
   }
+}
+// Stepping stones, laid out for this seed and this screen: each hop is straight up or on a diagonal
+// (the ways you can move), about 1.85 tiles centre to centre. That's inside a jump even at the lowest
+// vigor, and far enough apart that walking between them drops you in.
+function layoutStones(sc) {
+  const r = sc.river, R = mulberry32((SEED ^ 0x51f15e) >>> 0), rnd = (a, b) => a + R() * (b - a);
+  const top = H * (0.5 - r.wH / 2), bottom = H * (0.5 + r.wH / 2), out = [];
+  let x = W * rnd(0.3, 0.7), y = bottom + UNIT * 0.3, prev = 'n';
+  for (let n = 0; n < 60 && y - top > UNIT * 1.9; n++) {
+    let dir = R() < 0.45 ? 'n' : R() < 0.5 ? 'ne' : 'nw';
+    if (prev !== 'n' && R() < 0.5) dir = prev;                       // runs of diagonals make zigzags and sweeps
+    if (x < W * 0.2) dir = 'ne'; if (x > W * 0.8) dir = 'nw';
+    const d = UNIT * rnd(1.75, 1.95), k = dir === 'n' ? [0, -1] : [dir === 'ne' ? 0.7071 : -0.7071, -0.7071];
+    x += k[0] * d; y += k[1] * d; prev = dir;
+    out.push([x / W, y / H, 0.8]);
+  }
+  r.stones = out;
+}
+// landing just short of a stone counts: you catch its edge
+function catchStone(h, sc) {
+  let best = null, bd = Infinity;
+  for (const [fx, fy, rU] of sc.river.stones) { const d = Math.hypot(h.x - fx * W, h.y - fy * H); if (d < rU * UNIT * 1.3 && d < bd) { bd = d; best = [fx * W, fy * H, rU]; } }
+  if (best && bd > best[2] * UNIT * 0.6) { const a = Math.atan2(h.y - best[1], h.x - best[0]); h.x = best[0] + Math.cos(a) * best[2] * UNIT * 0.55; h.y = best[1] + Math.sin(a) * best[2] * UNIT * 0.55; }
 }
 // stepping stones: a jump aimed at a stone lands you on it, so crossing is about choosing each hop
 function hopToStone(sc) {
@@ -2822,6 +2846,41 @@ function sporeJump(id, cost) {
   transitionTo(id, to[0], to[1] + 1.6 * UNIT / H);
   return true;
 }
+// ---------------- what F would do right now, and where: the nearest thing you can use ----------------
+function findInteractable() {
+  const h = state.hero, sc = sceneDef(), rt = rtFor(sc.id), inv = state.inv, f = sc.feat, c = [];
+  if (state.menu || state.cut || state.busy || h.z > 0 || state.fish || state.npcTalk || state.choice || state.rapids) return null;
+  const add = (x, y, verb, range) => { const d = Math.hypot(h.x - x, h.y - y); if (d < range * UNIT) c.push({ x, y, verb, d }); };
+  for (const n of sc.npcs) if (npcHere(n)) { const [x, y] = npcPos(n); add(x, y, 'Talk', 2); }
+  if (!state.carry) {
+    for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', 1.8);
+    for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
+  }
+  if (f.fire && sc.id === 'camp') add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
+  if (f.bench) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
+  if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
+  if (f.plots && !state.carry) {
+    const plots = rt.flags.plots || [];
+    f.plots.forEach((q, i) => {
+      const p = plots[i] || { s: 0 }, st = plotStage(p);
+      if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
+      if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Harvest', 0.8);
+    });
+  }
+  if (f.dock && inv.raft) {
+    const ok = inv.raft === 2 || (inv.mats.driftwood >= RAFT.driftwood && inv.mats.thorn >= RAFT.thorn);
+    if (ok) add(f.dock[0] * W, f.dock[1] * H, inv.raft === 2 ? 'Launch' : 'Build raft', 2.2);
+  }
+  if (f.farside) {
+    const x = f.farside[0] * W, y = f.farside[1] * H;
+    if (!rt.flags.salvaged) add(x - UNIT * 0.05, y + UNIT * 1.35, 'Salvage', 1.4);
+    add(x - UNIT * 0.05, y + UNIT * 0.65, 'Enter', 1.3);
+  }
+  if (f.tunnel && inv.tunnel) add(f.tunnel[0] * W, f.tunnel[1] * H, 'Dive', 2);
+  if (f.fishing && inv.rod) for (const [x, y, i] of fishSpots(sc)) if (((state.fishCool[sc.id + i] || 0) - state.playTime) <= 0) add(x, y, 'Cast', 2.3);
+  c.sort((a, b) => a.d - b.d);
+  return c[0] || null;
+}
 // ---------------- the Downriver sidequest: a sign across the water, a raft, a pool, a tunnel ----------------
 const RAFT = { driftwood: 4, thorn: 2 };
 function riverSideQuest(sc, h) {
@@ -2841,7 +2900,7 @@ function riverSideQuest(sc, h) {
         inv.raft = 1;
         setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty across the water: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns`, 'relic', 4.5), 0);
       }
-      say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : `Old Wick's first raft, never finished. ${K.act} to salvage the good logs.`, wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
+      say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : 'Old Wick\'s first raft, never finished.', wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
       if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
     }
     if (Math.hypot(h.x - door[0], h.y - door[1]) < UNIT * 1.3) {
@@ -3631,6 +3690,7 @@ const SYSTEM_ITEMS = () => [
   ['keys', 'Controls'],
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
+  ['labels', `Action labels: ${state.settings.labels === false ? 'off' : 'on'}`],
   ['new', 'New adventure'],
 ];
 const SYS_TAB = () => PACK_TABS.indexOf('System');
@@ -3648,6 +3708,7 @@ function systemSelect(i) {
   if (key === 'sound') setSound(!soundOn);
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
+  if (key === 'labels') { state.settings.labels = state.settings.labels === false; saveSettings(); }
   if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
   if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
 }
@@ -3869,7 +3930,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (d.settings.sound === false) soundOn = false; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
   } catch (e) {}
   refreshK();
 }
@@ -3993,6 +4054,7 @@ function draw() {
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
   drawScene(sc);
   ctx.restore();
+  drawActionHint();
   drawHUD();
   drawRadial();
   if (state.flash > 0) { ctx.fillStyle = `rgba(235,240,255,${state.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
@@ -5051,6 +5113,33 @@ function drawPack(m, x, y, pw, fs) {
   ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
   drawTipMarquee(fs);
 }
+// the shine on whatever F would use, with a one-word label if labels are on
+function drawActionHint() {
+  const it = findInteractable();
+  state.actionHint = it;
+  if (!it) return;
+  const [sx, sy] = toScreen(it.x, it.y), z = state.cam.ez, u = UNIT * z, t = state.time;
+  const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, u * 1.3);
+  g.addColorStop(0, `rgba(255,240,170,${0.28 + 0.12 * Math.sin(t * 4)})`); g.addColorStop(1, 'rgba(255,240,170,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, u * 1.3, 0, 6.28); ctx.fill();
+  for (let i = 0; i < 3; i++) {                        // three little four-point sparkles circling it
+    const a = t * 1.6 + i * 2.09, rr_ = u * 0.9, x = sx + Math.cos(a) * rr_, y = sy + Math.sin(a) * rr_ * 0.6 - u * 0.3, k = (0.5 + 0.5 * Math.sin(t * 5 + i * 2)) * u * 0.22 + u * 0.06;
+    ctx.fillStyle = 'rgba(255,248,200,.95)';
+    ctx.beginPath(); ctx.moveTo(x, y - k); ctx.lineTo(x + k * 0.25, y - k * 0.25); ctx.lineTo(x + k, y); ctx.lineTo(x + k * 0.25, y + k * 0.25); ctx.lineTo(x, y + k); ctx.lineTo(x - k * 0.25, y + k * 0.25); ctx.lineTo(x - k, y); ctx.lineTo(x - k * 0.25, y - k * 0.25); ctx.closePath(); ctx.fill();
+  }
+  if (state.settings.labels === false) return;
+  const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
+  ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const key = K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
+  const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, hgt, hgt / 2) : ctx.rect(bx, by, w, hgt); ctx.fill();
+  ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kw, hgt - 6); ctx.fill();
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#1a1420'; ctx.fillText(key, bx + 3 + kw / 2, by + hgt / 2 + 1);
+  ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(it.verb, bx + kw + 9, by + hgt / 2 + 1);
+  ctx.textBaseline = 'alphabetic';
+  state.hintRect = { x: bx, y: by, w, h: hgt };
+}
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
 function tipLibrary() {
   const inv = state.inv, t = [
@@ -5109,7 +5198,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 38';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 39';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5822,6 +5911,7 @@ function reservedRects() {
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
     const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
     r.push({ x: hx - u * 0.7, y: hy - u * 1.1, w: u * 1.4, h: u * 1.5 });
@@ -5988,6 +6078,7 @@ function resize() {
   computeUnit();
   const sx = W / oW, sy = H / oH;
   for (const a of [state.hero, ...state.enemies, ...state.items, ...state.hazards, ...state.rings, state.bird].filter(Boolean)) { a.x *= sx; a.y *= sy; }
+  if (sceneDef() && sceneDef().river && sceneDef().river.stones) layoutStones(sceneDef());
   refreshSceneGeometry();
 }
 
