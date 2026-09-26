@@ -17,6 +17,7 @@
   #act  { right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; font-size: 1.5rem; }
   #dash { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
   #eat  { right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
+  #jump { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; font-size: .85rem; }
   #throw { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .75rem; }
   #fire { right: calc(104px + env(safe-area-inset-right, 0px)); bottom: calc(164px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
   #menubtn { left: calc(12px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: 46px; height: 46px; border-radius: 10px; font-size: 1.2rem; }
@@ -35,6 +36,7 @@
   <span></span><button data-dir="down">&#9660;</button><span></span>
 </div>
 <button id="act" class="abtn">A</button>
+<button id="jump" class="abtn">jump</button>
 <button id="throw" class="abtn hidden">throw</button>
 <button id="dash" class="abtn hidden">dash</button>
 <button id="eat" class="abtn hidden">eat</button>
@@ -51,10 +53,18 @@ const ctx = canvas.getContext('2d');
 const lightCv = document.createElement('canvas');
 const lctx = lightCv.getContext('2d');
 const TOUCH = window.matchMedia('(pointer: coarse)').matches;
-const K = TOUCH
-  ? { act: 'A', throw: 'throw', dash: 'dash', eat: 'eat', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' }
-  : { act: 'F', throw: 'D', dash: 'A', eat: 'S', fire: 'E', menu: 'Space', l: '\u2190', r: '\u2192', u: '\u2191' };
-document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act, Space for menu';
+// Keys are remappable from the menu. K holds the on-screen names used in hints.
+const DEFAULT_KEYS = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', act: 'f', jump: ' ', throw: 'd', dash: 'a', eat: 's', fire: 'e', menu: 'm' };
+const ACTION_NAMES = { up: 'Move up', down: 'Move down', left: 'Move left', right: 'Move right', act: 'Sword / grab / talk', jump: 'Jump', throw: 'Throw', dash: 'Dodge', eat: 'Eat', fire: 'Marsh fire', menu: 'Menu' };
+const K = {};
+function keyName(k) { return { ' ': 'Space', arrowup: '\u2191', arrowdown: '\u2193', arrowleft: '\u2190', arrowright: '\u2192', escape: 'Esc', enter: 'Enter' }[k] || (k.length === 1 ? k.toUpperCase() : k); }
+function refreshK() {
+  if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', throw: 'throw', dash: 'dodge', eat: 'eat', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
+  else { const m = (state && state.settings && state.settings.keys) || DEFAULT_KEYS; for (const a in DEFAULT_KEYS) K[a] = keyName(m[a]); K.l = K.left; K.r = K.right; K.u = K.up; }
+}
+var state;
+refreshK();
+document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act, Space to jump, M for menu';
 let W = window.innerWidth, H = window.innerHeight, UNIT = 32, DPR = window.devicePixelRatio || 1;
 const computeUnit = () => { UNIT = Math.max(20, Math.min(W, H) / 14); };
 computeUnit();
@@ -82,7 +92,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 // =====================================================================
 const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', hollow: 'The Hollow Beneath' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
-const BEANS = 6;
+const BEANS = 6;              // one lies about early; the rest turn up once you've met the one who lost them
 
 function edgePoint(side, along) {
   if (side === 'n') return [along, 0.03];
@@ -268,29 +278,32 @@ function genWorld() {
   // ---------------- Windswept field (south): a wind puzzle that builds up ----------------
   // a = angle (0 blows south, + toward east, PI blows north), s = strength (1 strong, .5 weak).
   // A strong gust carries you 0.3 of the screen height; a weak one only 0.14.
-  // Every crossing also has a way back: a strong north gust and an updraft on the far side.
-  const N = { a: Math.PI, s: 1 };
+  // Every crossing also has a way back: a strong north gust.
+  // Higher up the mountain, some gusts are too strong (s 2): jump into one and it throws you back to the foothill farm.
+  // Ride a gust by jumping while it blows.
+  const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 2 };
   const FIELD = [
-    { msg: 'Watch the windsock', gusts: [{ a: -0.3, s: 0.6 }, { a: 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
+    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 0.6 }, { a: 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
     { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 0.8 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
     { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
-    { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8] },
-    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3] },
-    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 0.5 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true },
+    { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
+    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
+    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 0.5 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true, extra: TOO },
   ];
   let north = [0.42, 0.58];
   FIELD.forEach((F, k) => {
     const i = k + 1;
     const sc = add(newScene({
-      id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8,
-      gusts: F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
+      id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: ['#7d9a4c', '#7b9550', '#789055', '#768a5a', '#74845f', '#727f64', '#707a69'][k], speed: 0.45, accel: 8,
+      gusts: F.extra ? F.gusts.concat(F.extra) : F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
     }));
     const south = F.end ? null : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
     sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
     if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'f' + (i + 1) });
     const nPt = edgePoint('n', (north[0] + north[1]) / 2);
-    edgeWall(sc, 'w', 'boulder', 1.0, []);
+    if (i === 1) sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'foot' });
+    edgeWall(sc, 'w', 'boulder', 1.0, i === 1 ? [[0.4, 0.6]] : []);
     edgeWall(sc, 'e', 'boulder', 1.0, []);
     edgeWall(sc, 'n', 'boulder', 1.0, [north]);
     edgeWall(sc, 's', 'boulder', 1.0, south ? [south] : []);
@@ -309,6 +322,20 @@ function genWorld() {
     for (let t = 0; t < 90; t++) { const fx = rng(), fy = rng(); if (!inRects(F.chasms, fx, fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.6, 1.3), ph: rng() * 6 }); }
     if (south) north = south;
   });
+
+  // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
+  const foot = add(newScene({ id: 'foot', area: 'field', msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
+  foot.exits = [{ side: 'e', a: 0.4, b: 0.6, to: 'f1' }];
+  foot.feat.plants = [];
+  edgeWall(foot, 'n', 'boulder', 1.0, []); edgeWall(foot, 'w', 'boulder', 1.0, []); edgeWall(foot, 's', 'boulder', 1.0, []);
+  edgeWall(foot, 'e', 'boulder', 1.0, [[0.4, 0.6]]);
+  foot.paths = [makePath([0.97, 0.5], [0.3, 0.5], 1)];
+  foot.feat.plots = [];
+  foot.feat.crops = [];
+  const CROPS = ['squash', 'carrot', 'berries', 'turnip', 'pepper', 'squash'];
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { foot.feat.plots.push([0.22 + c * 0.06, 0.45 + r * 0.12]); foot.feat.crops.push(CROPS[c]); }
+  scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6]], [0.1, 0.9, 0.12, 0.88]);
+  for (let t = 0; t < 60; t++) foot.deco.push({ kind: 'tuft', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
 
   // ---------------- Cave: 7 screens, entered through the sinkhole in the woods ----------------
   const CAVE_SPAWNS = [
@@ -372,9 +399,11 @@ function genWorld() {
     if (i === 1) addPlots(sc, 3, [0.15, 0.85, 0.15, 0.85]);
     const lurkers = [1, 1, 2][i - 1];
     for (let l = 0; l < lurkers; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
+    sc.feat.beanSpots = [];
     for (let b = 0; b < 2; b++) {
       const q = freeSpot(sc, [0.1, 0.9, 0.15, 0.85], 0.8, sc.pools.map(o => [o.fx, o.fy, o.r]));
-      sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] });
+      if (i === 1 && b === 0) sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] });
+      else sc.feat.beanSpots.push(q);
     }
     for (let t = 0; t < 50; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.2), ph: rng() * 6 });
     west = east;
@@ -433,14 +462,15 @@ function rtFor(id) {
 }
 const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 
+// vigor grows geometrically with depth (relics, the tortoise) and a little with training
 const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
-function newInv() { return { sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
-const maxVig = () => baseVig(state.inv.depth);
+const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25);
 
-const state = {
+state = {
   scene: 'camp', hero: null, inv: newInv(), pull: newPull(null),
   enemies: [], items: [], hazards: [], rings: [], fx: [], texts: [], solids: [], pools: [], shots: [], gas: [],
   drops: [], splashes: [], dripTimer: 1, bird: null, clouds: [], gust: 0, gustT: 0, gustIdx: 0, gustPhase: 'lull',
@@ -451,7 +481,7 @@ const state = {
   cam: { z: 1, x: 0, y: 0, focus: null, pulses: [], ez: 1, ex: 0, ey: 0 },
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
-  settings: { tips: 'intro' },
+  settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false,
 };
 state.hero = newHero();
 
@@ -464,10 +494,19 @@ window.addEventListener('keydown', e => {
   if (k.startsWith('arrow') || k === ' ') e.preventDefault();
   if (!state.started) { begin(); return; }
   if (e.repeat) return;
+  if (state.remap) { assignKey(state.remap, k); return; }
   state.keys[k] = true;
   if (k === 'r' && state.won) newGame();
-  if ((k === ' ' || k === 'escape') && !state.won) toggleMenu();
+  if ((k === state.settings.keys.menu || k === 'escape') && !state.won) toggleMenu();
 });
+function assignKey(action, k) {
+  if (k === 'escape') { state.remap = null; return; }
+  const map = state.settings.keys;
+  for (const a in map) if (map[a] === k) map[a] = map[action];     // swap if the key was taken
+  map[action] = k;
+  state.remap = null; state.keys = {}; state.prevKeys = {};
+  refreshK(); saveSettings(); sfx.pickup();
+}
 window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });
 document.querySelectorAll('#pad button').forEach(b => {
   const map = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright' };
@@ -478,6 +517,7 @@ function bindHold(el, key) {
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, () => { state.keys[key] = false; }));
 }
 bindHold(document.getElementById('act'), 'btnact');
+bindHold(document.getElementById('jump'), 'btnjump');
 bindHold(document.getElementById('throw'), 'btnthrow');
 bindHold(document.getElementById('dash'), 'btndash');
 bindHold(document.getElementById('eat'), 'btneat');
@@ -488,16 +528,18 @@ canvas.addEventListener('pointerdown', e => {
   if (state.menu) menuTap(e.clientX, e.clientY);
 });
 
+const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
-  act:   () => !!(state.keys.f || state.keys.enter || state.keys.btnact),
-  throw: () => !!(state.keys.d || state.keys.btnthrow),
-  dash:  () => !!(state.keys.a || state.keys.btndash),
-  eat:   () => !!(state.keys.s || state.keys.btneat),
-  fire:  () => !!(state.keys.e || state.keys.btnfire),
-  up:    () => !!state.keys.arrowup,
-  down:  () => !!state.keys.arrowdown,
-  left:  () => !!state.keys.arrowleft,
-  right: () => !!state.keys.arrowright,
+  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
+  jump:  () => kk('jump') || !!state.keys.btnjump,
+  throw: () => kk('throw') || !!state.keys.btnthrow,
+  dash:  () => kk('dash') || !!state.keys.btndash,
+  eat:   () => kk('eat') || !!state.keys.btneat,
+  fire:  () => kk('fire') || !!state.keys.btnfire,
+  up:    () => kk('up') || !!state.keys.arrowup,
+  down:  () => kk('down') || !!state.keys.arrowdown,
+  left:  () => kk('left') || !!state.keys.arrowleft,
+  right: () => kk('right') || !!state.keys.arrowright,
 };
 const pressedNow = {};
 function readPresses() {
@@ -515,6 +557,7 @@ function inputVector() {
 function refreshButtons() {
   const inv = state.inv;
   document.getElementById('dash').classList.toggle('hidden', !inv.step);
+  document.getElementById('dash').textContent = 'dodge';
   document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
   document.getElementById('throw').classList.toggle('hidden', !inv.acorns && !state.carry);
@@ -756,6 +799,11 @@ const sfx = {
   plant()  { noise(0, 0.2, { vol: 0.12, freq: 700 }); tone(660, 0.1, 0.2, { type: 'sine', vol: 0.06, to: 880 }); },
   tired()  { tone(300, 0, 0.3, { type: 'sine', vol: 0.06, to: 180 }); },
   cackle() { for (let i = 0; i < 6; i++) tone(700 + Math.random() * 500, i * 0.08, 0.07, { type: 'square', vol: 0.04, to: 500 + Math.random() * 300 }); },
+  jump()   { tone(330, 0, 0.14, { type: 'triangle', vol: 0.07, to: 520 }); },
+  slam()   { tone(120, 0, 0.5, { type: 'sine', vol: 0.4, to: 40 }); noise(0, 0.45, { vol: 0.4, freq: 600 }); [220, 330].forEach(f => tone(f, 0, 0.25, { type: 'square', vol: 0.04, to: f * 0.5 })); },
+  spin()   { noise(0, 0.4, { vol: 0.3, freq: 2200, q: 1, type: 'bandpass' }); [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * 0.05, 0.3, { type: 'triangle', vol: 0.06 })); },
+  grow()   { [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.5, { type: 'sine', vol: 0.08 })); },
+  sizzle() { noise(0, 0.3, { vol: 0.1, freq: 3000, q: 1, type: 'bandpass' }); },
   talk()   { for (let i = 0; i < 3; i++) tone(300 + Math.random() * 200, i * 0.07, 0.06, { type: 'square', vol: 0.03 }); },
   croak()  { tone(120, 0, 0.35, { type: 'square', vol: 0.06, to: 85 }); tone(100, 0.25, 0.3, { type: 'square', vol: 0.05, to: 75 }); },
   victory() {
@@ -874,7 +922,7 @@ function enterScene(id, fx, fy) {
   state.npcTalk = null;
   const h = state.hero;
   const pos = fx != null ? [fx, fy] : (sc.heroStart || [0.5, 0.5]);
-  Object.assign(h, { x: pos[0] * W, y: pos[1] * H, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0.6, ride: null, falling: 0, dashT: 0, safe: [pos[0], pos[1]] });
+  Object.assign(h, { x: pos[0] * W, y: pos[1] * H, vx: 0, vy: 0, z: 0, vz: 0, stun: 0, invuln: 0.6, ride: null, falling: 0, dashT: 0, safe: [pos[0], pos[1]] });
   // the dead come back if you've been away a while (never the boss); some only show up later
   state.enemies = sc.spawns.map((s, i) => {
     const d = rt.deadAt[i];
@@ -907,12 +955,23 @@ function enterScene(id, fx, fy) {
   refreshButtons();
 }
 
+// arriving at a screen edge: slide along it to the nearest spot not blocked by rocks or trees
+function nudgeFree() {
+  const h = state.hero, horiz = h.y < UNIT * 2 || h.y > H - UNIT * 2;
+  const blocked = (x, y) => state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 0.5) || isChasm(x, y);
+  if (!blocked(h.x, h.y)) return;
+  for (let d = UNIT * 0.4; d < Math.max(W, H); d += UNIT * 0.4) for (const sgn of [1, -1]) {
+    const x = horiz ? h.x + d * sgn : h.x, y = horiz ? h.y : h.y + d * sgn;
+    if (x > UNIT * 0.5 && x < W - UNIT * 0.5 && y > UNIT * 0.5 && y < H - UNIT * 0.5 && !blocked(x, y)) { h.x = x; h.y = y; state.entry.fx = x / W; state.entry.fy = y / H; h.safe = [x / W, y / H]; return; }
+  }
+}
 function transitionTo(id, fx, fy, quick) {
   state.busy = true;
   state.fadeTarget = 1;
   state.fadeRate = quick ? 14 : 4;
   setTimeout(() => {
     enterScene(id, fx, fy);
+    nudgeFree();
     state.fadeTarget = 0;
     setTimeout(() => { state.busy = false; }, quick ? 150 : 500);
   }, quick ? 280 : 1000);
@@ -926,7 +985,7 @@ function checkEdges() {
     if (ex.side === 's') { at = h.y >= H - r && held.down(); along = h.x / W; }
     if (ex.side === 'w') { at = h.x <= r && held.left(); along = h.y / H; }
     if (ex.side === 'e') { at = h.x >= W - r && held.right(); along = h.y / H; }
-    if (!at || along < ex.a - 0.03 || along > ex.b + 0.03) continue;
+    if (!at) continue;
     if (ex.locked && ex.locked()) return;
     if (ex.arrive === 'sinkhole') {
       const s = WORLD[ex.to].feat.stone;
@@ -934,9 +993,7 @@ function checkEdges() {
       if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
       return;
     }
-    const tgt = WORLD[ex.to], back = tgt.exits.find(o => o.side === OPP[ex.side] && o.to === state.scene);
-    const lo = back ? back.a + 0.02 : 0.1, hi = back ? back.b - 0.02 : 0.9;
-    const al = Math.max(lo, Math.min(hi, along));
+    const al = Math.max(0.05, Math.min(0.95, along));
     const inX = 1.2 * UNIT / W, inY = 1.2 * UNIT / H, side = OPP[ex.side];
     const [fx, fy] = side === 'n' ? [al, inY] : side === 's' ? [al, 1 - inY] : side === 'w' ? [inX, al] : [1 - inX, al];
     transitionTo(ex.to, fx, fy, true);
@@ -1021,12 +1078,13 @@ function update(dt) {
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
     h.x += h.vx * dt; h.y += h.vy * dt;
-    if (sc.gusts && state.gustPhase === 'blow') { const w = gustVec(); h.x += w[0] * 0.12 * L() * dt; h.y += w[1] * 0.05 * L() * dt; }
+    if (sc.gusts && state.gustPhase === 'blow') { const w = gustVec(), k = 0.5 + (sc.depth || 0) * 0.15; h.x += w[0] * 0.12 * k * L() * dt; h.y += w[1] * 0.06 * k * L() * dt; }
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
+  updateJump(dt);
 
-  if (sc.chasms && !h.ride && h.falling <= 0 && h.dashT <= 0) {
+  if (sc.chasms && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
     if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; sfx.plummet(); }
     else if (!isChasm(h.x, h.y, UNIT * 1.2)) h.safe = [h.x / W, h.y / H];
   }
@@ -1047,7 +1105,19 @@ function spend(cost) {
   const h = state.hero;
   if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); say('Too tired...', h.x, h.y - UNIT, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
   h.vig = Math.max(0, h.vig - cost); h.rest = state.time;
+  train(cost);
   return true;
+}
+// using vigor slowly deepens it
+function train(amount) {
+  const inv = state.inv;
+  inv.xp += amount;
+  const need = 25 * Math.pow(1.35, inv.tlevel);
+  if (inv.xp >= need) {
+    inv.xp -= need; inv.tlevel++;
+    sfx.grow();
+    say(`Your vigor grows. ${maxVig()}`, state.hero.x, state.hero.y - UNIT * 1.4, { key: 'grow', life: 2.2, color: '#b8f28a' });
+  }
 }
 
 function clampTo(a, r) {
@@ -1097,19 +1167,40 @@ function updateFeatures(dt) {
     const open = rt.bossDead && h.y > gap.a * H + UNIT * 0.5 && h.y < gap.b * H - UNIT * 0.5;
     if (h.x > lim && !open) { h.x = lim; h.vx = Math.min(0, h.vx); }
   }
-  if (f.updrafts) f.updrafts.forEach((u, i) => {
-    const ux = u[0] * W, uy = u[1] * H, d = Math.hypot(h.x - ux, h.y - uy);
-    if (d < UNIT * 3) say('Leaves swirl here. A gust could lift you. The tall grass shows which way the next one blows.', ux, uy - UNIT * 1.2, { key: 'up', tip: 'updraft', life: 5 });
-    if (d < UNIT * 1.1 && state.gustPhase === 'blow' && state.carry !== 'rock' && !(h.rideCool > state.time)) {
-      const g = sc.gusts[state.gustIdx], dist = H * (g.s >= 1 ? 0.3 : 0.14), dy = Math.cos(g.a) < 0 ? -dist : dist, dx = Math.tan(g.a) * dist;
-      h.ride = { t: 0, dur: 1.2 + g.s * 0.8, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
-      h.invuln = 2.2; sfx.whoosh();
-      zoomPulse(h.x, h.y, 'pickup');
-    }
-  });
-  if (f.plants && sc.id === 'f1') { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say('Tall grass leans the way the next gust will blow. The harder it bends, the stronger the gust.', s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock', life: 5 }); }
+  if (f.plants && f.plants.length && (sc.id === 'f1' || sc.id === 'f3')) { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
 }
 
+// ---------------- jumping: always available; slam down with the sword ----------------
+function updateJump(dt) {
+  const h = state.hero, sc = sceneDef();
+  if (h.ride || h.falling > 0) return;
+  if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
+    h.vz = UNIT * 9; h.z = 0.01; state.slam = false;
+    sfx.jump(); train(0.3);
+    if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
+  }
+  if (h.z > 0 || h.vz > 0) {
+    h.vz -= UNIT * (state.slam ? 60 : 30) * dt; h.z += h.vz * dt;
+    if (h.z <= 0) {
+      h.z = 0; h.vz = 0;
+      if (state.slam) slamDown();
+      else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
+    }
+  }
+}
+function rideGust(sc) {
+  const h = state.hero, g = sc.gusts[state.gustIdx];
+  if (g.s >= 2) {                                 // too strong: it throws you off the mountain
+    h.ride = { t: 0, dur: 1.6, x0: h.x, y0: h.y, x1: h.x, y1: -UNIT * 4, blown: true };
+    sfx.whoosh(); sfx.whoosh(); state.shake = 0.5;
+    say('The wind is too strong!', h.x, h.y - UNIT * 1.3, { key: 'blown', life: 1.6, color: '#ffe38a' });
+    return;
+  }
+  const dist = H * (g.s >= 1 ? 0.3 : 0.14), dy = Math.cos(g.a) < 0 ? -dist : dist, dx = Math.tan(g.a) * dist;
+  h.ride = { t: 0, dur: 1.2 + g.s * 0.8, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
+  h.invuln = 2.2; sfx.whoosh();
+  zoomPulse(h.x, h.y, 'pickup');
+}
 function updateRide(dt) {
   const h = state.hero, r = h.ride;
   r.t += dt;
@@ -1118,6 +1209,12 @@ function updateRide(dt) {
   h.y = r.y0 + (r.y1 - r.y0) * e;
   h.z = Math.sin(Math.PI * p) * UNIT * 3.2;
   if (Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * 2, t: 0, life: 0.6, color: 'leaf', spin: Math.random() * 6 });
+  if (p >= 1 && r.blown) {
+    h.ride = null; h.z = 0;
+    transitionTo('foot', 0.5, 0.3);
+    setTimeout(() => say('Blown all the way down the mountain. Softly, at least.', state.hero.x, state.hero.y - UNIT, { key: 'blown', life: 3.5 }), 0);
+    return;
+  }
   if (p >= 1) {
     h.ride = null; h.z = 0; h.vx = 0; h.vy = 0; h.rideCool = state.time + 1.5;
     clampTo(h, UNIT * 0.5);
@@ -1327,6 +1424,8 @@ function collect(it) {
     case 'lumin': inv.lumin = Math.min(90, inv.lumin + 45); tell('Luminescence. Your light burns brighter, and their flashes can\'t blind you.', 4, 'lumin'); break;
     case 'pepper': inv.food.push('pepper'); tell(`A bog pepper. ${K.eat} to eat: a little vigor, and your marsh fire burns bigger for a while.`, 4, 'pepper'); break;
     case 'turnip': inv.food.push('turnip'); break;
+    case 'squash': inv.food.push('squash'); tell(`A squash. ${K.eat} to eat: a big meal.`, 3, 'squash'); break;
+    case 'berries': inv.food.push('berries'); tell('Mountain berries. A small snack.', 3, 'berries'); break;
     case 'carrot':
       if (inv.food.length < 8) { inv.food.push('carrot'); tell(`A carrot. ${K.eat} to eat and restore vigor.`, 4, 'carrot'); }
       else heal(0.35);
@@ -1362,16 +1461,22 @@ function updateCombat(dt) {
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
   if (nearPullable) return;
 
+  // in the air, the sword comes down as a slam
+  if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam) { state.slam = true; h.vz = -UNIT * 14; sfx.swoosh(); return; }
+  if (state.slam) return;
   if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
     if (state.atkCool <= 0) {
       state.slashBuf = -9;
       const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
-      if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
-      state.atk = { type: 'slash', t: 0, dur: SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0 };
-      state.atkCool = SLASH.cool;
-      sfx.swoosh();
+      const spin = chained && cb.level >= 2;           // the chain's finisher: a full circle
+      if (spin) { cb.step = null; cb.level = 0; }
+      else if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
+      state.atk = { type: 'slash', t: 0, dur: spin ? 0.38 : SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, spin };
+      state.atkCool = spin ? 0.5 : SLASH.cool;
+      if (spin) { sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.25; say('Whirlwind!', h.x, h.y - UNIT * 1.3, { key: 'combo', life: 1, color: '#ffe38a', size: 1.5 }); }
+      else sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
       scareFlock(h.x, h.y, 5);
       shakeTrees(h, 1);
@@ -1406,22 +1511,39 @@ function updateCombat(dt) {
     if (a.hit.has(e) || !hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     let hit;
-    if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
+    if (a.spin) hit = d < UNIT * SLASH.reach * 1.3 + e.r;
+    else if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
       hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
     }
     if (hit) {
       a.hit.add(e);
-      let dmg = a.type === 'slash' ? 1 : 2;
+      let dmg = a.spin ? 3 : a.type === 'slash' ? 1 : 2;
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg *= power();
-      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
+      damage(e, dmg, a.type, dx / d, dy / d, (a.spin || (a.type === 'stab' && a.level > 0)) && SMALL.includes(e.type));
     }
   }
   if (a.t >= a.dur) state.atk = null;
+}
+function slamDown() {
+  const h = state.hero, inv = state.inv;
+  state.slam = false;
+  sfx.slam(); state.shake = 0.45; zoomPulse(h.x, h.y, 'kill');
+  spark(h.x, h.y + UNIT * 0.3, '#9a8a6a', 16, 4);
+  state.fx.push({ x: h.x, y: h.y + UNIT * 0.3, vx: 0, vy: 0, t: 0, life: 0.45, color: 'shock', size: UNIT * 2.6 });
+  spend(0.8);
+  for (const e of state.enemies) {
+    if (!hittable(e)) continue;
+    const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
+    if (d > UNIT * 2.4 + e.r) continue;
+    damage(e, (2 + (inv.horn ? 1 : 0) + (inv.slime > 0 ? 1 : 0)) * power(), 'stab', dx / d, dy / d, true);
+  }
+  if (state.bird) scareBird(h.x, h.y, 6);
+  scareFlock(h.x, h.y, 6);
 }
 // vines give way to a few good cuts
 function cutVines(h) {
@@ -1499,10 +1621,8 @@ function updateFx(dt) {
 
 function damage(e, amount, kind, nx, ny, bowl) {
   e.hp -= amount;
-  e.flash = 0.15;
-  spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4);
-  sfx.whack();
-  zoomPulse(e.x, e.y, 'hit');
+  e.flash = kind === 'fire' ? 0.06 : 0.15;
+  if (kind !== 'fire') { spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4); sfx.whack(); zoomPulse(e.x, e.y, 'hit'); }
   if (e.hp <= 0) return kill(e);
   if (e.mode === 'sleep' || e.mode === 'dormant') resumeMode(e);
   if (e.type === 'warden') { if (e.hp <= e.maxHp / 2 && !e.enraged) { e.enraged = true; say('The Warden is enraged!', e.x, e.y - e.r - UNIT, { key: 'boss' }); sfx.roar(); zoomPulse(e.x, e.y, 'boss'); } return; }
@@ -1567,7 +1687,21 @@ function updateEnemies(dt) {
     const ease = (tx, ty, rate) => { const k = 1 - Math.exp(-rate * dt); e.vx += (tx - e.vx) * k; e.vy += (ty - e.vy) * k; };
     e.t -= dt; e.cool -= dt; e.flash -= dt;
     if (e.mode === 'dead') { if (e.t <= 0) state.enemies.splice(i, 1); continue; }
-    if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
+    const burning = (e.burn || 0) > 0;
+    if (burning) {
+      e.burn -= dt;
+      e.burnTick = (e.burnTick || 0) - dt;
+      if (e.burnTick <= 0) { e.burnTick = 0.6; damage(e, 0.5, 'fire', 0, 0); if (Math.random() < 0.4) sfx.sizzle(); if (e.dead) continue; }
+      if (Math.random() < dt * 14) state.fx.push({ x: e.x + (Math.random() - 0.5) * e.r, y: e.y - e.r * 0.3, vx: 0, vy: -UNIT * 1.4, t: 0, life: 0.5, color: Math.random() < 0.5 ? '#ffb347' : '#ff6a2a' });
+    }
+    if (burning && e.type !== 'warden' && !['ceiling', 'submerged', 'ripple', 'sink'].includes(e.mode)) {
+      // too busy being on fire to fight: runs about wildly
+      if ((e.panicT || 0) <= 0) { e.panicT = 0.35; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); }
+      e.panicT -= dt;
+      ease(e.lx * 0.35 * L(), e.ly * 0.35 * L(), 6);
+      if (e.type === 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
+    }
+    else if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
     else AI[e.type](e, dx, dy, dist, ease, dt);
 
     if (e.type !== 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
@@ -1591,7 +1725,7 @@ function updateEnemies(dt) {
     }
 
     const touch = TOUCHES[e.type];
-    if (touch && touch(e) && h.invuln <= 0 && h.z < UNIT * 0.5 && dist < (e.r + UNIT * 0.45) * 0.95) {
+    if (touch && touch(e) && !burning && h.invuln <= 0 && h.z < UNIT * 0.5 && dist < (e.r + UNIT * 0.45) * 0.95) {
       const facing = (-dx * h.fx - dy * h.fy) / dist;
       if (slashActive() && facing > 0.2) parry(e);
       else if (hurtHero(e.dmg, e.x, e.y)) afterHit(e);
@@ -1721,7 +1855,7 @@ const AI = {
       case 'ripple': if (e.t <= 0) { e.mode = 'bite'; e.t = 0.3; e.parried = false; sfx.splash(); spark(e.x, e.y, '#6a8a8a', 10, 3); } break;
       case 'bite':
         if (!e.parried && slashActive() && dist < UNIT * 1.9) { e.parried = true; parry(e); break; }
-        if (e.t <= 0) { if (dist < UNIT * 1.5) hurtHero(e.dmg, e.x, e.y); e.mode = 'risen'; e.t = 1.2; }
+        if (e.t <= 0) { if (dist < UNIT * 1.5 && state.hero.z < UNIT * 0.5) hurtHero(e.dmg, e.x, e.y); e.mode = 'risen'; e.t = 1.2; }
         break;
       case 'risen': if (e.t <= 0) { e.mode = 'sink'; e.t = 0.4; } break;
       case 'sink': if (e.t <= 0) { e.mode = 'submerged'; e.cool = rr(1.5, 3); } break;
@@ -1929,12 +2063,11 @@ function interact() {
     }
   }
   if (sc.feat.plots) {
-    const crop = CROP[sc.area] || 'turnip';
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0 })));
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (d2 > UNIT * 0.8) continue;
-      const p = plots[i], stage = plotStage(p);
+      const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
       if (p.s === 0) say(state.inv.seeds ? `${K.act} to plant a seed` : 'Tilled soil. Birds drop seeds when they fly off; gremlins carry them too.', px * W, py * H - UNIT, { key: 'plot', tip: state.inv.seeds ? null : 'plot', life: 2.5 });
       if (!pressedNow.act) return false;
       if (p.s === 0 && state.inv.seeds > 0) { state.inv.seeds--; p.s = 1; p.t = state.playTime; sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2); say(`Planted. ${CROP_NAME[crop]} grow here. Come back later.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); }
@@ -1950,7 +2083,7 @@ function interact() {
   return false;
 }
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper' };
-const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers' };
+const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / 20)) : 0;
 function dropRock() {
   const h = state.hero;
@@ -1965,7 +2098,7 @@ function npcLines(n) {
   if (n.kind === 'toad') {
     if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.'] };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
-    if (!rt.flags.metToad) { rt.flags.metToad = true; return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
+    if (!rt.flags.metToad) { rt.flags.metToad = true; spawnBeans(); return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
     return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
   }
   if (n.kind === 'tortoise') {
@@ -1980,6 +2113,16 @@ function npcLines(n) {
     return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Let\'s go home. I\'ll put the kettle on.'], then: startEnding };
   }
   return { lines: ['...'] };
+}
+// once the toad has told you, the rest of his lunch turns up around the marsh
+function spawnBeans() {
+  for (const id of ['m1', 'm2', 'm3']) {
+    const rt = rtFor(id);
+    for (const q of WORLD[id].feat.beanSpots) {
+      if (id === state.scene) state.items.push({ type: 'bean', x: q[0] * W, y: q[1] * H });
+      else rt.items.push({ type: 'bean', fx: q[0], fy: q[1] });
+    }
+  }
 }
 function startTalk(n) {
   const { lines, then } = npcLines(n);
@@ -2010,10 +2153,11 @@ function updateAbilities(dt) {
   if (pressedNow.eat && inv.food.length) {
     if (h.vig >= maxVig()) sayHero('Not hungry right now.', { life: 1.5 });
     else {
-      const i = inv.food.indexOf('carrot') >= 0 ? inv.food.indexOf('carrot') : 0;
+      const miss = 1 - h.vig / maxVig(), order = miss > 0.45 ? ['squash', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'squash', 'pepper'];
+      const pickF = order.find(f => inv.food.includes(f)), i = pickF ? inv.food.indexOf(pickF) : 0;
       const food = inv.food.splice(i, 1)[0];
       sfx.munch(); zoomPulse(h.x, h.y, 'tap');
-      heal(food === 'carrot' ? 0.35 : food === 'pepper' ? 0.2 : 0.25);
+      heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15 }[food] || 0.2);
       if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
       refreshButtons();
     }
@@ -2029,9 +2173,10 @@ function updateAbilities(dt) {
   // marsh fire: breathe out gas while held, spark it on release
   const fh = state.fireHold;
   if (inv.fire && held.fire() && !state.carry && !state.pull.grip) {
-    if (!fh.on) { fh.on = true; fh.emit = 0; sfx.hiss(); }
+    if (!fh.on) { fh.on = true; fh.emit = 0; fh.t = 0; sfx.hiss(); }
+    fh.t = (fh.t || 0) + dt;
     if (h.vig > 0.3) {
-      h.vig = Math.max(0, h.vig - 2.4 * dt); h.rest = state.time;
+      h.vig = Math.max(0, h.vig - 2.4 * dt); h.rest = state.time; train(2.4 * dt);
       const mv = maxVig();
       fh.emit += (8 + mv * 0.5) * dt;
       while (fh.emit >= 1) { fh.emit--; breathe(h, mv); }
@@ -2045,10 +2190,18 @@ function updateAbilities(dt) {
   }
 }
 function breathe(from, mv) {
-  const face = Math.atan2(from.fy, from.fx);
+  const face = Math.atan2(from.fy, from.fx), hot = state.inv.pepper > 0 ? 1.4 : 1;
+  const still = Math.hypot(from.vx, from.vy) < 0.04 * L();
+  if (still) {
+    // standing still, the cloud pools around you and swells the longer you breathe
+    const grow = Math.min(2.8, 1 + state.fireHold.t * 0.35);
+    const a = Math.random() * 6.28, rad = UNIT * (0.4 + Math.random() * (1 + mv * 0.03) * grow);
+    const p = spawnPuff(from.x, from.y, Math.cos(a) * UNIT * 0.8, Math.sin(a) * UNIT * 0.8, UNIT * (0.7 + mv * 0.02) * rr(0.8, 1.2) * hot * Math.sqrt(grow));
+    if (p) { p.anchor = true; p.ox = Math.cos(a) * rad; p.oy = Math.sin(a) * rad; }
+    return;
+  }
   const a = Math.random() < 0.7 ? face + rr(-1.0, 1.0) : Math.random() * 6.28;
   const sp = UNIT * (1.2 + mv * 0.06) * rr(0.6, 1.25);
-  const hot = state.inv.pepper > 0 ? 1.4 : 1;
   spawnPuff(from.x + Math.cos(face) * UNIT * 0.5, from.y + Math.sin(face) * UNIT * 0.5, Math.cos(a) * sp * hot, Math.sin(a) * sp * hot, UNIT * (0.7 + mv * 0.02) * rr(0.8, 1.2) * hot);
 }
 
@@ -2094,8 +2247,10 @@ function updateShots(dt) {
 
 // ---------------- marsh fire: a cloud of gas that catches and spreads ----------------
 function spawnPuff(x, y, vx, vy, rMax) {
-  if (state.gas.length > 170) return;
-  state.gas.push({ x, y, vx, vy, r: UNIT * 0.2, rMax, age: 0, life: rr(9, 13), ign: null, burn: 0, burnDur: rr(1.2, 2.0) });
+  if (state.gas.length > 170) return null;
+  const p = { x, y, vx, vy, r: UNIT * 0.2, rMax, age: 0, life: rr(9, 13), ign: null, burn: 0, burnDur: rr(1.2, 2.0) };
+  state.gas.push(p);
+  return p;
 }
 function windNow() {
   const sc = sceneDef();
@@ -2119,6 +2274,10 @@ function updateGas(dt) {
     p.age += dt * (1 + wmag * 6);               // wind thins the cloud fast
     const k = Math.exp(-2 * dt);
     p.vx *= k; p.vy *= k;
+    if (p.anchor && !p.burn) {                      // a still breather's cloud hangs around them
+      const h = state.hero, ax = h.x + p.ox - p.x, ay = h.y + p.oy - p.y;
+      p.vx += ax * 3 * dt; p.vy += ay * 3 * dt;
+    }
     p.x += (p.vx + wx) * dt; p.y += (p.vy + wy) * dt;
     if (!p.burn) { p.rMax += UNIT * 0.08 * dt; p.r += (p.rMax - p.r) * (1 - Math.exp(-2 * dt)); }
     if (p.ign != null && !p.burn && state.time >= p.ign) p.burn = 0.001;
@@ -2136,8 +2295,8 @@ function updateGas(dt) {
     for (const e of state.enemies) {
       if (!hittable(e) || (e.burnCool || 0) > state.time || Math.hypot(e.x - b.x, e.y - b.y) > b.r + e.r) continue;
       e.burnCool = state.time + 0.5;
-      const dx = e.x - b.x, dy = e.y - b.y, d = Math.hypot(dx, dy) || 1;
-      damage(e, 1, 'fire', dx / d, dy / d);
+      e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2));   // it clings; more fire, longer panic
+      damage(e, 1, 'fire', 0, 0);
     }
     for (const s of state.solids) if (s.bar && s.kind !== 'bramble' && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
     if (state.bird) scareBird(b.x, b.y, 4);
@@ -2251,7 +2410,8 @@ function updateCut(dt) {
 // Menu: pause, equipment, save and load (3 slots), tips setting
 // =====================================================================
 const SLOTS = 3;
-const MAIN = () => ['Resume', 'Equipment', 'Save game', 'Load game', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'];
+const MAIN = () => ['Resume', 'Equipment', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'];
+const ACTIONS = Object.keys(DEFAULT_KEYS);
 function toggleMenu() {
   if (!state.started) return;
   if (state.menu) { state.menu = null; sfx.tock(); return; }
@@ -2264,9 +2424,11 @@ function menuItems() {
   if (m.view === 'main') return MAIN();
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
+  if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
 function updateMenu() {
+  if (state.remap) return;
   const m = state.menu, items = menuItems();
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
@@ -2284,8 +2446,13 @@ function menuSelect(i) {
     if (i === 1) Object.assign(m, { view: 'equip', sel: 0 });
     if (i === 2) Object.assign(m, { view: 'save', sel: 0, note: '' });
     if (i === 3) Object.assign(m, { view: 'load', sel: 0, note: '' });
-    if (i === 4) { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
-    if (i === 5) Object.assign(m, { view: 'new', sel: 1 });
+    if (i === 4) { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
+    if (i === 5) { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
+    if (i === 6) Object.assign(m, { view: 'new', sel: 1 });
+  } else if (m.view === 'keys') {
+    if (i < ACTIONS.length) state.remap = ACTIONS[i];
+    else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
+    else Object.assign(m, { view: 'main', sel: 4 });
   } else if (m.view === 'save' || m.view === 'load') {
     if (i >= SLOTS) { Object.assign(m, { view: 'main', sel: m.view === 'save' ? 2 : 3 }); return; }
     if (m.view === 'save') m.note = saveSlot(i) ? `Saved to slot ${i + 1}` : 'Could not save on this device';
@@ -2293,7 +2460,7 @@ function menuSelect(i) {
     else if (loadSlot(i)) state.menu = null;
     else m.note = 'That save could not be read';
   } else if (m.view === 'new') {
-    if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: 5 });
+    if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: 6 });
   } else Object.assign(m, { view: 'main', sel: 1 });
 }
 
@@ -2301,7 +2468,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 3, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 4, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2313,7 +2480,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 3) return false;
+  if (!d || !d.seed || d.v !== 4) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -2323,8 +2490,14 @@ function loadSlot(i) {
   sayHero('Game loaded.', { life: 1.5 });
   return true;
 }
-function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stringify({ settings: state.settings, tipsSeen: state.tipsSeen })); } catch (e) {} }
-function loadSettings() { try { const d = JSON.parse(localStorage.getItem('quest-settings') || 'null'); if (d) { Object.assign(state.settings, d.settings); } } catch (e) {} }
+function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stringify({ settings: state.settings })); } catch (e) {} }
+function loadSettings() {
+  try {
+    const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; }
+  } catch (e) {}
+  refreshK();
+}
 
 // =====================================================================
 // Forest birds: peck about, burst into the air when you come close
@@ -2413,19 +2586,24 @@ function drawScene(sc) {
   drawGround(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
-  drawPullables(sc);
   drawItems();
   drawGas(false);
   for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); ctx.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * k, z.r * 0.5 * k, 0, 0, 6.28); ctx.fill(); }
-  for (const e of state.enemies) drawEnemy(e);
-  for (const n of sc.npcs) drawNpc(n);
-  if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }
-  if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 });
-  for (const b of state.flock) drawSmallBird(b);
-  drawHero();
+  for (const b of state.flock) if (b.z <= 0) drawSmallBird(b);
+  // everything that stands up is drawn back to front by where it touches the ground,
+  // so the hero passes behind a trunk above them and in front of one below
+  const layer = [];
+  for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') layer.push([s.y, () => drawTree(s)]);
+  for (const pl of sc.pullables) layer.push([pl.fy * H + UNIT * 0.35, () => drawPullable(sc, pl)]);
+  for (const e of state.enemies) layer.push([e.y, () => drawEnemy(e)]);
+  for (const n of sc.npcs) layer.push([n.fy * H, () => drawNpc(n)]);
+  if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
+  if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
+  layer.push([state.hero.y, drawHero]);
+  layer.sort((a, b) => a[0] - b[0]).forEach(l => l[1]());
   drawShots();
+  for (const b of state.flock) if (b.z > 0) drawSmallBird(b);
   if (state.bird) drawBird();
-  for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') drawTree(s);
   for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); if (k > 0) { if (z.kind === 'stalactite') drawStalactite(z.x, z.y - (1 - k) * H * 0.6, z.r); else drawRock(z.x, z.y - (1 - k) * H * 0.6, z.r * 0.7); } }
   for (const g of state.rings) { const rad = g.r0 + (g.r1 - g.r0) * (g.t / g.dur); ctx.strokeStyle = `rgba(200,190,170,${0.7 * (1 - g.t / g.dur)})`; ctx.lineWidth = UNIT * 0.3; ctx.beginPath(); ctx.ellipse(g.x, g.y, rad, rad * 0.8, 0, 0, 6.28); ctx.stroke(); }
   drawDiverThreads();
@@ -2520,12 +2698,6 @@ function drawGround(sc) {
       for (const o of [-0.35, 0, 0.35]) { ctx.moveTo(x + o * s, y); ctx.quadraticCurveTo(x + o * s + sw * s * 0.3, y - s * 0.6, x + o * s + sw * s, y - s * (1 - wy * 0.3 * state.gust)); }
     }
     ctx.stroke();
-    for (const u of f.updrafts || []) {
-      const ux = u[0] * W, uy = u[1] * H, on = state.gustPhase === 'blow' ? 1 : state.gustPhase === 'build' ? 0.5 : 0.15;
-      ctx.strokeStyle = `rgba(230,240,200,${0.25 + on * 0.55})`; ctx.lineWidth = 2;
-      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(ux, uy, UNIT * (0.5 + i * 0.35), UNIT * (0.2 + i * 0.12), 0, state.time * (2 + i) + i, state.time * (2 + i) + i + 4); ctx.stroke(); }
-      if (Math.random() < 0.1 + on * 0.5) state.fx.push({ x: ux + (Math.random() - 0.5) * UNIT * 1.4, y: uy, vx: (Math.random() - 0.5) * UNIT, vy: -UNIT * (1 + on * 3), t: 0, life: 0.9, color: 'leaf', spin: Math.random() * 6 });
-    }
     for (const s of f.plants || []) drawGustGrass(s[0] * W, s[1] * H, sc);
   } else if (sc.area === 'cave' || sc.area === 'hollow') {
     for (const r of sc.deco) {
@@ -2760,6 +2932,7 @@ function drawSword(h, pw, ph, y, heroic) {
     for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.fillRect(0, -1.5, UNIT * 0.4 * (0.6 + tw * 0.4), 3); }
     ctx.restore(); return;
   }
+  if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
   if (!a) {
     // worn at the side the hero faces, point down and angled back from the way you walk
     const s = h.side, ang = Math.PI / 2 - s * 0.35;
@@ -2770,10 +2943,10 @@ function drawSword(h, pw, ph, y, heroic) {
   }
   const ab = Math.atan2(a.ay, a.ax), p = Math.min(1, a.t / a.dur);
   if (a.type === 'slash') {
-    const sweep = 1.25, ang = ab - sweep + p * sweep * 2, lv = a.level || 0;
+    const sweep = a.spin ? Math.PI : 1.25, ang = ab - sweep + p * sweep * 2, lv = a.spin ? 3 : a.level || 0;
     ctx.strokeStyle = lv ? `rgba(255,220,110,${0.8 * (1 - p)})` : `rgba(255,250,230,${0.55 * (1 - p)})`;
     ctx.lineWidth = UNIT * 0.35;
-    ctx.beginPath(); ctx.arc(0, 0, UNIT * 1.2, ab - sweep, ang); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, UNIT * (a.spin ? 1.7 : 1.2), ab - sweep, ang); ctx.stroke();
     ctx.rotate(ang); ctx.translate(UNIT * 0.5, 0);
     drawBlade(UNIT * 1.15, UNIT * 0.12); drawHilt();
   } else {
@@ -2786,18 +2959,18 @@ function drawSword(h, pw, ph, y, heroic) {
   }
   ctx.restore();
 }
-function drawPullables(sc) {
+function drawPullable(sc, pl) {
   const rt = rtFor(sc.id);
-  for (const pl of sc.pullables) {
+  {
     const x = pl.fx * W, y = pl.fy * H, done = rt.pulled.has(pl.id);
     const p = state.pull.id === pl.id ? state.pull : null;
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
     if (pl.kind === 'rock') {
       ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
-      if (done) continue;
+      if (done) return;
       ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); drawRock(0, 0, UNIT * 0.72); ctx.restore();
     } else {
-      if (done) { ctx.fillStyle = '#2a1a0c'; ctx.fillRect(x - UNIT * 0.08, y - UNIT * 0.14, UNIT * 0.16, UNIT * 0.06); continue; }
+      if (done) { ctx.fillStyle = '#2a1a0c'; ctx.fillRect(x - UNIT * 0.08, y - UNIT * 0.14, UNIT * 0.16, UNIT * 0.06); return; }
       ctx.save(); ctx.translate(x, y - UNIT * 0.1); ctx.rotate(tilt);
       ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.9, UNIT * 0.14, UNIT * 0.9);
       ctx.fillStyle = '#a4683f'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.6, UNIT * 0.06, UNIT * 0.2);
@@ -2958,6 +3131,8 @@ function drawHUD() {
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
   if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
   if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
+  const need = 25 * Math.pow(1.35, inv.tlevel);
+  ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   if (inv.slime > 0) slot('slime', null, inv.slime / 25);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && !e.dead);
   if (boss) {
@@ -2981,7 +3156,7 @@ function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
@@ -3071,6 +3246,15 @@ function drawItemIcon(type, x, y, s) {
     case 'silk':
       ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 1.5;
       for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(0, 0, s * (0.15 + i * 0.07), s * (0.3 - i * 0.03), i * 0.5, 0, 6.28); ctx.stroke(); }
+      break;
+    case 'squash':
+      ctx.fillStyle = '#e0a030'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.4, s * 0.3, 0, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = '#b8781a'; ctx.lineWidth = 1.5; for (const o of [-0.15, 0.15]) { ctx.beginPath(); ctx.ellipse(o * s, s * 0.08, s * 0.1, s * 0.28, 0, 0, 6.28); ctx.stroke(); }
+      ctx.fillStyle = '#4a6a2a'; ctx.fillRect(-s * 0.04, -s * 0.34, s * 0.08, s * 0.16);
+      break;
+    case 'berries':
+      ctx.fillStyle = '#6a2a7a'; for (const [bx, by] of [[-0.12, 0.05], [0.12, 0.05], [0, -0.1], [0, 0.18]]) { ctx.beginPath(); ctx.arc(bx * s, by * s, s * 0.14, 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = '#4a8a3a'; ctx.beginPath(); ctx.ellipse(s * 0.15, -s * 0.28, s * 0.14, s * 0.07, -0.5, 0, 6.28); ctx.fill();
       break;
     case 'pepper':
       ctx.fillStyle = '#c8321e'; ctx.beginPath(); ctx.moveTo(-s * 0.15, -s * 0.2); ctx.quadraticCurveTo(s * 0.4, -s * 0.1, s * 0.1, s * 0.5); ctx.quadraticCurveTo(-s * 0.1, s * 0.1, -s * 0.15, -s * 0.2); ctx.fill();
@@ -3306,7 +3490,11 @@ function drawBird() {
 function drawFx() {
   for (const p of state.fx) {
     const a = Math.max(0, 1 - p.t / p.life);
-    if (p.color === 'beam') {                       // light rising from a relic
+    if (p.color === 'shock') {
+      ctx.strokeStyle = `rgba(230,215,180,${0.8 * a})`; ctx.lineWidth = UNIT * 0.25 * a + 1;
+      const r = p.size * (0.3 + 0.7 * (1 - a));
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.55, 0, 0, 6.28); ctx.stroke();
+    } else if (p.color === 'beam') {                       // light rising from a relic
       const g = ctx.createLinearGradient(p.x, p.y - UNIT * 8, p.x, p.y);
       g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, `rgba(255,240,180,${0.5 * a})`);
       ctx.fillStyle = g; ctx.fillRect(p.x - UNIT * 0.6, p.y - UNIT * 8, UNIT * 1.2, UNIT * 8);
