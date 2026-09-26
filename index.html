@@ -2,12 +2,22 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quest">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Quest</title>
 <style>
   :root { --ink: #fdf6e3; }
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: var(--ink); font-family: "Courier New", monospace; touch-action: none; -webkit-user-select: none; user-select: none; }
-  canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
+  html, body { margin: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: none; background: #000; color: var(--ink); font-family: "Courier New", monospace; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
+  #fs { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(104px + env(safe-area-inset-right, 0px)); background: rgba(0,0,0,.35); color: var(--ink); border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: .9rem; }
+  #fsTip { position: fixed; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: 86vw; background: rgba(10,8,14,.85); color: var(--ink); padding: 10px 14px; border-radius: 8px; font-size: .85rem; text-align: center; line-height: 1.35; }
+  @media (pointer: fine) and (min-width: 900px) { #fs { display: none; } }
   #sound { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); background: rgba(0,0,0,.35); color: var(--ink); border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: .9rem; }
   #pad { position: fixed; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; opacity: .85; }
   #pad button, .abtn { background: rgba(0,0,0,.38); color: var(--ink); border: 0; touch-action: none; font: inherit; }
@@ -30,6 +40,8 @@
 <body>
 <canvas id="game"></canvas>
 <button id="sound">sound: on</button>
+<button id="fs" aria-label="Full screen">&#x26F6; full</button>
+<div id="fsTip" class="hidden"></div>
 <div id="pad">
   <span></span><button data-dir="up">&#9650;</button><span></span>
   <button data-dir="left">&#9664;</button><span></span><button data-dir="right">&#9654;</button>
@@ -4397,8 +4409,41 @@ function drawTitle() {
 // Start
 // =====================================================================
 const startEl = document.getElementById('start');
+// ---------------- full screen on phones ----------------
+const standalone = () => window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+const inFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement) || standalone();
+function goFullscreen() {
+  if (inFullscreen()) return;
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) {
+    try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => fullscreenTip()); } catch (e) { fullscreenTip(); }
+  } else fullscreenTip();                            // iPhone Safari has no full-screen API for pages
+}
+function exitFullscreen() { const ex = document.exitFullscreen || document.webkitExitFullscreen; if (ex && (document.fullscreenElement || document.webkitFullscreenElement)) ex.call(document); }
+function fullscreenTip() {
+  const tip = document.getElementById('fsTip');
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  tip.textContent = ios ? 'For full screen on iPhone: tap Share, then "Add to Home Screen", and launch Quest from the new icon.' : 'Full screen is not available in this browser. Try "Add to Home Screen" from the browser menu.';
+  tip.classList.remove('hidden');
+  setTimeout(() => tip.classList.add('hidden'), 6000);
+}
+function refreshFsButton() {
+  const b = document.getElementById('fs');
+  b.classList.toggle('hidden', standalone());
+  b.innerHTML = (document.fullscreenElement || document.webkitFullscreenElement) ? '&#x2715; exit' : '&#x26F6; full';
+}
+document.getElementById('fs').addEventListener('click', e => {
+  e.stopPropagation();
+  if (document.fullscreenElement || document.webkitFullscreenElement) exitFullscreen(); else goFullscreen();
+});
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { refreshFsButton(); setTimeout(resize, 60); }));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => setTimeout(resize, 30));
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+refreshFsButton();
+
 function begin() {
   if (state.started) return;
+  if (TOUCH) goFullscreen();                         // the first tap on a phone also takes the screen
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
