@@ -350,7 +350,7 @@ function genWorld() {
   // the ford: the river spreads wide and shallow over stones; only jumping gets you across
   const ford = add(newScene({ id: 'ford', area: 'forest', msg: 'Stepping stones. Too far apart to walk.', music: 'forest', amb: 'rain', floor: '#4f9a52' }));
   const stones = [0.8, 0.66, 0.52, 0.38, 0.24].map((y, k) => [0.5 + (k % 2 ? 0.07 : -0.05) + rr(-0.03, 0.03), y + rr(-0.015, 0.015), 0.75]);
-  ford.river = { pts: [[1.08, 0.5], [0.5, 0.5], [-0.08, 0.5]], wH: 0.78, stones };
+  ford.river = { pts: [[1.08, 0.5], [0.5, 0.5], [-0.08, 0.5]], wH: 0.78, stones, banks: [[stones[stones.length - 1][0], 0.06], [stones[0][0], 0.94]] };
   ford.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow2' }, { side: 'e', a: 0.9, b: 0.99, to: 'riverbank' }, { side: 'n', a: 0.3, b: 0.7, to: 'farbank' }];
   stones.forEach(s => claim(ford, s[0], s[1], 1.2));
   item(ford, { type: 'driftwood', fx: rr(0.15, 0.3), fy: 0.955 });
@@ -1387,7 +1387,9 @@ function update(dt) {
   else if (h.falling > 0) updateFall(dt);
   else if (h.dashT > 0) {
     h.dashT -= dt;
-    h.x += h.vx * dt; h.y += h.vy * dt;
+    const nx = h.x + h.vx * dt, ny = h.y + h.vy * dt;
+    if ((sc.river || sc.deep || sc.chasms) && h.z <= 0 && !isChasm(h.x, h.y) && isChasm(nx, ny)) { h.dashT = 0; h.vx *= 0.2; h.vy *= 0.2; }   // a dodge stops at the water's edge
+    else { h.x = nx; h.y = ny; }
     if (Math.random() < 0.6) state.fx.push({ x: h.x, y: h.y, vx: 0, vy: 0, t: 0, life: 0.2, color: 'rgba(245,208,111,.5)', size: UNIT * 0.8 });
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
@@ -1398,6 +1400,12 @@ function update(dt) {
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
+    if (h.z > 0) {                                     // in the air you only carry so far, then drop
+      const step = Math.hypot(h.vx, h.vy) * dt, left = jumpReach() * UNIT - (h.airDist || 0);
+      if (left <= 0) { h.vx = 0; h.vy = 0; }
+      else if (step > left) { h.vx *= left / step; h.vy *= left / step; }
+      h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
+    }
     h.x += h.vx * dt; h.y += h.vy * dt;
     if (sc.gusts && state.gustPhase === 'blow') { const w = gustVec(), k = 0.5 + (sc.depth || 0) * 0.15; h.x += w[0] * 0.12 * k * L() * dt; h.y += w[1] * 0.06 * k * L() * dt; }
   }
@@ -1534,13 +1542,20 @@ function updateFeatures(dt) {
 }
 
 // ---------------- jumping: always available; slam down with the sword ----------------
+// how far a jump can carry you, in tiles: short at first, growing with max vigor; the river (about 3.5 tiles
+// of water) is out of reach until max vigor reaches 20. A tired hero reaches less.
+function jumpReach() {
+  const mv = maxVig(), base = mv < 20 ? 2.2 + 0.9 * Math.max(0, mv - 8) / 12 : Math.min(7, 3.9 + 0.8 * Math.log2(mv / 20));
+  return base * (0.6 + 0.4 * weakness());
+}
+function jumpGrowth() { const mv = maxVig(); return [Math.max(0, Math.min(1, (mv - 8) / 12)), Math.min(0.5, 0.2 * Math.log2(Math.max(1, mv / 20)))]; }
 function updateJump(dt) {
   const h = state.hero, sc = sceneDef();
   if (h.ride || h.falling > 0) return;
   if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
-    // deeper vigor, higher jumps; a tired hero barely leaves the ground
-    const k = (1 + Math.min(0.9, Math.log2(maxVig() / 8) * 0.22)) * (0.6 + 0.4 * weakness());
-    h.vz = UNIT * 7.5 * k; h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0;
+    // more vigor, higher and longer jumps, a little at a time; a tired hero barely leaves the ground
+    const [f, g2] = jumpGrowth();
+    h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
     if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
@@ -1548,7 +1563,7 @@ function updateJump(dt) {
   }
   if (h.z > 0 || h.vz > 0) {
     // holding jump while rising floats you higher, for a short while
-    const floating = !state.slam && h.vz > 0 && held.jump() && (h.jumpHold += dt) < 0.3;
+    const floating = !state.slam && h.vz > 0 && held.jump() && (h.jumpHold += dt) < 0.12 + 0.18 * jumpGrowth()[0] + 0.2 * jumpGrowth()[1];
     const gliding = state.whirl && !state.slam && (h.glideT = (h.glideT || 0) + dt) < 1.1;   // a spinning jump rides the air for a moment
     h.vz -= UNIT * (state.slam ? 60 : gliding ? (h.vz > 0 ? 16 : 6) : floating ? 11 : 30) * dt;
     if (gliding && h.vz < -UNIT * 3) h.vz = -UNIT * 3;
@@ -1565,9 +1580,9 @@ function updateJump(dt) {
 function hopToStone(sc) {
   const h = state.hero;
   let best = null, bd = Infinity;
-  for (const [fx, fy] of sc.river.stones) {
+  for (const [fx, fy] of sc.river.stones.concat(sc.river.banks || [])) {
     const x = fx * W, y = fy * H, dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy);
-    if (d < UNIT * 0.8 || d > UNIT * 5.5 || (dx * h.fx + dy * h.fy) / d < 0.55) continue;   // ahead of you and within a hop
+    if (d < UNIT * 0.8 || d > Math.max(UNIT * 5.5, H * 0.2) || (dx * h.fx + dy * h.fy) / d < 0.55) continue;   // ahead of you and within a hop
     if (d < bd) { bd = d; best = [x, y]; }
   }
   if (!best) return false;
@@ -1875,7 +1890,6 @@ function collect(it) {
       break;
     case 'letter':
       say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
-      if (!inv.raft) { inv.raft = 1; setTimeout(() => showTitle('Sidequest: Downriver', 'build a raft at the old jetty: 4 driftwood and 2 thorns to lash it', 'relic', 4.5), 0); }
       break;
     case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
     case 'rod': inv.rod = true; showTitle('Old Wick\'s fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
@@ -2799,15 +2813,18 @@ function riverSideQuest(sc, h) {
   if (f.farside) {
     const [fx, fy] = f.farside, x = fx * W, y = fy * H, rt = rtFor(sc.id);
     const nearSide = !isChasm(h.x, h.y) && (h.x / W + h.y / H > 0.62);          // south of the river
-    if (!inv.raft && state.time - (state.enterT || 0) > 1.2 && nearSide) {          // you notice it as soon as you arrive
-      inv.raft = 1;
-      say('Across the water: a shack, a half-built raft, and a sign. "GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW."', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 7 });
-      setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns to lash it`, 'relic', 4.5), 0);
+    if (nearSide && !rt.flags.sawFarside && state.time - (state.enterT || 0) > 1.2) {   // seen from across: a mystery, not yet a quest
+      rt.flags.sawFarside = true;
+      say('Across the water: a shack, a sign too far to read, and something made of logs.', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 5 });
     }
     // on the far side (reached by crossing the ford): the sign, the unfinished raft, the shack door
     const sign = [x + UNIT * 1.35, y - UNIT * 0.4], door = [x - UNIT * 0.05, y + UNIT * 0.65], wreck = [x - UNIT * 0.05, y + UNIT * 1.35];
     if (Math.hypot(h.x - sign[0], h.y - sign[1]) < UNIT * 1.6) say('"GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW. Old Wick."', sign[0], sign[1] - UNIT * 1.2, { key: 'sign', life: 3 });
     if (Math.hypot(h.x - wreck[0], h.y - wreck[1]) < UNIT * 1.4) {
+      if (!inv.raft) {                                // touching Wick's raft is what starts it
+        inv.raft = 1;
+        setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty across the water: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns`, 'relic', 4.5), 0);
+      }
       say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : `Old Wick's first raft, never finished. ${K.act} to salvage the good logs.`, wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
       if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
     }
@@ -2818,6 +2835,7 @@ function riverSideQuest(sc, h) {
   }
   if (f.dock) {
     const [dx, dy] = f.dock, d = Math.hypot(h.x - dx * W, h.y - dy * H);
+    if (d < UNIT * 2.2 && !inv.raft) say('An old jetty, weathered but solid.', dx * W, dy * H - UNIT * 1.3, { key: 'dock', life: 2 });
     if (d < UNIT * 2.2 && inv.raft) {
       const have = `${inv.mats.driftwood}/${RAFT.driftwood} driftwood, ${inv.mats.thorn}/${RAFT.thorn} thorns`;
       say(inv.raft >= 2 && inv.raft < 3 ? `${K.act} to push off downriver` : `The old jetty. A raft needs ${have}.`, dx * W, dy * H - UNIT * 1.3, { key: 'dock', life: 2.5 });
@@ -4951,7 +4969,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 35';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 36';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
