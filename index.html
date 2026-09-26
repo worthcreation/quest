@@ -1353,7 +1353,8 @@ function checkEdges() {
 
 function resetRun(seed) {
   SEED = seed;
-  WORLD = ARENA ? buildArena(seed) : buildWorld(seed);
+  WORLD = buildWorld(seed);                         // one world; the test modes only add a hub to it
+  if (ARENA) WORLD.arena = genArenaHub(seed);
   if (PUZZLE) WORLD.puzzlehub = genPuzzleHub(seed);
   RT = {};
   state.inv = newInv();
@@ -2759,7 +2760,10 @@ function interact() {
     return true;
   }
   if (state.carry) return false;                    // hands full: F belongs to the rock
-  for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) { enterPuzzle(PUZZLES.find(p => p.id === q.pid)); return true; }
+  for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
+    if (q.pid.startsWith('zone:')) enterZone(q.pid.slice(5)); else enterPuzzle(PUZZLES.find(p => p.id === q.pid));
+    return true;
+  }
   if (state.fish) return true;                      // fishing has the hands
   if (riverSideQuest(sc, h)) return true;
   const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -3788,6 +3792,7 @@ const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Syste
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
+  ...(ARENA && state.arena ? [['rezone', `Restart: ${state.arena.zone.name}`], ['glade', 'Back to the arena glade']] : []),
   ...(state.inv.pipSaved && !ARENA ? [['spores', `Spore travel (${state.inv.spores} spores)`]] : []),
   ['save', 'Save game'],
   ['load', 'Load game'],
@@ -3808,6 +3813,8 @@ function systemSelect(i) {
   if (key === 'resume') state.menu = null;
   if (key === 'retry') { state.menu = null; enterPuzzle(state.puzzle.p); }
   if (key === 'hub') { state.menu = null; state.puzzle = null; transitionTo('puzzlehub', 0.5, 0.88, true); }
+  if (key === 'rezone') { state.menu = null; enterZone(state.arena.key); }
+  if (key === 'glade') { state.menu = null; state.arena = null; transitionTo('arena', 0.5, 0.55, true); }
   if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
   if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
   if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
@@ -3845,7 +3852,8 @@ function packCells(tab) {
   }
   if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
   if (tab === 'Quests' && ARENA) {
-    for (const [id, z] of Object.entries(ARENA_ZONES)) cells.push({ icon: { arena_n: 'gremlin', arena_w: 'stalker', arena_s: 'lurker', arena_e: 'rabbit' }[id], name: z.name, line: `${z.waves.length} waves` });
+    const recs = puzzleRecords();
+    for (const [id, z] of Object.entries(ARENA_ZONES)) cells.push({ icon: { river: 'gremlin', cave: 'stalker', swamp: 'lurker', wind: 'rabbit' }[id], name: z.name, done: !!(recs['zone:' + id] || {}).clears, line: `${z.waves.length} waves in ${MAP_NAMES[z.scene] || z.scene}` });
     return cells;
   }
   if (tab === 'Quests') {
@@ -5347,7 +5355,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 43';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 44';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5489,58 +5497,30 @@ function startOverview(param) {
 // Open index.html?arena. Each zone throws five waves of its region's monsters, each harder.
 // =====================================================================
 var ARENA = typeof location !== 'undefined' && /(^|[?&])arena(=|&|$)/.test(location.search);
+// Each zone is a real screen of the real world: same terrain, same rules, same enemies. The arena only
+// decides which monsters come, in what order, and gives you a kit to fight them with.
 const ARENA_ZONES = {
-  arena_n: { name: 'Forest river', waves: [[['rabbit', 2]], [['gremlin', 3]], [['gremlin', 3], ['rabbit', 2]], [['gremlin', 5]], [['thief', 1], ['gremlin', 4]]] },
-  arena_w: { name: 'Cave', waves: [[['stalker', 2]], [['stalker', 2], ['glowworm', 2]], [['charger', 1], ['diver', 2]], [['stalker', 2], ['charger', 1], ['diver', 2]], [['charger', 2], ['stalker', 3], ['diver', 2], ['glowworm', 2]]] },
-  arena_s: { name: 'Swamp', waves: [[['lurker', 2]], [['lurker', 3], ['glowworm', 2]], [['gremlin', 3], ['lurker', 3]], [['lurker', 4], ['gremlin', 3]], [['lurker', 4], ['glowworm', 3], ['gremlin', 4]]] },
-  arena_e: { name: 'Windy field', waves: [[['rabbit', 3]], [['rabbit', 5]], [['gremlin', 3], ['rabbit', 3]], [['charger', 2]], [['charger', 2], ['rabbit', 4], ['gremlin', 2]]] },
+  river: { name: 'Forest river', scene: 'riverbank', at: [0.6, 0.85], waves: [[['rabbit', 2]], [['gremlin', 3]], [['gremlin', 3], ['rabbit', 2]], [['gremlin', 5]], [['thief', 1], ['gremlin', 4]]] },
+  cave: { name: 'Cave', scene: 'c4', at: [0.06, 0.5], waves: [[['stalker', 2]], [['stalker', 2], ['glowworm', 2]], [['charger', 1], ['diver', 2]], [['stalker', 2], ['charger', 1], ['diver', 2]], [['charger', 2], ['stalker', 3], ['diver', 2], ['glowworm', 2]]] },
+  swamp: { name: 'Swamp', scene: 'sw2', at: [0.5, 0.06], waves: [[['lurker', 2]], [['lurker', 3], ['glowworm', 2]], [['gremlin', 3], ['lurker', 3]], [['lurker', 4], ['gremlin', 3]], [['lurker', 4], ['glowworm', 3], ['gremlin', 4]]] },
+  wind: { name: 'Windy ravines', scene: 'f4', at: [0.5, 0.06], waves: [[['rabbit', 3]], [['rabbit', 5]], [['gremlin', 3], ['rabbit', 3]], [['charger', 2]], [['charger', 2], ['rabbit', 4], ['gremlin', 2]]] },
 };
-function buildArena(seed) {
+// the arena glade: a hub added to the real world, like the puzzle hub
+function genArenaHub(seed) {
   const saved = [W, H, UNIT];
   W = GEN.W; H = GEN.H; computeUnit();
-  rng = mulberry32(seed >>> 0);
-  try { return genArena(); } finally { [W, H, UNIT] = saved; rng = mulberry32((seed ^ 0x9e3779b9) >>> 0); }
-}
-function genArena() {
-  const S = {}, add = sc => (S[sc.id] = sc), gap = [[0.42, 0.58]];
-  // the hub: stones on the east and west, trees on the north and south, a gap in the middle of each
-  const hub = add(newScene({ id: 'arena', area: 'forest', msg: 'The arena glade. A path leads off each side.', music: 'forest', amb: 'none', floor: '#4f9a52', heroStart: [0.5, 0.55] }));
-  hub.exits = [{ side: 'n', a: 0.42, b: 0.58, to: 'arena_n' }, { side: 'w', a: 0.42, b: 0.58, to: 'arena_w' }, { side: 's', a: 0.42, b: 0.58, to: 'arena_s' }, { side: 'e', a: 0.42, b: 0.58, to: 'arena_e' }];
-  edgeWall(hub, 'n', 'tree', 1.2, gap, 1.3, 'green'); edgeWall(hub, 's', 'tree', 1.2, gap, 1.3, 'green');
-  edgeWall(hub, 'w', 'boulder', 1.1, gap, 1.5); edgeWall(hub, 'e', 'boulder', 1.1, gap, 1.5);
-  for (const [fx, fy] of [[0.18, 0.2], [0.82, 0.2], [0.18, 0.8], [0.82, 0.8]]) { hub.solids.push(solid(fx, fy, 1.1, 'boulder'), solid(fx + (fx < 0.5 ? 0.05 : -0.05), fy + (fy < 0.5 ? 0.08 : -0.08), 1.0, 'tree', 'green')); }
-  hub.feat.signs = [[0.5, 0.16, 'Forest river'], [0.1, 0.36, 'Cave'], [0.5, 0.84, 'Swamp'], [0.9, 0.36, 'Windy field']];
-  hub.feat.bench = [0.68, 0.32]; hub.solids.push(solid(0.68, 0.32, 0.6, 'bench')); claim(hub, 0.68, 0.32, 1.6);
-  hub.feat.plots = []; hub.feat.crops = [];
-  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const q = [0.33 + c * 0.045, 0.64 + r * 0.09]; hub.feat.plots.push(q); hub.feat.crops.push(['turnip', 'carrot', 'squash', 'pepper'][c]); claim(hub, q[0], q[1], 0.7); }
-  hub.paths = [makePath([0.5, 0.03], [0.5, 0.97], 0), makePath([0.03, 0.5], [0.97, 0.5], 0)];
-  decoFlowers(hub, 50);
-  // north: a river along the top, trees down the sides
-  const n = add(newScene({ id: 'arena_n', area: 'forest', msg: 'Forest river', music: 'forest', amb: 'rain', floor: '#4a9650', heroStart: [0.5, 0.88] }));
-  n.river = { pts: [[-0.08, 0.2], [0.5, 0.14], [1.08, 0.22]], w: 3 };
-  n.exits = [{ side: 's', a: 0.42, b: 0.58, to: 'arena' }];
-  edgeWall(n, 'w', 'tree', 1.2, [], 1.3, 'green'); edgeWall(n, 'e', 'tree', 1.2, [], 1.3, 'green'); edgeWall(n, 's', 'tree', 1.2, gap, 1.3, 'green');
-  scatter(n, 5, 'tree', 0.9, 1.2, 2, [[0.5, 0.6, 6]], [0.1, 0.9, 0.35, 0.85], 'green');
-  // west: a cave with stalagmites to bait chargers and stalkers into
-  const w = add(newScene({ id: 'arena_w', area: 'cave', msg: 'Cave', shade: 0.82, lightScale: 1.4, music: 'cave', amb: 'none', drips: true, floor: '#2e2a33', speed: 0.34, accel: 7, heroStart: [0.9, 0.5] }));
-  w.exits = [{ side: 'e', a: 0.42, b: 0.58, to: 'arena' }];
-  for (const side of ['n', 's', 'w']) edgeWall(w, side, 'cavewall', 1.1, [], 1.4);
-  edgeWall(w, 'e', 'cavewall', 1.1, gap, 1.4);
-  for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.4; w.solids.push(solid(0.5 + Math.cos(a) * 0.24, 0.5 + Math.sin(a) * 0.3, 0.8, 'stalagmite')); }
-  // south: a swamp with pools for lurkers
-  const s = add(newScene({ id: 'arena_s', area: 'swamp', msg: 'Swamp', shade: 0.35, music: 'swamp', amb: 'marsh', floor: '#2f3d27', speed: 0.34, accel: 7, heroStart: [0.5, 0.12] }));
-  s.exits = [{ side: 'n', a: 0.42, b: 0.58, to: 'arena' }];
-  s.pools = [[0.25, 0.4], [0.72, 0.38], [0.3, 0.72], [0.7, 0.72]].map(([fx, fy]) => ({ fx, fy, r: 1.6 }));
-  for (const side of ['s', 'w', 'e']) edgeWall(s, side, 'deadtree', 1.0, [], 1.7, 'bog');
-  edgeWall(s, 'n', 'deadtree', 1.0, gap, 1.7, 'bog');
-  // east: open field with gusts both ways
-  const e = add(newScene({ id: 'arena_e', area: 'field', msg: 'Windy field', music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8, heroStart: [0.1, 0.5],
-    gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.4, s: 1 }, { a: Math.PI - 0.2, s: 1 }], chasms: [], feat: { updrafts: [], plants: [[0.55, 0.3]] } }));
-  e.exits = [{ side: 'w', a: 0.42, b: 0.58, to: 'arena' }];
-  for (const side of ['n', 's', 'e']) edgeWall(e, side, 'boulder', 1.0, [], 1.6);
-  edgeWall(e, 'w', 'boulder', 1.0, gap, 1.6);
-  scatter(e, 4, 'boulder', 0.7, 1.2, 2, [[0.5, 0.5, 5]], [0.15, 0.85, 0.15, 0.85]);
-  return S;
+  try {
+    const hub = newScene({ id: 'arena', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4f9a52', heroStart: [0.5, 0.55] });
+    edgeWall(hub, 'n', 'tree', 1.2, [], 1.3, 'green'); edgeWall(hub, 's', 'tree', 1.2, [], 1.3, 'green');
+    edgeWall(hub, 'w', 'boulder', 1.1, [], 1.5); edgeWall(hub, 'e', 'boulder', 1.1, [], 1.5);
+    hub.feat.portals = [['river', 0.5, 0.2], ['cave', 0.14, 0.5], ['swamp', 0.5, 0.66], ['wind', 0.86, 0.5]].map(([z, fx, fy]) => ({ pid: 'zone:' + z, fx, fy }));
+    hub.feat.portals.forEach(p => claim(hub, p.fx, p.fy, 1.6));
+    hub.feat.bench = [0.68, 0.32]; hub.solids.push(solid(0.68, 0.32, 0.6, 'bench')); claim(hub, 0.68, 0.32, 1.6);
+    hub.feat.plots = []; hub.feat.crops = [];
+    for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const q = [0.24 + c * 0.045, 0.2 + r * 0.09]; hub.feat.plots.push(q); hub.feat.crops.push(['turnip', 'carrot', 'squash', 'pepper'][c]); claim(hub, q[0], q[1], 0.7); }
+    decoFlowers(hub, 50);
+    return hub;
+  } finally { [W, H, UNIT] = saved; }
 }
 // a proper kit for testing: sword, acorns, fire, the relics at level I, food; seeds, materials and every recipe once
 function arenaKit() {
@@ -5558,18 +5538,25 @@ function arenaKit() {
   refreshButtons();
 }
 function startArena() {
-  state.cut = null; state.night = 0; state.rain = 0;
+  state.cut = null; state.night = 0; state.rain = 0; state.arena = null;
   arenaKit();
   enterScene('arena');
-  showTitle('Arena', 'pick a path: each zone sends five waves', 'area', 3);
+  showTitle('Arena', 'step onto a stone: each zone sends five waves', 'area', 3);
+}
+function enterZone(key) {
+  const z = ARENA_ZONES[key];
+  arenaKit();
+  delete RT[z.scene];                               // a fresh copy of the real screen each time
+  state.arena = { key, zone: z, scene: z.scene, wave: 0, phase: 'ready', t: 2.5 };
+  transitionTo(z.scene, z.at[0], z.at[1], true);
 }
 function arenaEnter(id) {
-  const z = ARENA_ZONES[id];
-  state.arena = z ? { id, zone: z, wave: 0, phase: 'ready', t: 2 } : null;
-  if (id === 'arena') {                             // the glade patches you up and restocks
-    arenaKit();
-    say('Rested and restocked.', null, null, { key: 'arena', life: 1.6, color: '#b8f28a' });
-  }
+  if (id === 'arena') { state.arena = null; arenaKit(); say('Rested and restocked.', null, null, { key: 'arena', life: 1.6, color: '#b8f28a' }); return; }
+  const a = state.arena;
+  if (!a) return;
+  if (id !== a.scene) { state.arena = null; return; }  // walked off the zone's screen: the waves stop
+  state.enemies = [];                               // only the waves fight you here
+  a.wave = 0; a.phase = 'ready'; a.t = 2.5;
 }
 function arenaSpawnWave() {
   const a = state.arena, h = state.hero, sc = sceneDef(), spec = a.zone.waves[a.wave];
@@ -5596,7 +5583,11 @@ function updateArena(dt) {
   if (a.phase === 'ready' && a.t <= 0) { a.phase = 'fight'; arenaSpawnWave(); zoomPulse(state.hero.x, state.hero.y, 'title'); }
   else if (a.phase === 'fight' && alive === 0) {
     a.wave++;
-    if (a.wave >= a.zone.waves.length) { a.phase = 'done'; sfx.victory(); showTitle(`${a.zone.name} cleared`, 'head back to the glade to rest', 'relic', 3.5); }
+    if (a.wave >= a.zone.waves.length) {
+      a.phase = 'done'; sfx.victory(); showTitle(`${a.zone.name} cleared`, 'back to the glade', 'relic', 3.5);
+      const recs = puzzleRecords(); const r = recs['zone:' + a.key] || (recs['zone:' + a.key] = { clears: 0 }); r.clears = (r.clears || 0) + 1; savePuzzleRecords(recs);
+      setTimeout(() => { if (state.arena === a) transitionTo('arena', 0.5, 0.55); }, 4200);
+    }
     else { a.phase = 'ready'; a.t = 3; heal(0.3); say(`Wave ${a.wave} cleared. Catch your breath.`, null, null, { key: 'arena', life: 2.5, color: '#b8f28a' }); }
   }
   a.left = alive;
@@ -5693,14 +5684,15 @@ function updatePuzzle(dt) {
 function drawPuzzlePortals(sc) {
   const recs = puzzleRecords();
   for (const q of sc.feat.portals || []) {
-    const p = PUZZLES.find(o => o.id === q.pid), r = recs[p.id] || {}, x = q.fx * W, y = q.fy * H, u = UNIT, t = state.time;
+    const zone = q.pid.startsWith('zone:') ? ARENA_ZONES[q.pid.slice(5)] : null;
+    const p = zone ? { id: q.pid, name: zone.name } : PUZZLES.find(o => o.id === q.pid), r = recs[p.id] || {}, x = q.fx * W, y = q.fy * H, u = UNIT, t = state.time;
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.35, u * 0.9, u * 0.35, 0, 0, 6.28); ctx.fill();
-    ctx.fillStyle = r.solves ? '#b8d8a0' : '#b0aaa0'; ctx.beginPath(); ctx.ellipse(x, y, u * 0.85, u * 0.5, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = r.solves || r.clears ? '#b8d8a0' : '#b0aaa0'; ctx.beginPath(); ctx.ellipse(x, y, u * 0.85, u * 0.5, 0, 0, 6.28); ctx.fill();
     ctx.strokeStyle = `rgba(160,220,255,${0.5 + 0.3 * Math.sin(t * 3 + q.fx * 9)})`; ctx.lineWidth = 3; ctx.stroke();
     ctx.font = `bold ${Math.round(Math.max(12, u * 0.36))}px "Courier New", monospace`; ctx.textAlign = 'center';
     ctx.fillStyle = '#fdf6e3'; ctx.fillText(p.name, x, y - u * 0.9);
     ctx.fillStyle = r.best ? '#ffe38a' : 'rgba(253,246,227,.55)';
-    ctx.fillText(r.best ? `best ${r.best}s \u00b7 ${r.solves}/${r.tries}` : r.tries ? `0/${r.tries}` : 'untried', x, y + u * 1.2);
+    ctx.fillText(zone ? (r.clears ? `cleared ${r.clears}x` : 'five waves') : r.best ? `best ${r.best}s \u00b7 ${r.solves}/${r.tries}` : r.tries ? `0/${r.tries}` : 'untried', x, y + u * 1.2);
     ctx.textAlign = 'left';
   }
 }
