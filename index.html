@@ -301,7 +301,6 @@ function genWorld() {
   const rock = [rr(0.58, 0.7), rr(0.3, 0.7)];
   pullable(start, { id: 'rock', kind: 'rock', fx: rock[0], fy: rock[1], need: 5 });
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
-  start.solids.forEach(s => { if (s.bar === 'thicket') s.showFlag = 'ambush'; });
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
@@ -464,7 +463,6 @@ function genWorld() {
     if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
-    if (i === 2) sc.feat.glimpse = { to: edgePoint('e', (east[0] + east[1]) / 2), line: 'HELP! They\'re taking me deeper!' };
     if (last) sc.feat.glimpse = { to: sc.feat.stone, line: 'Down the hole! Follow me!' };
     // sun dapples drift through the canopy; one always wanders over the sword
     sc.feat.dapples = Array.from({ length: 14 - i * 2 }, () => ({ fx: rng(), fy: rng(), r: rr(0.8, 2.0), ax: rr(0.02, 0.06), ay: rr(0.02, 0.05), sp: rr(0.08, 0.2), ph: rng() * 6 }));
@@ -712,7 +710,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1228,7 +1226,7 @@ function enterScene(id, fx, fy) {
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
-  if (sc.feat.glimpse && !rt.flags.glimpse && !state.inv.pipSaved && state.started) {
+  if (sc.feat.glimpse && !rt.flags.glimpse && state.inv.pipTaken && !state.inv.pipSaved && state.started) {
     // Pip, carried off by gremlins, always just ahead of you
     rt.flags.glimpse = true;
     const to = sc.feat.glimpse.to, tx = to[0] * W, ty = to[1] * H;
@@ -1253,11 +1251,11 @@ function enterScene(id, fx, fy) {
     else say('Cornered! It won\'t give the journal up without a fight.', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 3, color: '#ffe38a' });
   }
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
-  if (id === 'start' && !rt.flags.ambush && state.started) startAmbush();
-  else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
+  if (sc.msg && !state.seen[id] && !pipWithYou()) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
+  if (pipWithYou()) placePipNearHero();
   const bossAlive = id === 'c7' && !rt.bossDead;
-  const tense = id === 'start' && rt.flags.ambush && !rt.flags.thicket;
+  const tense = sc.area === 'woods' && state.inv.pipTaken && !state.inv.sword;
   setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : sc.music);
   setAmbience(sc.amb);
   refreshButtons();
@@ -1365,6 +1363,7 @@ function update(dt) {
   updateGas(dt);
   updateWebs(dt);
   if (state.fish && !state.cut) updateFishing(dt);
+  if (!state.cut && !state.busy) updatePip(dt);
   if (ARENA) updateArena(dt);
   for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
@@ -3282,6 +3281,85 @@ function startIntro() {
   setMusic('forest');
   setAmbience('none');
 }
+// ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
+// Pip is with you everywhere until the gremlins strike, and always leads toward the woods
+function pipWithYou() {
+  const inv = state.inv, sc = WORLD[state.scene];
+  return !ARENA && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
+}
+function pipExit(sc) {                                // the exit that gets us closer to the woods gate
+  let best = null, bd = screensBetween(sc.id, 'w2');
+  for (const ex of sc.exits) { const d = screensBetween(ex.to, 'w2'); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
+  return best || sc.exits.find(ex => ex.to === 'w2' || ex.to === 'w1') || null;
+}
+function placePipNearHero() {
+  const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
+  state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
+}
+function pipSay(key, text) {
+  const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
+  if (tips[key] || state.time - (state.pipTalkT || -9) < 3.2) return false;
+  tips[key] = true; state.pipTalkT = state.time;
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(7, 2.4 + text.length / 20), color: '#bfe4ff' });
+  return true;
+}
+function updatePip(dt) {
+  if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
+  if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
+  const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
+  // lead: stand a couple of steps from you, toward where we're going
+  const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
+  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
+  const tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
+  if (md > UNIT * 0.3) {
+    const sp = Math.min(md * 4, L() * sc.speed * (md > UNIT * 3 ? 1.7 : 1.1)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;
+    if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
+    p.side = mx > 0 ? 1 : -1;
+  }
+  collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
+  if (Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();       // got stuck behind something: catch up
+  const home = ['camp', 'start', 'meadow', 'w1', 'w2'];
+  if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, sc.area === 'field' ? 'The mountain? Fun, but the woods are back north, past the glade.' : 'Pretty out here! The woods are back the other way, though.'); }
+  // what Pip explains, once each, as it comes up
+  const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
+  if (sc.id === 'camp') {
+    pipSay('go', TOUCH ? 'Use the pad to walk. The glade is south, come on!' : 'Arrow keys to walk. The glade is south, come on!');
+    if (f.bench && near(...f.bench, 3)) pipSay('bench', 'My workbench. Bring back the right bits and we can make things here.');
+    if (f.plots && f.plots.some(q => near(...q, 2))) pipSay('plots', `Tilled soil. Birds drop seeds when you startle them. Plant them here with ${K.act}.`);
+    if (f.shroom && near(...f.shroom, 3.5)) pipSay('shroom', 'That big mushroom hums at night. Creepy, right?');
+  }
+  if (sc.id === 'start') {
+    const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
+    if (!rt.flags.thicket) {
+      pipSay('brambles', 'Brambles block the woods to the east. We need something heavy to smash through.');
+      if (rock && !loose && !state.carry && near(rock.fx, rock.fy, 4)) pipSay('pull', `Grab that rock: hold ${K.act} on it and pull away. Wiggle it loose!`);
+      if (state.carry) pipSay('throw', `Now hold ${K.act} to aim, and let go to throw it at the brambles!`);
+    } else {
+      pipSay('smashed', 'Ha! Right through. The woods are east.');
+      pipSay('jump', `${K.jump} jumps. Jump, then ${K.act} in the air to stomp. It shakes acorns out of trees.`);
+    }
+  }
+  if (sc.id === 'meadow') pipSay('robin', 'See the robin in that dead tree? Startle a bird and it drops a seed.');
+  if (sc.id === 'w1') {
+    if (!state.plateOn.p1) {
+      pipSay('gate', 'A log gate. That flat stone opens it, but only while something heavy sits on it.');
+      if (state.carry) pipSay('setdown', `Carry it onto the stone, then tap ${K.act} to set it down.`);
+    } else pipSay('opened', 'It held! Onward.');
+  }
+  if (sc.id === 'w2') {
+    if (!state.plateOn.p2) pipSay('ring', 'This stone is inside a ring of rocks. You can\'t carry it over... so throw it in!');
+    else if (!state.cut) startAbduct();              // the gate groans open, and they were waiting
+  }
+}
+// in the woods, right before the sword: the gremlins take Pip, and the journal with them
+function startAbduct() {
+  const p = state.pip;
+  state.cut = { type: 'abduct', t: 0, step: 0 };
+  p.bound = 0;
+  state.gremlins = [0, 1, 2].map(i => ({ x: W + UNIT * (1 + i), y: p.y + (i - 1) * UNIT * 1.4, show: true }));
+  state.cam.focus = { z: 1.15, at: () => [p.x, p.y] };
+}
 function startAmbush() {
   const f = WORLD.start.feat.pip;
   state.cut = { type: 'ambush', t: 0, step: 0 };
@@ -3326,9 +3404,22 @@ function updateCut(dt) {
     if (c.t < 5 && (pressedNow.act || pressedNow.fire)) { c.t = 5; c.step = 50; unsay('npc'); }
     if (at(0.8)) say('Perfect day to explore the old woods!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
     if (at(1.5)) say(`${K.act} skips`, W / 2, H - UNIT * 1.5, { key: 'skip', life: 3, tip: 'skip' });
-    if (at(3.1)) say('Race you to the glade!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
-    if (c.t > 3.8 && c.t < 6) { p.y += UNIT * 7 * dt; p.x -= UNIT * 0.4 * dt; }
-    if (at(5.5)) { p.show = false; state.cut = null; say(TOUCH ? 'Use the d-pad to follow Pip south' : 'Arrow keys to follow Pip south', h.x, h.y - UNIT * 1.2, { key: 'move', tip: 'move', life: 4 }); }
+    if (at(3.1)) say('I\'ll show you the way. Stick with me!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 });
+    if (at(5.5)) { state.cut = null; p.follow = true; }
+  } else if (c.type === 'abduct') {
+    const p = state.pip, gs = state.gremlins;
+    if (at(0.3)) say('It opened! Hey, what\'s that rustling...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
+    if (at(1.2)) setMusic('sinister');
+    if (c.t > 1.4 && c.t < 2.4) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
+    if (at(1.6)) { sfx.cackle(); state.shake = 0.3; }
+    if (at(2.3)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP! That\'s my journal!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 }); zoomPulse(p.x, p.y, 'parry'); gs[1].book = true; }
+    if (c.t > 3.2 && c.t < 5.2) { p.x += UNIT * 6 * dt; gs.forEach(g => { g.x += UNIT * 6 * dt; }); }
+    if (at(5.4)) {
+      p.show = false; p.follow = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
+      state.inv.pipTaken = true;
+      showTitle('Find Pip', 'gremlins dragged them deeper into the woods', 'area', 3.5);
+      say('They went east. After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3 });
+    }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
     if (at(0.4)) say('Come on, slowpoke! The woods are right...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
@@ -3920,7 +4011,8 @@ function drawScene(sc) {
   for (const pl of sc.pullables) layer.push([pl.fy * H + UNIT * 0.35, () => drawPullable(sc, pl)]);
   for (const e of state.enemies) layer.push([e.y, () => drawEnemy(e)]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
+  if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
   const gl = state.glimpse;
@@ -4969,7 +5061,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 36';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 37';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
