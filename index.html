@@ -100,7 +100,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 const AREA_NAMES = { forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
-const BEANS = 6;              // one lies about early; the rest turn up once you've met the one who lost them
+const BEANS = 5;              // always lying about the marsh: 1 on the toad's screen, 2 on each of the others
 
 function edgePoint(side, along) {
   if (side === 'n') return [along, 0.03];
@@ -474,11 +474,9 @@ function genWorld() {
     if (i === 1) addShroom(sc);
     const lurkers = [1, 1, 2][i - 1];
     for (let l = 0; l < lurkers; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
-    sc.feat.beanSpots = [];
-    for (let b = 0; b < 2; b++) {
-      const q = freeSpot(sc, [0.1, 0.9, 0.15, 0.85], 0.8, sc.pools.map(o => [o.fx, o.fy, o.r]));
-      if (i === 1 && b === 0) sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] });
-      else sc.feat.beanSpots.push(q);
+    for (let b = 0; b < (i === 2 ? 1 : 2); b++) {
+      const q = freeSpot(sc, [0.1, 0.9, 0.15, 0.85], 0.8, sc.pools.map(o => [o.fx, o.fy, o.r]).concat(npcSpot ? [[...npcSpot, 3]] : []));
+      sc.initItems.push({ type: 'bean', fx: q[0], fy: q[1] });
     }
     for (let t = 0; t < 50; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.2), ph: rng() * 6 });
     if (i === 1) sc.feat.glimpse = { to: ePt, line: 'Ugh, it stinks out here!' };
@@ -2480,7 +2478,7 @@ function npcLines(n) {
   if (n.kind === 'toad') {
     if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'].concat(inv.pipSaved ? ['And stay off those purple mushroom spores. Last time I sniffed a pile of them I woke up in a cave.'] : []), then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
-    if (!rt.flags.metToad) { rt.flags.metToad = true; spawnBeans(); return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
+    if (!rt.flags.metToad) { rt.flags.metToad = true; return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
     return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
   }
   if (n.kind === 'tortoise') {
@@ -3019,7 +3017,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 9, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 10, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3031,7 +3029,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 9) return false;
+  if (!d || !d.seed || d.v !== 10) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
