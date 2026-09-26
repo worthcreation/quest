@@ -8,7 +8,7 @@
   :root { --ink: #fdf6e3; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: #000; color: var(--ink); font-family: "Courier New", monospace; touch-action: none; -webkit-user-select: none; user-select: none; }
   canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100vh; }
-  #msg { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 60px; right: 60px; text-align: center; font-size: 1.05rem; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; transition: opacity .4s; }
+  #msg { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 60px; right: 60px; text-align: center; font-size: 1.05rem; letter-spacing: 1px; text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
   #sound { position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); background: rgba(0,0,0,.35); color: var(--ink); border: 0; border-radius: 6px; padding: 6px 10px; font: inherit; font-size: .95rem; }
   #pad { position: fixed; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; opacity: .85; }
   #pad button { font-size: 1.3rem; background: rgba(0,0,0,.35); color: var(--ink); border: 0; border-radius: 8px; touch-action: none; }
@@ -16,7 +16,8 @@
   #act { position: fixed; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; border-radius: 50%; border: 0; background: rgba(0,0,0,.4); color: var(--ink); font: inherit; font-size: 1.5rem; font-weight: bold; touch-action: none; opacity: .85; }
   #act:active { background: rgba(0,0,0,.65); }
   @media (pointer: fine) and (min-width: 900px) { #pad, #act { display: none; } }
-  #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #3f8f4c; font-size: 1.4rem; letter-spacing: 2px; cursor: pointer; }
+  #start { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; background: #3f8f4c; font-size: 1.4rem; letter-spacing: 2px; cursor: pointer; text-align: center; padding: 20px; }
+  #start small { font-size: .9rem; letter-spacing: 1px; opacity: .85; }
 </style>
 </head>
 <body>
@@ -29,7 +30,7 @@
   <span></span><button data-dir="down">&#9660;</button><span></span>
 </div>
 <button id="act">A</button>
-<div id="start">tap to begin</div>
+<div id="start"><div>tap to begin</div><small id="startHint"></small></div>
 
 <script>
 // =====================================================================
@@ -38,6 +39,9 @@
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const msgEl = document.getElementById('msg');
+const TOUCH = window.matchMedia('(pointer: coarse)').matches;
+const ACT = TOUCH ? 'A' : 'F';
+document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act';
 let W = window.innerWidth, H = window.innerHeight, UNIT = 32;
 
 function resize() {
@@ -47,8 +51,7 @@ function resize() {
   canvas.width = W * dpr; canvas.height = H * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   UNIT = Math.max(20, Math.min(W, H) / 14);
-  // keep actors in the same relative spot when the screen changes
-  for (const a of [state.hero, state.beast]) { a.x *= W / oW; a.y *= H / oH; }
+  for (const a of [state.hero, ...state.enemies, ...state.items]) { a.x *= W / oW; a.y *= H / oH; }
 }
 const longSide = () => Math.max(W, H);
 function say(text) { msgEl.textContent = text; }
@@ -60,18 +63,15 @@ const SCENES = {
   forest: {
     msg: 'Reach the blue stone',
     heroSpeed: 0.55, accel: 10,
-    start: { fx: 0.08, fy: 0.5 },
-    goal:  { fx: 0.92, fy: 0.5 },
+    start: { fx: 0.08, fy: 0.5 }, goal: { fx: 0.92, fy: 0.5 },
     music: 'forest',
   },
   grove: {
     msg: 'A quiet clearing',
     heroSpeed: 0.55, accel: 10,
-    start: { fx: 0.5, fy: 0.9 },
-    goal: null,
+    start: { fx: 0.5, fy: 0.9 }, goal: null,
     music: 'forest',
     stump: { fx: 0.82, fy: 0.5 },
-    // trees ring the east side, open to the west (fx, fy, size)
     trees: [
       [0.70,0.22,1.0],[0.80,0.17,1.2],[0.91,0.19,1.1],[0.97,0.33,1.0],
       [0.98,0.52,1.2],[0.96,0.70,1.0],[0.90,0.82,1.2],[0.79,0.84,1.0],[0.70,0.78,1.1],
@@ -81,48 +81,66 @@ const SCENES = {
   },
   cave: {
     msg: 'Find the way out',
-    heroSpeed: 0.28, accel: 6,            // heavier, slower footing
-    start: { fx: 0.08, fy: 0.5 },
-    goal:  { fx: 0.94, fy: 0.5 },
+    heroSpeed: 0.28, accel: 6, dark: true, floor: '#1d1a22', rockSeed: 1,
+    start: { fx: 0.08, fy: 0.5 }, goal: { fx: 0.94, fy: 0.5 },
     music: 'cave',
+    spawn: () => [makeEnemy('stalker', 0.72, 0.22)],
+  },
+  cave2: {
+    msg: 'Deeper still. The floor trembles.',
+    heroSpeed: 0.28, accel: 6, dark: true, floor: '#211a1c', rockSeed: 7,
+    start: { fx: 0.08, fy: 0.5 }, goal: { fx: 0.94, fy: 0.5 },
+    music: 'cave2',
+    spawn: () => [makeEnemy('charger', 0.78, 0.82), makeEnemy('burrower', 0.55, 0.45)],
   },
 };
 
-// fixed scatter of cave rocks (fractions of screen), generated once
-const ROCKS = Array.from({ length: 46 }, (_, i) => {
-  const r = n => { const s = Math.sin(i * 127.1 + n * 311.7) * 43758.5453; return s - Math.floor(s); };
-  return { fx: r(1), fy: r(2), s: 0.4 + r(3) * 1.4, shade: r(4) };
-});
+function makeRocks(seed) {
+  return Array.from({ length: 46 }, (_, i) => {
+    const r = n => { const s = Math.sin((i + seed * 97) * 127.1 + n * 311.7) * 43758.5453; return s - Math.floor(s); };
+    return { fx: r(1), fy: r(2), s: 0.4 + r(3) * 1.4, shade: r(4) };
+  });
+}
+const ROCKS = { 1: makeRocks(1), 7: makeRocks(7) };
 
 // =====================================================================
 // State
 // =====================================================================
 const state = {
   scene: 'forest',
-  hero:  { x: 0, y: 0, vx: 0, vy: 0, stun: 0, invuln: 0 },
-  beast: { x: 0, y: 0, vx: 0, vy: 0, mode: 'sleep', t: 0, cool: 0, lx: 0, ly: 0 },
-  started: false, won: false, busy: false,   // busy = mid transition
-  fade: 0, fadeTarget: 0,
-  shake: 0, time: 0, keys: {},
+  hero: { x: 0, y: 0, vx: 0, vy: 0, stun: 0, invuln: 0, fx: 1, fy: 0 },
+  enemies: [], items: [], fx: [],
   drops: [], splashes: [], dripTimer: 1,
-  hasSword: false,
-  sword: { grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, freeT: 0 },
-  prevKeys: {}, fadeRate: 4,
+  hasSword: false, hat: false,
+  sword: null,
+  atk: null, atkCool: 0, hold: { on: false, t: 0, charged: false },
+  started: false, won: false, busy: false,
+  fade: 0, fadeTarget: 0, fadeRate: 4,
+  shake: 0, time: 0, keys: {}, prevKeys: {},
 };
+function freshSwordPuzzle() { return { grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, freeT: 0, hinted: false }; }
+state.sword = freshSwordPuzzle();
 
 function enterScene(name, at) {
   const sc = SCENES[name], pos = at || sc.start;
   state.scene = name;
   state.sword.grip = false;
+  state.atk = null; state.hold = { on: false, t: 0, charged: false };
   Object.assign(state.hero, { x: pos.fx * W, y: pos.fy * H, vx: 0, vy: 0, stun: 0, invuln: 0 });
-  Object.assign(state.beast, { x: W * 0.72, y: H * 0.22, vx: 0, vy: 0, mode: 'sleep', t: 2.2, cool: 0 });
+  state.enemies = sc.spawn ? sc.spawn() : [];
+  state.items = []; state.fx = [];
   state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
   say(sc.msg);
   setMusic(sc.music);
 }
 
+// full reset: back to the start with nothing
 function restart() {
   state.won = false;
+  state.hasSword = false;
+  state.hat = false;
+  state.sword = freshSwordPuzzle();
+  state.hero.fx = 1; state.hero.fy = 0;
   transitionTo('forest');
 }
 
@@ -138,14 +156,15 @@ function transitionTo(name, at, quick) {
 }
 
 // =====================================================================
-// Input
+// Input: arrows move, F acts. A S D E R reserved for later.
 // =====================================================================
 window.addEventListener('keydown', e => {
-  state.keys[e.key.toLowerCase()] = true;
-  if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
-  if (e.repeat) return;
-  if (e.key.toLowerCase() === 'r' && state.won) restart();
+  const k = e.key.toLowerCase();
+  if (k.startsWith('arrow') || k === ' ') e.preventDefault();
   begin();
+  if (e.repeat) return;
+  state.keys[k] = true;
+  if (k === 'r' && state.won) restart();
 });
 window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });
 
@@ -155,30 +174,28 @@ document.querySelectorAll('#pad button').forEach(b => {
   b.addEventListener('pointerdown', e => { e.preventDefault(); state.keys[k] = true; begin(); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => { state.keys[k] = false; }));
 });
-canvas.addEventListener('pointerdown', () => { if (state.won) restart(); });
 const actBtn = document.getElementById('act');
 actBtn.addEventListener('pointerdown', e => { e.preventDefault(); state.keys.act = true; begin(); });
 ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => actBtn.addEventListener(ev, () => { state.keys.act = false; }));
-const TOUCH = window.matchMedia('(pointer: coarse)').matches;
+canvas.addEventListener('pointerdown', () => { if (state.won) restart(); });
+
 const held = {
-  act:   () => !!(state.keys[' '] || state.keys.e || state.keys.enter || state.keys.act),
-  up:    () => !!(state.keys.arrowup || state.keys.w),
-  down:  () => !!(state.keys.arrowdown || state.keys.s),
-  left:  () => !!(state.keys.arrowleft || state.keys.a),
-  right: () => !!(state.keys.arrowright || state.keys.d),
+  act:   () => !!(state.keys.f || state.keys.act),
+  up:    () => !!state.keys.arrowup,
+  down:  () => !!state.keys.arrowdown,
+  left:  () => !!state.keys.arrowleft,
+  right: () => !!state.keys.arrowright,
 };
-let pressedNow = {};
-function readPresses() {           // true only on the frame a control goes down
+const pressedNow = {};
+function readPresses() {
   for (const k in held) { const v = held[k](); pressedNow[k] = v && !state.prevKeys[k]; state.prevKeys[k] = v; }
 }
-
 function inputVector() {
-  const k = state.keys;
   let x = 0, y = 0;
-  if (k.arrowup || k.w) y -= 1;
-  if (k.arrowdown || k.s) y += 1;
-  if (k.arrowleft || k.a) x -= 1;
-  if (k.arrowright || k.d) x += 1;
+  if (held.up()) y -= 1;
+  if (held.down()) y += 1;
+  if (held.left()) x -= 1;
+  if (held.right()) x += 1;
   const len = Math.hypot(x, y) || 1;
   return { x: x / len, y: y / len };
 }
@@ -187,7 +204,7 @@ function inputVector() {
 // Audio (all synthesized)
 // =====================================================================
 let audio, master, musicGain, noiseBuf, soundOn = true;
-let currentMusic = 'forest', nextNoteTime = 0, noteIndex = 0, nextDrip = 0, musicTimer = null;
+let currentMusic = 'forest', nextNoteTime = 0, noteIndex = 0, musicTimer = null;
 
 function initAudio() {
   if (audio) return;
@@ -215,14 +232,14 @@ function tone(freq, start, dur, { type = 'triangle', vol = 0.12, attack = 0.03, 
   o.start(t); o.stop(t + dur + 0.05);
 }
 
-function noise(start, dur, { vol = 0.2, freq = 400, q = 1, dest = master } = {}) {
+function noise(start, dur, { vol = 0.2, freq = 400, q = 1, type = 'lowpass', dest = master } = {}) {
   if (!audio) return;
   const s = audio.createBufferSource(), f = audio.createBiquadFilter(), g = audio.createGain();
   const t = audio.currentTime + start;
   s.buffer = noiseBuf; s.loop = true;
-  f.type = 'lowpass'; f.frequency.value = freq; f.Q.value = q;
+  f.type = type; f.frequency.value = freq; f.Q.value = q;
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(vol, t + 0.04);
+  g.gain.linearRampToValueAtTime(vol, t + 0.02);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   s.connect(f).connect(g).connect(dest);
   s.start(t); s.stop(t + dur + 0.05);
@@ -230,10 +247,17 @@ function noise(start, dur, { vol = 0.2, freq = 400, q = 1, dest = master } = {})
 
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
-// Original tunes. One entry per step: [melody midi, bass midi], 0 = rest.
+const CAVE_LOOP = [
+  [62,38],[0,0],[0,0],[65,0],[0,0],[0,0],[64,0],[0,0],
+  [0,0],[0,0],[61,0],[0,0],[0,0],[0,0],[0,0],[0,0],
+  [0,34],[0,0],[69,0],[0,0],[0,0],[70,0],[0,0],[69,0],
+  [0,0],[0,0],[65,0],[0,0],[64,0],[0,0],[0,0],[0,0],
+  [0,38],[0,0],[57,0],[0,0],[0,0],[58,0],[0,0],[0,0],
+  [61,0],[0,0],[0,0],[0,0],[62,0],[0,0],[0,0],[0,0],
+];
 const MUSIC = {
   forest: {
-    step: 60 / 92 / 2,
+    step: 60 / 92 / 2, shift: 0,
     lead: { type: 'triangle', vol: 0.10, len: 1.6 }, shimmer: true,
     bass: { type: 'sine', vol: 0.14, len: 3.2 },
     loop: [
@@ -248,18 +272,16 @@ const MUSIC = {
     ],
   },
   cave: {
-    step: 60 / 44 / 2,                  // very slow
+    step: 60 / 44 / 2, shift: 0,
     lead: { type: 'sine', vol: 0.08, len: 3.5 }, shimmer: false,
     bass: { type: 'triangle', vol: 0.09, len: 9 },
-    drips: true,
-    loop: [
-      [62,38],[0,0],[0,0],[65,0],[0,0],[0,0],[64,0],[0,0],
-      [0,0],[0,0],[61,0],[0,0],[0,0],[0,0],[0,0],[0,0],
-      [0,34],[0,0],[69,0],[0,0],[0,0],[70,0],[0,0],[69,0],
-      [0,0],[0,0],[65,0],[0,0],[64,0],[0,0],[0,0],[0,0],
-      [0,38],[0,0],[57,0],[0,0],[0,0],[58,0],[0,0],[0,0],
-      [61,0],[0,0],[0,0],[0,0],[62,0],[0,0],[0,0],[0,0],
-    ],
+    loop: CAVE_LOOP,
+  },
+  cave2: {                                // lower and a touch quicker, same bones
+    step: 60 / 52 / 2, shift: -3,
+    lead: { type: 'sine', vol: 0.08, len: 3 }, shimmer: false,
+    bass: { type: 'sawtooth', vol: 0.035, len: 9 },
+    loop: CAVE_LOOP,
   },
 };
 
@@ -268,24 +290,17 @@ function scheduleMusic() {
   while (nextNoteTime < audio.currentTime + 0.3) {
     const [mel, bass] = m.loop[noteIndex % m.loop.length];
     const s = Math.max(0, nextNoteTime - audio.currentTime);
-    if (mel) tone(midiHz(mel), s, m.step * m.lead.len, { type: m.lead.type, vol: m.lead.vol, attack: 0.05, dest: musicGain });
+    if (mel) tone(midiHz(mel + m.shift), s, m.step * m.lead.len, { type: m.lead.type, vol: m.lead.vol, attack: 0.05, dest: musicGain });
     if (mel && m.shimmer) tone(midiHz(mel) * 2, s, m.step * 0.9, { type: 'sine', vol: 0.025, attack: 0.02, dest: musicGain });
-    if (bass) tone(midiHz(bass), s, m.step * m.bass.len, { type: m.bass.type, vol: m.bass.vol, attack: 0.3, dest: musicGain });
+    if (bass) tone(midiHz(bass + m.shift), s, m.step * m.bass.len, { type: m.bass.type, vol: m.bass.vol, attack: 0.3, dest: musicGain });
     nextNoteTime += m.step;
     noteIndex++;
   }
 }
 
-function drip(pan = 0) {
-  if (!audio) return;
-  const f = 1400 + Math.random() * 900;
-  tone(f, 0, 0.12, { type: 'sine', vol: 0.07, attack: 0.002, to: f * 0.4, pan, dest: musicGain });
-  tone(f, 0.28, 0.1, { type: 'sine', vol: 0.02, attack: 0.002, to: f * 0.4, pan: -pan, dest: musicGain }); // echo
-}
-
 function setMusic(name) {
   if (!audio) { currentMusic = name; return; }
-  if (name === currentMusic && musicTimer) return;
+  if (name === currentMusic) return;
   const t = audio.currentTime;
   musicGain.gain.cancelScheduledValues(t);
   musicGain.gain.setValueAtTime(musicGain.gain.value, t);
@@ -293,7 +308,6 @@ function setMusic(name) {
   setTimeout(() => {
     currentMusic = name; noteIndex = 0;
     nextNoteTime = audio.currentTime + 0.1;
-    nextDrip = audio.currentTime + 0.8;
     const t2 = audio.currentTime;
     musicGain.gain.cancelScheduledValues(t2);
     musicGain.gain.setValueAtTime(0.0001, t2);
@@ -310,11 +324,26 @@ function startMusic() {
 }
 
 // sound effects
+function sfxDrip(pan) {
+  const f = 1400 + Math.random() * 900;
+  tone(f, 0, 0.12, { type: 'sine', vol: 0.07, attack: 0.002, to: f * 0.4, pan, dest: musicGain });
+  tone(f, 0.28, 0.1, { type: 'sine', vol: 0.02, attack: 0.002, to: f * 0.4, pan: -pan, dest: musicGain });
+}
 function sfxFall()    { [784, 659, 523, 392, 311, 233].forEach((f, i) => tone(f, i * 0.12, 0.3, { type: 'triangle', vol: 0.12 })); }
 function sfxGrowl()   { noise(0, 1.1, { vol: 0.35, freq: 260, q: 4 }); tone(70, 0, 1.0, { type: 'sawtooth', vol: 0.07, attack: 0.15, to: 48 }); }
+function sfxSnort()   { noise(0, 0.5, { vol: 0.25, freq: 700, q: 3 }); tone(90, 0, 0.5, { type: 'sawtooth', vol: 0.05, to: 60 }); }
 function sfxWindup()  { noise(0, 0.4, { vol: 0.18, freq: 500, q: 6 }); tone(110, 0, 0.4, { type: 'sawtooth', vol: 0.05, to: 160 }); }
+function sfxRumble()  { noise(0, 0.9, { vol: 0.35, freq: 140, q: 2 }); tone(42, 0, 0.9, { type: 'sine', vol: 0.2, attack: 0.2 }); }
+function sfxErupt()   { noise(0, 0.4, { vol: 0.35, freq: 900, q: 1 }); tone(120, 0, 0.35, { type: 'square', vol: 0.06, to: 300 }); }
 function sfxHit()     { tone(160, 0, 0.35, { type: 'sine', vol: 0.4, attack: 0.005, to: 45 }); noise(0, 0.25, { vol: 0.3, freq: 1200 }); }
-function sfxStrain() { noise(0, 0.35, { vol: 0.12, freq: 300, q: 2 }); tone(95, 0, 0.3, { type: 'sawtooth', vol: 0.04, to: 80 }); }
+function sfxSwoosh()  { noise(0, 0.18, { vol: 0.22, freq: 2500, q: 1.5, type: 'bandpass' }); }
+function sfxCharge()  { tone(880, 0, 0.15, { type: 'sine', vol: 0.08, to: 1320 }); }
+function sfxStab()    { noise(0, 0.14, { vol: 0.25, freq: 3800, q: 2, type: 'bandpass' }); tone(500, 0, 0.12, { type: 'triangle', vol: 0.08, to: 900 }); }
+function sfxClang()   { [1250, 1870, 2630].forEach(f => tone(f, 0, 0.45, { type: 'square', vol: 0.04, attack: 0.002, to: f * 0.97 })); noise(0, 0.12, { vol: 0.25, freq: 5000, type: 'highpass' }); }
+function sfxWhack()   { tone(220, 0, 0.18, { type: 'square', vol: 0.08, attack: 0.002, to: 90 }); noise(0, 0.1, { vol: 0.2, freq: 1500 }); }
+function sfxDeath()   { noise(0, 1.2, { vol: 0.3, freq: 400, q: 3 }); tone(200, 0, 1.2, { type: 'sawtooth', vol: 0.07, to: 35 }); }
+function sfxPickup()  { [659, 784, 988, 1319].forEach((f, i) => tone(f, i * 0.07, 0.25, { type: 'triangle', vol: 0.1 })); }
+function sfxStrain()  { noise(0, 0.35, { vol: 0.12, freq: 300, q: 2 }); tone(95, 0, 0.3, { type: 'sawtooth', vol: 0.04, to: 80 }); }
 function sfxCreak(up) { const f = up ? 180 : 140; tone(f, 0, 0.35, { type: 'sawtooth', vol: 0.05, attack: 0.05, to: f * 1.35 }); noise(0, 0.25, { vol: 0.06, freq: 900, q: 8 }); }
 function sfxShing() {
   noise(0, 0.5, { vol: 0.2, freq: 6000, q: 1 });
@@ -353,19 +382,23 @@ function update(dt) {
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
   state.shake = Math.max(0, state.shake - dt);
-  if (state.started && state.scene === 'cave') updateDrips(dt);
+  updateFx(dt);
+  if (state.started && SCENES[state.scene].dark) updateDrips(dt);
   if (!state.started || state.won) return;
 
   const sc = SCENES[state.scene], h = state.hero, L = longSide();
   readPresses();
   if (state.scene === 'grove' && !state.busy) updateSword(dt);
+  if (!state.busy) updateCombat(dt);
 
-  // hero: eased velocity, input locked while stunned, gripping, or mid transition
+  // hero movement; locked while stunned, gripping the stump, or mid transition
   const locked = h.stun > 0 || state.busy || state.sword.grip;
   const inp = locked ? { x: 0, y: 0 } : inputVector();
+  if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; }
+  const slow = state.hold.charged ? 0.45 : 1;
   const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
-  h.vx += (inp.x * sc.heroSpeed * L - h.vx) * k;
-  h.vy += (inp.y * sc.heroSpeed * L - h.vy) * k;
+  h.vx += (inp.x * sc.heroSpeed * L * slow - h.vx) * k;
+  h.vy += (inp.y * sc.heroSpeed * L * slow - h.vy) * k;
   h.x += h.vx * dt; h.y += h.vy * dt;
   collideSolids(h, UNIT * 0.45);
   clamp(h, UNIT * 0.5);
@@ -378,78 +411,38 @@ function update(dt) {
     if (state.scene === 'grove' && h.y >= H - r && held.down()) transitionTo('forest', { fx: h.x / W, fy: 0.08 }, true);
   }
 
-  if (state.scene === 'cave' && !state.busy) updateBeast(dt);
+  if (!state.busy) updateEnemies(dt);
 
-  // goal
+  // items
+  for (let i = state.items.length - 1; i >= 0; i--) {
+    const it = state.items[i];
+    if (Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 0.9) {
+      state.items.splice(i, 1);
+      state.hat = true;
+      sfxPickup();
+      say('A cool brown hat. You put it on.');
+    }
+  }
+
+  // goals
   if (sc.goal && !state.busy && Math.hypot(h.x - sc.goal.fx * W, h.y - sc.goal.fy * H) < UNIT * 0.7) {
-    if (state.scene === 'forest') {
-      say('The ground gives way...');
-      sfxFall();
-      transitionTo('cave');
-    } else {
+    if (state.scene === 'forest') { say('The ground gives way...'); sfxFall(); transitionTo('cave'); }
+    else if (state.scene === 'cave') { say('The passage slopes down into the dark...'); sfxFall(); transitionTo('cave2'); }
+    else {
       state.won = true;
-      say('You escaped the cave. Press R or tap to play again');
+      say(TOUCH ? 'You escaped the depths. Tap to start over' : 'You escaped the depths. Press R to start over');
       sfxVictory();
     }
   }
 }
 
-// =====================================================================
-// Water drips: fall from the ceiling, splash on the floor, sound on impact
-// =====================================================================
-function updateDrips(dt) {
-  state.dripTimer -= dt;
-  if (state.dripTimer <= 0) {
-    state.dripTimer = 0.5 + Math.random() * 1.8;
-    const x = Math.random() * W, landY = H * (0.08 + Math.random() * 0.9);
-    const y = landY - H * (0.25 + Math.random() * 0.45);
-    state.drops.push({ x, y, landY, vy: H * 0.2 });
-  }
-  const g = H * 2.6;
-  for (let i = state.drops.length - 1; i >= 0; i--) {
-    const d = state.drops[i];
-    d.vy += g * dt; d.y += d.vy * dt;
-    if (d.y >= d.landY) {
-      state.drops.splice(i, 1);
-      const bits = Array.from({ length: 3 + (Math.random() * 3 | 0) }, () => {
-        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
-        const sp = UNIT * (1.5 + Math.random() * 2.5);
-        return { x: d.x, y: d.landY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp };
-      });
-      state.splashes.push({ x: d.x, y: d.landY, t: 0, bits });
-      drip((d.x / W) * 1.6 - 0.8);
-    }
-  }
-  for (let i = state.splashes.length - 1; i >= 0; i--) {
-    const s = state.splashes[i];
-    s.t += dt;
-    for (const b of s.bits) { b.vy += UNIT * 14 * dt; b.x += b.vx * dt; b.y += b.vy * dt; }
-    if (s.t > 0.7) state.splashes.splice(i, 1);
-  }
-}
-
-function drawDrips() {
-  const h = state.hero, reach = UNIT * 6;
-  // near the hero's light: bright; out in the dark: faint glints
-  const lit = (x, y) => 0.3 + 0.7 * Math.max(0, 1 - Math.hypot(x - h.x, y - h.y) / reach);
-  ctx.lineCap = 'round';
-  for (const d of state.drops) {
-    const len = Math.min(UNIT * 0.9, d.vy * 0.03);
-    ctx.strokeStyle = `rgba(170,205,230,${0.8 * lit(d.x, d.y)})`;
-    ctx.lineWidth = Math.max(1, UNIT * 0.05);
-    ctx.beginPath(); ctx.moveTo(d.x, d.y - len); ctx.lineTo(d.x, d.y); ctx.stroke();
-  }
-  for (const s of state.splashes) {
-    const k = s.t / 0.7, a = (1 - k) * lit(s.x, s.y);
-    ctx.strokeStyle = `rgba(170,205,230,${0.7 * a})`;
-    ctx.lineWidth = Math.max(1, UNIT * 0.04);
-    ctx.beginPath();
-    ctx.ellipse(s.x, s.y, UNIT * 0.7 * k + 1, UNIT * 0.25 * k + 0.5, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = `rgba(190,220,240,${0.9 * a})`;
-    const r = Math.max(1, UNIT * 0.05);
-    for (const b of s.bits) if (b.y <= s.y + 1) ctx.fillRect(b.x - r / 2, b.y - r / 2, r, r);
-  }
+function clamp(a, r) {
+  let hitWall = false;
+  if (a.x < r) { a.x = r; a.vx = Math.max(0, a.vx); hitWall = true; }
+  if (a.x > W - r) { a.x = W - r; a.vx = Math.min(0, a.vx); hitWall = true; }
+  if (a.y < r) { a.y = r; a.vy = Math.max(0, a.vy); hitWall = true; }
+  if (a.y > H - r) { a.y = H - r; a.vy = Math.min(0, a.vy); hitWall = true; }
+  return hitWall;
 }
 
 // =====================================================================
@@ -468,13 +461,13 @@ function collideSolids(a, r) {
       const nx = dx / d, ny = dy / d;
       a.x = o.x + nx * min; a.y = o.y + ny * min;
       const vn = a.vx * nx + a.vy * ny;
-      if (vn < 0) { a.vx -= vn * nx; a.vy -= vn * ny; }   // slide along the edge
+      if (vn < 0) { a.vx -= vn * nx; a.vy -= vn * ny; }
     }
   }
 }
 
 // =====================================================================
-// The rusted sword: grip (hold A), rock left/right to loosen, pull up
+// The rusted sword in the stump: hold F, rock left/right, pull up
 // =====================================================================
 const PULL_FAILS = [
   'You pull with everything you have. It won\'t budge.',
@@ -488,18 +481,17 @@ function updateSword(dt) {
   const sw = state.sword, h = state.hero, st = SCENES.grove.stump;
   const sx = st.fx * W, sy = st.fy * H;
   const near = !state.hasSword && Math.hypot(h.x - sx, h.y - sy) < UNIT * 1.7;
-  const btn = TOUCH ? 'A' : 'Space';
 
   sw.tilt += (sw.lastSide * Math.min(1, sw.wiggle / 6) * 0.35 - sw.tilt) * (1 - Math.exp(-8 * dt));
   if (sw.freeT > 0) sw.freeT -= dt;
 
   if (!near) {
     if (sw.grip) sw.grip = false;
-    sw.wiggle = Math.max(0, sw.wiggle - dt * 0.4);    // rust settles if you walk away
+    sw.wiggle = Math.max(0, sw.wiggle - dt * 0.4);
     if (sw.hinted) { sw.hinted = false; if (!state.hasSword) say(SCENES.grove.msg); }
     return;
   }
-  if (!sw.grip && !sw.hinted) { sw.hinted = true; say(`A rusted sword, stuck fast in an old stump. ${btn} to grab`); }
+  if (!sw.grip && !sw.hinted) { sw.hinted = true; say(`A rusted sword, stuck fast in an old stump. ${ACT} to grab`); }
 
   if (pressedNow.act && !sw.grip) {
     sw.grip = true;
@@ -511,7 +503,6 @@ function updateSword(dt) {
   if (sw.grip && !held.act()) { sw.grip = false; return; }
   if (!sw.grip) return;
 
-  // while gripping, directions act on the sword
   if (pressedNow.left || pressedNow.right) {
     const side = pressedNow.left ? -1 : 1;
     if (side !== sw.lastSide) {
@@ -520,15 +511,13 @@ function updateSword(dt) {
       sfxCreak(side > 0);
       say(LOOSEN[sw.wiggle]);
       state.shake = 0.08;
-    } else {
-      say('It\'s already leaning that way.');
-    }
+    } else say('It\'s already leaning that way.');
   }
   if (pressedNow.up) {
     if (sw.wiggle >= 6) {
       state.hasSword = true; sw.grip = false; sw.freeT = 1.5;
       sfxShing();
-      say('The sword comes free!');
+      say(`The sword comes free! Tap ${ACT} to slash, hold and release to stab.`);
       state.shake = 0.2;
     } else {
       sfxStrain();
@@ -538,59 +527,294 @@ function updateSword(dt) {
   if (pressedNow.down) say('You brace your feet against the stump.');
 }
 
-function clamp(a, r) {
-  if (a.x < r) { a.x = r; a.vx = Math.max(0, a.vx); }
-  if (a.x > W - r) { a.x = W - r; a.vx = Math.min(0, a.vx); }
-  if (a.y < r) { a.y = r; a.vy = Math.max(0, a.vy); }
-  if (a.y > H - r) { a.y = H - r; a.vy = Math.min(0, a.vy); }
+// =====================================================================
+// Combat: tap F = slash (also blocks), hold then release = stab
+// =====================================================================
+const SLASH = { dur: 0.22, cool: 0.28, reach: 1.7 };
+const STAB  = { dur: 0.22, cool: 0.35, reach: 2.2, charge: 0.35, knockChance: 0.6 };
+
+function updateCombat(dt) {
+  if (!state.hasSword || state.sword.grip) return;
+  const h = state.hero, hold = state.hold, L = longSide();
+  state.atkCool -= dt;
+
+  if (pressedNow.act) {
+    hold.on = true; hold.t = 0; hold.charged = false;
+    if (state.atkCool <= 0) {
+      state.atk = { type: 'slash', t: 0, dur: SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy };
+      state.atkCool = SLASH.cool;
+      sfxSwoosh();
+    }
+  }
+  if (hold.on) {
+    if (held.act()) {
+      hold.t += dt;
+      if (!hold.charged && hold.t > STAB.charge) { hold.charged = true; sfxCharge(); }
+    } else {
+      if (hold.charged) {
+        state.atk = { type: 'stab', t: 0, dur: STAB.dur, hit: new Set(), ax: h.fx, ay: h.fy };
+        state.atkCool = STAB.cool;
+        h.vx += h.fx * 0.4 * L; h.vy += h.fy * 0.4 * L;
+        sfxStab();
+      }
+      hold.on = false; hold.charged = false;
+    }
+  }
+
+  const a = state.atk;
+  if (!a) return;
+  a.t += dt;
+  for (const e of state.enemies) {
+    if (a.hit.has(e) || !hittable(e)) continue;
+    const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
+    let hit = false;
+    if (a.type === 'slash') {
+      const facing = (dx * a.ax + dy * a.ay) / d;
+      hit = d < UNIT * SLASH.reach + e.r && (facing > 0.2 || d < e.r + UNIT * 0.6);
+    } else {
+      const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
+      hit = along > -e.r && along < UNIT * STAB.reach + e.r && perp < e.r + UNIT * 0.35;
+    }
+    if (hit) { a.hit.add(e); damage(e, a.type === 'slash' ? 1 : 2, a.type, dx / d, dy / d); }
+  }
+  if (a.t >= a.dur) state.atk = null;
 }
 
-// Beast: sleep -> stalk -> windup -> lunge -> recover -> stalk ...
-function updateBeast(dt) {
-  const b = state.beast, h = state.hero, L = longSide();
-  const dx = h.x - b.x, dy = h.y - b.y, dist = Math.hypot(dx, dy) || 1;
-  const ease = (tx, ty, rate) => {
-    const k = 1 - Math.exp(-rate * dt);
-    b.vx += (tx - b.vx) * k; b.vy += (ty - b.vy) * k;
-  };
-  b.t -= dt; b.cool -= dt;
+const slashActive = () => state.atk && state.atk.type === 'slash' && state.atk.t < state.atk.dur;
 
-  switch (b.mode) {
+// =====================================================================
+// Enemies
+// =====================================================================
+function makeEnemy(type, fx, fy) {
+  const base = { type, x: fx * W, y: fy * H, vx: 0, vy: 0, t: 0, cool: 0, lx: 0, ly: 0, flash: 0, dead: false };
+  if (type === 'stalker')  return { ...base, r: UNIT * 0.7,  hp: 5, mode: 'sleep', t: 2.2 };
+  if (type === 'charger')  return { ...base, r: UNIT * 0.75, hp: 5, mode: 'sleep', t: 1.6 };
+  if (type === 'burrower') return { ...base, r: UNIT * 0.65, hp: 4, mode: 'under', t: 3.0, crack: 0 };
+}
+
+function hittable(e) {
+  if (e.dead) return false;
+  if (e.type === 'burrower') return ['erupt', 'up', 'stunned'].includes(e.mode);
+  return true;
+}
+function resumeMode(e) {
+  if (e.type === 'stalker') { e.mode = 'stalk'; }
+  if (e.type === 'charger') { e.mode = 'aim'; e.t = 0.8; }
+  if (e.type === 'burrower') { e.mode = 'dive'; e.t = 0.35; }
+}
+
+function spark(x, y, color, n, speed) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = UNIT * speed * (0.4 + Math.random());
+    state.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, life: 0.35 + Math.random() * 0.25, color });
+  }
+}
+function updateFx(dt) {
+  for (let i = state.fx.length - 1; i >= 0; i--) {
+    const p = state.fx[i];
+    p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.9; p.vy *= 0.9;
+    if (p.t > p.life) state.fx.splice(i, 1);
+  }
+}
+
+function damage(e, amount, kind, nx, ny) {
+  const L = longSide();
+  e.hp -= amount;
+  e.flash = 0.15;
+  spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4);
+  sfxWhack();
+  if (e.hp <= 0) return kill(e);
+  if (e.mode === 'sleep') resumeMode(e);
+  if (e.type === 'burrower') {
+    if (kind === 'stab' && Math.random() < STAB.knockChance) { e.mode = 'stunned'; e.t = 1.0; }
+    return;
+  }
+  if (kind === 'stab' && Math.random() < STAB.knockChance) {
+    e.vx = nx * 0.9 * L; e.vy = ny * 0.9 * L;
+    e.mode = 'stunned'; e.t = 0.7;
+    state.shake = 0.2;
+  } else {
+    e.vx += nx * 0.2 * L; e.vy += ny * 0.2 * L;
+  }
+}
+
+function kill(e) {
+  e.dead = true; e.mode = 'dead'; e.t = 0.9; e.vx = 0; e.vy = 0;
+  sfxDeath();
+  state.shake = 0.3;
+  spark(e.x, e.y, '#6b1a1a', 14, 3);
+  const hatAround = state.items.length > 0;
+  if (!state.hat && !hatAround && Math.random() < 0.5) {
+    state.items.push({ type: 'hat', x: e.x, y: e.y });
+    say('Something drops to the ground.');
+  } else if (state.enemies.every(x => x.dead)) {
+    say('It\'s quiet now.');
+  }
+}
+
+function parry(e) {
+  const h = state.hero, L = longSide();
+  const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
+  e.mode = 'stunned'; e.t = e.type === 'burrower' ? 1.8 : 1.2;
+  if (e.type !== 'burrower') { e.vx = dx / d * 0.7 * L; e.vy = dy / d * 0.7 * L; }
+  h.vx -= dx / d * 0.25 * L; h.vy -= dy / d * 0.25 * L;
+  h.invuln = Math.max(h.invuln, 0.3);
+  sfxClang();
+  spark((e.x + h.x) / 2, (e.y + h.y) / 2, '#ffd23a', 12, 5);
+  state.shake = 0.15;
+}
+
+function knockHero(fromX, fromY) {
+  const h = state.hero, L = longSide(), g = SCENES[state.scene].goal;
+  let ax = h.x - fromX, ay = h.y - fromY; const al = Math.hypot(ax, ay) || 1;
+  let gx = g.fx * W - h.x, gy = g.fy * H - h.y; const gl = Math.hypot(gx, gy) || 1;
+  let kx = ax / al - 0.9 * gx / gl, ky = ay / al - 0.9 * gy / gl;
+  const kl = Math.hypot(kx, ky) || 1;
+  h.vx = kx / kl * 0.95 * L; h.vy = ky / kl * 0.95 * L;
+  h.stun = 0.5; h.invuln = 1.2;
+  state.hold.on = false; state.hold.charged = false;
+  state.shake = 0.35;
+  sfxHit();
+}
+
+function updateEnemies(dt) {
+  const h = state.hero, L = longSide();
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    const e = state.enemies[i];
+    const dx = h.x - e.x, dy = h.y - e.y, dist = Math.hypot(dx, dy) || 1;
+    const ease = (tx, ty, rate) => { const k = 1 - Math.exp(-rate * dt); e.vx += (tx - e.vx) * k; e.vy += (ty - e.vy) * k; };
+    e.t -= dt; e.cool -= dt; e.flash -= dt;
+
+    if (e.mode === 'dead') { if (e.t <= 0) state.enemies.splice(i, 1); continue; }
+    if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
+    else if (e.type === 'stalker') stalkerAI(e, dx, dy, dist, ease, L);
+    else if (e.type === 'charger') chargerAI(e, dx, dy, dist, ease, L);
+    else burrowerAI(e, dx, dy, dist, ease, L, dt);
+
+    e.x += e.vx * dt; e.y += e.vy * dt;
+    const wall = clamp(e, e.r);
+    if (wall && e.mode === 'charge') { e.mode = 'recover'; e.t = 1.0; state.shake = 0.15; sfxWhack(); }
+
+    // body contact (stalker and charger)
+    const dangerous = ['stalk', 'windup', 'lunge', 'recover', 'aim', 'charge'].includes(e.mode);
+    if (e.type !== 'burrower' && dangerous && h.invuln <= 0 && dist < (e.r + UNIT * 0.45) * 0.95) {
+      const facing = (-dx * h.fx - dy * h.fy) / dist;   // hero facing the enemy?
+      if (slashActive() && facing > 0.2) parry(e);
+      else {
+        knockHero(e.x, e.y);
+        e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3;
+      }
+    }
+  }
+}
+
+function stalkerAI(e, dx, dy, dist, ease, L) {
+  switch (e.mode) {
     case 'sleep':
-      if (b.t <= 0) { b.mode = 'stalk'; sfxGrowl(); say('Something stirs in the dark'); state.shake = 0.3; }
+      if (e.t <= 0) { e.mode = 'stalk'; sfxGrowl(); say('Something stirs in the dark'); state.shake = 0.3; }
       break;
     case 'stalk':
       ease(dx / dist * 0.22 * L, dy / dist * 0.22 * L, 3);
-      if (dist < UNIT * 6 && b.cool <= 0) {
-        b.mode = 'windup'; b.t = 0.45; b.lx = dx / dist; b.ly = dy / dist; sfxWindup();
-      }
+      if (dist < UNIT * 6 && e.cool <= 0) { e.mode = 'windup'; e.t = 0.45; e.lx = dx / dist; e.ly = dy / dist; sfxWindup(); }
       break;
     case 'windup':
       ease(0, 0, 10);
-      if (b.t <= 0) { b.mode = 'lunge'; b.t = 0.45; b.vx = b.lx * 0.8 * L; b.vy = b.ly * 0.8 * L; }
+      if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.45; e.vx = e.lx * 0.8 * L; e.vy = e.ly * 0.8 * L; }
       break;
     case 'lunge':
-      if (b.t <= 0) { b.mode = 'recover'; b.t = 0.7; b.cool = 1.4; }
+      if (e.t <= 0) { e.mode = 'recover'; e.t = 0.7; e.cool = 1.4; }
       break;
     case 'recover':
       ease(0, 0, 5);
-      if (b.t <= 0) b.mode = 'stalk';
+      if (e.t <= 0) e.mode = 'stalk';
       break;
   }
-  b.x += b.vx * dt; b.y += b.vy * dt;
-  clamp(b, UNIT * 0.7);
+}
 
-  // contact: knock hero away from the beast and back from the exit
-  if (b.mode !== 'sleep' && h.invuln <= 0 && dist < UNIT * 1.05) {
-    const g = SCENES.cave.goal;
-    let gx = g.fx * W - h.x, gy = g.fy * H - h.y; const gl = Math.hypot(gx, gy) || 1;
-    let kx = dx / dist - 0.9 * gx / gl, ky = dy / dist - 0.9 * gy / gl;
-    const kl = Math.hypot(kx, ky) || 1;
-    h.vx = kx / kl * 0.95 * L; h.vy = ky / kl * 0.95 * L;
-    h.stun = 0.5; h.invuln = 1.2;
-    b.mode = 'recover'; b.t = 1.1; b.cool = 1.8; b.vx *= -0.3; b.vy *= -0.3;
-    state.shake = 0.35;
-    sfxHit();
+function chargerAI(e, dx, dy, dist, ease, L) {
+  switch (e.mode) {
+    case 'sleep':
+      if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9; sfxGrowl(); state.shake = 0.3; }
+      break;
+    case 'aim':                                   // plants its feet, tracks you, then locks
+      ease(0, 0, 8);
+      if (e.t > 0.25) { e.lx = dx / dist; e.ly = dy / dist; }
+      if (e.t <= 0) { e.mode = 'charge'; e.t = 1.2; e.vx = e.lx * 0.85 * L; e.vy = e.ly * 0.85 * L; sfxSnort(); }
+      break;
+    case 'charge':
+      if (e.t <= 0) { e.mode = 'recover'; e.t = 0.9; }
+      break;
+    case 'recover':
+      ease(0, 0, 5);
+      if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9 + Math.random() * 0.6; }
+      break;
+  }
+}
+
+function burrowerAI(e, dx, dy, dist, ease, L, dt) {
+  switch (e.mode) {
+    case 'under':                                 // tunnels toward you, mostly unseen
+      e.crack = 0;
+      ease(dx / dist * 0.3 * L, dy / dist * 0.3 * L, 2);
+      if (e.t <= 0 && dist < UNIT * 2.5) {
+        e.mode = 'rumble'; e.t = 0.85;
+        e.lx = state.hero.x; e.ly = state.hero.y;   // erupts where you stood
+        sfxRumble();
+      }
+      break;
+    case 'rumble':
+      e.vx = 0; e.vy = 0;
+      e.x += (e.lx - e.x) * (1 - Math.exp(-12 * dt));
+      e.y += (e.ly - e.y) * (1 - Math.exp(-12 * dt));
+      e.crack = 1 - Math.max(0, e.t) / 0.85;
+      state.shake = Math.max(state.shake, 0.05);
+      if (e.t <= 0) { e.mode = 'erupt'; e.t = 0.28; e.parried = false; sfxErupt(); spark(e.x, e.y, '#6a5040', 10, 4); }
+      break;
+    case 'erupt':                                 // the block window
+      if (!e.parried && slashActive() && dist < UNIT * 1.9) { e.parried = true; parry(e); break; }
+      if (e.t <= 0) {
+        if (dist < UNIT * 1.3 && state.hero.invuln <= 0) knockHero(e.x, e.y);
+        e.mode = 'up'; e.t = 1.3;
+      }
+      break;
+    case 'up':
+      if (e.t <= 0) { e.mode = 'dive'; e.t = 0.35; }
+      break;
+    case 'dive':
+      if (e.t <= 0) { e.mode = 'under'; e.t = 2.2 + Math.random() * 1.5; }
+      break;
+  }
+}
+
+// =====================================================================
+// Water drips
+// =====================================================================
+function updateDrips(dt) {
+  state.dripTimer -= dt;
+  if (state.dripTimer <= 0) {
+    state.dripTimer = 0.5 + Math.random() * 1.8;
+    const x = Math.random() * W, landY = H * (0.08 + Math.random() * 0.9);
+    state.drops.push({ x, y: landY - H * (0.25 + Math.random() * 0.45), landY, vy: H * 0.2 });
+  }
+  const g = H * 2.6;
+  for (let i = state.drops.length - 1; i >= 0; i--) {
+    const d = state.drops[i];
+    d.vy += g * dt; d.y += d.vy * dt;
+    if (d.y >= d.landY) {
+      state.drops.splice(i, 1);
+      const bits = Array.from({ length: 3 + (Math.random() * 3 | 0) }, () => {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, sp = UNIT * (1.5 + Math.random() * 2.5);
+        return { x: d.x, y: d.landY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp };
+      });
+      state.splashes.push({ x: d.x, y: d.landY, t: 0, bits });
+      sfxDrip((d.x / W) * 1.6 - 0.8);
+    }
+  }
+  for (let i = state.splashes.length - 1; i >= 0; i--) {
+    const s = state.splashes[i];
+    s.t += dt;
+    for (const b of s.bits) { b.vy += UNIT * 14 * dt; b.x += b.vx * dt; b.y += b.vy * dt; }
+    if (s.t > 0.7) state.splashes.splice(i, 1);
   }
 }
 
@@ -614,23 +838,77 @@ function draw() {
   }
 }
 
+function drawHat(x, top, w) {
+  ctx.fillStyle = '#6b4423';
+  ctx.fillRect(x - w * 0.62, top - w * 0.02, w * 1.24, w * 0.12);       // brim
+  ctx.fillRect(x - w * 0.36, top - w * 0.36, w * 0.72, w * 0.36);        // crown
+  ctx.fillStyle = '#3d2614';
+  ctx.fillRect(x - w * 0.36, top - w * 0.12, w * 0.72, w * 0.08);        // band
+  ctx.fillStyle = '#80552e';
+  ctx.fillRect(x - w * 0.12, top - w * 0.36, w * 0.24, w * 0.06);        // crease
+}
+
 function drawHero() {
   const h = state.hero;
-  if (h.invuln > 0 && Math.floor(state.time * 14) % 2) return;   // blink after a hit
+  const blink = h.invuln > 0 && h.stun > -0.5 && Math.floor(state.time * 14) % 2;
   const sp = Math.hypot(h.vx, h.vy);
   const stretch = Math.min(0.18, sp / 3000);
   const pw = UNIT * (1 + stretch * Math.abs(h.vx) / (sp || 1));
   const ph = UNIT * (1 + stretch * Math.abs(h.vy) / (sp || 1));
-  ctx.fillStyle = 'rgba(0,0,0,.2)';
-  ctx.fillRect(h.x - pw / 2 + 3, h.y - ph / 2 + 4, pw, ph);
-  ctx.fillStyle = h.stun > 0 ? '#ffffff' : '#f5d06f';
-  ctx.fillRect(h.x - pw / 2, h.y - ph / 2, pw, ph);
-  if (state.hasSword) {                       // carried on the right side, point up
-    const sx = h.x + pw / 2 + UNIT * 0.12, top = h.y - ph * 0.55;
-    ctx.fillStyle = '#b7aa9a'; ctx.fillRect(sx, top, UNIT * 0.1, UNIT * 0.7);
-    ctx.fillStyle = '#7a4a1c'; ctx.fillRect(sx - UNIT * 0.12, top + UNIT * 0.7, UNIT * 0.34, UNIT * 0.08);
-    ctx.fillRect(sx, top + UNIT * 0.78, UNIT * 0.1, UNIT * 0.2);
+  if (!blink) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)';
+    ctx.fillRect(h.x - pw / 2 + 3, h.y - ph / 2 + 4, pw, ph);
+    if (state.hold.charged) {                   // charging a stab
+      ctx.fillStyle = `rgba(255,240,180,${0.35 + 0.25 * Math.sin(state.time * 30)})`;
+      ctx.fillRect(h.x - pw / 2 - 3, h.y - ph / 2 - 3, pw + 6, ph + 6);
+    }
+    ctx.fillStyle = h.stun > 0 ? '#ffffff' : '#f5d06f';
+    ctx.fillRect(h.x - pw / 2, h.y - ph / 2, pw, ph);
+    if (state.hat) drawHat(h.x, h.y - ph / 2, UNIT);
   }
+  if (state.hasSword) drawSword(h, pw, ph);
+}
+
+function drawSword(h, pw, ph) {
+  const a = state.atk, blade = '#c9c2b6', hilt = '#7a4a1c';
+  if (!a) {                                      // carried at the side, point up
+    const sx = h.x + pw / 2 + UNIT * 0.12, top = h.y - ph * 0.55;
+    ctx.fillStyle = blade; ctx.fillRect(sx, top, UNIT * 0.1, UNIT * 0.7);
+    ctx.fillStyle = hilt; ctx.fillRect(sx - UNIT * 0.12, top + UNIT * 0.7, UNIT * 0.34, UNIT * 0.08);
+    ctx.fillRect(sx, top + UNIT * 0.78, UNIT * 0.1, UNIT * 0.2);
+    return;
+  }
+  const base = Math.atan2(a.ay, a.ax), p = Math.min(1, a.t / a.dur);
+  ctx.save();
+  ctx.translate(h.x, h.y);
+  if (a.type === 'slash') {
+    const sweep = 1.25, ang = base - sweep + p * sweep * 2;
+    ctx.strokeStyle = `rgba(255,250,230,${0.55 * (1 - p)})`;   // swoosh arc
+    ctx.lineWidth = UNIT * 0.35;
+    ctx.beginPath(); ctx.arc(0, 0, UNIT * 1.2, base - sweep, ang); ctx.stroke();
+    ctx.rotate(ang);
+    ctx.fillStyle = blade; ctx.fillRect(UNIT * 0.5, -UNIT * 0.06, UNIT * 1.15, UNIT * 0.12);
+    ctx.fillStyle = hilt; ctx.fillRect(UNIT * 0.44, -UNIT * 0.2, UNIT * 0.08, UNIT * 0.4);
+  } else {
+    const ext = Math.sin(p * Math.PI);             // thrust out and back
+    ctx.rotate(base);
+    ctx.fillStyle = blade; ctx.fillRect(UNIT * (0.4 + ext * 0.7), -UNIT * 0.06, UNIT * 1.2, UNIT * 0.12);
+    ctx.fillStyle = hilt; ctx.fillRect(UNIT * (0.34 + ext * 0.7), -UNIT * 0.2, UNIT * 0.08, UNIT * 0.4);
+    ctx.strokeStyle = `rgba(255,250,230,${0.5 * ext})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(UNIT * 0.6, 0); ctx.lineTo(UNIT * (1.7 + ext * 0.8), 0); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawForest() {
+  ctx.fillStyle = '#3f8f4c';
+  ctx.fillRect(0, 0, W, H);
+  const g = SCENES.forest.goal, s = UNIT * (1 + 0.06 * Math.sin(state.time * 3));
+  ctx.fillStyle = '#6fc3f5';
+  ctx.fillRect(g.fx * W - s / 2, g.fy * H - s / 2, s, s);
+  drawHero();
+  drawFx();
 }
 
 function drawGrove() {
@@ -639,13 +917,11 @@ function drawGrove() {
   ctx.fillRect(0, 0, W, H);
   const sx = sc.stump.fx * W, sy = sc.stump.fy * H;
 
-  // tree shadows first
   for (const [fx, fy, sz] of sc.trees) {
     ctx.fillStyle = 'rgba(0,0,0,.18)';
     ctx.beginPath(); ctx.ellipse(fx * W + UNIT * 0.2, fy * H + UNIT * 0.25, UNIT * 1.1 * sz, UNIT * 0.5 * sz, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  // stump
   ctx.fillStyle = '#5a3d22';
   ctx.beginPath(); ctx.ellipse(sx, sy + UNIT * 0.15, UNIT * 0.6, UNIT * 0.35, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillRect(sx - UNIT * 0.6, sy - UNIT * 0.1, UNIT * 1.2, UNIT * 0.25);
@@ -655,25 +931,24 @@ function drawGrove() {
   for (const k of [0.35, 0.18]) { ctx.beginPath(); ctx.ellipse(sx, sy - UNIT * 0.1, UNIT * 0.6 * k * 1.6, UNIT * 0.32 * k * 1.6, 0, 0, Math.PI * 2); ctx.stroke(); }
 
   if (!state.hasSword) {
-    // rusted sword, tilts as it is rocked, trembles while gripped
     const tremble = sw.grip ? Math.sin(state.time * 60) * 0.02 : 0;
     ctx.save();
     ctx.translate(sx, sy - UNIT * 0.1);
     ctx.rotate(sw.tilt + tremble);
-    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.9, UNIT * 0.14, UNIT * 0.9);   // blade
-    ctx.fillStyle = '#a4683f'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.6, UNIT * 0.06, UNIT * 0.2);   // rust patch
-    ctx.fillStyle = '#5b3b22'; ctx.fillRect(-UNIT * 0.26, -UNIT * 1.0, UNIT * 0.52, UNIT * 0.1);   // crossguard
-    ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-UNIT * 0.06, -UNIT * 1.35, UNIT * 0.12, UNIT * 0.35); // grip
+    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.9, UNIT * 0.14, UNIT * 0.9);
+    ctx.fillStyle = '#a4683f'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.6, UNIT * 0.06, UNIT * 0.2);
+    ctx.fillStyle = '#5b3b22'; ctx.fillRect(-UNIT * 0.26, -UNIT * 1.0, UNIT * 0.52, UNIT * 0.1);
+    ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-UNIT * 0.06, -UNIT * 1.35, UNIT * 0.12, UNIT * 0.35);
     ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.arc(0, -UNIT * 1.38, UNIT * 0.09, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
   } else {
-    ctx.fillStyle = '#3a2614';                  // empty slot
+    ctx.fillStyle = '#3a2614';
     ctx.fillRect(sx - UNIT * 0.08, sy - UNIT * 0.14, UNIT * 0.16, UNIT * 0.06);
   }
 
   drawHero();
+  drawFx();
 
-  // flash when the sword comes free
   if (sw.freeT > 0) {
     const h = state.hero, a = Math.min(1, sw.freeT) * 0.5;
     const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, UNIT * 4);
@@ -681,7 +956,6 @@ function drawGrove() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
 
-  // trunks and canopies drawn last so the hero can pass beneath the leaves
   for (const [fx, fy, sz] of sc.trees) {
     const x = fx * W, y = fy * H;
     ctx.fillStyle = '#5a3d22';
@@ -693,51 +967,30 @@ function drawGrove() {
   }
 }
 
-function drawForest() {
-  ctx.fillStyle = '#3f8f4c';
-  ctx.fillRect(0, 0, W, H);
-  const g = SCENES.forest.goal, s = UNIT * (1 + 0.06 * Math.sin(state.time * 3));
-  ctx.fillStyle = '#6fc3f5';
-  ctx.fillRect(g.fx * W - s / 2, g.fy * H - s / 2, s, s);
-  drawHero();
-}
-
 function drawCave() {
-  const h = state.hero, b = state.beast, g = SCENES.cave.goal;
+  const sc = SCENES[state.scene], h = state.hero, g = sc.goal;
   const gx = g.fx * W, gy = g.fy * H;
 
-  // floor and rocks
-  ctx.fillStyle = '#1d1a22';
+  ctx.fillStyle = sc.floor;
   ctx.fillRect(0, 0, W, H);
-  for (const r of ROCKS) {
+  for (const r of ROCKS[sc.rockSeed]) {
     ctx.fillStyle = r.shade > 0.5 ? '#26222c' : '#15131a';
-    ctx.beginPath();
-    ctx.ellipse(r.fx * W, r.fy * H, UNIT * r.s, UNIT * r.s * 0.6, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(r.fx * W, r.fy * H, UNIT * r.s, UNIT * r.s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  // exit: pale daylight
+  // exit: daylight in cave 1, a darker passage mouth in cave 2 leads to the end
   ctx.fillStyle = '#d9e8d0';
   ctx.fillRect(gx - UNIT * 0.6, gy - UNIT * 0.9, UNIT * 1.2, UNIT * 1.8);
 
-  // beast body (only seen inside the light)
-  {
-    const bs = UNIT * 1.4 * (b.mode === 'windup' ? 1.12 : 1);
-    ctx.fillStyle = '#4a1414';
-    ctx.fillRect(b.x - bs / 2, b.y - bs / 2, bs, bs);
-    ctx.fillStyle = '#2a0b0b';
-    for (let i = -1; i <= 1; i++) {   // jagged back spikes
-      ctx.beginPath();
-      ctx.moveTo(b.x + i * bs * 0.3 - bs * 0.12, b.y - bs / 2);
-      ctx.lineTo(b.x + i * bs * 0.3, b.y - bs / 2 - bs * 0.3);
-      ctx.lineTo(b.x + i * bs * 0.3 + bs * 0.12, b.y - bs / 2);
-      ctx.fill();
-    }
+  for (const it of state.items) {                // hat on the floor
+    const bob = Math.sin(state.time * 4) * UNIT * 0.06;
+    drawHat(it.x, it.y + UNIT * 0.2 + bob, UNIT * 0.9);
   }
 
+  for (const e of state.enemies) drawEnemyBody(e);
   drawHero();
 
-  // darkness with a small circle of light around the hero
+  // darkness with a circle of light around the hero
   const flicker = 1 + 0.03 * Math.sin(state.time * 11) + 0.02 * Math.sin(state.time * 23);
   const dark = ctx.createRadialGradient(h.x, h.y, UNIT * 1.2, h.x, h.y, UNIT * 5.5 * flicker);
   dark.addColorStop(0, 'rgba(4,2,8,0)');
@@ -745,30 +998,162 @@ function drawCave() {
   ctx.fillStyle = dark;
   ctx.fillRect(0, 0, W, H);
 
-  // exit glow cuts through the dark
   ctx.globalCompositeOperation = 'lighter';
   const eg = ctx.createRadialGradient(gx, gy, 0, gx, gy, UNIT * 3.5);
   eg.addColorStop(0, 'rgba(200,230,190,0.35)');
   eg.addColorStop(1, 'rgba(200,230,190,0)');
   ctx.fillStyle = eg;
   ctx.fillRect(gx - UNIT * 4, gy - UNIT * 4, UNIT * 8, UNIT * 8);
+  for (const it of state.items) {                 // faint glint so a dropped hat can be found
+    const a = 0.25 + 0.2 * Math.sin(state.time * 5);
+    const ig = ctx.createRadialGradient(it.x, it.y, 0, it.x, it.y, UNIT);
+    ig.addColorStop(0, `rgba(255,220,160,${a})`); ig.addColorStop(1, 'rgba(255,220,160,0)');
+    ctx.fillStyle = ig; ctx.fillRect(it.x - UNIT, it.y - UNIT, UNIT * 2, UNIT * 2);
+  }
   ctx.globalCompositeOperation = 'source-over';
 
   drawDrips();
+  for (const e of state.enemies) drawEnemyEyes(e);
+  drawFx();
+}
 
-  // beast eyes always visible; closed while asleep, flare during windup
-  const eyeY = b.y - UNIT * 0.2, eyeDX = UNIT * 0.28;
-  const look = Math.atan2(h.y - b.y, h.x - b.x);
+function drawEnemyBody(e) {
+  const alpha = e.mode === 'dead' ? Math.max(0, e.t / 0.9) : 1;
+  const scale = e.mode === 'dead' ? 0.5 + 0.5 * alpha : 1;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const white = e.flash > 0;
+
+  if (e.type === 'stalker') {
+    const bs = UNIT * 1.4 * scale * (e.mode === 'windup' ? 1.12 : 1);
+    ctx.fillStyle = white ? '#fff' : '#4a1414';
+    ctx.fillRect(e.x - bs / 2, e.y - bs / 2, bs, bs);
+    ctx.fillStyle = white ? '#fff' : '#2a0b0b';
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(e.x + i * bs * 0.3 - bs * 0.12, e.y - bs / 2);
+      ctx.lineTo(e.x + i * bs * 0.3, e.y - bs / 2 - bs * 0.3);
+      ctx.lineTo(e.x + i * bs * 0.3 + bs * 0.12, e.y - bs / 2);
+      ctx.fill();
+    }
+  }
+
+  if (e.type === 'charger') {
+    const bw = UNIT * 1.6 * scale, bh = UNIT * 1.25 * scale;
+    ctx.fillStyle = white ? '#fff' : '#3b2a18';
+    ctx.fillRect(e.x - bw / 2, e.y - bh / 2, bw, bh);
+    ctx.fillStyle = white ? '#fff' : '#d8ccb0';      // horns
+    for (const s of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(e.x + s * bw * 0.3, e.y - bh / 2);
+      ctx.lineTo(e.x + s * bw * 0.62, e.y - bh / 2 - bh * 0.45);
+      ctx.lineTo(e.x + s * bw * 0.45, e.y - bh / 2);
+      ctx.fill();
+    }
+    if (e.mode === 'aim' && Math.random() < 0.3) spark(e.x - e.lx * bw * 0.6, e.y + bh * 0.4, '#5a4a3a', 1, 1.2);
+  }
+
+  if (e.type === 'burrower') {
+    if (e.mode === 'under' || e.mode === 'rumble') {
+      // moving mound of dirt, then cracks spreading where it will erupt
+      ctx.fillStyle = '#3a2c24';
+      for (let i = 0; i < 3; i++) {
+        const w = Math.sin(state.time * 8 + i * 2) * UNIT * 0.1;
+        ctx.beginPath(); ctx.ellipse(e.x + (i - 1) * UNIT * 0.35, e.y + w, UNIT * 0.3, UNIT * 0.16, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (e.mode === 'rumble') {
+        ctx.strokeStyle = '#0c0a0c'; ctx.lineWidth = Math.max(1.5, UNIT * 0.06);
+        for (let i = 0; i < 7; i++) {
+          const a = i * 0.9 + 0.4, len = UNIT * (0.4 + e.crack * 1.1);
+          ctx.beginPath(); ctx.moveTo(e.x, e.y);
+          ctx.lineTo(e.x + Math.cos(a) * len * 0.5 + Math.sin(i) * 3, e.y + Math.sin(a) * len * 0.5);
+          ctx.lineTo(e.x + Math.cos(a) * len, e.y + Math.sin(a) * len * 0.7);
+          ctx.stroke();
+        }
+      }
+    } else {
+      const rise = e.mode === 'erupt' ? 1 - Math.max(0, e.t) / 0.28 : e.mode === 'dive' ? Math.max(0, e.t) / 0.35 : 1;
+      const r = e.r * scale * (0.3 + 0.7 * rise), lift = UNIT * 0.35 * rise;
+      ctx.fillStyle = '#1a1214';                  // the hole
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + UNIT * 0.3, UNIT * 0.75, UNIT * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = white ? '#fff' : '#8a7f94';
+      ctx.beginPath(); ctx.arc(e.x, e.y - lift, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = white ? '#fff' : '#e9e2d0';  // teeth
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(e.x + i * r * 0.28 - r * 0.1, e.y - lift + r * 0.25);
+        ctx.lineTo(e.x + i * r * 0.28, e.y - lift + r * 0.55);
+        ctx.lineTo(e.x + i * r * 0.28 + r * 0.1, e.y - lift + r * 0.25);
+        ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawEnemyEyes(e) {
+  if (e.mode === 'dead') return;
+  const h = state.hero;
+  const look = Math.atan2(h.y - e.y, h.x - e.x);
   const ox = Math.cos(look) * UNIT * 0.1, oy = Math.sin(look) * UNIT * 0.08;
-  if (b.mode === 'sleep') {
-    ctx.fillStyle = 'rgba(255,60,40,.35)';
-    for (const s of [-1, 1]) ctx.fillRect(b.x + s * eyeDX - UNIT * 0.1, eyeY, UNIT * 0.2, UNIT * 0.04);
-  } else {
-    const r = UNIT * (b.mode === 'windup' ? 0.13 : 0.09);
-    ctx.fillStyle = b.mode === 'windup' ? '#ffd23a' : '#ff3b2a';
-    ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = UNIT * 0.6;
-    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(b.x + s * eyeDX + ox, eyeY + oy, r, 0, Math.PI * 2); ctx.fill(); }
+
+  if (e.type === 'burrower') {
+    if (e.mode === 'under' || e.mode === 'rumble' || e.mode === 'dive') return;
+    const lift = UNIT * 0.35;
+    ctx.fillStyle = '#7dff8a'; ctx.shadowColor = '#7dff8a'; ctx.shadowBlur = UNIT * 0.5;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.35 + ox, e.y - lift - e.r * 0.2 + oy, UNIT * 0.08, 0, Math.PI * 2); ctx.fill(); }
     ctx.shadowBlur = 0;
+  } else {
+    const eyeY = e.y - UNIT * 0.2, eyeDX = UNIT * 0.28;
+    if (e.mode === 'sleep') {
+      ctx.fillStyle = 'rgba(255,60,40,.35)';
+      for (const s of [-1, 1]) ctx.fillRect(e.x + s * eyeDX - UNIT * 0.1, eyeY, UNIT * 0.2, UNIT * 0.04);
+    } else {
+      const warn = e.mode === 'windup' || e.mode === 'aim';
+      const r = UNIT * (warn ? 0.13 : 0.09);
+      ctx.fillStyle = warn ? '#ffd23a' : (e.type === 'charger' ? '#ff8a2a' : '#ff3b2a');
+      ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = UNIT * 0.6;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * eyeDX + ox, eyeY + oy, r, 0, Math.PI * 2); ctx.fill(); }
+      ctx.shadowBlur = 0;
+    }
+  }
+  if (e.mode === 'stunned') {                     // little stars circling
+    ctx.fillStyle = '#ffe36a';
+    for (let i = 0; i < 3; i++) {
+      const a = state.time * 6 + i * 2.1;
+      ctx.fillRect(e.x + Math.cos(a) * UNIT * 0.5 - 2, e.y - e.r - UNIT * 0.4 + Math.sin(a) * UNIT * 0.15 - 2, 4, 4);
+    }
+  }
+}
+
+function drawFx() {
+  for (const p of state.fx) {
+    ctx.globalAlpha = Math.max(0, 1 - p.t / p.life);
+    ctx.fillStyle = p.color;
+    const s = Math.max(2, UNIT * 0.08);
+    ctx.fillRect(p.x - s / 2, p.y - s / 2, s, s);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawDrips() {
+  const h = state.hero, reach = UNIT * 6;
+  const lit = (x, y) => 0.3 + 0.7 * Math.max(0, 1 - Math.hypot(x - h.x, y - h.y) / reach);
+  ctx.lineCap = 'round';
+  for (const d of state.drops) {
+    const len = Math.min(UNIT * 0.9, d.vy * 0.03);
+    ctx.strokeStyle = `rgba(170,205,230,${0.8 * lit(d.x, d.y)})`;
+    ctx.lineWidth = Math.max(1, UNIT * 0.05);
+    ctx.beginPath(); ctx.moveTo(d.x, d.y - len); ctx.lineTo(d.x, d.y); ctx.stroke();
+  }
+  for (const s of state.splashes) {
+    const k = s.t / 0.7, a = (1 - k) * lit(s.x, s.y);
+    ctx.strokeStyle = `rgba(170,205,230,${0.7 * a})`;
+    ctx.lineWidth = Math.max(1, UNIT * 0.04);
+    ctx.beginPath(); ctx.ellipse(s.x, s.y, UNIT * 0.7 * k + 1, UNIT * 0.25 * k + 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = `rgba(190,220,240,${0.9 * a})`;
+    const r = Math.max(1, UNIT * 0.05);
+    for (const b of s.bits) if (b.y <= s.y + 1) ctx.fillRect(b.x - r / 2, b.y - r / 2, r, r);
   }
 }
 
