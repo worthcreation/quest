@@ -61,12 +61,12 @@ const lightCv = document.createElement('canvas');
 const lctx = lightCv.getContext('2d');
 const TOUCH = window.matchMedia('(pointer: coarse)').matches;
 // Keys are remappable from the menu. K holds the on-screen names used in hints.
-const DEFAULT_KEYS = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', act: 'f', jump: ' ', throw: 'd', dash: 'a', eat: 's', fire: 'e', menu: 'm' };
-const ACTION_NAMES = { up: 'Move up', down: 'Move down', left: 'Move left', right: 'Move right', act: 'Sword / grab / talk', jump: 'Jump', throw: 'Throw', dash: 'Dodge', eat: 'Eat', fire: 'Marsh fire', menu: 'Menu' };
+const DEFAULT_KEYS = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', act: 'f', jump: ' ', swap: 'r', dash: 'a', eat: 's', fire: 'e', menu: 'm' };
+const ACTION_NAMES = { up: 'Move up', down: 'Move down', left: 'Move left', right: 'Move right', act: 'Use weapon / grab / talk / throw', jump: 'Jump', swap: 'Swap weapon', dash: 'Dodge', eat: 'Eat', fire: 'Marsh fire', menu: 'Menu' };
 const K = {};
 function keyName(k) { return { ' ': 'Space', arrowup: '\u2191', arrowdown: '\u2193', arrowleft: '\u2190', arrowright: '\u2192', escape: 'Esc', enter: 'Enter' }[k] || (k.length === 1 ? k.toUpperCase() : k); }
 function refreshK() {
-  if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', throw: 'throw', dash: 'dodge', eat: 'eat', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
+  if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', swap: 'swap', dash: 'dodge', eat: 'eat', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
   else { const m = (state && state.settings && state.settings.keys) || DEFAULT_KEYS; for (const a in DEFAULT_KEYS) K[a] = keyName(m[a]); K.l = K.left; K.r = K.right; K.u = K.up; }
 }
 var state;
@@ -435,8 +435,8 @@ function genWorld() {
   // Ride a gust by jumping while it blows.
   const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 2 };
   const FIELD = [
-    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 0.6 }, { a: 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
-    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 0.8 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
+    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 0.6 }, { a: Math.PI + 0.3, s: 0.6 }, { a: 0.3, s: 0.6 }, { a: Math.PI - 0.3, s: 0.6 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
+    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 0.8 }, { a: Math.PI, s: 0.8 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
     { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 0.5 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
     { msg: 'Two ravines', gusts: [{ a: 0, s: 0.5 }, { a: 0, s: 1 }, { a: 0.3, s: 0.5 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
@@ -477,7 +477,7 @@ function genWorld() {
   });
 
   // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
-  const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
+  const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: Math.PI - 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }, { a: Math.PI + 0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
   foot.exits = [{ side: 'e', a: 0.4, b: 0.6, to: 'f1' }];
   foot.feat.plants = [];
   edgeWall(foot, 'n', 'boulder', 1.0, []); edgeWall(foot, 'w', 'boulder', 1.0, []); edgeWall(foot, 's', 'boulder', 1.0, []);
@@ -680,7 +680,7 @@ state = {
   cam: { z: 1, x: 0, y: 0, focus: null, pulses: [], ez: 1, ex: 0, ey: 0 },
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
-  settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false,
+  settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false, equip: 'sword',
   choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {},
 };
 state.hero = newHero();
@@ -696,7 +696,7 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (state.remap) { assignKey(state.remap, k); return; }
   state.keys[k] = true;
-  if (k === 'r' && state.won) newGame();
+  if (k === 'r' && state.won) { newGame(); return; }
   if ((k === state.settings.keys.menu || k === 'escape') && !state.won) toggleMenu();
 });
 function assignKey(action, k) {
@@ -718,7 +718,7 @@ function bindHold(el, key) {
 }
 bindHold(document.getElementById('act'), 'btnact');
 bindHold(document.getElementById('jump'), 'btnjump');
-bindHold(document.getElementById('throw'), 'btnthrow');
+bindHold(document.getElementById('throw'), 'btnswap');
 bindHold(document.getElementById('dash'), 'btndash');
 bindHold(document.getElementById('eat'), 'btneat');
 bindHold(document.getElementById('fire'), 'btnfire');
@@ -733,7 +733,7 @@ const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
   act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
   jump:  () => kk('jump') || !!state.keys.btnjump,
-  throw: () => kk('throw') || !!state.keys.btnthrow,
+  swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,
   eat:   () => kk('eat') || !!state.keys.btneat,
   fire:  () => kk('fire') || !!state.keys.btnfire,
@@ -761,7 +761,8 @@ function refreshButtons() {
   document.getElementById('dash').textContent = 'dodge';
   document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
-  document.getElementById('throw').classList.toggle('hidden', !inv.acorns && !state.carry);
+  document.getElementById('throw').classList.toggle('hidden', !(inv.sword && inv.acorns));
+  document.getElementById('throw').textContent = 'swap';
 }
 
 // =====================================================================
@@ -1552,10 +1553,12 @@ function updateWind(dt, sc) {
   const [wx, wy] = gustVec(), mag = Math.hypot(wx, wy) || 1;
   const n = state.gust * 4 * g.s;
   for (let i = 0; i < n; i++) if (Math.random() < 0.5) {
-    state.fx.push({ x: Math.random() * W - wx / mag * UNIT * 3, y: Math.random() * H * 0.3 - UNIT * 2, vx: wx / mag * L() * (0.5 + state.gust), vy: wy / mag * L() * (0.5 + state.gust), t: 0, life: 2.5, color: 'streak', size: UNIT * (0.8 + state.gust * 1.6) });
+    // streaks start on the upwind side, whichever way the gust blows
+    const up = wy < 0 ? H * (0.7 + Math.random() * 0.3) + UNIT * 2 : Math.random() * H * 0.3 - UNIT * 2;
+    state.fx.push({ x: Math.random() * W - wx / mag * UNIT * 3, y: up, vx: wx / mag * L() * (0.5 + state.gust), vy: wy / mag * L() * (0.5 + state.gust), t: 0, life: 2.5, color: 'streak', size: UNIT * (0.8 + state.gust * 1.6) });
   }
-  if (Math.random() < 0.05 + state.gust * 0.3) state.fx.push({ x: Math.random() * W, y: -10, vx: wx / mag * L() * 0.3, vy: wy / mag * L() * 0.3 + UNIT, t: 0, life: 4, color: 'leaf', spin: Math.random() * 6 });
-  for (const c of state.clouds) { c.x += L() * 0.02 * dt; if (c.x > W + c.r) c.x = -c.r; }
+  if (Math.random() < 0.05 + state.gust * 0.3) state.fx.push({ x: Math.random() * W, y: wy < 0 ? H + 10 : -10, vx: wx / mag * L() * 0.3, vy: wy / mag * L() * 0.3 + (wy < 0 ? -UNIT : UNIT), t: 0, life: 4, color: 'leaf', spin: Math.random() * 6 });
+  for (const c of state.clouds) { c.x += L() * 0.02 * dt * (wy < 0 ? -1 : 1); if (c.x > W + c.r) c.x = -c.r; if (c.x < -c.r) c.x = W + c.r; }
 }
 
 // =====================================================================
@@ -1627,7 +1630,7 @@ function freePullable(pl, x, y) {
   if (pl.kind === 'rock') {
     sfx.lift(); zoomPulse(x, y, 'pickup'); spark(x, y, '#6a4a2a', 12, 3);
     state.carry = 'rock'; refreshButtons();
-    say(`Heavy! Hold ${K.throw} and let go to throw it the way you face.`, x, y - UNIT * 1.6, { key: 'pull', life: 5, tip: 'throw-rock' });
+    say(`Heavy! It takes both hands. Tap ${K.act} to set it down ahead of you, or hold ${K.act} to aim and let go to throw.`, x, y - UNIT * 1.6, { key: 'pull', life: 5, tip: 'throw-rock' });
   } else startSwordCut();
 }
 
@@ -1746,7 +1749,11 @@ function collect(it) {
     case 'slime': inv.slime = 25; tell('Lurker slime coats your blade. Every hit stings harder until it dries.', 4, 'slime'); break;
     case 'wisp': heal(0.2); break;
     case 'warden': deepen('The Warden\'s heart. Your vigor runs deeper.'); break;
-    case 'acorn': inv.acorns = Math.min(30, inv.acorns + 1); tell(`Acorn. Hold ${K.throw} and let go to throw.`, 3, 'acorn'); break;
+    case 'acorn':
+      inv.acorns = Math.min(30, inv.acorns + 1);
+      if (!inv.sword) state.equip = 'acorn';
+      tell(inv.sword ? `Acorn. ${K.swap} swaps to acorns; then ${K.act} throws, and holding it throws harder.` : `Acorn. ${K.act} throws it; hold for a harder throw.`, 4, 'acorn');
+      break;
     case 'seed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
       inv.bag[it.type]++;
       const S = SEEDS[it.type];
@@ -1793,6 +1800,7 @@ function updateCombat(dt) {
     sfx.swoosh(); return;
   }
   if (!inv.sword || state.pull.grip || h.ride || state.carry) return;
+  if (state.equip === 'acorn' && inv.acorns > 0) return;          // acorns in hand: F throws instead
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
@@ -2473,7 +2481,7 @@ function interact() {
     if (pressedNow.act) advanceTalk();
     return true;
   }
-  if (state.carry && pressedNow.act) { dropRock(); return true; }
+  if (state.carry) return false;                    // hands full: F belongs to the rock
   const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
@@ -2562,11 +2570,22 @@ function interact() {
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper', swamp: 'pepper', cave: 'squash' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / SEEDS[p.seed || 'seed'].grow)) : 0;
-function dropRock() {
+function dropRock() {                               // set down a step ahead, the way you face
   const h = state.hero;
   state.carry = null;
-  state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.5, y: h.y + h.fy * UNIT * 0.5 + UNIT * 0.15 });
+  state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.15 });
   sfx.land(); refreshButtons();
+}
+function cycleEquip() {
+  const inv = state.inv, opts = [];
+  if (inv.sword) opts.push('sword');
+  if (inv.acorns > 0) opts.push('acorn');
+  if (opts.length < 2) { if (opts.length) state.equip = opts[0]; return; }
+  state.equip = opts[(opts.indexOf(state.equip) + 1) % opts.length];
+  state.active = state.equip;
+  sfx.tock();
+  const h = state.hero;
+  say(state.equip === 'sword' ? 'Sword' : `Acorns (${inv.acorns})`, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
 }
 
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
@@ -2673,15 +2692,25 @@ function updateAbilities(dt) {
       refreshButtons();
     }
   }
-  // throw: hold to aim, let go to throw the way you face
-  const canThrow = state.carry === 'rock' || inv.acorns > 0;
-  if (held.throw() && canThrow && !state.pull.grip) { state.aim.on = true; state.aim.t += dt; }
-  else if (state.aim.on) {
-    const k = throwPower();
-    state.aim.on = false; state.aim.t = 0;
-    if (state.carry === 'rock') { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
-    else if (inv.acorns > 0 && spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); state.active = 'acorn'; refreshButtons(); }
-  }
+  // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
+  if (pressedNow.swap && !state.carry) cycleEquip();
+  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
+  // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
+  // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
+  const rock = state.carry === 'rock', acorn = !state.carry && state.equip === 'acorn' && inv.acorns > 0;
+  if ((rock || acorn) && !state.pull.grip && !state.npcTalk) {
+    if (pressedNow.act && h.z <= 0 && !state.aim.on) { state.aim.on = true; state.aim.t = 0; }
+    if (state.aim.on) {
+      if (held.act()) state.aim.t += dt;
+      else {
+        const k = throwPower(), tap = state.aim.t < 0.18;
+        state.aim.on = false; state.aim.t = 0;
+        if (rock && tap) dropRock();
+        else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
+        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); state.active = 'acorn'; refreshButtons(); }
+      }
+    }
+  } else state.aim.on = false;
   // marsh fire: breathe out gas while held, spark it on release
   const fh = state.fireHold;
   if (inv.fire && held.fire() && !state.carry && !state.pull.grip) {
@@ -2754,10 +2783,11 @@ function updateShots(dt) {
       if (!(s.silk >= 2)) done = true;
     }
     if (!done) for (const o of state.solids) {        // high throws sail over low stones; thickets and logs stand tall
-      if (s.z > UNIT * (o.bar ? 3 : 0.7)) continue;
+      if (s.z > UNIT * (o.bar ? 3 : ['tree', 'deadtree'].includes(o.kind) ? 2.6 : 0.7)) continue;   // trees and thickets stand tall
       if (Math.hypot(o.x - s.x, o.y - s.y) > o.r + UNIT * 0.2) continue;
       if (rock && o.bar && o.kind === 'bramble') breakBarrier(o.bar, 'rock');
-      else if (!rock) { sfx.tock(); if (o.kind === 'tree') { state.treeShake[o.key] = state.time; sfx.rustle(); } }
+      else if (o.kind === 'tree') { state.treeShake[o.key] = state.time; sfx.rustle(); if (rock || rng() < 0.35) dropAcorn(o); if (!rock) sfx.tock(); }
+      else if (!rock) sfx.tock();
       s.x -= s.vx * dt * 2; s.y -= s.vy * dt * 2;
       done = true; break;
     }
@@ -3140,7 +3170,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 13, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 14, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3152,7 +3182,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 13) return false;
+  if (!d || !d.seed || d.v !== 14) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3178,7 +3208,7 @@ function inventoryLines() {
   if (Object.keys(foods).length || inv.acorns) {
     sec('Food and throwables');
     for (const [f, n] of Object.entries(foods)) L2.push([f, `${f[0].toUpperCase() + f.slice(1)} x${n}`, `${K.eat}: ${FOOD_INFO[f] || 'food'}.`]);
-    if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${K.throw}: hold and release to throw. Shake trees with your sword for more.`]);
+    if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${inv.sword ? K.swap + ' to equip, then ' : ''}${K.act} throws; hold longer to throw faster and harder. Slash, pound or throw a rock at trees for more.`]);
   }
   const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
   if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : 'Plant it; it grows the local food.']); }
@@ -3815,10 +3845,14 @@ function drawHero() {
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
   else if (state.inv.sword) drawSword(h, pw, ph, y, heroic);
 }
-function bladeColor() { return state.inv.slime > 0 ? '#9fcf5a' : '#c9c2b6'; }
+function bladeColor() { return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
   ctx.fillStyle = bladeColor(); ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
+  if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // rust blooms, fading with each honing
+    ctx.fillStyle = `rgba(164,104,63,${0.8 - state.inv.up.edge * 0.25})`;
+    ctx.fillRect(len * 0.25, -w / 2, len * 0.14, w * 0.6); ctx.fillRect(len * 0.6, -w * 0.1, len * 0.1, w * 0.6);
+  }
   if (state.inv.horn) { ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(len - UNIT * 0.1, -w * 1.1); ctx.quadraticCurveTo(len + UNIT * 0.35, -w * 0.6, len + UNIT * 0.3, w * 0.2); ctx.lineTo(len - UNIT * 0.1, w * 0.8); ctx.fill(); }
 }
 function drawHilt() { ctx.fillStyle = '#7a4a1c'; ctx.fillRect(-UNIT * 0.05, -UNIT * 0.18, UNIT * 0.08, UNIT * 0.36); ctx.fillRect(-UNIT * 0.26, -UNIT * 0.04, UNIT * 0.22, UNIT * 0.08); }
@@ -3841,7 +3875,7 @@ function drawSword(h, pw, ph, y, heroic) {
     ctx.restore(); return;
   }
   if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
-  if (!a && state.active === 'acorn' && state.inv.acorns > 0) {
+  if (!a && state.equip === 'acorn' && state.inv.acorns > 0) {
     // an acorn ready in the hand; the sword rides on the back
     ctx.save(); ctx.rotate(-0.8); ctx.translate(-UNIT * 0.1, -ph * 0.1); drawBlade(UNIT * 0.7, UNIT * 0.08); ctx.restore();
     const s = h.side;
@@ -4055,7 +4089,13 @@ function drawHUD() {
   if (inv.silk) slot('silk', 'I'.repeat(inv.silk));
   if (inv.fire) slot('fire', K.fire);
   if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `${K.eat} x${inv.food.length}`);
-  if (inv.acorns) slot('acorn', `${K.throw} x${inv.acorns}`);
+  if (inv.acorns) slot('acorn', `x${inv.acorns}`);
+  if (inv.sword && inv.acorns) {                                // what F does right now
+    ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2;
+    const idx = state.equip === 'acorn' ? 'acorn' : null;
+    ctx.font = `bold ${Math.round(s * 0.42)}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a';
+    ctx.fillText(`${K.swap}: ${state.equip === 'acorn' ? 'acorns' : 'sword'}`, x0, y + s * 2.1);
+  }
   const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
   if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
