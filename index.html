@@ -198,7 +198,8 @@ function genWorld() {
   camp.feat.fire = [0.5, 0.45];
   camp.feat.plots = [[0.2, 0.68], [0.28, 0.68], [0.36, 0.68], [0.2, 0.8], [0.28, 0.8], [0.36, 0.8]];
   camp.feat.pip = [0.58, 0.44];
-  camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'));
+  camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
+  camp.feat.bench = [0.64, 0.34];
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
   edgeWall(camp, 'n', 'tree', 1.1, [], 1.5, 'green');
   edgeWall(camp, 'w', 'tree', 1.1, [], 1.6, 'green');
@@ -466,9 +467,10 @@ const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
-function newInv() { return { xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+// seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
+function newInv() { return { bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
-const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25);
+const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
 
 state = {
   scene: 'camp', hero: null, inv: newInv(), pull: newPull(null),
@@ -482,6 +484,7 @@ state = {
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
   settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false,
+  choice: null, whirl: null, chain: { n: 0, t: -9 },
 };
 state.hero = newHero();
 
@@ -526,6 +529,7 @@ document.getElementById('menubtn').addEventListener('pointerdown', e => { e.prev
 canvas.addEventListener('pointerdown', e => {
   if (state.won) { newGame(); return; }
   if (state.menu) menuTap(e.clientX, e.clientY);
+  else if (state.choice) { const r = (state.choiceRects || []).find(o => e.clientX >= o.x && e.clientX <= o.x + o.w && e.clientY >= o.y && e.clientY <= o.y + o.h); if (r) { const c = state.choice; state.choice = null; c.cb(r.i); } }
 });
 
 const kk = a => !!state.keys[state.settings.keys[a]];
@@ -804,6 +808,10 @@ const sfx = {
   spin()   { noise(0, 0.4, { vol: 0.3, freq: 2200, q: 1, type: 'bandpass' }); [660, 880, 1100, 1320].forEach((f, i) => tone(f, i * 0.05, 0.3, { type: 'triangle', vol: 0.06 })); },
   grow()   { [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.5, { type: 'sine', vol: 0.08 })); },
   sizzle() { noise(0, 0.3, { vol: 0.1, freq: 3000, q: 1, type: 'bandpass' }); },
+  beat()   { tone(1320, 0, 0.06, { type: 'square', vol: 0.03 }); },
+  whirlUp(n) { tone(440 * Math.pow(1.06, n), 0, 0.2, { type: 'triangle', vol: 0.08, to: 660 * Math.pow(1.06, n) }); noise(0, 0.2, { vol: 0.2, freq: 2400, q: 1, type: 'bandpass' }); },
+  dizzy()  { tone(600, 0, 0.5, { type: 'sine', vol: 0.08, to: 250 }); },
+  forge()  { [1500, 1500, 2200].forEach((f, i) => { tone(f, i * 0.18, 0.3, { type: 'square', vol: 0.04, to: f * 0.9 }); noise(i * 0.18, 0.08, { vol: 0.2, freq: 5000, type: 'highpass' }); }); },
   talk()   { for (let i = 0; i < 3; i++) tone(300 + Math.random() * 200, i * 0.07, 0.06, { type: 'square', vol: 0.03 }); },
   croak()  { tone(120, 0, 0.35, { type: 'square', vol: 0.06, to: 85 }); tone(100, 0.25, 0.3, { type: 'square', vol: 0.05, to: 75 }); },
   victory() {
@@ -900,6 +908,7 @@ function breakBarrier(bar, how) {
   const rt = rtFor(state.scene);
   if (rt.flags[bar]) return;
   rt.flags[bar] = true;
+  if (bar === 'thicket') { const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
   state.shake = 0.3;
@@ -1039,6 +1048,7 @@ function update(dt) {
   if (!state.started) return;
   readPresses();
   if (state.menu) { updateMenu(); return; }
+  if (state.choice) { updateChoice(); return; }
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
@@ -1072,7 +1082,7 @@ function update(dt) {
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
-    let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1);
+    let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1);
     if (inPool(h.x, h.y)) spd *= 0.55;
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
@@ -1176,6 +1186,7 @@ function updateJump(dt) {
   if (h.ride || h.falling > 0) return;
   if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
     h.vz = UNIT * 9; h.z = 0.01; state.slam = false;
+    if (state.whirl) endWhirl('quiet');
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
   }
@@ -1337,7 +1348,8 @@ function freePullable(pl, x, y) {
 function hurtHero(dmg, fromX, fromY, opts = {}) {
   const h = state.hero;
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
-  h.vig -= dmg * 2; h.rest = state.time + 0.8; h.hurtT = state.time;
+  if (state.whirl) endWhirl('hit');
+  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard); h.rest = state.time + 0.8; h.hurtT = state.time;
   h.invuln = 1.2;
   sfx.hit();
   state.shake = 0.35;
@@ -1365,15 +1377,24 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
 // =====================================================================
 // Drop tables: rolled in order, first hit wins. Relics are rare and level up (to 3).
 const DROPS = {
-  stalker:  [['step', 0.12], ['scalp', 0.08], ['wisp', 0.3]],
-  diver:    [['silk', 0.12], ['wisp', 0.3]],
-  charger:  [['horn', 0.14], ['wisp', 0.35]],
-  glowworm: [['lumin', 0.3]],
-  rabbit:   [['carrot', 0.35], ['seed', 0.1]],
-  lurker:   [['slime', 0.25], ['wisp', 0.2]],
-  gremlin:  [['seed', 0.25], ['acorn', 0.3]],
+  stalker:  [['step', 0.12], ['scalp', 0.08], ['ironseed', 0.05], ['wisp', 0.3]],
+  diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
+  charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
+  glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
+  rabbit:   [['carrot', 0.35], ['thornseed', 0.08], ['seed', 0.1]],
+  lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
+  gremlin:  [['thornseed', 0.1], ['seed', 0.25], ['acorn', 0.3]],
   warden:   [['warden', 1]],
 };
+// Seeds, rarest last. Common seed grows the local food; the rest grow materials.
+const SEEDS = {
+  seed:      { name: 'Seed', rarity: 'Common', grow: 20, color: '#d9c28a' },
+  thornseed: { name: 'Thornseed', rarity: 'Uncommon', grow: 25, yields: ['thorn', 2], color: '#c98ad8' },
+  emberseed: { name: 'Emberseed', rarity: 'Rare', grow: 32, yields: ['ember', 2], color: '#ffa04a' },
+  ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
+  starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
+};
+const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
   silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
@@ -1423,7 +1444,7 @@ function collect(it) {
     }
     case 'lumin': inv.lumin = Math.min(90, inv.lumin + 45); tell('Luminescence. Your light burns brighter, and their flashes can\'t blind you.', 4, 'lumin'); break;
     case 'pepper': inv.food.push('pepper'); tell(`A bog pepper. ${K.eat} to eat: a little vigor, and your marsh fire burns bigger for a while.`, 4, 'pepper'); break;
-    case 'turnip': inv.food.push('turnip'); break;
+    case 'turnip': inv.food.push('turnip'); tell(`A turnip. ${K.eat} to eat. Turnips make you sturdier for good.`, 3.5, 'turnip'); break;
     case 'squash': inv.food.push('squash'); tell(`A squash. ${K.eat} to eat: a big meal.`, 3, 'squash'); break;
     case 'berries': inv.food.push('berries'); tell('Mountain berries. A small snack.', 3, 'berries'); break;
     case 'carrot':
@@ -1434,7 +1455,15 @@ function collect(it) {
     case 'wisp': heal(0.2); break;
     case 'warden': deepen('The Warden\'s heart. Your vigor runs deeper.'); break;
     case 'acorn': inv.acorns = Math.min(30, inv.acorns + 1); tell(`Acorn. Hold ${K.throw} and let go to throw.`, 3, 'acorn'); break;
-    case 'seed': inv.seeds++; tell('A seed the robin dropped. Plant it in the tilled soil at camp.', 4, 'seed'); break;
+    case 'seed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
+      inv.bag[it.type]++;
+      const S = SEEDS[it.type];
+      if (it.type === 'seed') tell('A seed. Plant it in any tilled soil.', 3.5, 'seed');
+      else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
+      if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
+      break;
+    }
+    case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++; say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
       inv.beans++;
       say(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 2.5 });
@@ -1464,19 +1493,23 @@ function updateCombat(dt) {
   // in the air, the sword comes down as a slam
   if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam) { state.slam = true; h.vz = -UNIT * 14; sfx.swoosh(); return; }
   if (state.slam) return;
+  if (state.whirl) { updateWhirl(dt); return; }
   if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
     if (state.atkCool <= 0) {
       state.slashBuf = -9;
       const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
-      const spin = chained && cb.level >= 2;           // the chain's finisher: a full circle
-      if (spin) { cb.step = null; cb.level = 0; }
-      else if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
-      state.atk = { type: 'slash', t: 0, dur: spin ? 0.38 : SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, spin };
-      state.atkCool = spin ? 0.5 : SLASH.cool;
-      if (spin) { sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.25; say('Whirlwind!', h.x, h.y - UNIT * 1.3, { key: 'combo', life: 1, color: '#ffe38a', size: 1.5 }); }
-      else sfx.swoosh();
+      if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
+      // three slashes in rhythm (not too quick, not too slow) wind up a whirlwind
+      const ch = state.chain, gap = state.time - ch.t;
+      ch.n = gap >= WHIRL.min && gap <= WHIRL.max ? ch.n + 1 : 1;
+      ch.t = state.time;
+      if (ch.n >= 3) { ch.n = 0; startWhirl(); return; }
+      if (ch.n === 2) say('\u2022 \u2022', h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.5, color: '#ffe38a' });
+      state.atk = { type: 'slash', t: 0, dur: SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0 };
+      state.atkCool = SLASH.cool;
+      sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
       scareFlock(h.x, h.y, 5);
       shakeTrees(h, 1);
@@ -1511,23 +1544,67 @@ function updateCombat(dt) {
     if (a.hit.has(e) || !hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     let hit;
-    if (a.spin) hit = d < UNIT * SLASH.reach * 1.3 + e.r;
-    else if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
+    if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
       hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
     }
     if (hit) {
       a.hit.add(e);
-      let dmg = a.spin ? 3 : a.type === 'slash' ? 1 : 2;
+      let dmg = a.type === 'slash' ? 1 + inv.up.edge * 0.5 : 2 + inv.up.temper * 0.5;
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg *= power();
-      damage(e, dmg, a.type, dx / d, dy / d, (a.spin || (a.type === 'stab' && a.level > 0)) && SMALL.includes(e.type));
+      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
     }
   }
   if (a.t >= a.dur) state.atk = null;
+}
+// ---------------- whirlwind: keep it spinning by striking on the beat ----------------
+const WHIRL = { min: 0.26, max: 0.62, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26 };
+function startWhirl() {
+  const h = state.hero;
+  state.atk = null; state.hold.on = false; state.hold.charged = false;
+  state.whirl = { t: 0, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
+  sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
+  say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
+  say(`Strike ${K.act} each time the ring closes to keep it spinning faster.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
+}
+function endWhirl(why) {
+  const w = state.whirl, h = state.hero;
+  if (!w) return;
+  state.whirl = null;
+  if (why === 'miss') { h.stun = 0.45; sfx.dizzy(); say('Dizzy...', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1 }); }
+  if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
+}
+function updateWhirl(dt) {
+  const w = state.whirl, h = state.hero, inv = state.inv;
+  const win = WHIRL.window + (inv.up.star ? 0.05 : 0);
+  w.t += dt;
+  w.ang += (Math.PI * 2 / Math.max(WHIRL.fastest, w.beat)) * 1.5 * dt;
+  if (w.ang - w.lastRev > Math.PI * 2) { w.lastRev = w.ang; w.hit.clear(); }
+  if (pressedNow.act) {
+    if (Math.abs(state.time - w.next) <= win) {
+      w.streak++;
+      if (!spend(0.35)) { endWhirl('miss'); return; }
+      w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
+      w.next = state.time + w.beat;
+      cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
+      say('x' + (w.streak + 1), h.x, h.y - UNIT * 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
+    } else { endWhirl('miss'); return; }
+  } else if (state.time > w.next + win) { endWhirl('miss'); return; }
+  const reach = UNIT * (1.9 + Math.min(0.8, w.streak * 0.06));
+  for (const e of state.enemies) {
+    if (w.hit.has(e) || !hittable(e)) continue;
+    const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
+    if (d > reach + e.r) continue;
+    w.hit.add(e);
+    damage(e, (1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0), 'slash', dx / d, dy / d, SMALL.includes(e.type));
+  }
+  if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
+  if (state.bird) scareBird(h.x, h.y, 5);
+  scareFlock(h.x, h.y, 5);
 }
 function slamDown() {
   const h = state.hero, inv = state.inv;
@@ -1597,7 +1674,7 @@ function hittable(e) {
   if (e.dead) return false;
   if (e.type === 'diver') return ['floor', 'stunned', 'ascend'].includes(e.mode);
   if (e.type === 'lurker') return ['bite', 'risen', 'stunned'].includes(e.mode);
-  if (e.type === 'warden') return e.mode !== 'dormant' && e.mode !== 'intro';
+  if (e.type === 'warden') return !['dormant', 'intro', 'talk'].includes(e.mode);
   return true;
 }
 function resumeMode(e) {
@@ -1774,6 +1851,7 @@ const AI = {
       if (e.t <= 0) {
         e.mode = 'crawl'; e.flashCool = rr(4, 6);
         sfx.flash(); spark(e.x, e.y, '#f4ffc0', 16, 5);
+        if (dist < UNIT * 5.5 && state.whirl) endWhirl('flash');
         if (dist < UNIT * 4.5) {
           if (state.inv.lumin > 0) say('Your own glow shrugs off the flash.', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5 });
           else { state.blind = 1.8; zoomPulse(e.x, e.y, 'hurt'); say('Blinded!', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5, color: '#ffffff' }); }
@@ -1865,14 +1943,9 @@ const AI = {
     const h = state.hero, fast = e.enraged ? 1.25 : 1;
     switch (e.mode) {
       case 'dormant':
-        if (h.x > W * 0.3) {
-          e.mode = 'intro'; e.t = 2.2;
-          sfx.roar(); state.shake = 0.7; zoomPulse(e.x, e.y, 'boss');
-          state.cam.focus = { z: 1.3, at: () => [e.x, e.y] };
-          say('The Falls Warden', e.x, e.y - e.r - UNIT * 0.8, { key: 'boss', life: 2.6, size: 1.5, color: '#9fd4ff' });
-          setMusic('boss');
-        }
+        if (h.x > W * 0.3 && !state.cut) { e.mode = 'talk'; startWardenTalk(e); }
         break;
+      case 'talk': ease(0, 0, 8); break;
       case 'intro': if (e.t <= 0) { state.cam.focus = null; e.mode = 'prowl'; e.t = 1.2; } break;
       case 'prowl':
         ease(dx / dist * 0.16 * fast * L(), dy / dist * 0.16 * fast * L(), 3);
@@ -1930,6 +2003,7 @@ function updateHazards(dt) {
         damage(e, z.edmg, 'fire', 0, 1); if (!e.dead) { e.mode = 'stunned'; e.t = e.type === 'warden' ? 2.2 : 1.4; }
         zoomPulse(e.x, e.y, 'kill');
       }
+      if (state.whirl && Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 1.6) endWhirl('knocked');
       if (Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 0.4 && h.z < UNIT * 0.5) {
         if (state.inv.scalp) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
         else hurtHero(1, z.x, z.y);
@@ -1940,7 +2014,7 @@ function updateHazards(dt) {
     const g = state.rings[i];
     g.t += dt;
     const rad = g.r0 + (g.r1 - g.r0) * (g.t / g.dur);
-    if (!g.hit && h.dashT <= 0 && h.z < UNIT * 0.3 && Math.abs(Math.hypot(h.x - g.x, h.y - g.y) - rad) < UNIT * 0.45) { g.hit = true; hurtHero(1, g.x, g.y); }
+    if (!g.hit && h.dashT <= 0 && h.z < UNIT * 0.3 && Math.abs(Math.hypot(h.x - g.x, h.y - g.y) - rad) < UNIT * 0.45) { g.hit = true; if (state.whirl) endWhirl('knocked'); hurtHero(1, g.x, g.y); }
     if (g.t >= g.dur) state.rings.splice(i, 1);
   }
 }
@@ -2062,16 +2136,33 @@ function interact() {
       return true;
     }
   }
+  if (sc.feat.bench) {
+    const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
+    if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
+    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
+  }
   if (sc.feat.plots) {
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0 })));
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (d2 > UNIT * 0.8) continue;
       const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
-      if (p.s === 0) say(state.inv.seeds ? `${K.act} to plant a seed` : 'Tilled soil. Birds drop seeds when they fly off; gremlins carry them too.', px * W, py * H - UNIT, { key: 'plot', tip: state.inv.seeds ? null : 'plot', life: 2.5 });
+      const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
+      if (p.s === 0) say(have.length ? `${K.act} to plant` : 'Tilled soil. Birds and gremlins drop seeds; rarer seeds come from tougher things.', px * W, py * H - UNIT, { key: 'plot', tip: have.length ? null : 'plot', life: 2.5 });
       if (!pressedNow.act) return false;
-      if (p.s === 0 && state.inv.seeds > 0) { state.inv.seeds--; p.s = 1; p.t = state.playTime; sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2); say(`Planted. ${CROP_NAME[crop]} grow here. Come back later.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); }
-      else if (p.s === 1 && stage >= 3) { p.s = 0; collect({ type: crop, x: px * W, y: py * H }); sfx.pop(); say(`A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+      const plant = kind => {
+        state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
+        sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
+        say(kind === 'seed' ? `Planted. ${CROP_NAME[crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
+      };
+      if (p.s === 0 && have.length === 1) plant(have[0]);
+      else if (p.s === 0 && have.length > 1) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`), i2 => plant(have[i2]));
+      else if (p.s === 1 && stage >= 3) {
+        const S = SEEDS[p.seed || 'seed'];
+        p.s = 0; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
+        if (S.yields) { for (let n = 0; n < S.yields[1]; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${S.yields[1]} ${MATS[S.yields[0]]}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
+        else { collect({ type: crop, x: px * W, y: py * H }); say(`A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+      }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
     }
@@ -2084,7 +2175,7 @@ function interact() {
 }
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
-const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / 20)) : 0;
+const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / SEEDS[p.seed || 'seed'].grow)) : 0;
 function dropRock() {
   const h = state.hero;
   state.carry = null;
@@ -2105,7 +2196,7 @@ function npcLines(n) {
     if (inv.tortoise) return { lines: ['Slow and steady, young one.'] };
     return {
       lines: ['Oh! A visitor. The rabbits don\'t usually let anyone this close.', 'They aren\'t guarding treasure, you know. They\'re guarding me.', 'Old habit, from a race a long, long time ago.', 'Here. Take some of my patience with you.'],
-      then: () => { inv.tortoise = true; sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); },
+      then: () => { inv.tortoise = true; sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); state.items.push({ type: 'starseed', x: state.hero.x + UNIT, y: state.hero.y + UNIT }); say('And a seed from the old race\'s finish line. Plant it somewhere sunny.', npcPos(n)[0], npcPos(n)[1] - UNIT * 1.5, { key: 'npc2', life: 4 }); },
     };
   }
   if (n.kind === 'pip') {
@@ -2158,6 +2249,7 @@ function updateAbilities(dt) {
       const food = inv.food.splice(i, 1)[0];
       sfx.munch(); zoomPulse(h.x, h.y, 'tap');
       heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15 }[food] || 0.2);
+      if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus++; sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
       if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
       refreshButtons();
     }
@@ -2190,7 +2282,7 @@ function updateAbilities(dt) {
   }
 }
 function breathe(from, mv) {
-  const face = Math.atan2(from.fy, from.fx), hot = state.inv.pepper > 0 ? 1.4 : 1;
+  const face = Math.atan2(from.fy, from.fx), hot = (state.inv.pepper > 0 ? 1.4 : 1) * (1 + state.inv.up.pouch * 0.15);
   const still = Math.hypot(from.vx, from.vy) < 0.04 * L();
   if (still) {
     // standing still, the cloud pools around you and swells the longer you breathe
@@ -2295,7 +2387,7 @@ function updateGas(dt) {
     for (const e of state.enemies) {
       if (!hittable(e) || (e.burnCool || 0) > state.time || Math.hypot(e.x - b.x, e.y - b.y) > b.r + e.r) continue;
       e.burnCool = state.time + 0.5;
-      e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2));   // it clings; more fire, longer panic
+      e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
       damage(e, 1, 'fire', 0, 0);
     }
     for (const s of state.solids) if (s.bar && s.kind !== 'bramble' && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
@@ -2390,9 +2482,12 @@ function updateCut(dt) {
     if (at(8)) say('That, friend, is marsh fire.', tx, ty - UNIT * 1.4, { key: 'npc', life: 3 });
     if (at(11)) {
       state.inv.fire = true; refreshButtons(); state.cam.focus = null; state.cut = null;
+      state.items.push({ type: 'emberseed', x: tx + UNIT * 1.2, y: ty + UNIT });
       showTitle('Marsh Fire', `hold ${K.fire} to breathe it out, let go to light it`, 'area', 3.5);
       say('Doesn\'t care much for wind, mind. The more vigor you\'ve got, the bigger the cloud.', tx, ty - UNIT * 1.4, { key: 'npc', life: 5 });
     }
+  } else if (c.type === 'warden') {
+    updateWardenTalk(c, dt);
   } else if (c.type === 'faint') {
     if (c.t > 1.3 && !c.moved) {
       c.moved = true;
@@ -2404,6 +2499,89 @@ function updateCut(dt) {
     }
     if (c.t > 2.2) state.cut = null;
   }
+}
+
+// =====================================================================
+// Choices: a question with options in a bubble; arrows pick, act confirms
+// =====================================================================
+function ask(text, x, y, options, cb) {
+  state.choice = { text, x, y, options, sel: 0, cb };
+  state.keys = {}; state.prevKeys = {};
+  sfx.talk();
+}
+function updateChoice() {
+  const c = state.choice, n = c.options.length;
+  if (pressedNow.left || pressedNow.up) { c.sel = (c.sel + n - 1) % n; sfx.tock(); }
+  if (pressedNow.right || pressedNow.down) { c.sel = (c.sel + 1) % n; sfx.tock(); }
+  if (pressedNow.act) { state.choice = null; c.cb(c.sel); }
+  else if (pressedNow.jump && !c.must) state.choice = null;
+}
+
+// ---------------- the Falls Warden has had a day ----------------
+function startWardenTalk(e) {
+  state.cut = { type: 'warden', t: 0, e, i: -1, wait: 0 };
+  sfx.roar(); state.shake = 0.7; zoomPulse(e.x, e.y, 'boss');
+  state.cam.focus = { z: 1.3, at: () => [e.x, e.y] };
+  say('The Falls Warden', e.x, e.y - e.r - UNIT * 1.8, { key: 'bosstitle', life: 3, size: 1.5, color: '#9fd4ff' });
+}
+const WARDEN_LINES = [
+  'WHO GOES THERE? ANOTHER ONE?!',
+  'First that crusty old TORTOISE comes by to lecture me about PATIENCE.',
+  'Then that bloated TOAD fills my whole waterfall with his... his FUMES!',
+  'I have had IT with swamp creatures. So tell me, and tell me true.',
+];
+function updateWardenTalk(c, dt) {
+  const e = c.e;
+  c.wait -= dt;
+  if (c.i < WARDEN_LINES.length && (c.wait <= 0 || pressedNow.act)) {
+    c.i++; c.wait = 2.6;
+    if (c.i < WARDEN_LINES.length) { sfx.growl(); state.shake = 0.15; say(WARDEN_LINES[c.i], e.x, e.y - e.r - UNIT * 0.6, { key: 'npc', life: 99, color: '#d8ecff' }); }
+    else {
+      unsay('npc');
+      ask('Do you like BEANS?', e.x, e.y - e.r - UNIT * 0.6, ['Yes', 'No'], sel => {
+        const line = sel === 0 ? 'THEN YOU\'LL SMELL JUST LIKE THAT OTHER SWAMP CREATURE! RRRAAAH!' : 'BAH! SKIN AND BONES! YOU NEED TO EAT MORE PROTEIN!';
+        say(line, e.x, e.y - e.r - UNIT * 0.6, { key: 'npc', life: 3, color: '#ffb0a0' });
+        sfx.roar(); state.shake = 0.8; zoomPulse(e.x, e.y, 'boss');
+        setMusic('boss');
+        state.cam.focus = null; state.cut = null;
+        const h = state.hero, dx = h.x - e.x, dy = h.y - e.y, d = Math.hypot(dx, dy) || 1;
+        e.mode = 'charge'; e.t = 1.1; e.vx = dx / d * 0.95 * L(); e.vy = dy / d * 0.95 * L();   // straight at you
+      });
+      state.choice.must = true;
+    }
+  }
+}
+
+// =====================================================================
+// The bench: materials from rare crops become upgrades
+// =====================================================================
+const FORGE = [
+  { k: 'edge', name: 'Honed edge', what: 'Slashes and whirlwinds cut deeper.', cost: [{ thorn: 2 }, { thorn: 4 }, { thorn: 6, ironwood: 1 }] },
+  { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
+  { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
+  { k: 'pouch', name: 'Ember pouch', what: 'Marsh fire spreads wider and burns longer.', cost: [{ ember: 2 }, { ember: 3 }, { ember: 4, starpetal: 1 }] },
+  { k: 'star', name: 'Star-petal hilt', what: 'Deeper vigor and a more forgiving whirlwind.', cost: [{ starpetal: 2 }], max: 1 },
+];
+const costText = c => Object.entries(c).map(([m, n]) => `${n} ${MATS[m]}`).join(', ');
+function forgeItems() {
+  const up = state.inv.up;
+  return FORGE.map(f => {
+    const lv = up[f.k], max = f.max || 3;
+    return lv >= max ? `${f.name} ${'I'.repeat(lv)}: done` : `${f.name} ${'I'.repeat(lv + 1)}: ${costText(f.cost[lv])}`;
+  }).concat('Back');
+}
+function forgeSelect(i) {
+  const m = state.menu;
+  if (i >= FORGE.length) { state.menu = null; return; }
+  const f = FORGE[i], inv = state.inv, lv = inv.up[f.k];
+  if (lv >= (f.max || 3)) { m.note = 'Already as good as it gets.'; return; }
+  const c = f.cost[lv];
+  if (!Object.entries(c).every(([k, n]) => inv.mats[k] >= n)) { m.note = `Need ${costText(c)}. ${f.what}`; return; }
+  for (const [k, n] of Object.entries(c)) inv.mats[k] -= n;
+  inv.up[f.k]++;
+  sfx.forge();
+  m.note = `${f.name} ${'I'.repeat(inv.up[f.k])}. ${f.what}`;
+  if (f.k === 'star') state.hero.vig = maxVig();
 }
 
 // =====================================================================
@@ -2424,6 +2602,7 @@ function menuItems() {
   if (m.view === 'main') return MAIN();
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
+  if (m.view === 'forge') return forgeItems();
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
@@ -2441,6 +2620,7 @@ function menuTap(x, y) {
 function menuSelect(i) {
   const m = state.menu;
   sfx.pickup();
+  if (m.view === 'forge') { forgeSelect(i); return; }
   if (m.view === 'main') {
     if (i === 0) state.menu = null;
     if (i === 1) Object.assign(m, { view: 'equip', sel: 0 });
@@ -2576,6 +2756,7 @@ function draw() {
   if (state.flash > 0) { ctx.fillStyle = `rgba(235,240,255,${state.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
   drawTexts();
+  drawChoice();
   drawTitle();
   if (state.menu) drawMenu();
 }
@@ -2618,7 +2799,35 @@ function drawScene(sc) {
   drawSwordGlint(sc);
   if (sc.id === 'camp' && state.night > 0) drawSky();
   if (state.aim.on) drawAim();
+  if (state.whirl) {                               // the beat: a ring closes in on you; strike as it touches
+    const w = state.whirl, h = state.hero, k = Math.max(0, (w.next - state.time) / w.beat);
+    const r = UNIT * (0.9 + k * 2.4);
+    ctx.strokeStyle = k < 0.25 ? 'rgba(255,230,120,.95)' : 'rgba(255,245,210,.55)'; ctx.lineWidth = k < 0.25 ? 4 : 2;
+    ctx.beginPath(); ctx.ellipse(h.x, h.y, r, r * 0.8, 0, 0, 6.28); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,245,210,.25)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(h.x, h.y, UNIT * 0.9, UNIT * 0.72, 0, 0, 6.28); ctx.stroke();
+  }
   if (state.blind > 0) { ctx.fillStyle = `rgba(250,255,235,${Math.min(0.92, state.blind / 1.8)})`; ctx.fillRect(-W, -H, W * 3, H * 3); }
+}
+function drawChoice() {
+  const c = state.choice; if (!c) return;
+  const fs = Math.round(Math.max(14, Math.min(19, UNIT * 0.52)));
+  ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const optW = c.options.map(o => ctx.measureText(o).width + 28), total = optW.reduce((a, b) => a + b, 0) + 10 * (c.options.length - 1);
+  const bw = Math.max(ctx.measureText(c.text).width + 30, total + 20), bh = fs * 3.6;
+  let [sx, sy] = toScreen(c.x, c.y); sy -= bh; if (sy < 50) sy = 50;
+  sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
+  ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(sx - bw / 2, sy, bw, bh);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(c.text, sx, sy + fs * 1.3);
+  let ox = sx - total / 2;
+  state.choiceRects = [];
+  c.options.forEach((o, i) => {
+    const sel = i === c.sel;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(ox, sy + fs * 1.9, optW[i], fs * 1.4);
+    ctx.fillStyle = sel ? '#ffe38a' : '#fdf6e3'; ctx.fillText(o, ox + optW[i] / 2, sy + fs * 2.95);
+    state.choiceRects.push({ x: ox, y: sy + fs * 1.9, w: optW[i], h: fs * 1.4, i });
+    ox += optW[i] + 10;
+  });
+  ctx.textAlign = 'left';
 }
 function drawVineWrap(x, y) {
   ctx.strokeStyle = '#3f7a32'; ctx.lineWidth = 3;
@@ -2661,7 +2870,14 @@ function drawGround(sc) {
         ctx.fillStyle = '#5a3f26'; ctx.fillRect(x - UNIT * 0.45, y - UNIT * 0.35, UNIT * 0.9, UNIT * 0.7);
         ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2;
         for (const o of [-0.2, 0, 0.2]) { ctx.beginPath(); ctx.moveTo(x - UNIT * 0.4, y + o * UNIT); ctx.lineTo(x + UNIT * 0.4, y + o * UNIT); ctx.stroke(); }
-        if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon('turnip', 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
+        const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
+        if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
+          ctx.save(); ctx.translate(x, y);
+          ctx.strokeStyle = S.color; ctx.lineWidth = 2;
+          for (let b = -1; b <= 1; b++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(b * UNIT * 0.2, -UNIT * 0.3 * st, b * UNIT * 0.25, -UNIT * 0.25 * st); ctx.stroke(); }
+          if (st >= 3) { drawItemIcon(S.yields[0], 0, -UNIT * 0.8, UNIT * 0.7); if (Math.sin(state.time * 3 + i) > 0.9) spark(x, y - UNIT * 0.8, S.color, 1, 1); }
+          ctx.restore();
+        } else if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
       });
     }
     if (f.stone) {                                 // the sinkhole
@@ -2832,6 +3048,13 @@ function drawSolid(s) {
       } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
       break;
     }
+    case 'bench':
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
+      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
+      ctx.fillRect(x - u * 0.6, y - u * 0.05, u * 0.12, u * 0.35); ctx.fillRect(x + u * 0.48, y - u * 0.05, u * 0.12, u * 0.35);
+      ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
+      ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
+      break;
     case 'tent':
       ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#b5864a'; ctx.beginPath(); ctx.moveTo(x - r, y + u * 0.5); ctx.lineTo(x, y - r * 0.9); ctx.lineTo(x + r, y + u * 0.5); ctx.fill();
@@ -2930,6 +3153,13 @@ function drawSword(h, pw, ph, y, heroic) {
     const tw = 0.5 + 0.5 * Math.sin(state.time * 20);
     ctx.fillStyle = `rgba(255,255,230,${0.6 + 0.4 * tw})`; ctx.translate(UNIT * 1.3, 0); ctx.rotate(state.time * 3);
     for (let i = 0; i < 4; i++) { ctx.rotate(Math.PI / 2); ctx.fillRect(0, -1.5, UNIT * 0.4 * (0.6 + tw * 0.4), 3); }
+    ctx.restore(); return;
+  }
+  if (state.whirl) {
+    const w = state.whirl, r = UNIT * (1.9 + Math.min(0.8, w.streak * 0.06));
+    ctx.strokeStyle = `rgba(255,${230 - Math.min(120, w.streak * 12)},150,.35)`; ctx.lineWidth = UNIT * 0.3;
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.75, w.ang - 2.2, w.ang); ctx.stroke();
+    ctx.rotate(w.ang); ctx.translate(UNIT * 0.45, 0); drawBlade(UNIT * 1.2, UNIT * 0.13); drawHilt();
     ctx.restore(); return;
   }
   if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
@@ -3127,14 +3357,15 @@ function drawHUD() {
   if (inv.fire) slot('fire', K.fire);
   if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `${K.eat} x${inv.food.length}`);
   if (inv.acorns) slot('acorn', `${K.throw} x${inv.acorns}`);
-  if (inv.seeds) slot('seed', `x${inv.seeds}`);
+  const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
+  if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
   if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
   if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   if (inv.slime > 0) slot('slime', null, inv.slime / 25);
-  const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && !e.dead);
+  const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
   if (boss) {
     const bw = Math.min(W * 0.6, 420), bx = (W - bw) / 2, by = H - 34;
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
@@ -3156,12 +3387,17 @@ function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
   ctx.font = `bold ${Math.round(fs * 1.6)}px Georgia, serif`; ctx.fillText(titles[m.view], W / 2, y); y += fs * 2;
   ctx.font = `${fs}px "Courier New", monospace`;
+  if (m.view === 'forge') {
+    ctx.textAlign = 'left'; ctx.fillStyle = '#d8d0c0';
+    ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${state.inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.8;
+    ctx.textAlign = 'center';
+  }
   if (m.view === 'equip') {
     const inv = state.inv;
     ctx.textAlign = 'left';
@@ -3175,7 +3411,12 @@ function drawMenu() {
       y += fs * 1.2 * (wrap(desc, pw - 50).length + 1) + 6;
     }
     ctx.fillStyle = '#d8d0c0';
-    ctx.fillText(`Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}   food ${inv.food.length}   acorns ${inv.acorns}   seeds ${inv.seeds}`, x + 10, y); y += lh;
+    ctx.fillText(`Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}   food ${inv.food.length}   acorns ${inv.acorns}`, x + 10, y); y += fs * 1.4;
+    ctx.fillText('Seeds: ' + Object.keys(SEEDS).map(k => `${SEEDS[k].name} ${inv.bag[k]}`).join(', '), x + 10, y); y += fs * 1.4;
+    ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.4;
+    const ups = FORGE.filter(f => inv.up[f.k]).map(f => `${f.name} ${'I'.repeat(inv.up[f.k])}`);
+    if (ups.length) { ctx.fillText('Upgrades: ' + ups.join(', '), x + 10, y); y += fs * 1.4; }
+    y += fs * 0.6;
     ctx.textAlign = 'center';
   }
   state.menuRects = [];
@@ -3296,6 +3537,20 @@ function drawItemIcon(type, x, y, s) {
       ctx.fillStyle = '#6b4520'; ctx.beginPath(); ctx.ellipse(0, -s * 0.12, s * 0.26, s * 0.14, 0, 0, 6.28); ctx.fill();
       ctx.fillRect(-s * 0.03, -s * 0.34, s * 0.06, s * 0.12);
       break;
+    case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
+      const c = SEEDS[type].color;
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.18, s * 0.26, 0.5, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+      if (type === 'starseed' || type === 'emberseed') { ctx.fillStyle = `rgba(255,255,230,${0.4 + 0.3 * Math.sin(state.time * 5)})`; ctx.beginPath(); ctx.arc(-s * 0.05, -s * 0.08, s * 0.06, 0, 6.28); ctx.fill(); }
+      break;
+    }
+    case 'thorn':
+      ctx.fillStyle = '#7a3a8a'; ctx.beginPath(); ctx.moveTo(-s * 0.3, s * 0.2); ctx.lineTo(s * 0.35, -s * 0.35); ctx.lineTo(0, s * 0.3); ctx.fill();
+      ctx.fillStyle = '#c98ad8'; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.15); ctx.lineTo(s * 0.3, -s * 0.3); ctx.lineTo(s * 0.05, s * 0.1); ctx.fill();
+      break;
+    case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
+    case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
+    case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
     case 'seed': ctx.fillStyle = '#d9c28a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.14, s * 0.22, 0.5, 0, 6.28); ctx.fill(); ctx.fillStyle = '#8a7040'; ctx.fillRect(-1, -s * 0.12, 2, s * 0.24); break;
     case 'bean':
       ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
