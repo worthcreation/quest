@@ -389,8 +389,8 @@ function genWorld() {
   gleampool.pools = [{ fx: 0.55, fy: 0.55, r: 5.2, still: true }];          // still water: wade in, fish, dive
   gleampool.feat.gleam = true;
   gleampool.feat.tunnel = [0.6, 0.6];
-  gleampool.feat.fishing = [[0.3, 0.45], [0.58, 0.3], [0.78, 0.66], [0.45, 0.78]];
-  gleampool.feat.fishing.forEach(p => claim(gleampool, p[0], p[1], 0.8));
+  // ripples are placed relative to the pool (angle, fraction of radius), so they stay in the water on any screen shape
+  gleampool.feat.fishing = [[3.4, 0.72], [4.7, 0.7], [0.3, 0.74], [1.9, 0.7]];
   claim(gleampool, 0.6, 0.6, 1.2);
   item(gleampool, { type: 'rod', fx: 0.2, fy: 0.3 });
   edgeWall(gleampool, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 'e', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 's', 'tree', 1.1, [], 1.5, 'green');
@@ -2807,17 +2807,23 @@ function riverSideQuest(sc, h) {
     }
   }
   if (f.fishing && inv.rod) {                        // cast at a ripple
-    for (const [fx, fy] of f.fishing) {
-      const d = Math.hypot(h.x - fx * W, h.y - fy * H);
+    for (const [x, y, i] of fishSpots(sc)) {
+      const d = Math.hypot(h.x - x, h.y - y);
       if (d > UNIT * 2.3) continue;
-      const key = sc.id + fx, cool = (state.fishCool[key] || 0) - state.playTime;
-      say(cool > 0 ? 'The fish here are wary. Try another ripple.' : `${K.act} to cast`, fx * W, fy * H - UNIT * 1.2, { key: 'fish', life: 1.5 });
-      if (pressedNow.act && cool <= 0) { startFishing(key, fx * W, fy * H); return true; }
+      const key = sc.id + i, cool = (state.fishCool[key] || 0) - state.playTime;
+      say(cool > 0 ? 'The fish here are wary. Try another ripple.' : `${K.act} to cast`, x, y - UNIT * 1.2, { key: 'fish', life: 1.5 });
+      if (pressedNow.act && cool <= 0) { startFishing(key, x, y); return true; }
     }
   } else if (f.fishing) {
-    for (const [fx, fy] of f.fishing) if (Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * 2.3) say('Fish rise here. If only you had a rod.', fx * W, fy * H - UNIT * 1.2, { key: 'fish', life: 2 });
+    for (const [x, y] of fishSpots(sc)) if (Math.hypot(h.x - x, h.y - y) < UNIT * 2.3) say('Fish rise here. If only you had a rod.', x, y - UNIT * 1.2, { key: 'fish', life: 2 });
   }
   return false;
+}
+// fishing spots in pixels, always inside the pool's water (the pool is drawn as an ellipse 0.72 as tall as wide)
+function fishSpots(sc) {
+  const p = state.pools[0];
+  if (!p || !sc.feat.fishing) return [];
+  return sc.feat.fishing.map(([a, k], i) => [p.x + Math.cos(a) * p.r * k, p.y + Math.sin(a) * p.r * 0.72 * k, i]);
 }
 function startRaftRide() {
   // push off from the jetty into the current, then follow the river downstream off the screen
@@ -3931,8 +3937,8 @@ function drawRiverQuest(sc) {
     ctx.fillStyle = '#4a3420'; ctx.fillRect(x - u * 0.95, y - u * 1.7, u * 0.14, u * 1.5); ctx.fillRect(x + u * 0.1, y - u * 1.9, u * 0.14, u * 1.5);
     if (inv.raft === 2) { ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(x - u * 1.6 + i * u * 0.3, y - u * 2.2, u * 0.26, u * 1.1); ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - u * 1.6, y - u * 1.9); ctx.lineTo(x - u * 0.45, y - u * 1.9); ctx.moveTo(x - u * 1.6, y - u * 1.4); ctx.lineTo(x - u * 0.45, y - u * 1.4); ctx.stroke(); }
   }
-  for (const [fx, fy] of f.fishing || []) {             // rising fish: rings that spread and fade
-    const x = fx * W, y = fy * H, k = (state.time * 0.7 + fx * 3) % 1;
+  for (const [x, y, i] of fishSpots(sc)) {             // rising fish: rings that spread and fade, always in the water
+    const k = (state.time * 0.7 + i * 0.37) % 1;
     ctx.strokeStyle = `rgba(230,245,250,${0.7 * (1 - k)})`; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.ellipse(x, y, u * (0.2 + k * 0.8), u * (0.12 + k * 0.5), 0, 0, 6.28); ctx.stroke();
   }
