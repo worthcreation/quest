@@ -373,31 +373,21 @@ function genWorld() {
   shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
   item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'seed', fx: 0.78, fy: 0.62 });
 
-  // ---------------- Downriver (raft only): the cascade drops into the gleaming pool ----------------
-  const cascade = add(newScene({ id: 'cascade', area: 'river', msg: 'The raft shatters at the foot of a roaring cascade', music: 'forest', amb: 'falls', floor: '#4b9a55' }));
-  cascade.river = { pts: [[0.42, -0.08], [0.46, 0.22], [0.56, 0.42], [0.75, 0.55], [1.08, 0.6]], w: 3.4, rough: true, fall: [0.46, 0.2] };
-  cascade.exits = [{ side: 's', a: 0.2, b: 0.6, to: 'gleampool' }];
-  cascade.heroStart = [0.2, 0.55];
-  edgeWall(cascade, 'w', 'boulder', 1.0, [], 1.5); edgeWall(cascade, 'n', 'boulder', 1.1, [], 1.4);
-  cascade.paths = [makePath([0.2, 0.55], [0.4, 0.97], 1)];
-  scatter(cascade, 6, 'boulder', 0.6, 1.2, 1.5, [], [0.1, 0.9, 0.2, 0.9]);
-  scatter(cascade, 4, 'tree', 0.9, 1.2, 1.5, [], [0.1, 0.9, 0.3, 0.9], 'green');
-  decoFlowers(cascade, 25);
+  // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
+  add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
 
-  const gleampool = add(newScene({ id: 'gleampool', area: 'river', msg: 'A great pool, still and gleaming', music: 'marsh', amb: 'none', floor: '#4f9d58' }));
-  gleampool.exits = [{ side: 'n', a: 0.2, b: 0.6, to: 'cascade' }];
-  gleampool.pools = [{ fx: 0.55, fy: 0.55, r: 5.2, still: true }];          // still water: wade in, fish, dive
+  // the gleaming pool: all water. Shallows you can wade, deep water in the middle, the falls pouring in from the east
+  const gleampool = add(newScene({ id: 'gleampool', area: 'river', msg: 'The foot of the falls. A great pool, gleaming.', music: 'marsh', amb: 'falls', floor: '#4f9ab0', speed: 0.3, accel: 6, heroStart: [0.74, 0.52] }));
+  gleampool.wade = true;
+  gleampool.deep = { fx: 0.45, fy: 0.52, rx: 0.2, ry: 0.27 };          // too deep to wade: you get pushed back to the shallows
+  gleampool.feat.falls = [0.93, 0.08, 0.92];                            // x, top, bottom of the waterfall along the east side
   gleampool.feat.gleam = true;
-  gleampool.feat.tunnel = [0.6, 0.6];
-  // ripples are placed relative to the pool (angle, fraction of radius), so they stay in the water on any screen shape
-  gleampool.feat.fishing = [[3.4, 0.72], [4.7, 0.7], [0.3, 0.74], [1.9, 0.7]];
-  claim(gleampool, 0.6, 0.6, 1.2);
-  item(gleampool, { type: 'rod', fx: 0.2, fy: 0.3 });
-  edgeWall(gleampool, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 'e', 'tree', 1.1, [], 1.5, 'green'); edgeWall(gleampool, 's', 'tree', 1.1, [], 1.5, 'green');
-  gleampool.paths = [makePath([0.4, 0.03], [0.2, 0.3], 0)];
-  scatter(gleampool, 6, 'tree', 0.9, 1.3, 1.5, [[0.55, 0.55, 7]], [0.08, 0.92, 0.1, 0.9], 'green');
-  addPlots(gleampool, 3, [0.12, 0.35, 0.6, 0.85]);
-  decoFlowers(gleampool, 40);
+  gleampool.feat.tunnel = [0.22, 0.52];                                 // at the deep water's west rim
+  gleampool.feat.fishing = [[0.4, 1.12], [1.6, 1.12], [2.7, 1.12], [4.4, 1.12], [5.4, 1.12]];   // angle, and a little outside the deep rim
+  claim(gleampool, 0.22, 0.52, 1.4);
+  item(gleampool, { type: 'rod', fx: 0.8, fy: 0.2 });
+  for (const side of ['n', 's', 'w']) edgeWall(gleampool, side, 'boulder', 1.0, [], 1.6);
+  for (let fy = 0.05; fy <= 0.95; fy += 0.05) gleampool.solids.push(solid(0.97, fy, 1.0, 'wall'));   // you can't walk up the falls
 
   const fallsbank = add(newScene({ id: 'fallsbank', area: 'river', msg: 'Out from behind the falls, the river runs east', music: 'marsh', amb: 'falls', floor: '#4a9452' }));
   fallsbank.river = { pts: [[-0.08, 0.2], [0.3, 0.16], [0.6, 0.2], [1.08, 0.12]], w: 3.0 };
@@ -1245,6 +1235,13 @@ function enterScene(id, fx, fy) {
     state.glimpse = { t: -0.4, x0: h.x + (tx - h.x) * 0.55, y0: h.y + (ty - h.y) * 0.55, x1: tx + (tx > W * 0.9 ? UNIT * 3 : 0), y1: ty, line: sc.feat.glimpse.line, x: 0, y: 0, down: sc.feat.stone && to === sc.feat.stone };
   }
   if (ARENA) arenaEnter(id);
+  state.rapids = id === 'rapids' ? newRapids() : null;
+  if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
+    state.overFalls = false;
+    for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
+    setTimeout(() => say('Over the falls! The raft breaks apart at the bottom. Two logs float free.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'falls', life: 4.5 }), 0);
+    state.shake = 0.6;
+  }
   const ti = THIEF_ROUTE.indexOf(id);
   if (state.inv.journal === 1 && ti === state.inv.thiefAt) {
     const last = ti === THIEF_ROUTE.length - 1;
@@ -1352,6 +1349,7 @@ function update(dt) {
   readPresses();
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
+  if (state.rapids) { updateFx(dt); updateRapids(dt); return; }
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
@@ -1407,8 +1405,8 @@ function update(dt) {
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
   updateJump(dt);
 
-  if ((sc.chasms || sc.river) && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
-    if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; h.fallKind = sc.river ? 'water' : 'pit'; if (sc.river) sfx.splash(); else sfx.plummet(); }
+  if ((sc.chasms || sc.river || sc.deep) && !h.ride && h.falling <= 0 && h.dashT <= 0 && h.z <= 0) {
+    if (isChasm(h.x, h.y)) { h.falling = 0.8; h.vx = 0; h.vy = 0; h.fallKind = sc.deep ? 'deep' : sc.river ? 'water' : 'pit'; if (sc.river || sc.deep) sfx.splash(); else sfx.plummet(); }
     else if (!isChasm(h.x, h.y, UNIT * 1.2)) h.safe = [h.x / W, h.y / H];
   }
 
@@ -1474,6 +1472,7 @@ const inPool = (x, y) => state.pools.some(p => Math.hypot(x - p.x, y - p.y) < p.
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
   if (sc.river && riverHit(sc, x, y, pad, pad === 0)) return true;
+  if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
   return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
@@ -1622,7 +1621,7 @@ function updateFall(dt) {
     h.falling = 0;
     const s = h.safe || [state.entry.fx, state.entry.fy];
     h.x = s[0] * W; h.y = s[1] * H; h.vx = 0; h.vy = 0;
-    say(h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
+    say(h.fallKind === 'deep' ? 'Too deep! You splash back to the shallows.' : h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
     hurtHero(1, h.x, h.y, { noKnock: true, force: true });
   }
 }
@@ -2864,9 +2863,74 @@ function riverSideQuest(sc, h) {
 }
 // fishing spots in pixels, always inside the pool's water (the pool is drawn as an ellipse 0.72 as tall as wide)
 function fishSpots(sc) {
+  if (sc.deep) { const d = sc.deep; return (sc.feat.fishing || []).map(([a, k], i) => [(d.fx + Math.cos(a) * d.rx * k) * W, (d.fy + Math.sin(a) * d.ry * k) * H, i]); }
   const p = state.pools[0];
   if (!p || !sc.feat.fishing) return [];
   return sc.feat.fishing.map(([a, k], i) => [p.x + Math.cos(a) * p.r * k, p.y + Math.sin(a) * p.r * 0.72 * k, i]);
+}
+// ---------------- the rapids: steer the raft between rocks, down to the falls ----------------
+const RAPIDS = { len: 11, speed: 0.36, raftY: 0.72, planks: 3, accel: 55, maxV: 12, pull: 0.25 };
+function rapidsChannel(D) {                           // centre and half-width of the river, in pixels, at distance D (screens)
+  const cx = W * (0.5 + 0.16 * Math.sin(D * 1.1) + 0.06 * Math.sin(D * 2.7 + 1));
+  const hw = Math.min(W * 0.45, Math.max(UNIT * 4.5, W * (0.27 - 0.05 * Math.sin(D * 0.8))));
+  return [Math.max(hw + UNIT, Math.min(W - hw - UNIT, cx)), hw];
+}
+function newRapids() {
+  const rocks = [];
+  for (let D = 1.5; D < RAPIDS.len - 0.9; D += 0.38 + Math.random() * 0.22) {
+    const [cx, hw] = rapidsChannel(D), n = Math.random() < 0.25 + D / RAPIDS.len * 0.5 ? 2 : 1, xs = [];
+    for (let k = 0; k < n; k++) {
+      for (let t = 0; t < 12; t++) {
+        const x = (cx - hw * 0.85 + Math.random() * hw * 1.7) / W;
+        if (xs.every(o => Math.abs(o - x) * W > UNIT * 5)) { xs.push(x); break; }     // always leave a raft-wide gap
+      }
+    }
+    for (const x of xs) rocks.push({ D, x, r: 0.55 + Math.random() * 0.35 });
+  }
+  return { dist: 0, x: W * 0.5, vx: 0, planks: RAPIDS.planks, invuln: 0, phase: 'ride', t: 0, rocks, said: false };
+}
+function updateRapids(dt) {
+  const r = state.rapids, h = state.hero, raftR = UNIT * 0.8, ry = H * RAPIDS.raftY;
+  r.t += dt; r.invuln -= dt;
+  if (!r.said) { r.said = true; say(`Steer with the arrows. ${K.u} paddles faster. Rocks break the raft.`, null, null, { key: 'rapids', life: 4 }); }
+  if (r.phase === 'ride') {
+    const pace = held.up() ? 1.25 : held.down() ? 0.7 : 1;
+    r.dist += RAPIDS.speed * pace * dt;
+    const steer = (held.right() ? 1 : 0) - (held.left() ? 1 : 0);
+    r.vx += steer * UNIT * RAPIDS.accel * dt;
+    const [cx, hw] = rapidsChannel(r.dist);
+    r.vx += (cx - r.x) * RAPIDS.pull * dt;            // the current pulls toward the middle
+    r.vx *= Math.exp(-(steer ? 1.2 : 3) * dt);
+    r.vx = Math.max(-UNIT * RAPIDS.maxV, Math.min(UNIT * RAPIDS.maxV, r.vx));
+    r.x += r.vx * dt;
+    if (Math.abs(r.x - cx) > hw - raftR) {              // scrape the bank: bounced back, no damage
+      r.x = cx + Math.sign(r.x - cx) * (hw - raftR); r.vx *= -0.35;
+      if (r.t - (r.scrape || 0) > 0.4) { r.scrape = r.t; sfx.tock(); state.shake = 0.15; }
+    }
+    for (const k of r.rocks) {
+      const y = ry - (k.D - r.dist) * H;
+      if (Math.abs(y - ry) > UNIT * 2) continue;
+      if (Math.hypot(r.x - k.x * W, ry - y) < k.r * UNIT + raftR && r.invuln <= 0) {
+        r.planks--; r.invuln = 1.2; r.vx = Math.sign(r.x - k.x * W || 1) * UNIT * 9;
+        state.shake = 0.5; sfx.crash(); spark(r.x, ry, '#9a7a4a', 10, 3); zoomPulse(r.x, ry, 'hurt');
+        say(r.planks > 0 ? `Crack! ${r.planks} plank${r.planks > 1 ? 's' : ''} left.` : 'The raft splinters!', null, null, { key: 'rapids', life: 1.8, color: '#ffb080' });
+        if (r.planks <= 0) { r.phase = 'wreck'; r.t = 0; }
+      }
+    }
+    if (r.dist >= RAPIDS.len) { r.phase = 'falls'; r.t = 0; sfx.whoosh(); say('The falls!', null, null, { key: 'rapids', life: 1.5, color: '#ffe38a' }); }
+    if (Math.random() < 0.5) state.fx.push({ x: r.x + (Math.random() - 0.5) * UNIT * 1.6, y: ry + UNIT * 0.6, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 3, t: 0, life: 0.5, color: 'rgba(220,240,250,.7)', size: UNIT * 0.15 });
+  } else if (r.phase === 'falls') {
+    r.dist += RAPIDS.speed * dt * 1.4;
+    if (r.t > 1.1 && !r.gone) { r.gone = true; state.overFalls = true; state.flash = 0.5; transitionTo('gleampool', 0.8, 0.5, true); }
+  } else if (r.phase === 'wreck' && r.t > 1.2 && !r.gone) {
+    r.gone = true;
+    const inv = state.inv; inv.raft = 1; inv.mats.driftwood += 2;
+    const [dx, dy] = WORLD.riverbank.feat.dock;
+    transitionTo('riverbank', dx + 1.2 * UNIT / W, dy + 1.4 * UNIT / H);
+    setTimeout(() => say('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'wreck', life: 5 }), 1100);
+  }
+  h.x = r.x; h.y = ry; h.z = Math.abs(Math.sin(r.t * 5)) * UNIT * 0.08; h.vx = r.vx; h.vy = 0; h.fx = 0; h.fy = -1;
+  updateCam(dt);
 }
 function startRaftRide() {
   // push off from the jetty into the current, then follow the river downstream off the screen
@@ -3296,7 +3360,7 @@ function updateCut(dt) {
     if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
     if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5 });
     if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a' }); }
-    if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('cascade'); }
+    if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
   } else if (c.type === 'faint') {
@@ -3598,7 +3662,7 @@ function loadSlot(i) {
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
-  enterScene(d.scene, d.hero.fx, d.hero.fy);
+  if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
   state.hero.vig = Math.min(maxVig(), d.hero.vig);
   sayHero('Game loaded.', { life: 1.5 });
   return true;
@@ -3650,7 +3714,7 @@ function loadSettings() {
 // =====================================================================
 // Forest birds: peck about, burst into the air when you come close
 // =====================================================================
-const FLOCK = { arena: 3, arena_n: 2, gleampool: 3, cascade: 2, fallsbank: 2, camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
+const FLOCK = { arena: 3, arena_n: 2, fallsbank: 2, camp: 2, start: 3, meadow: 2, meadow2: 2, riverbank: 3, farbank: 3, w1: 3, w2: 2, w3: 1, f1: 2 };
 function makeFlock(sc) {
   const n = FLOCK[sc.id] || 0, out = [];
   for (let i = 0; i < n; i++) out.push(landSpot({ mode: 'peck', t: Math.random() * 2, z: 0, c: ['#6b4a2a', '#5a5a62', '#8a6a3a'][i % 3] }));
@@ -3778,8 +3842,9 @@ function draw() {
 
 function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
+  if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
-  drawGround(sc);
+  if (sc.wade) drawWaterScreen(sc); else drawGround(sc);
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
@@ -4032,6 +4097,86 @@ function drawRiver(sc) {
     const x = d.fx * W, y = d.fy * H;
     ctx.strokeStyle = '#6b7a40'; ctx.lineWidth = 2;
     for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y); ctx.lineTo(x + i * 5 + Math.sin(state.time * 2 + i) * 2, y - UNIT * 0.6); ctx.stroke(); }
+  }
+}
+// the rapids: banks that bend past, white water streaking by, rocks with foam, the falls' lip at the end
+function drawRapids() {
+  const r = state.rapids || newRapids(), ry = H * RAPIDS.raftY;
+  ctx.fillStyle = '#2f6f8a'; ctx.fillRect(0, 0, W, H);
+  const Dat = y => r.dist + (ry - y) / H;
+  for (const side of [-1, 1]) {                       // the banks
+    ctx.beginPath(); ctx.moveTo(side < 0 ? 0 : W, -10);
+    for (let y = -10; y <= H + 10; y += 10) { const [cx, hw] = rapidsChannel(Dat(y)); ctx.lineTo(cx + side * (hw + UNIT * 0.4), y); }
+    ctx.lineTo(side < 0 ? 0 : W, H + 10); ctx.closePath(); ctx.fillStyle = '#6b5a3a'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(side < 0 ? 0 : W, -10);
+    for (let y = -10; y <= H + 10; y += 10) { const [cx, hw] = rapidsChannel(Dat(y)); ctx.lineTo(cx + side * (hw + UNIT * 1.0), y); }
+    ctx.lineTo(side < 0 ? 0 : W, H + 10); ctx.closePath(); ctx.fillStyle = '#4a7a44'; ctx.fill();
+  }
+  ctx.strokeStyle = 'rgba(220,240,250,.45)'; ctx.lineWidth = Math.max(1.5, UNIT * 0.06);   // white water rushing past
+  const i0 = Math.floor((r.dist - 0.4) / 0.04);           // streaks fixed to the water, so they stream past as you go
+  for (let i = i0; i < i0 + 45; i++) {
+    const D = i * 0.04, [cx, hw] = rapidsChannel(D), hsh = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1;
+    const x = cx + (hsh * 2 - 1) * hw * 0.9, y = ry - (D - r.dist) * H;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + UNIT * (0.6 + hsh * 0.8)); ctx.stroke();
+  }
+  for (const k of r.rocks) {
+    const y = ry - (k.D - r.dist) * H;
+    if (y < -UNIT * 2 || y > H + UNIT * 2) continue;
+    ctx.strokeStyle = 'rgba(235,245,255,.75)'; ctx.lineWidth = 3;          // foam on the upstream side
+    ctx.beginPath(); ctx.arc(k.x * W, y, k.r * UNIT * 1.25, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+    drawRock(k.x * W, y, k.r * UNIT);
+  }
+  const lip = ry - (RAPIDS.len - r.dist) * H;          // the edge of the falls
+  if (lip > -UNIT * 2) {
+    ctx.fillStyle = 'rgba(200,225,240,.35)'; ctx.fillRect(0, Math.max(0, lip - UNIT * 3), W, UNIT * 3);
+    ctx.fillStyle = '#f2f8fb'; ctx.fillRect(0, lip - UNIT * 0.3, W, UNIT * 0.6);
+  }
+  const h = state.hero, bob = Math.sin((r.t || 0) * 5) * 2;
+  if (r.phase !== 'wreck') {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(r.x - UNIT * 0.85, ry - UNIT * 0.35 + 4, UNIT * 1.7, UNIT * 1.1);
+    ctx.fillStyle = '#9a7a4a';
+    for (let i = 0; i < 4; i++) if (i < r.planks + 1) ctx.fillRect(r.x - UNIT * 0.8 + i * UNIT * 0.4, ry - UNIT * 0.35 + bob, UNIT * 0.36, UNIT * 1.05);
+    ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(r.x - UNIT * 0.8, ry - UNIT * 0.1 + bob); ctx.lineTo(r.x + UNIT * 0.8, ry - UNIT * 0.1 + bob); ctx.stroke();
+  }
+  if (r.invuln <= 0 || Math.floor(state.time * 12) % 2) drawHero();
+}
+function drawRapidsHud() {
+  const r = state.rapids;
+  if (!r || state.menu) return;
+  const w = Math.min(W * 0.6, 320), h = 30, x = (W - w) / 2, y = 10;
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  for (let i = 0; i < RAPIDS.planks; i++) { ctx.fillStyle = i < r.planks ? '#c9a46a' : 'rgba(255,255,255,.15)'; ctx.fillRect(x + 10 + i * 16, y + 7, 12, 16); }
+  const px = x + 70, pw = w - 84;
+  ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px, y + 12, pw, 6);
+  ctx.fillStyle = '#9fd4ff'; ctx.fillRect(px, y + 12, pw * Math.min(1, r.dist / RAPIDS.len), 6);
+  ctx.fillStyle = '#f2f8fb'; ctx.fillRect(px + pw - 3, y + 8, 3, 14);
+  state.arenaBanner = { x, y, w, h };
+}
+// the gleaming pool: shallows everywhere, a deep blue middle, the falls down the east side
+function drawWaterScreen(sc) {
+  const d = sc.deep, t = state.time;
+  ctx.fillStyle = '#5aa6b8'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(120,150,110,.35)';              // pebbly shallows near the rocks
+  for (let i = 0; i < 60; i++) { const x = (i * 0.618 % 1) * W, y = (i * 0.377 % 1) * H; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.25, UNIT * 0.15, 0, 0, 6.28); ctx.fill(); }
+  if (d) {
+    const g = ctx.createRadialGradient(d.fx * W, d.fy * H, 0, d.fx * W, d.fy * H, Math.max(d.rx * W, d.ry * H));
+    g.addColorStop(0, '#15415a'); g.addColorStop(0.75, '#1f5a74'); g.addColorStop(1, '#3a86a0');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(d.fx * W, d.fy * H, d.rx * W, d.ry * H, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,235,245,.35)'; ctx.lineWidth = 2; ctx.stroke();
+  }
+  for (let i = 0; i < 26; i++) {                        // gleams
+    const k = 0.5 + 0.5 * Math.sin(t * 2.5 + i * 1.7), x = ((i * 0.618 + 0.1) % 1) * W, y = ((i * 0.414 + 0.2) % 1) * H;
+    ctx.fillStyle = `rgba(255,255,240,${0.75 * k})`; ctx.fillRect(x - 1, y - 4 * k, 2, 8 * k); ctx.fillRect(x - 4 * k, y - 1, 8 * k, 2);
+  }
+  const f = sc.feat.falls;
+  if (f) {                                             // the waterfall pouring in from the east
+    const x0 = f[0] * W, y0 = f[1] * H, y1 = f[2] * H;
+    ctx.fillStyle = '#e8f3f8'; ctx.fillRect(x0, y0, W - x0, y1 - y0);
+    ctx.strokeStyle = 'rgba(150,190,210,.8)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 14; i++) { const xx = x0 + ((i * 0.618) % 1) * (W - x0), off = (t * UNIT * 9 + i * 23) % (y1 - y0); ctx.beginPath(); ctx.moveTo(xx, y0 + off); ctx.lineTo(xx, y0 + off + UNIT * 0.6); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(245,250,255,.75)';           // churn at the foot
+    for (let i = 0; i < 8; i++) { const yy = y0 + (i + 0.5) / 8 * (y1 - y0); ctx.beginPath(); ctx.arc(x0 - UNIT * 0.3, yy, UNIT * (0.5 + 0.2 * Math.sin(t * 6 + i)), 0, 6.28); ctx.fill(); }
+    if (Math.random() < 0.7) state.fx.push({ x: x0 - UNIT * 0.4, y: y0 + Math.random() * (y1 - y0), vx: -UNIT * (1 + Math.random() * 2), vy: -UNIT * Math.random(), t: 0, life: 0.8, color: 'rgba(235,245,255,.7)', size: UNIT * 0.18 });
   }
 }
 // Old Wick's shack: plank floor, log walls, a window, a lived-in mess
@@ -4632,6 +4777,7 @@ function drawHUD() {
   }
   state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y + s * 1.3 };   // text keeps out of here
   drawArenaBanner();
+  drawRapidsHud();
 }
 
 // ---------------- menu ----------------
@@ -4752,7 +4898,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 33';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 34';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -4793,14 +4939,14 @@ function drawMenu() {
 // =====================================================================
 const MAP_LAYOUT = {
   farbank: [2, 0],
-  cascade: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
+  rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
   foot: [3, 3], f1: [4, 3], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
   c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
   fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
   sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { cascade: 'Cascade', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const MAP_NAMES = { rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {
@@ -4836,7 +4982,7 @@ function renderOverview(seed) {
   ctx.setLineDash([14, 12]); ctx.strokeStyle = '#8a7aa8';
   { const [ax, ay] = center('w3'), [bx, by] = center('c1'); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
   ctx.strokeStyle = '#5ab0c8';                                                          // downriver by raft, and the tunnel
-  { const [ax, ay] = center('riverbank'), [bx, by] = center('cascade'); ctx.beginPath(); ctx.moveTo(ax, ay - 40); ctx.quadraticCurveTo((ax + bx) / 2, ay - 120, bx, by); ctx.stroke(); }
+  { const [ax, ay] = center('riverbank'), [bx, by] = center('rapids'); ctx.beginPath(); ctx.moveTo(ax, ay - 40); ctx.quadraticCurveTo((ax + bx) / 2, ay - 120, bx, by); ctx.stroke(); }
   { const [ax, ay] = center('gleampool'), [bx, by] = center('fallsbank'); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.quadraticCurveTo((ax + bx) / 2, by + 260, bx, by); ctx.stroke(); }
   ctx.setLineDash([]);
 
