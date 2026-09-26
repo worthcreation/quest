@@ -1563,13 +1563,15 @@ function updateCombat(dt) {
       state.slashBuf = -9;
       const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
       if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }
-      // three slashes in rhythm (not too quick, not too slow) wind up a whirlwind
+      // slashes in rhythm (not too quick, not too slow) swing wider each time, closing toward a full circle;
+      // the seventh becomes a spin
       const ch = state.chain, gap = state.time - ch.t;
       ch.n = gap >= WHIRL.min && gap <= WHIRL.max ? ch.n + 1 : 1;
       ch.t = state.time;
-      if (ch.n >= 3) { ch.n = 0; startWhirl(); return; }
-      if (ch.n === 2) say('\u2022 \u2022', h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.5, color: '#ffe38a' });
-      state.atk = { type: 'slash', t: 0, dur: SLASH.dur, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0 };
+      if (ch.n >= WHIRL.chain) { ch.n = 0; startWhirl(); return; }
+      if (ch.n >= 2) say('\u2022 '.repeat(ch.n).trim(), h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
+      const k = (ch.n - 1) / (WHIRL.chain - 1);
+      state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6), hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool;
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
@@ -1606,7 +1608,11 @@ function updateCombat(dt) {
     if (a.hit.has(e) || !hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     let hit;
-    if (a.type === 'slash') hit = d < UNIT * SLASH.reach + e.r && ((dx * a.ax + dy * a.ay) / d > 0.2 || d < e.r + UNIT * 0.6);
+    if (a.type === 'slash') {
+      const sw = a.sweep || 1.25, reach = UNIT * SLASH.reach * (1 + ((a.n || 1) - 1) * 0.04);
+      const ang = Math.acos(Math.max(-1, Math.min(1, (dx * a.ax + dy * a.ay) / d)));
+      hit = d < reach + e.r && (ang <= sw + 0.15 || d < e.r + UNIT * 0.6);
+    }
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
       hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
@@ -1624,20 +1630,20 @@ function updateCombat(dt) {
   if (a.t >= a.dur) state.atk = null;
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
-const WHIRL = { min: 0.26, max: 0.62, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26 };
+const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26, bonus: 0.5 };
 function startWhirl() {
   const h = state.hero;
   state.atk = null; state.hold.on = false; state.hold.charged = false;
-  state.whirl = { t: 0, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
+  state.whirl = { t: 0, end: state.time + WHIRL.length, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
   say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
-  say(`Strike ${K.act} each time the ring closes to keep it spinning faster.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
+  say(`It spins for 3 seconds. Strike ${K.act} as the ring closes to spin faster and longer.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
   const w = state.whirl, h = state.hero;
   if (!w) return;
   state.whirl = null;
-  if (why === 'miss') { h.stun = 0.45; sfx.dizzy(); say('Dizzy...', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1 }); }
+  if (why === 'done') { h.stun = 0.3; sfx.dizzy(); say('Whew.', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.8 }); }
   if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
 }
 function updateWhirl(dt) {
@@ -1646,23 +1652,26 @@ function updateWhirl(dt) {
   w.t += dt;
   w.ang += (Math.PI * 2 / Math.max(WHIRL.fastest, w.beat)) * 1.5 * dt;
   if (w.ang - w.lastRev > Math.PI * 2) { w.lastRev = w.ang; w.hit.clear(); }
-  if (pressedNow.act) {
-    if (Math.abs(state.time - w.next) <= win) {
+  if (state.time >= w.end) { endWhirl('done'); return; }
+  if (state.time > w.next + win) w.next += w.beat;       // missing a beat just means no bonus
+  if (pressedNow.act && Math.abs(state.time - w.next) <= win) {
+    {
       w.streak++;
-      if (!spend(0.35)) { endWhirl('miss'); return; }
+      if (!spend(0.35)) { endWhirl('done'); return; }
+      w.end += WHIRL.bonus;
       w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
       w.next = state.time + w.beat;
       cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
       say('x' + (w.streak + 1), h.x, h.y - UNIT * 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
-    } else { endWhirl('miss'); return; }
-  } else if (state.time > w.next + win) { endWhirl('miss'); return; }
+    }
+  }
   const reach = UNIT * (1.9 + Math.min(0.8, w.streak * 0.06));
   for (const e of state.enemies) {
     if (w.hit.has(e) || !hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, (1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0), 'slash', dx / d, dy / d, SMALL.includes(e.type));
+    damage(e, (1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0), 'slash', dx / d, dy / d, true);   // everything gets thrown back
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
   if (state.bird) scareBird(h.x, h.y, 5);
@@ -3324,10 +3333,11 @@ function drawSword(h, pw, ph, y, heroic) {
   }
   const ab = Math.atan2(a.ay, a.ax), p = Math.min(1, a.t / a.dur);
   if (a.type === 'slash') {
-    const sweep = a.spin ? Math.PI : 1.25, ang = ab - sweep + p * sweep * 2, lv = a.spin ? 3 : a.level || 0;
-    ctx.strokeStyle = lv ? `rgba(255,220,110,${0.8 * (1 - p)})` : `rgba(255,250,230,${0.55 * (1 - p)})`;
-    ctx.lineWidth = UNIT * 0.35;
-    ctx.beginPath(); ctx.arc(0, 0, UNIT * (a.spin ? 1.7 : 1.2), ab - sweep, ang); ctx.stroke();
+    const sweep = a.sweep || 1.25, ang = ab - sweep + p * sweep * 2, lv = a.level || 0, n = a.n || 1;
+    const warm = Math.min(1, (n - 1) / 5);
+    ctx.strokeStyle = lv || n > 1 ? `rgba(255,${Math.round(250 - warm * 80)},${Math.round(230 - warm * 150)},${(0.55 + warm * 0.3) * (1 - p)})` : `rgba(255,250,230,${0.55 * (1 - p)})`;
+    ctx.lineWidth = UNIT * (0.35 + warm * 0.15);
+    ctx.beginPath(); ctx.arc(0, 0, UNIT * 1.2 * (1 + (n - 1) * 0.04), ab - sweep, ang); ctx.stroke();
     ctx.rotate(ang); ctx.translate(UNIT * 0.5, 0);
     drawBlade(UNIT * 1.15, UNIT * 0.12); drawHilt();
   } else {
