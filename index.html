@@ -329,6 +329,8 @@ function genWorld() {
     if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
+    if (i === 2) sc.feat.glimpse = { to: edgePoint('e', (east[0] + east[1]) / 2), line: 'HELP! They\'re taking me deeper!' };
+    if (last) sc.feat.glimpse = { to: sc.feat.stone, line: 'Down the hole! Follow me!' };
     // sun dapples drift through the canopy; one always wanders over the sword
     sc.feat.dapples = Array.from({ length: 14 - i * 2 }, () => ({ fx: rng(), fy: rng(), r: rr(0.8, 2.0), ax: rr(0.02, 0.06), ay: rr(0.02, 0.05), sp: rr(0.08, 0.2), ph: rng() * 6 }));
     if (last) sc.feat.dapples.push({ fx: sc.feat.sword[0], fy: sc.feat.sword[1], r: 1.1, ax: 0.07, ay: 0.06, sp: 0.35, ph: 0, sword: true });
@@ -435,6 +437,7 @@ function genWorld() {
       sc.spawns.push({ type, fx: p[0], fy: p[1] });
     });
     for (let t = 0; t < 46; t++) sc.deco.push({ kind: 'pebble', fx: rng(), fy: rng(), s: rr(0.4, 1.6), shade: rng() });
+    if (i === 3 || i === 6) sc.feat.glimpse = { to: edgePoint('e', (east[0] + east[1]) / 2), line: i === 3 ? 'Still here! Keep coming!' : 'I can hear water! Hurry!' };
     west = east;
   }
 
@@ -470,6 +473,8 @@ function genWorld() {
       else sc.feat.beanSpots.push(q);
     }
     for (let t = 0; t < 50; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.2), ph: rng() * 6 });
+    if (i === 1) sc.feat.glimpse = { to: ePt, line: 'Ugh, it stinks out here!' };
+    if (i === 3) sc.feat.glimpse = { to: [0.99, 0.5], line: 'Past the reeds! They\'ve got a lair!' };
     west = east;
   }
 
@@ -536,6 +541,7 @@ function genWorld() {
       sc.spawns.push({ type, fx: q[0], fy: q[1] });
     });
     for (let t = 0; t < 40; t++) sc.deco.push({ kind: 'pebble', fx: rng(), fy: rng(), s: rr(0.4, 1.4), shade: rng() });
+    if (i === 2) sc.feat.glimpse = { to: ePt, line: 'Almost there! Don\'t stop!' };
     west = east;
   }
   return S;
@@ -561,7 +567,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
 
@@ -1058,6 +1064,13 @@ function enterScene(id, fx, fy) {
     showTitle(AREA_NAMES[sc.area], null, 'area', 2.8);
     zoomPulse(h.x, h.y, 'title');
   }
+  state.glimpse = null;
+  if (sc.feat.glimpse && !rt.flags.glimpse && !state.inv.pipSaved && state.started) {
+    // Pip, carried off by gremlins, always just ahead of you
+    rt.flags.glimpse = true;
+    const to = sc.feat.glimpse.to, tx = to[0] * W, ty = to[1] * H;
+    state.glimpse = { t: -0.4, x0: h.x + (tx - h.x) * 0.55, y0: h.y + (ty - h.y) * 0.55, x1: tx + (tx > W * 0.9 ? UNIT * 3 : 0), y1: ty, line: sc.feat.glimpse.line, x: 0, y: 0, down: sc.feat.stone && to === sc.feat.stone };
+  }
   if (id === 'start' && !rt.flags.ambush && state.started) startAmbush();
   else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
   state.seen[id] = true;
@@ -1159,6 +1172,7 @@ function update(dt) {
   if (sc.drips) updateDrips(dt);
   if (state.bird) updateBird(dt);
   if (state.flock.length) updateFlock(dt);
+  if (state.glimpse) updateGlimpse(dt);
   if (sc.gusts) updateWind(dt, sc);
   if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
   if (sc.amb === 'marsh') ambLevel(0.05);
@@ -1213,8 +1227,11 @@ function update(dt) {
   }
 }
 // tired heroes are slow heroes
-function weakness() { const r = state.hero.vig / maxVig(); return r < 0.35 ? 0.45 + r * 1.57 : 1; }
-function power() { return state.hero.vig / maxVig() < 0.25 ? 0.5 : 1; }
+// the emptier your vigor, the slower you move, the softer you hit, and the harder hits land.
+// At 1 vigor or less you're crawling, barely scratching things, and one good hit away from fainting.
+function weakness() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 0.35; return r < 0.35 ? 0.45 + r * 1.57 : 1; }
+function power() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 0.15; return r < 0.35 ? 0.3 + r * 2 : 1; }
+function frailty() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 2; return r < 0.25 ? 1 + (0.25 - r) * 4 : 1; }
 function spend(cost) {
   const h = state.hero;
   if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); say('Too tired...', h.x, h.y - UNIT, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
@@ -1264,6 +1281,15 @@ function isChasm(x, y, pad = 0) {
   return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
 }
 
+function updateGlimpse(dt) {
+  const g = state.glimpse;
+  g.t += dt;
+  const p = Math.max(0, Math.min(1, (g.t - 0.9) / 1.4)), e = p * p;
+  g.x = g.x0 + (g.x1 - g.x0) * e; g.y = g.y0 + (g.y1 - g.y0) * e;
+  if (g.t > 0 && !g.said) { g.said = true; say(g.line, g.x, g.y - UNIT * 1.4, { key: 'glimpse', life: 2.2, color: '#9fd4ff' }); sfx.cackle(); zoomPulse(g.x, g.y, 'parry'); }
+  if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => say('Gone again. Always one step behind.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'miss', life: 2.5 }), 0); }
+  if (g.t > 3) state.glimpse = null;
+}
 // ---------------- stone plates: weight on them lifts their log gate ----------------
 function updatePlates(quiet) {
   const plates = sceneDef().feat.plates;
@@ -1482,7 +1508,8 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
   const h = state.hero;
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
   if (state.whirl) endWhirl('hit');
-  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard); h.rest = state.time + 0.8; h.hurtT = state.time;
+  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty(); h.rest = state.time + 0.8; h.hurtT = state.time;
+  if (h.vig > 0 && h.vig <= 1) say('Exhausted...', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
   h.invuln = 1.2;
   sfx.hit();
   state.shake = 0.35;
@@ -1510,7 +1537,7 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
 // =====================================================================
 // Drop tables: rolled in order, first hit wins. Relics are rare and level up (to 3).
 const DROPS = {
-  stalker:  [['step', 0.12], ['scalp', 0.08], ['ironseed', 0.05], ['wisp', 0.3]],
+  stalker:  [['step', 0.1], ['ear', 0.25], ['hide', 0.15], ['ironseed', 0.05], ['wisp', 0.3]],
   diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
   charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
   glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
@@ -1527,7 +1554,7 @@ const SEEDS = {
   ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
   starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
 };
-const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal' };
+const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
   silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
@@ -1599,6 +1626,11 @@ function collect(it) {
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
     case 'spores7': inv.spores += 7; sfx.spores(); showTitle('Seven spores', inv.pipSaved ? 'enough for a long jump between mushrooms' : 'the Warden kept a stash. Someone might know what they\'re for', 'relic', 3.5); break;
+    case 'ear': case 'hide':
+      inv.mats[it.type]++;
+      say(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
+      if (!inv.recipes.cap && !inv.scalp) setTimeout(() => learnRecipe('cap', 'Those ears would make a fine cap, with a scrap of hide to hold them.'), 0);
+      break;
     case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++;
       if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
@@ -2452,9 +2484,10 @@ function updateAbilities(dt) {
   const canThrow = state.carry === 'rock' || inv.acorns > 0;
   if (held.throw() && canThrow && !state.pull.grip) { state.aim.on = true; state.aim.t += dt; }
   else if (state.aim.on) {
+    const k = throwPower();
     state.aim.on = false; state.aim.t = 0;
-    if (state.carry === 'rock') { state.carry = null; spend(1) || true; launch('rock'); refreshButtons(); }
-    else if (inv.acorns > 0 && spend(0.2)) { inv.acorns--; launch('acorn'); state.active = 'acorn'; refreshButtons(); }
+    if (state.carry === 'rock') { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
+    else if (inv.acorns > 0 && spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); state.active = 'acorn'; refreshButtons(); }
   }
   // marsh fire: breathe out gas while held, spark it on release
   const fh = state.fireHold;
@@ -2493,17 +2526,23 @@ function breathe(from, mv) {
 }
 
 // ---------------- projectiles (rocks, acorns) ----------------
-const ROCK_THROW = { sp: 7, z: 1.2, vz: 5, g: 14, start: 0.6 };
-function rockLanding(h) {
-  const T = ROCK_THROW, t = (T.vz + Math.sqrt(T.vz * T.vz + 2 * T.g * T.z)) / T.g;
-  const d = UNIT * (T.start + T.sp * t);
+// holding the throw winds it up over about a second: farther and harder the longer you hold
+const throwPower = () => Math.min(1, state.aim.t / 1.0);
+function throwParams(kind, k) {
+  if (kind === 'rock') return { sp: 3 + 4.5 * k, vz: 3 + 2.5 * k, z: 1.2, g: 14 };
+  const silk = state.inv.silk ? 1.35 : 1;
+  return { sp: (6 + 9 * k) * silk, vz: 1.5 + 1.5 * k, z: 0.6, g: state.inv.silk ? 5 : 8 };
+}
+function rockLanding(h, k = throwPower()) {
+  const T = throwParams('rock', k), t = (T.vz + Math.sqrt(T.vz * T.vz + 2 * T.g * T.z)) / T.g;
+  const d = UNIT * (0.6 + T.sp * t);
   return [h.x + h.fx * d, h.y + h.fy * d];
 }
-function launch(kind) {
+function launch(kind, k = 1) {
   const h = state.hero, rock = kind === 'rock';
-  const silk = rock ? 0 : state.inv.silk;
-  const sp = UNIT * (rock ? 7 : 13 * (silk ? 1.35 : 1));
-  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: h.fx * sp, vy: h.fy * sp, z: UNIT * (rock ? 1.2 : 0.6), vz: UNIT * (rock ? 5 : 2.5), g: UNIT * (rock ? 14 : silk ? 5 : 8), spin: 0, silk, hit: new Set() });
+  const silk = rock ? 0 : state.inv.silk, T = throwParams(kind, k);
+  const sp = UNIT * T.sp;
+  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: h.fx * sp, vy: h.fy * sp, z: UNIT * T.z, vz: UNIT * T.vz, g: UNIT * T.g, spin: 0, silk, hit: new Set(), force: 0.6 + 0.8 * k });
   sfx.throw();
   if (rock) state.shake = 0.1;
   if (state.bird) scareBird(h.x, h.y, 6);
@@ -2517,7 +2556,7 @@ function updateShots(dt) {
       if (done || s.hit.has(e) || !hittable(e) || Math.hypot(e.x - s.x, e.y - s.y) > e.r + UNIT * 0.3) continue;
       const d = Math.hypot(s.vx, s.vy) || 1;
       s.hit.add(e);
-      damage(e, (rock ? 3 : s.silk ? 2 : 1) * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d);
+      damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
     }
@@ -2769,6 +2808,7 @@ function updateWardenTalk(c, dt) {
 // =====================================================================
 // Recipes have to be found, discovered, or taught before the bench knows them.
 const FORGE = [
+  { k: 'cap', name: 'Stalker cap', what: 'Things falling from above bounce off your head.', how: 'Stitch two stalker ears onto a patch of stalker hide. Wear it proudly.', from: 'discovered when you first pick up a piece of a stalker', cost: [{ ear: 2, hide: 1 }], max: 1 },
   { k: 'edge', name: 'Honed edge', what: 'Slashes and whirlwinds cut deeper.', how: 'Draw thorns along the blade until it bites. More thorns, keener edge; the last pass needs ironwood to steady it.', from: 'discovered the first time you hold a thorn', cost: [{ thorn: 2 }, { thorn: 4 }, { thorn: 6, ironwood: 1 }] },
   { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', how: 'Wrap the blade in ironwood and quench it with thorn sap. Finish with an ember bloom.', from: 'a smith\'s scrap somewhere in the Dank Cave', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
   { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', how: 'Shape ironwood into a guard, layered like a shell. A star petal seals the last layer.', from: 'taught by someone slow and patient', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
@@ -2806,6 +2846,7 @@ function forgeSelect(i) {
   sfx.forge();
   m.note = `${f.name} ${'I'.repeat(inv.up[f.k])}. ${f.what}`;
   if (f.k === 'star') state.hero.vig = maxVig();
+  if (f.k === 'cap') { inv.scalp = true; showTitle('Stalker Cap', 'ears and all. what falls on your head bounces off', 'relic', 3.5); }
 }
 
 // =====================================================================
@@ -2892,7 +2933,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 8, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 9, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2904,7 +2945,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 8) return false;
+  if (!d || !d.seed || d.v !== 9) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -2921,7 +2962,7 @@ function inventoryLines() {
   const sec = t => L2.push([null, t, null]);
   sec('Gear');
   if (inv.sword) L2.push(['acorn', 'Rusted sword', `${K.act}: slash, or hold and release to stab and lunge. Stab, slash, stab to chain. Three slashes in rhythm start a whirlwind. In the air: slam.`]);
-  if (inv.scalp) L2.push(['scalp', 'Stalker scalp', 'Things that fall on your head bounce off.']);
+  if (inv.scalp) L2.push(['scalp', 'Stalker cap', 'Stitched from stalker ears and hide. Things that fall on your head bounce off.']);
   for (const k of ['step', 'silk', 'horn']) if (inv[k]) L2.push([k, `${RELICS[k].name} ${'I'.repeat(inv[k])}`, RELICS[k].levels.slice(0, inv[k]).join(' ')]);
   if (inv.fire) L2.push(['fire', 'Marsh fire', `${K.fire}: breathe gas. Standing still, it gathers around you and stays with you when lit. Moving, it trails behind. Let go to spark it.`]);
   if (inv.tortoise) L2.push(['wisp', 'Tortoise\'s patience', 'Your vigor runs deeper.']);
@@ -3058,6 +3099,14 @@ function drawScene(sc) {
   if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
+  const gl = state.glimpse;
+  if (gl && gl.t > 0 && !gl.gone) layer.push([gl.y, () => {
+    const shrink = gl.down ? 1 - Math.max(0, (gl.t - 1.9) / 0.4) : 1;
+    ctx.save(); ctx.translate(gl.x, gl.y); ctx.scale(shrink, shrink); ctx.translate(-gl.x, -gl.y);
+    drawPerson(gl.x, gl.y, '#7ab8e0', 0); drawVineWrap(gl.x, gl.y);
+    for (const s of [-1, 1]) drawEnemy({ type: 'gremlin', x: gl.x + s * UNIT * 0.8, y: gl.y + UNIT * 0.2, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 });
+    ctx.restore();
+  }]);
   layer.sort((a, b) => a[0] - b[0]).forEach(l => l[1]());
   drawShots();
   for (const b of state.flock) if (b.z > 0) drawSmallBird(b);
@@ -3532,7 +3581,9 @@ function drawShots() {
   }
 }
 function drawAim() {
-  const h = state.hero, len = UNIT * (state.carry === 'rock' ? 2.5 : 3.5);
+  const h = state.hero, k = throwPower(), len = UNIT * (state.carry === 'rock' ? 2.5 : 1.5 + 5 * k);
+  ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(h.x - UNIT * 0.5, h.y + UNIT * 0.7, UNIT, 4);
+  ctx.fillStyle = k >= 1 ? '#ffb347' : '#ffe38a'; ctx.fillRect(h.x - UNIT * 0.5, h.y + UNIT * 0.7, UNIT * k, 4);
   if (state.carry === 'rock') {                    // where the rock will come down
     const [lx, ly] = rockLanding(h), pulse = 0.5 + 0.5 * Math.sin(state.time * 8);
     ctx.strokeStyle = `rgba(255,230,140,${0.5 + pulse * 0.4})`; ctx.lineWidth = 2;
@@ -3698,7 +3749,7 @@ function drawHUD() {
 // ---------------- menu ----------------
 const EQUIP = [
   ['sword', 'Rusted sword', `${K.act}: tap to slash, hold and release to stab and lunge. Stab, slash, stab in rhythm to chain.`],
-  ['scalp', 'Stalker scalp', 'Things falling from above bounce off.'],
+  ['scalp', 'Stalker cap', 'Things falling from above bounce off.'],
   ['step', 'Stalker\'s Step', `${K.dash}: dodge. Last-moment dodges slow time.`],
   ['horn', 'Charger horn', 'Stabs hit harder and always knock back.'],
   ['silk', 'Diver silk', 'A sling for your acorns.'],
@@ -3876,6 +3927,14 @@ function drawItemIcon(type, x, y, s) {
     case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
     case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
     case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
+    case 'ear':
+      ctx.fillStyle = '#4a2218'; ctx.beginPath(); ctx.moveTo(-s * 0.25, s * 0.3); ctx.lineTo(0, -s * 0.4); ctx.lineTo(s * 0.25, s * 0.3); ctx.fill();
+      ctx.fillStyle = '#b8736a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, s * 0.25); ctx.lineTo(0, -s * 0.2); ctx.lineTo(s * 0.12, s * 0.25); ctx.fill();
+      break;
+    case 'hide':
+      ctx.fillStyle = '#5a2a1e'; ctx.beginPath(); ctx.moveTo(-s * 0.35, -s * 0.2); ctx.quadraticCurveTo(0, -s * 0.35, s * 0.35, -s * 0.15); ctx.lineTo(s * 0.3, s * 0.25); ctx.quadraticCurveTo(0, s * 0.35, -s * 0.3, s * 0.2); ctx.fill();
+      ctx.strokeStyle = '#7a3a2a'; ctx.lineWidth = 1; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.15, -s * 0.15); ctx.lineTo(i * s * 0.15 + s * 0.05, s * 0.15); ctx.stroke(); }
+      break;
     case 'spores': case 'spores7':
       for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
