@@ -3496,7 +3496,36 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map'];
+const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
+const SYSTEM_ITEMS = () => [
+  ['resume', 'Resume'],
+  ...(state.inv.pipSaved && !ARENA ? [['spores', `Spore travel (${state.inv.spores} spores)`]] : []),
+  ['save', 'Save game'],
+  ['load', 'Load game'],
+  ['keys', 'Controls'],
+  ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
+  ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
+  ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
+  ['new', 'New adventure'],
+];
+const SYS_TAB = () => PACK_TABS.indexOf('System');
+function toSystem(key) {                              // sub-screens return to the System tab, on the item they came from
+  const i = SYSTEM_ITEMS().findIndex(o => o[0] === key);
+  Object.assign(state.menu, { view: 'pack', tab: SYS_TAB(), focus: 'grid', sys: Math.max(0, i), note: '' });
+}
+function systemSelect(i) {
+  const m = state.menu, key = (SYSTEM_ITEMS()[i] || [])[0];
+  sfx.pickup();
+  if (key === 'resume') state.menu = null;
+  if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
+  if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
+  if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
+  if (key === 'sound') setSound(!soundOn);
+  if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
+  if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
+  if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
+  if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
+}
 const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
 function packCells(tab) {
@@ -3537,15 +3566,24 @@ function packCells(tab) {
   return cells;
 }
 function updatePack() {
-  const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' ? [] : packCells(tab), cols = m.cols || 5;
+  const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' ? [] : packCells(tab), cols = m.cols || 5;
   const mv = (d) => { m.sel = Math.max(0, Math.min(cells.length - 1, m.sel + d)); sfx.tock(); };
   if (m.focus === 'tabs') {
-    if (pressedNow.left) { m.tab = Math.max(-1, m.tab - 1); m.sel = 0; sfx.tock(); }
-    if (pressedNow.right) { m.tab = Math.min(PACK_TABS.length - 1, m.tab + 1); m.sel = 0; sfx.tock(); }
+    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
+    if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
     if (pressedNow.act || pressedNow.down) {
-      if (m.tab < 0) { Object.assign(m, { view: 'main', sel: mainIndex('pack') }); sfx.pickup(); return; }
-      if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
+      if (tab === 'System') { m.focus = 'grid'; m.sys = m.sys || 0; sfx.tock(); }
+      else if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
     }
+    return;
+  }
+  if (tab === 'System') {                              // a plain list
+    const n = SYSTEM_ITEMS().length;
+    m.sys = m.sys || 0;
+    if (pressedNow.up) { if (m.sys === 0) m.focus = 'tabs'; else m.sys--; sfx.tock(); }
+    if (pressedNow.down) { m.sys = Math.min(n - 1, m.sys + 1); sfx.tock(); }
+    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.act) systemSelect(m.sys);
     return;
   }
   const cell = cells[m.sel];
@@ -3569,8 +3607,8 @@ const mainIndex = key => MAIN_ITEMS().findIndex(o => o[0] === key);
 const ACTIONS = Object.keys(DEFAULT_KEYS);
 function toggleMenu() {
   if (!state.started) return;
-  if (state.menu) { state.menu = null; sfx.tock(); return; }
-  state.menu = { view: 'main', sel: 0, note: '' };
+  if (state.menu) { if (state.menu.view === 'pack') state.lastTab = state.menu.tab; state.menu = null; sfx.tock(); return; }
+  state.menu = { view: 'pack', tab: state.lastTab || 0, sel: 0, focus: 'grid', act: 0, sys: 0, note: '' };
   state.keys = {}; state.prevKeys = {};
   sfx.tock();
 }
@@ -3622,22 +3660,22 @@ function menuSelect(i) {
     if (key === 'back') Object.assign(m, { view: 'main', sel: mainIndex('settings') });
   } else if (m.view === 'spores') {
     const opts = travelOptions(state.scene);
-    if (i >= opts.length) { Object.assign(m, { view: 'main', sel: mainIndex('spores') }); return; }
+    if (i >= opts.length) { toSystem('spores'); return; }
     if (state.inv.spores < opts[i].cost) { m.note = `Not enough spores: ${state.inv.spores}/${opts[i].cost}. Found mushrooms grow more over time.`; return; }
     state.menu = null;
     sporeJump(opts[i].id, opts[i].cost);
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
-    else Object.assign(m, { view: 'settings', sel: setIndex('keys') });
+    else toSystem('keys');
   } else if (m.view === 'save' || m.view === 'load') {
-    if (i >= SLOTS) { Object.assign(m, { view: 'main', sel: mainIndex(m.view) }); return; }
+    if (i >= SLOTS) { toSystem(m.view); return; }
     if (m.view === 'save') m.note = saveSlot(i) ? `Saved to slot ${i + 1}` : 'Could not save on this device';
     else if (slotInfo(i) === 'empty') m.note = 'That slot is empty';
     else if (loadSlot(i)) state.menu = null;
     else m.note = 'That save could not be read';
   } else if (m.view === 'new') {
-    if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: mainIndex('new') });
+    if (i === 0) { state.menu = null; newGame(); } else toSystem('new');
   } else Object.assign(m, { view: 'main', sel: 0 });
 }
 
@@ -4812,8 +4850,8 @@ function drawPack(m, x, y, pw, fs) {
   const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
   const rr_ = (x0, y0, w0, h0, r0) => { ctx.beginPath(); ctx.moveTo(x0 + r0, y0); ctx.arcTo(x0 + w0, y0, x0 + w0, y0 + h0, r0); ctx.arcTo(x0 + w0, y0 + h0, x0, y0 + h0, r0); ctx.arcTo(x0, y0 + h0, x0, y0, r0); ctx.arcTo(x0, y0, x0 + w0, y0, r0); ctx.closePath(); };
   const pwide = Math.min(W - 24, 680), px = (W - pwide) / 2;
-  // tabs, with a back chip first
-  const chips = [['\u2039', -1], ...PACK_TABS.map((t, i) => [t, i])];
+  // tabs
+  const chips = PACK_TABS.map((t, i) => [t, i]);
   ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.textAlign = 'center';
   const cw = pwide / chips.length, th = fs * 1.9;
   chips.forEach(([label, i], k) => {
@@ -4821,10 +4859,25 @@ function drawPack(m, x, y, pw, fs) {
     ctx.fillStyle = on ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.06)'; rr_(cx + 2, y - th * 0.75, cw - 4, th, 6); ctx.fill();
     if (foc) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.fillStyle = on ? '#ffe38a' : '#d8d0c0'; ctx.fillText(label, cx + cw / 2, y + fs * 0.1);
-    hits.push({ x: cx, y: y - th * 0.75, w: cw, h: th, fn: () => { if (i < 0) { Object.assign(m, { view: 'main', sel: mainIndex('pack') }); return; } m.tab = i; m.sel = 0; m.focus = 'grid'; } });
+    hits.push({ x: cx, y: y - th * 0.75, w: cw, h: th, fn: () => { m.tab = i; m.sel = 0; m.focus = 'grid'; } });
   });
   y += th * 0.9;
   const areaH = H - y - fs * 7.5;
+  if (tab === 'System') {                              // save, load, controls and settings as a plain list
+    const items = SYSTEM_ITEMS(), lw = Math.min(pwide, 420), lx = (W - lw) / 2, rh = Math.max(fs * 2, 38);
+    ctx.font = `${fs}px "Courier New", monospace`;
+    items.forEach(([key, label], i) => {
+      const yy = y + i * (rh + 4), on = m.focus !== 'tabs' && (m.sys || 0) === i;
+      ctx.fillStyle = on ? 'rgba(242,201,76,.22)' : 'rgba(255,255,255,.06)'; rr_(lx, yy, lw, rh, 8); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+      ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.textAlign = 'center'; ctx.fillText(label, W / 2, yy + rh * 0.66);
+      hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.sys = i; m.focus = 'grid'; systemSelect(i); } });
+    });
+    if (m.note) { ctx.fillStyle = '#b8f28a'; ctx.fillText(m.note, W / 2, y + items.length * (rh + 4) + fs * 1.4); }
+    ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+    ctx.fillText(TOUCH ? 'tap to choose' : `\u2191 \u2193 to move \u00b7 ${K.act} to choose \u00b7 ${K.menu} closes`, W / 2, H - fs * 0.8);
+    return;
+  }
   if (tab === 'Map') {
     if (state.inv.journal >= 3) {
       const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
@@ -4898,7 +4951,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 34';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 35';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
@@ -5061,6 +5114,9 @@ function genArena() {
   edgeWall(hub, 'w', 'boulder', 1.1, gap, 1.5); edgeWall(hub, 'e', 'boulder', 1.1, gap, 1.5);
   for (const [fx, fy] of [[0.18, 0.2], [0.82, 0.2], [0.18, 0.8], [0.82, 0.8]]) { hub.solids.push(solid(fx, fy, 1.1, 'boulder'), solid(fx + (fx < 0.5 ? 0.05 : -0.05), fy + (fy < 0.5 ? 0.08 : -0.08), 1.0, 'tree', 'green')); }
   hub.feat.signs = [[0.5, 0.16, 'Forest river'], [0.1, 0.36, 'Cave'], [0.5, 0.84, 'Swamp'], [0.9, 0.36, 'Windy field']];
+  hub.feat.bench = [0.68, 0.32]; hub.solids.push(solid(0.68, 0.32, 0.6, 'bench')); claim(hub, 0.68, 0.32, 1.6);
+  hub.feat.plots = []; hub.feat.crops = [];
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const q = [0.33 + c * 0.045, 0.64 + r * 0.09]; hub.feat.plots.push(q); hub.feat.crops.push(['turnip', 'carrot', 'squash', 'pepper'][c]); claim(hub, q[0], q[1], 0.7); }
   hub.paths = [makePath([0.5, 0.03], [0.5, 0.97], 0), makePath([0.03, 0.5], [0.97, 0.5], 0)];
   decoFlowers(hub, 50);
   // north: a river along the top, trees down the sides
@@ -5090,11 +5146,17 @@ function genArena() {
   scatter(e, 4, 'boulder', 0.7, 1.2, 2, [[0.5, 0.5, 5]], [0.15, 0.85, 0.15, 0.85]);
   return S;
 }
-// a proper kit for testing: sword, acorns, fire, the relics at level I, food
+// a proper kit for testing: sword, acorns, fire, the relics at level I, food; seeds, materials and every recipe once
 function arenaKit() {
   const inv = state.inv;
-  Object.assign(inv, { sword: true, acorns: 30, fire: true, step: 1, silk: 1, horn: 1, depth: 1, pipSaved: true });
-  inv.food = ['squash', 'squash', 'carrot', 'carrot', 'fish', 'turnip'];
+  Object.assign(inv, { sword: true, acorns: 30, fire: true, step: inv.step || 1, silk: inv.silk || 1, horn: inv.horn || 1, depth: 1, pipSaved: true });
+  if (!inv.arenaStocked) {
+    inv.arenaStocked = true;
+    for (const f of FORGE) inv.recipes[f.k] = true;
+    Object.assign(inv.bag, { seed: 6, thornseed: 3, emberseed: 2, ironseed: 2, starseed: 1 });
+    Object.assign(inv.mats, { thorn: 4, ember: 2, ironwood: 3, starpetal: 1, ear: 2, hide: 1 });
+  }
+  while (inv.food.length < 6) inv.food.push(['squash', 'carrot', 'fish', 'turnip'][inv.food.length % 4]);
   state.equip = 'sword';
   state.hero.vig = maxVig();
   refreshButtons();
