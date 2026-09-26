@@ -379,6 +379,7 @@ function genWorld() {
     const wPt = west ? edgePoint('w', (west[0] + west[1]) / 2) : [0.06, 0.5];
     sc.paths = [makePath(wPt, boss ? [0.8, 0.5] : edgePoint('e', (east[0] + east[1]) / 2), 2)];
     if (i === 4) addShroom(sc);
+    if (i === 3) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, []); sc.initItems.push({ type: 'recipe_temper', fx: q[0], fy: q[1] }); }
     if (!boss) scatter(sc, 1 + i, 'stalagmite', 0.8, 1.2, 2.2, sc.feat.shroom ? [[...sc.feat.shroom, 3]] : [], [0.15, 0.85, 0.15, 0.85]);
     else {
       sc.feat.falls = true;
@@ -452,7 +453,7 @@ function genWorld() {
     const lurk = Math.min(sc.pools.length, i + 1);
     for (let l = 0; l < lurk; l++) sc.spawns.push({ type: 'lurker', fx: sc.pools[l].fx, fy: sc.pools[l].fy, pool: l });
     for (const type of [['glowworm'], ['gremlin', 'glowworm'], ['gremlin', 'gremlin', 'glowworm']][i - 1]) { const q = freeSpot(sc, [0.2, 0.8, 0.3, 0.8], 1.2, [[...nPt, 5]]); sc.spawns.push({ type, fx: q[0], fy: q[1] }); }
-    if (last) sc.initItems.push({ type: 'starseed', fx: 0.5, fy: 0.7 }, { type: 'emberseed', fx: 0.46, fy: 0.76 }, { type: 'ironseed', fx: 0.54, fy: 0.76 });
+    if (last) sc.initItems.push({ type: 'recipe_star', fx: 0.5, fy: 0.64 }, { type: 'starseed', fx: 0.5, fy: 0.7 }, { type: 'emberseed', fx: 0.46, fy: 0.76 }, { type: 'ironseed', fx: 0.54, fy: 0.76 });
     for (let t = 0; t < 60; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
     if (south) north2 = south;
   }
@@ -515,7 +516,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus;
 
@@ -1521,7 +1522,10 @@ function collect(it) {
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
     }
-    case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++; say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
+    case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
+    case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
+    case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++;
+      if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
       inv.beans++;
       say(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 2.5 });
@@ -2267,7 +2271,7 @@ function dropRock() {
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
   if (n.kind === 'toad') {
-    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.'] };
+    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'], then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
     if (!rt.flags.metToad) { rt.flags.metToad = true; spawnBeans(); return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
     return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
@@ -2276,7 +2280,7 @@ function npcLines(n) {
     if (inv.tortoise) return { lines: ['Slow and steady, young one.'] };
     return {
       lines: ['Oh! A visitor. The rabbits don\'t usually let anyone this close.', 'They aren\'t guarding treasure, you know. They\'re guarding me.', 'Old habit, from a race a long, long time ago.', 'Here. Take some of my patience with you.'],
-      then: () => { inv.tortoise = true; sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); state.items.push({ type: 'starseed', x: state.hero.x + UNIT, y: state.hero.y + UNIT }); say('And a seed from the old race\'s finish line. Plant it somewhere sunny.', npcPos(n)[0], npcPos(n)[1] - UNIT * 1.5, { key: 'npc2', life: 4 }); },
+      then: () => { inv.tortoise = true; setTimeout(() => learnRecipe('guard', 'The tortoise shows you how shells are layered.'), 0); sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); state.items.push({ type: 'starseed', x: state.hero.x + UNIT, y: state.hero.y + UNIT }); say('And a seed from the old race\'s finish line. Plant it somewhere sunny.', npcPos(n)[0], npcPos(n)[1] - UNIT * 1.5, { key: 'npc2', life: 4 }); },
     };
   }
   if (n.kind === 'pip') {
@@ -2372,9 +2376,10 @@ function breathe(from, mv) {
     if (p) { p.anchor = true; p.ox = Math.cos(a) * rad; p.oy = Math.sin(a) * rad; }
     return;
   }
-  const a = Math.random() < 0.7 ? face + rr(-1.0, 1.0) : Math.random() * 6.28;
-  const sp = UNIT * (1.2 + mv * 0.06) * rr(0.6, 1.25);
-  spawnPuff(from.x + Math.cos(face) * UNIT * 0.5, from.y + Math.sin(face) * UNIT * 0.5, Math.cos(a) * sp * hot, Math.sin(a) * sp * hot, UNIT * (0.7 + mv * 0.02) * rr(0.8, 1.2) * hot);
+  // on the move, the gas is left behind as a trail that hangs in the air until it thins out
+  const a = Math.random() * 6.28, sp = UNIT * rr(0.2, 0.7);
+  const p = spawnPuff(from.x - from.vx * 0.05 + Math.cos(a) * UNIT * 0.3, from.y - from.vy * 0.05 + Math.sin(a) * UNIT * 0.3, Math.cos(a) * sp - from.vx * 0.15, Math.sin(a) * sp - from.vy * 0.15, UNIT * (0.6 + mv * 0.02) * rr(0.8, 1.15) * hot);
+  if (p) p.trail = true;
 }
 
 // ---------------- projectiles (rocks, acorns) ----------------
@@ -2446,9 +2451,10 @@ function updateGas(dt) {
     p.age += dt * (1 + wmag * 6);               // wind thins the cloud fast
     const k = Math.exp(-2 * dt);
     p.vx *= k; p.vy *= k;
-    if (p.anchor && !p.burn) {                      // a still breather's cloud hangs around them
+    if (p.anchor) {                                 // a still breather's cloud stays with them, lit or not
       const h = state.hero, ax = h.x + p.ox - p.x, ay = h.y + p.oy - p.y;
-      p.vx += ax * 3 * dt; p.vy += ay * 3 * dt;
+      p.vx += ax * 4 * dt; p.vy += ay * 4 * dt;
+      if (p.burn && !p.auraSet) { p.auraSet = true; p.burnDur *= 1.8; }
     }
     p.x += (p.vx + wx) * dt; p.y += (p.vy + wy) * dt;
     if (!p.burn) { p.rMax += UNIT * 0.08 * dt; p.r += (p.rMax - p.r) * (1 - Math.exp(-2 * dt)); }
@@ -2564,7 +2570,7 @@ function updateCut(dt) {
       state.inv.fire = true; refreshButtons(); state.cam.focus = null; state.cut = null;
       state.items.push({ type: 'emberseed', x: tx + UNIT * 1.2, y: ty + UNIT });
       showTitle('Marsh Fire', `hold ${K.fire} to breathe it out, let go to light it`, 'area', 3.5);
-      say('Doesn\'t care much for wind, mind. The more vigor you\'ve got, the bigger the cloud.', tx, ty - UNIT * 1.4, { key: 'npc', life: 5 });
+      say('Doesn\'t care much for wind, mind. Come back and see me once you\'ve grown some embers. I know a trick.', tx, ty - UNIT * 1.4, { key: 'npc', life: 5 });
     }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
@@ -2591,10 +2597,10 @@ function ask(text, x, y, options, cb) {
 }
 function updateChoice() {
   const c = state.choice, n = c.options.length;
-  if (pressedNow.left || pressedNow.up) { c.sel = (c.sel + n - 1) % n; sfx.tock(); }
-  if (pressedNow.right || pressedNow.down) { c.sel = (c.sel + 1) % n; sfx.tock(); }
+  if (pressedNow.left) { c.sel = (c.sel + n - 1) % n; sfx.tock(); }
+  if (pressedNow.right) { c.sel = (c.sel + 1) % n; sfx.tock(); }
   if (pressedNow.act) { state.choice = null; c.cb(c.sel); }
-  else if (pressedNow.jump && !c.must) state.choice = null;
+  else if (!c.must && (pressedNow.up || pressedNow.down || pressedNow.jump)) state.choice = null;   // walking away cancels
 }
 
 // ---------------- the Falls Warden has had a day ----------------
@@ -2635,17 +2641,28 @@ function updateWardenTalk(c, dt) {
 // =====================================================================
 // The bench: materials from rare crops become upgrades
 // =====================================================================
+// Recipes have to be found, discovered, or taught before the bench knows them.
 const FORGE = [
-  { k: 'edge', name: 'Honed edge', what: 'Slashes and whirlwinds cut deeper.', cost: [{ thorn: 2 }, { thorn: 4 }, { thorn: 6, ironwood: 1 }] },
-  { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
-  { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
-  { k: 'pouch', name: 'Ember pouch', what: 'Marsh fire spreads wider and burns longer.', cost: [{ ember: 2 }, { ember: 3 }, { ember: 4, starpetal: 1 }] },
-  { k: 'star', name: 'Star-petal hilt', what: 'Deeper vigor and a more forgiving whirlwind.', cost: [{ starpetal: 2 }], max: 1 },
+  { k: 'edge', name: 'Honed edge', what: 'Slashes and whirlwinds cut deeper.', how: 'Draw thorns along the blade until it bites. More thorns, keener edge; the last pass needs ironwood to steady it.', from: 'discovered the first time you hold a thorn', cost: [{ thorn: 2 }, { thorn: 4 }, { thorn: 6, ironwood: 1 }] },
+  { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', how: 'Wrap the blade in ironwood and quench it with thorn sap. Finish with an ember bloom.', from: 'a smith\'s scrap somewhere in the Dank Cave', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
+  { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', how: 'Shape ironwood into a guard, layered like a shell. A star petal seals the last layer.', from: 'taught by someone slow and patient', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
+  { k: 'pouch', name: 'Ember pouch', what: 'Marsh fire spreads wider and burns longer.', how: 'Dry ember blooms in a pouch at your belt. They feed the spark.', from: 'taught by someone who knows a thing about gas', cost: [{ ember: 2 }, { ember: 3 }, { ember: 4, starpetal: 1 }] },
+  { k: 'star', name: 'Star-petal hilt', what: 'Deeper vigor and a more forgiving whirlwind.', how: 'Bind two star petals into the grip.', from: 'an offering at a sunken shrine', cost: [{ starpetal: 2 }], max: 1 },
 ];
+function learnRecipe(k, source) {
+  const inv = state.inv;
+  if (inv.recipes[k]) return;
+  inv.recipes[k] = true;
+  const f = FORGE.find(o => o.k === k);
+  sfx.pickup(); sfx.shing();
+  showTitle(`Recipe: ${f.name}`, f.how, 'relic', 4.5);
+  say(source || 'Work it at the camp bench.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'recipe', life: 3 });
+}
 const costText = c => Object.entries(c).map(([m, n]) => `${n} ${MATS[m]}`).join(', ');
 function forgeItems() {
   const up = state.inv.up;
   return FORGE.map(f => {
+    if (!state.inv.recipes[f.k]) return '??? (recipe not yet found)';
     const lv = up[f.k], max = f.max || 3;
     return lv >= max ? `${f.name} ${'I'.repeat(lv)}: done` : `${f.name} ${'I'.repeat(lv + 1)}: ${costText(f.cost[lv])}`;
   }).concat('Back');
@@ -2654,6 +2671,7 @@ function forgeSelect(i) {
   const m = state.menu;
   if (i >= FORGE.length) { state.menu = null; return; }
   const f = FORGE[i], inv = state.inv, lv = inv.up[f.k];
+  if (!inv.recipes[f.k]) { m.note = `You don't know how to make this yet. Hint: ${f.from}.`; return; }
   if (lv >= (f.max || 3)) { m.note = 'Already as good as it gets.'; return; }
   const c = f.cost[lv];
   if (!Object.entries(c).every(([k, n]) => inv.mats[k] >= n)) { m.note = `Need ${costText(c)}. ${f.what}`; return; }
@@ -2668,7 +2686,7 @@ function forgeSelect(i) {
 // Menu: pause, equipment, save and load (3 slots), tips setting
 // =====================================================================
 const SLOTS = 3;
-const MAIN = () => ['Resume', 'Equipment', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'];
+const MAIN = () => ['Resume', 'Inventory', 'Save game', 'Load game', 'Controls', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`, 'New adventure'];
 const ACTIONS = Object.keys(DEFAULT_KEYS);
 function toggleMenu() {
   if (!state.started) return;
@@ -2689,11 +2707,19 @@ function menuItems() {
 function updateMenu() {
   if (state.remap) return;
   const m = state.menu, items = menuItems();
+  if (m.view === 'equip') {                          // the inventory scrolls
+    if (pressedNow.up) m.scroll = Math.max(0, m.scroll - 1);
+    if (pressedNow.down) m.scroll = Math.min(Math.max(0, (m.lines || 0) - 3), m.scroll + 1);
+    if (pressedNow.act) menuSelect(0);
+    return;
+  }
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
   if (pressedNow.act) menuSelect(m.sel);
 }
 function menuTap(x, y) {
+  const m = state.menu;
+  if (m.view === 'equip') { if (y > H - 90) menuSelect(0); else if (y < H / 2) m.scroll = Math.max(0, m.scroll - 2); else m.scroll = Math.min(Math.max(0, (m.lines || 0) - 3), m.scroll + 2); return; }
   const r = (state.menuRects || []).find(o => x >= o.x && x <= o.x + o.w && y >= o.y && y <= o.y + o.h);
   if (r) { state.menu.sel = r.i; menuSelect(r.i); }
 }
@@ -2703,7 +2729,7 @@ function menuSelect(i) {
   if (m.view === 'forge') { forgeSelect(i); return; }
   if (m.view === 'main') {
     if (i === 0) state.menu = null;
-    if (i === 1) Object.assign(m, { view: 'equip', sel: 0 });
+    if (i === 1) Object.assign(m, { view: 'equip', sel: 0, scroll: 0 });
     if (i === 2) Object.assign(m, { view: 'save', sel: 0, note: '' });
     if (i === 3) Object.assign(m, { view: 'load', sel: 0, note: '' });
     if (i === 4) { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
@@ -2728,7 +2754,7 @@ function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 5, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 6, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -2740,7 +2766,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 5) return false;
+  if (!d || !d.seed || d.v !== 6) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -2749,6 +2775,39 @@ function loadSlot(i) {
   state.hero.vig = Math.min(maxVig(), d.hero.vig);
   sayHero('Game loaded.', { life: 1.5 });
   return true;
+}
+// every line of the inventory: [icon, title, detail]
+const FOOD_INFO = { carrot: 'restores about a third of your vigor', turnip: 'restores a quarter, and adds 1 max vigor for good', squash: 'restores half your vigor', berries: 'a small snack', pepper: 'a little vigor, and bigger marsh fire for a minute' };
+function inventoryLines() {
+  const inv = state.inv, L2 = [];
+  const sec = t => L2.push([null, t, null]);
+  sec('Gear');
+  if (inv.sword) L2.push(['acorn', 'Rusted sword', `${K.act}: slash, or hold and release to stab and lunge. Stab, slash, stab to chain. Three slashes in rhythm start a whirlwind. In the air: slam.`]);
+  if (inv.scalp) L2.push(['scalp', 'Stalker scalp', 'Things that fall on your head bounce off.']);
+  for (const k of ['step', 'silk', 'horn']) if (inv[k]) L2.push([k, `${RELICS[k].name} ${'I'.repeat(inv[k])}`, RELICS[k].levels.slice(0, inv[k]).join(' ')]);
+  if (inv.fire) L2.push(['fire', 'Marsh fire', `${K.fire}: breathe gas. Standing still, it gathers around you and stays with you when lit. Moving, it trails behind. Let go to spark it.`]);
+  if (inv.tortoise) L2.push(['wisp', 'Tortoise\'s patience', 'Your vigor runs deeper.']);
+  if (L2.length === 1) L2.push([null, '  nothing yet', null]);
+  const foods = {}; inv.food.forEach(f => foods[f] = (foods[f] || 0) + 1);
+  if (Object.keys(foods).length || inv.acorns) {
+    sec('Food and throwables');
+    for (const [f, n] of Object.entries(foods)) L2.push([f, `${f[0].toUpperCase() + f.slice(1)} x${n}`, `${K.eat}: ${FOOD_INFO[f] || 'food'}.`]);
+    if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${K.throw}: hold and release to throw. Shake trees with your sword for more.`]);
+  }
+  const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
+  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : 'Plant it; it grows the local food.']); }
+  const mats = Object.keys(MATS).filter(k => inv.mats[k]);
+  if (mats.length) { sec('Materials'); for (const k of mats) { const uses = FORGE.filter(f => inv.recipes[f.k] && f.cost.some(c => c[k])).map(f => f.name); L2.push([k, `${MATS[k]} x${inv.mats[k]}`, uses.length ? `Used for: ${uses.join(', ')}.` : 'You haven\'t learned a use for this yet.']); } }
+  sec('Recipes');
+  for (const f of FORGE) {
+    if (inv.recipes[f.k]) L2.push([null, `${f.name}${inv.up[f.k] ? ' ' + 'I'.repeat(inv.up[f.k]) : ''}`, `${f.how} ${inv.up[f.k] >= (f.max || 3) ? 'Complete.' : 'Next: ' + costText(f.cost[inv.up[f.k]]) + '.'} ${f.what}`]);
+    else L2.push([null, '???', `Not yet found. Hint: ${f.from}.`]);
+  }
+  sec('You');
+  L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
+  L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
+  if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
+  return L2;
 }
 function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stringify({ settings: state.settings })); } catch (e) {} }
 function loadSettings() {
@@ -3480,7 +3539,7 @@ function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
@@ -3491,26 +3550,29 @@ function drawMenu() {
     ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${state.inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.8;
     ctx.textAlign = 'center';
   }
-  if (m.view === 'equip') {
-    const inv = state.inv;
-    ctx.textAlign = 'left';
-    const owned = EQUIP.filter(([k]) => inv[k]);
-    if (!owned.length) { ctx.fillText('Nothing yet.', x + 10, y); y += lh; }
-    for (const [k, name, desc] of owned) {
-      drawItemIcon(k === 'sword' ? 'acorn' : k === 'tortoise' ? 'wisp' : k, x + 16, y - fs * 0.3, fs * 1.4);
-      const lv = typeof inv[k] === 'number' && inv[k] > 0 && RELICS[k] ? ' ' + 'I'.repeat(inv[k]) : '';
-      ctx.fillStyle = '#ffe38a'; ctx.fillText(name + lv, x + 40, y);
-      ctx.fillStyle = '#d8d0c0'; wrap(desc, pw - 50).forEach((l, i) => ctx.fillText(l, x + 40, y + fs * 1.2 * (i + 1)));
-      y += fs * 1.2 * (wrap(desc, pw - 50).length + 1) + 6;
+  if (m.view === 'equip') {                        // inventory: scrollable list with icons and what things do
+    const lines = inventoryLines(), rows = [];
+    for (const [icon, title, detail] of lines) {
+      rows.push({ icon, title, head: !detail && !icon, detail: detail ? wrap(detail, pw - 56) : [] });
     }
-    ctx.fillStyle = '#d8d0c0';
-    ctx.fillText(`Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}   food ${inv.food.length}   acorns ${inv.acorns}`, x + 10, y); y += fs * 1.4;
-    ctx.fillText('Seeds: ' + Object.keys(SEEDS).map(k => `${SEEDS[k].name} ${inv.bag[k]}`).join(', '), x + 10, y); y += fs * 1.4;
-    ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.4;
-    const ups = FORGE.filter(f => inv.up[f.k]).map(f => `${f.name} ${'I'.repeat(inv.up[f.k])}`);
-    if (ups.length) { ctx.fillText('Upgrades: ' + ups.join(', '), x + 10, y); y += fs * 1.4; }
-    y += fs * 0.6;
-    ctx.textAlign = 'center';
+    m.lines = rows.length;
+    const top = y, bottom = H - lh * 2.2;
+    ctx.save(); ctx.beginPath(); ctx.rect(x - 4, top - fs * 1.2, pw + 8, bottom - top + fs * 1.2); ctx.clip();
+    ctx.textAlign = 'left';
+    let yy = top;
+    rows.slice(m.scroll).forEach(r => {
+      if (yy > bottom) return;
+      if (r.head) { ctx.fillStyle = '#9fd4ff'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.title, x + 6, yy + fs * 0.4); yy += fs * 1.7; return; }
+      if (r.icon) drawItemIcon(r.icon, x + 16, yy - fs * 0.3, fs * 1.3);
+      ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a'; ctx.fillText(r.title, x + 40, yy);
+      ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillStyle = '#d8d0c0';
+      r.detail.forEach((l, i) => ctx.fillText(l, x + 40, yy + fs * 1.1 * (i + 1)));
+      yy += fs * 1.1 * (r.detail.length + 1) + 8;
+    });
+    ctx.restore();
+    ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'center';
+    if (m.scroll > 0 || yy > bottom) { ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.fillText(TOUCH ? 'swipe or tap arrows to scroll' : '\u2191 \u2193 to scroll', W / 2, bottom + fs * 0.4); }
+    y = bottom + lh * 0.9;
   }
   state.menuRects = [];
   items.forEach((label, i) => {
@@ -3644,6 +3706,11 @@ function drawItemIcon(type, x, y, s) {
     case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
     case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
     case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
+    case 'recipe_temper': case 'recipe_star':
+      ctx.fillStyle = '#e8dcb8'; ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.6, s * 0.7);
+      ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
+      break;
     case 'seed': ctx.fillStyle = '#d9c28a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.14, s * 0.22, 0.5, 0, 6.28); ctx.fill(); ctx.fillStyle = '#8a7040'; ctx.fillRect(-1, -s * 0.12, 2, s * 0.24); break;
     case 'bean':
       ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
