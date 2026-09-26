@@ -97,7 +97,7 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 // World generation (done at a fixed virtual size so a seed always
 // produces the same world on any screen)
 // =====================================================================
-const AREA_NAMES = { river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
+const AREA_NAMES = { indoor: 'Old Wick\'s Shack', river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 // after the rescue: a gremlin fled with Pip's journal, back through the glade and the woods to where the sword was
@@ -327,7 +327,7 @@ function genWorld() {
   const riverbank = add(newScene({ id: 'riverbank', area: 'forest', msg: 'The river runs fast and deep here', music: 'forest', amb: 'rain', floor: '#4a9650' }));
   riverbank.river = { pts: [[0.62, -0.08], [0.5, 0.14], [0.3, 0.34], [0.12, 0.47], [-0.08, 0.56]], w: 3.2 };
   riverbank.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow' }, { side: 'w', a: 0.72, b: 0.95, to: 'ford' }];
-  riverbank.feat.farside = [0.13, 0.13];          // across the water: a fisherman's hut, his sign, a half-built raft
+  riverbank.feat.farside = [0.13, 0.13];          // across the water: Old Wick's shack, his sign, his unfinished raft (reach it by crossing the ford)
   riverbank.feat.dock = [0.47, 0.35];             // an old jetty on this side, where a raft could be launched
   claim(riverbank, 0.47, 0.35, 1.6);
   edgeWall(riverbank, 'e', 'tree', 1.1, [], 1.5, 'green');
@@ -364,6 +364,14 @@ function genWorld() {
   addPlots(farbank, 3, [0.2, 0.8, 0.4, 0.75]);
   scatter(farbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.1, 0.9, 0.15, 0.85], 'green');
   decoFlowers(farbank, 40);
+
+  // ---------------- Old Wick's shack: one room, a smell, a letter, a few seeds ----------------
+  const shack = add(newScene({ id: 'shack', area: 'indoor', msg: 'It smells of pipe smoke, wet wool and old fish.', music: 'forest', amb: 'none', floor: '#6b4e32', heroStart: [0.5, 0.8], speed: 0.4 }));
+  shack.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'riverbank', arrive: [0.12, 0.13 + 1.6 * UNIT / H] }];
+  for (const side of ['n', 'w', 'e']) edgeWall(shack, side, 'wall', 1.0, [], 1.2);
+  edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
+  shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
+  item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'seed', fx: 0.78, fy: 0.62 });
 
   // ---------------- Downriver (raft only): the cascade drops into the gleaming pool ----------------
   const cascade = add(newScene({ id: 'cascade', area: 'river', msg: 'The raft shatters at the foot of a roaring cascade', music: 'forest', amb: 'falls', floor: '#4b9a55' }));
@@ -1152,7 +1160,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -1206,6 +1214,7 @@ function enterScene(id, fx, fy) {
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
   state.entry = { id, fx: pos[0], fy: pos[1] };
+  state.enterT = state.time;
 
   if (state.area !== sc.area) {
     state.area = sc.area;
@@ -1272,6 +1281,7 @@ function checkEdges() {
     if (ex.side === 'e') { at = h.x >= W - r && held.right(); along = h.y / H; }
     if (!at) continue;
     if (ex.locked && ex.locked()) return;
+    if (Array.isArray(ex.arrive)) { transitionTo(ex.to, ex.arrive[0], ex.arrive[1], true); return; }   // doors put you back at the door
     if (ex.arrive === 'sinkhole') {
       const s = WORLD[ex.to].feat.stone;
       transitionTo(ex.to, s[0] - 2.2 * UNIT / W, s[1], true);
@@ -1846,8 +1856,12 @@ function collect(it) {
       inv.journal = 3; sfx.victory();
       showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);
       break;
+    case 'letter':
+      say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
+      if (!inv.raft) { inv.raft = 1; setTimeout(() => showTitle('Sidequest: Downriver', 'build a raft at the old jetty: 4 driftwood and 2 thorns to lash it', 'relic', 4.5), 0); }
+      break;
     case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
-    case 'rod': inv.rod = true; showTitle('Old fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
+    case 'rod': inv.rod = true; showTitle('Old Wick\'s fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
     case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
@@ -2740,12 +2754,24 @@ function sporeJump(id, cost) {
 const RAFT = { driftwood: 4, thorn: 2 };
 function riverSideQuest(sc, h) {
   const inv = state.inv, f = sc.feat;
-  if (f.farside) {                                   // read across the water from the near bank
-    const [fx, fy] = f.farside, d = Math.hypot(h.x - fx * W, h.y - fy * H);
-    if (d < UNIT * 9 && !inv.raft) {
+  if (f.farside) {
+    const [fx, fy] = f.farside, x = fx * W, y = fy * H, rt = rtFor(sc.id);
+    const nearSide = !isChasm(h.x, h.y) && (h.x / W + h.y / H > 0.62);          // south of the river
+    if (!inv.raft && state.time - (state.enterT || 0) > 1.2 && nearSide) {          // you notice it as soon as you arrive
       inv.raft = 1;
-      say('Across the water, a sign: "GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW." A half-built raft sits beside it.', fx * W + UNIT * 3, fy * H + UNIT * 1.5, { key: 'farside', life: 7 });
+      say('Across the water: a shack, a half-built raft, and a sign. "GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW."', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 7 });
       setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns to lash it`, 'relic', 4.5), 0);
+    }
+    // on the far side (reached by crossing the ford): the sign, the unfinished raft, the shack door
+    const sign = [x + UNIT * 1.35, y - UNIT * 0.4], door = [x - UNIT * 0.05, y + UNIT * 0.65], wreck = [x - UNIT * 0.05, y + UNIT * 1.35];
+    if (Math.hypot(h.x - sign[0], h.y - sign[1]) < UNIT * 1.6) say('"GONE DOWNRIVER TO THE GLEAMING POOL. BIGGEST FISH YOU EVER SAW. Old Wick."', sign[0], sign[1] - UNIT * 1.2, { key: 'sign', life: 3 });
+    if (Math.hypot(h.x - wreck[0], h.y - wreck[1]) < UNIT * 1.4) {
+      say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : `Old Wick's first raft, never finished. ${K.act} to salvage the good logs.`, wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
+      if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
+    }
+    if (Math.hypot(h.x - door[0], h.y - door[1]) < UNIT * 1.3) {
+      say(`${K.act} to go inside`, door[0], door[1] - UNIT, { key: 'door', life: 1.5 });
+      if (pressedNow.act) { sfx.tock(); transitionTo('shack', 0.5, 0.82, true); return true; }
     }
   }
   if (f.dock) {
@@ -3738,6 +3764,7 @@ function drawSmallBird(b) {
 // ---------------- ground ----------------
 function drawGround(sc) {
   const f = sc.feat;
+  if (sc.area === 'indoor') drawRoom();
   if (sc.area === 'forest' || sc.area === 'woods' || sc.area === 'river') {
     for (const d of sc.deco) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
@@ -3867,6 +3894,23 @@ function drawRiver(sc) {
     for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 4, y); ctx.lineTo(x + i * 5 + Math.sin(state.time * 2 + i) * 2, y - UNIT * 0.6); ctx.stroke(); }
   }
 }
+// Old Wick's shack: plank floor, log walls, a window, a lived-in mess
+function drawRoom() {
+  const u = UNIT;
+  ctx.fillStyle = '#6b4e32'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#5a3f28'; ctx.lineWidth = 2;
+  for (let y = u * 0.6; y < H; y += u * 0.6) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  ctx.fillStyle = '#4a3220'; ctx.fillRect(0, 0, W, u * 1.2); ctx.fillRect(0, 0, u * 1.1, H); ctx.fillRect(W - u * 1.1, 0, u * 1.1, H);
+  ctx.fillRect(0, H - u * 1.0, W * 0.35, u); ctx.fillRect(W * 0.65, H - u * 1.0, W * 0.35, u);
+  ctx.strokeStyle = '#3a2616'; ctx.lineWidth = 3; for (let x = u * 0.5; x < W; x += u * 1.4) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, u * 1.2); ctx.stroke(); }
+  ctx.fillStyle = '#9fc8d8'; ctx.fillRect(W * 0.45, u * 0.25, u * 1.4, u * 0.7); ctx.strokeStyle = '#3a2616'; ctx.strokeRect(W * 0.45, u * 0.25, u * 1.4, u * 0.7);   // window
+  const g = ctx.createLinearGradient(0, u, 0, u * 5); g.addColorStop(0, 'rgba(255,250,210,.25)'); g.addColorStop(1, 'rgba(255,250,210,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(W * 0.45, u * 1.2); ctx.lineTo(W * 0.45 + u * 1.4, u * 1.2); ctx.lineTo(W * 0.5 + u * 2.4, u * 5); ctx.lineTo(W * 0.4, u * 5); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,190,150,.6)'; ctx.lineWidth = 1;                   // a fishing net on the wall
+  for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.moveTo(W * 0.15 + i * u * 0.3, u * 0.2); ctx.lineTo(W * 0.15 + i * u * 0.3 + u * 0.6, u * 1.1); ctx.moveTo(W * 0.15 + i * u * 0.3 + u * 0.6, u * 0.2); ctx.lineTo(W * 0.15 + i * u * 0.3, u * 1.1); ctx.stroke(); }
+  ctx.fillStyle = '#5a4a3a'; ctx.beginPath(); ctx.ellipse(W * 0.45, H * 0.62, u * 1.6, u * 0.8, 0, 0, 6.28); ctx.fill();   // rag rug
+  ctx.fillStyle = 'rgba(200,200,200,.18)'; for (let i = 0; i < 3; i++) { const t = (state.time * 0.3 + i / 3) % 1; ctx.beginPath(); ctx.arc(W * 0.82 + Math.sin(t * 6) * 4, H * 0.2 - u * 0.8 - t * u * 1.5, u * (0.15 + t * 0.2), 0, 6.28); ctx.fill(); }   // a stale curl of smoke
+}
 // the sidequest's pieces: the far-bank camp, the jetty and raft, ripples, the tunnel's gleam, the cascade
 function drawRiverQuest(sc) {
   const f = sc.feat, u = UNIT, inv = state.inv;
@@ -3877,8 +3921,8 @@ function drawRiverQuest(sc) {
     ctx.fillStyle = '#2a1c10'; ctx.fillRect(x - u * 0.25, y - u * 0.1, u * 0.4, u * 0.6);
     ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x + u * 1.3, y - u * 0.9, u * 0.1, u * 1.1); ctx.fillRect(x + u * 0.95, y - u * 1.05, u * 0.8, u * 0.4);   // sign
     ctx.fillStyle = '#3a2614'; ctx.fillRect(x + u * 1.05, y - u * 0.95, u * 0.6, u * 0.05); ctx.fillRect(x + u * 1.05, y - u * 0.82, u * 0.45, u * 0.05);
-    ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 3; i++) ctx.fillRect(x - u * 0.4 + i * u * 0.3, y + u * 0.9, u * 0.22, u * 0.9);   // half-built raft
-    ctx.strokeStyle = '#c9c2b6'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + u * 0.95, y + u * 0.4); ctx.lineTo(x + u * 1.5, y - u * 0.6); ctx.stroke();   // rod leaning
+    if (!rtFor(sc.id).flags.salvaged) { ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 3; i++) ctx.fillRect(x - u * 0.4 + i * u * 0.3, y + u * 0.9, u * 0.22, u * 0.9); }   // Wick's unfinished raft
+    else { ctx.fillStyle = '#6b5a3a'; ctx.fillRect(x - u * 0.4, y + u * 1.6, u * 0.8, u * 0.12); }
   }
   if (f.dock) {
     const x = f.dock[0] * W, y = f.dock[1] * H;
@@ -4072,6 +4116,24 @@ function drawSolid(s) {
       ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 0.6, r * 0.45, 0, 0, 6.28); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
+      break;
+    case 'wall': break;                                // the room draws its own walls
+    case 'bed':
+      ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
+      ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
+      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.85, y - u * 0.55, u * 0.6, u * 0.5);
+      ctx.fillStyle = '#6a4a3a'; ctx.fillRect(x - u * 0.2, y - u * 0.6, u * 1.1, u * 1.2);
+      break;
+    case 'table':
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.8, y + u * 0.3, u * 1.7, u * 0.25);
+      ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - u * 0.9, y - u * 0.5, u * 1.8, u * 0.9);
+      ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.arc(x + u * 0.4, y - u * 0.1, u * 0.18, 0, 6.28); ctx.fill();   // a chipped cup
+      ctx.fillStyle = '#3a2616'; ctx.fillRect(x - u * 0.6, y - u * 0.2, u * 0.4, u * 0.08);                            // a pipe
+      break;
+    case 'stove':
+      ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
+      ctx.fillStyle = '#2a2a2e'; ctx.fillRect(x - u * 0.2, y - u * 1.4, u * 0.4, u * 0.8);
+      ctx.fillStyle = '#4a2a1a'; ctx.fillRect(x - u * 0.35, y - u * 0.1, u * 0.7, u * 0.35);
       break;
     case 'bench':
       ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
@@ -4760,6 +4822,11 @@ function drawItemIcon(type, x, y, s) {
     case 'spores': case 'spores7':
       for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
+      break;
+    case 'letter':
+      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(-s * 0.32, -s * 0.24, s * 0.64, s * 0.48);
+      ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.24); ctx.lineTo(0, s * 0.05); ctx.lineTo(s * 0.32, -s * 0.24); ctx.stroke();
+      ctx.fillStyle = '#3a2616'; ctx.fillRect(-s * 0.1, s * 0.12, s * 0.35, s * 0.07);
       break;
     case 'page':
       ctx.fillStyle = '#f2e6c8'; ctx.save(); ctx.rotate(0.2); ctx.fillRect(-s * 0.28, -s * 0.34, s * 0.56, s * 0.68);
