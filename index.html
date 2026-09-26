@@ -480,9 +480,9 @@ function genWorld() {
   const FIELD = [
     { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
     { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
-    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
-    { msg: 'Two ravines', gusts: [{ a: 0, s: 1 }, { a: 0, s: 1 }, { a: 0.3, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
+    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
+    { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
     { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
     { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true, extra: TOO },
   ];
@@ -520,7 +520,7 @@ function genWorld() {
     sc.rocks = [];
     sc.rockCols = F.chasms.map(() => rng());                                 // where each ravine's rock column stands, fixed per seed
     const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
-    for (let k = 0; k + 1 < edges.length; k += 2) if (edges[k + 1] - edges[k] > 0.08) { const q = freeSpot(sc, [0.25, 0.75, edges[k] + 0.03, edges[k + 1] - 0.03], 1.2); sc.rocks.push({ fx: q[0], fy: q[1], r: 1.1 }); }
+    sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
     if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
     if (south) north = south;
   });
@@ -1277,6 +1277,7 @@ function enterScene(id, fx, fy) {
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
+  if (sc.windLedges) layoutLedges(sc);
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
@@ -1429,7 +1430,7 @@ function update(dt) {
   // movement
   const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
   if (h.ride && !h.ride.hop && pressedNow.act && h.z > UNIT * 0.3 && h.vig >= 0.8 && !state.carry) {   // stomp out of a gust
-    h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT;
+    h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT; state.cam.focus = null;
   }
   if (h.ride) updateRide(dt);
   else if (h.falling > 0) updateFall(dt);
@@ -1609,7 +1610,7 @@ function updateJump(dt) {
     h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
     if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
-    if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
+    if (sc.gusts && state.gustPhase === 'blow' && rideGust(sc)) return;
   }
   if (h.z > 0 || h.vz > 0) {
     // holding jump while rising floats you higher, for a short while
@@ -1690,12 +1691,14 @@ function hopToStone(sc) {
   return true;
 }
 function rideGust(sc) {
-  const h = state.hero, g = sc.gusts[state.gustIdx];
-  // every ride carries you the same distance, straight along the direction the streaks are going
-  const dist = H * 0.3, dx = Math.sin(g.a) * dist, dy = Math.cos(g.a) * dist;
-  h.ride = { t: 0, dur: 2, x0: h.x, y0: h.y, x1: h.x + dx, y1: h.y + dy };
+  const h = state.hero, tgt = windTarget(sc);
+  if (!tgt) return false;                             // no ledge that way: just an ordinary jump
+  const d = Math.hypot(tgt[0] - h.x, tgt[1] - h.y);
+  h.ride = { t: 0, dur: 0.9 + d / (H * 0.3) * 0.8, x0: h.x, y0: h.y, x1: tgt[0], y1: tgt[1], hgt: UNIT * (1.6 + d / H * 3), wind: true };
+  state.cam.focus = { z: 1.06, at: () => [(h.x + tgt[0]) / 2, (h.y + tgt[1]) / 2] };
   h.invuln = 2.2; sfx.whoosh();
   zoomPulse(h.x, h.y, 'pickup');
+  return true;
 }
 function updateRide(dt) {
   const h = state.hero, r = h.ride;
@@ -1717,8 +1720,10 @@ function updateRide(dt) {
     sfx.tock(); spark(h.x, h.y + UNIT * 0.3, 'rgba(210,235,245,.8)', 6, 1.5);
     return;
   }
+  if (p >= 1 && r.wind) state.cam.focus = null;
   if (p >= 1) {
     h.ride = null; h.z = 0; h.vz = 0; h.vx = 0; h.vy = 0; h.rideCool = state.time + 1.5;
+    for (let i = 0; i < 10; i++) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT, y: h.y + UNIT * 0.35, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * Math.random(), t: 0, life: 0.6, color: 'rgba(170,150,110,.7)', size: UNIT * 0.2 });
     clampTo(h, UNIT * 0.5);
     sfx.land(); zoomPulse(h.x, h.y, 'land'); state.shake = 0.2;
     spark(h.x, h.y + UNIT * 0.4, '#9a8a5a', 10, 3);
@@ -1743,7 +1748,7 @@ function updateWind(dt, sc) {
   const T = { lull: 2.4, build: 1.2, blow: 1.4 };
   if (state.gustT > T[state.gustPhase]) {
     state.gustT = 0;
-    if (state.gustPhase === 'lull') { state.gustPhase = 'build'; state.gustIdx = (state.gustIdx + 1) % sc.gusts.length; }
+    if (state.gustPhase === 'lull') { state.gustPhase = 'build'; state.gustIdx = (state.gustIdx + 1) % sc.gusts.length; sfx.tock(); }
     else if (state.gustPhase === 'build') { state.gustPhase = 'blow'; sfx.whoosh(); }
     else state.gustPhase = 'lull';
   }
@@ -4178,6 +4183,7 @@ function draw() {
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
   drawScene(sc);
   ctx.restore();
+  drawRideVignette();
   drawActionHint();
   drawHUD();
   drawRadial();
@@ -4199,6 +4205,7 @@ function drawScene(sc) {
   drawRiverQuest(sc);
   if (sc.feat.signs) drawArenaSigns(sc);
   if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
+  if (sc.gusts && sc.feat.vane) { drawVane(sc); drawWindPath(sc); }
   if (sc.feat.portals) drawPuzzlePortals(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
@@ -4351,16 +4358,7 @@ function drawGround(sc) {
       g.addColorStop(0, 'rgba(255,255,200,0)'); g.addColorStop(0.5, i % 2 ? 'rgba(255,250,190,.10)' : 'rgba(30,50,20,.12)'); g.addColorStop(1, 'rgba(255,255,200,0)');
       ctx.fillStyle = g; ctx.fillRect(0, y - UNIT * 3, W, UNIT * 6);
     }
-    for (const [x0, y0, x1, y1] of sc.chasms) {
-      const g = ctx.createLinearGradient(0, y0 * H, 0, y1 * H);
-      g.addColorStop(0, '#2a2418'); g.addColorStop(0.5, '#07060a'); g.addColorStop(1, '#1d1a14');
-      ctx.fillStyle = g; ctx.fillRect(x0 * W, y0 * H, (x1 - x0) * W, (y1 - y0) * H);
-    }
-    ctx.fillStyle = '#5e6b3a';                     // ragged lips along every chasm edge
-    for (const [x0, y0, x1, y1] of sc.chasms) for (let x = x0 * W; x < x1 * W; x += UNIT * 0.6) {
-      if (!isChasm(x + UNIT * 0.3, y0 * H - 3)) { ctx.beginPath(); ctx.moveTo(x, y0 * H); ctx.lineTo(x + UNIT * 0.3, y0 * H + UNIT * (0.2 + 0.2 * Math.sin(x))); ctx.lineTo(x + UNIT * 0.6, y0 * H); ctx.fill(); }
-      if (!isChasm(x + UNIT * 0.3, y1 * H + 3)) { ctx.beginPath(); ctx.moveTo(x, y1 * H); ctx.lineTo(x + UNIT * 0.3, y1 * H - UNIT * (0.2 + 0.2 * Math.cos(x))); ctx.lineTo(x + UNIT * 0.6, y1 * H); ctx.fill(); }
-    }
+    drawRavines(sc);
     const [wx, wy] = gustVec(), bend = wx * (0.25 + state.gust * 0.9);
     ctx.strokeStyle = sc.depth > 4 ? '#6d7f3e' : '#5f8a3a'; ctx.lineWidth = 1.6;
     ctx.beginPath();
@@ -4539,6 +4537,7 @@ function drawWaterScreen(sc) {
 function drawRockBanks(sc) {
   for (const r of sc.rocks) {
     const x = r.fx * W, y = r.fy * H, R = r.r * UNIT;
+    if (r.ledge) { drawLedge(x, y, R); continue; }
     if (r.island) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.25, R * 1.05, R * 0.8, 0, 0, 6.28); ctx.fill(); }
     ctx.fillStyle = '#7d7870'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.1, R, R * 0.72, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#a19b92'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.92, R * 0.62, 0, 0, 6.28); ctx.fill();
@@ -5324,6 +5323,9 @@ function tipLibrary() {
     `${K.eat} eats. Choose which food comes first in the Food tab.`,
     `Carrying a rock: hold ${K.act} to aim, tap to set it down.`,
     'More max vigor means longer, higher jumps.',
+    'On the mountain, the weathervane turns to where the next gust will blow. Its ring fills as the gust comes.',
+    'While a gust builds, dots show where a ride would land. Jump when it blows and you land right there.',
+    'The wind can\'t move you on a grassy ledge or a rock. Wait there for the gust you want.',
     'Turnips raise your max vigor for good.',
     'When vigor runs low every swing is slow and weak. Rest a moment.',
     'Startled birds drop seeds. Plant them in tilled soil.',
@@ -5371,7 +5373,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 46';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 47';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -5649,7 +5651,7 @@ const PUZZLES = [
   { id: 'ring', name: 'Stone ring', scene: 'w2', at: [0.06, 0.5], solved: () => !!state.plateOn.p2 },
   { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
   { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
-  { id: 'strong', name: 'Too-strong gust', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
+  { id: 'strong', name: 'Chained rides', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
   { id: 'crags', name: 'The crags', scene: 'peak1', at: [0.06, 0.5], solved: () => state.scene === 'peak3' },
   { id: 'ford', name: 'Stepping stones', scene: 'ford', at: [0.5, 0.95], solved: () => state.scene === 'farbank' || (state.scene === 'ford' && state.hero.y < H * (0.5 - WORLD.ford.river.wH / 2)) },
   { id: 'rapids', name: 'Rapids', scene: 'rapids', raft: true, solved: () => state.scene === 'gleampool' },
@@ -5917,6 +5919,137 @@ function drawPoseSheet() {
     });
   });
   ctx.textAlign = 'left';
+}
+
+// =====================================================================
+// The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
+// a dotted path that shows where a ride will land, and ravines that look like ravines.
+// =====================================================================
+// Ledges: grassy shelves on each bank, five across where there's room. Rides land on them; wind can't move you on them.
+function layoutLedges(sc) {
+  sc.rocks = (sc.rocks || []).filter(r => !r.ledge);
+  const edges = [0.12].concat((sc.chasms || []).flatMap(c => [c[1], c[3]])).concat([0.9]).sort((a, b) => a - b);
+  const R = mulberry32(((sc.ledgeSeed || 0.5) * 1e9) >>> 0), bands = [];
+  for (let k = 0; k + 1 < edges.length; k++) { const a = edges[k], b = edges[k + 1]; if (b - a > 0.06 && !(sc.chasms || []).some(c => (a + b) / 2 > c[1] && (a + b) / 2 < c[3] && c[0] <= 0.01 && c[2] >= 0.99)) bands.push((a + b) / 2); }
+  for (const fy of bands) for (let i = 0; i < 5; i++) {
+    const fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04, x = fx * W, y = fy * H;
+    if (isChasm(x, y, UNIT * 0.85)) continue;
+    if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
+    sc.rocks.push({ fx, fy, r: 0.8, ledge: true });
+  }
+  // the weathervane: somewhere open on the top bank, where you'll see it before you commit
+  const vy = bands.length ? bands[0] : 0.25;
+  let vane = null;
+  for (const fx of [0.85, 0.15, 0.7, 0.3, 0.5]) {
+    const x = fx * W, y = vy * H - UNIT * 0.4;
+    if (!isChasm(x, y, UNIT) && !state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.4) && !sc.rocks.some(r => r.ledge && Math.hypot(r.fx * W - x, r.fy * H - y) < UNIT * 1.6)) { vane = [fx, y / H]; break; }
+  }
+  sc.feat.vane = vane || [0.5, vy];
+}
+// where a gust ride from here would land: the nearest ledge within a cone around the wind's direction
+function windTarget(sc, from) {
+  const h = from || state.hero, g = sc.gusts && sc.gusts[state.gustIdx];
+  if (!g) return null;
+  const dx0 = Math.sin(g.a), dy0 = Math.cos(g.a), maxD = Math.max(H * 0.55, UNIT * 8);
+  let best = null, bd = Infinity;
+  for (const r of sc.rocks || []) {
+    if (!r.ledge) continue;
+    const x = r.fx * W, y = r.fy * H, dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy);
+    if (d < UNIT * 1.4 || d > maxD) continue;
+    const ang = Math.acos(Math.max(-1, Math.min(1, (dx * dx0 + dy * dy0) / d)));
+    if (ang > 0.75) continue;
+    const score = ang * 3 + d / H;                       // closest to the wind's line first, then nearest
+    if (score < bd) { bd = score; best = [x, y]; }
+  }
+  return best;
+}
+// the vane: turns to where the next gust will blow; its ring fills as the gust comes
+function drawVane(sc) {
+  const v = sc.feat.vane; if (!v || !sc.gusts) return;
+  const x = v[0] * W, y = v[1] * H, u = UNIT * 1.5, n = sc.gusts.length;
+  const g = state.gustPhase === 'lull' ? sc.gusts[(state.gustIdx + 1) % n] : sc.gusts[state.gustIdx];
+  const want = Math.atan2(Math.cos(g.a), Math.sin(g.a));
+  let cur = state.vaneA ?? want, diff = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  state.vaneA = cur + diff * 0.08;
+  const T = { lull: 2.4, build: 1.2, blow: 1.4 }, frac = Math.min(1, state.gustT / T[state.gustPhase]);
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.15, u * 0.7, u * 0.25, 0, 0, 6.28); ctx.fill();
+  ctx.strokeStyle = 'rgba(40,30,20,.5)'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, 0, 6.28); ctx.stroke();
+  ctx.strokeStyle = state.gustPhase === 'blow' ? '#ffffff' : state.gustPhase === 'build' ? '#ffe38a' : 'rgba(255,255,255,.5)';
+  ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();   // time to the next change
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.05, y - u * 0.9, u * 0.1, u * 0.95);
+  ctx.save(); ctx.translate(x, y - u * 0.9); ctx.rotate(state.vaneA);
+  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.moveTo(u * 0.5, 0); ctx.lineTo(u * 0.18, -u * 0.18); ctx.lineTo(u * 0.18, u * 0.18); ctx.fill();
+  ctx.fillRect(-u * 0.35, -u * 0.035, u * 0.6, u * 0.07);
+  ctx.fillStyle = '#9a7a4a'; ctx.beginPath(); ctx.moveTo(-u * 0.3, 0); ctx.lineTo(-u * 0.48, -u * 0.18); ctx.lineTo(-u * 0.48, u * 0.18); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.07, 0, 6.28); ctx.fill();
+}
+// the ride preview: while a gust builds or blows, a dotted arc from you to the ledge you'd land on
+function drawWindPath(sc) {
+  const h = state.hero;
+  if (!sc.gusts || h.ride || h.z > 0 || state.gustPhase === 'lull') return;
+  const tgt = windTarget(sc); if (!tgt) return;
+  const blow = state.gustPhase === 'blow', d = Math.hypot(tgt[0] - h.x, tgt[1] - h.y), lift = UNIT * (1.6 + d / H * 3);
+  for (let i = 1; i < 22; i++) {                        // dots marching along the path, dark-edged so they read on grass
+    const p = i / 22, x = h.x + (tgt[0] - h.x) * p, y = h.y + (tgt[1] - h.y) * p - Math.sin(Math.PI * p) * lift;
+    if ((i + Math.floor(state.time * 8)) % 3 === 0) continue;
+    ctx.fillStyle = 'rgba(20,20,20,.35)'; ctx.beginPath(); ctx.arc(x, y + 1.5, UNIT * 0.13, 0, 6.28); ctx.fill();
+    ctx.fillStyle = blow ? '#ffffff' : '#ffe38a'; ctx.beginPath(); ctx.arc(x, y, UNIT * 0.11, 0, 6.28); ctx.fill();
+  }
+  ctx.strokeStyle = blow ? '#ffffff' : 'rgba(255,227,138,.8)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(tgt[0], tgt[1], UNIT * (0.7 + 0.1 * Math.sin(state.time * 6)), UNIT * 0.35, 0, 0, 6.28); ctx.stroke();
+}
+// ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
+function drawRavines(sc) {
+  const t = state.time, u = UNIT;
+  for (const [x0, y0, x1, y1] of sc.chasms || []) {
+    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H, hgt = Y1 - Y0;
+    const g = ctx.createLinearGradient(0, Y0, 0, Y1);
+    g.addColorStop(0, '#3a2c1e'); g.addColorStop(0.35, '#1a140f'); g.addColorStop(0.75, '#0a0808'); g.addColorStop(1, '#231b12');
+    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, hgt);
+    const face = Math.min(hgt * 0.38, u * 1.1);           // the far wall's face, layered rock
+    for (let k = 0; k < 4; k++) { ctx.fillStyle = k % 2 ? 'rgba(120,90,60,.35)' : 'rgba(90,66,44,.35)'; ctx.fillRect(X0, Y0 + face * k / 4, X1 - X0, face / 4); }
+    ctx.strokeStyle = 'rgba(30,22,14,.45)'; ctx.lineWidth = 1;
+    for (let x = X0; x < X1; x += u * 1.3) { ctx.beginPath(); ctx.moveTo(x, Y0 + face * 0.2); ctx.lineTo(x + u * 0.2, Y0 + face * 0.7); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(120,180,200,.55)'; ctx.lineWidth = Math.max(1.5, u * 0.07);   // a stream glinting far below
+    ctx.beginPath(); for (let x = X0; x <= X1; x += u * 0.4) { const yy = Y0 + hgt * 0.78 + Math.sin(x * 0.02 + 1) * u * 0.12; x === X0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); } ctx.stroke();
+    ctx.fillStyle = 'rgba(220,240,250,.7)';
+    for (let i = 0; i < 6; i++) { const x = X0 + ((i * 0.37 + t * 0.05) % 1) * (X1 - X0); ctx.fillRect(x, Y0 + hgt * 0.78 + Math.sin(x * 0.02 + 1) * u * 0.12 - 1, 3, 2); }
+    for (let i = 0; i < 4; i++) {                          // mist drifting through
+      const x = X0 + (((i * 0.29 + t * 0.02 * (i % 2 ? 1 : -1)) % 1 + 1) % 1) * (X1 - X0), yy = Y0 + hgt * (0.45 + 0.1 * Math.sin(t * 0.5 + i));
+      ctx.fillStyle = 'rgba(200,210,215,.10)'; ctx.beginPath(); ctx.ellipse(x, yy, u * 2.2, hgt * 0.14, 0, 0, 6.28); ctx.fill();
+    }
+    ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = 1.5;         // roots dangling from the near lip
+    for (let x = X0 + u * 0.7; x < X1; x += u * 2.3) { if (isChasm(x, Y0 - 4)) continue; ctx.beginPath(); ctx.moveTo(x, Y0 + 2); ctx.quadraticCurveTo(x + u * 0.2 + Math.sin(t + x) * 2, Y0 + face * 0.6, x - u * 0.05, Y0 + face * 1.1); ctx.stroke(); }
+    const lip = (yy, dir) => {                              // crumbling earth and overhanging grass along each edge
+      for (let x = X0; x < X1; x += u * 0.5) {
+        if (isChasm(x + u * 0.25, yy - dir * 4)) continue;
+        const j = Math.sin(x * 0.13) * 0.5 + 0.5;
+        ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + u * 0.25, yy + dir * u * (0.18 + 0.2 * j)); ctx.lineTo(x + u * 0.5, yy); ctx.fill();
+        ctx.fillStyle = '#6d8a3e'; ctx.beginPath(); ctx.moveTo(x, yy - dir * 2); ctx.lineTo(x + u * 0.12, yy + dir * u * 0.12 * j); ctx.lineTo(x + u * 0.3, yy - dir * 2); ctx.fill();
+      }
+    };
+    lip(Y0, 1); lip(Y1, -1);
+  }
+  const h = state.hero;                                    // pebbles skitter off the edge near you
+  if (sc.chasms && Math.hypot(h.vx, h.vy) > UNIT && Math.random() < 0.25 && h.z <= 0 && isChasm(h.x + h.vx * 0.12, h.y + h.vy * 0.12 + UNIT * 0.6))
+    state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 0.6, y: h.y + UNIT * 0.5, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 3, t: 0, life: 0.7, color: 'rgba(90,70,50,.85)', size: UNIT * 0.08 });
+}
+// ledges: a raised earth shelf with a grass rim and a worn patch in the middle
+function drawLedge(x, y, R) {
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + R * 0.3, R * 1.05, R * 0.55, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.15, R, R * 0.58, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = '#7a9a48'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.95, R * 0.5, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = 'rgba(150,120,80,.55)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.02, R * 0.45, R * 0.2, 0, 0, 6.28); ctx.fill();
+}
+// during a ride: the edges of the screen dim so the crossing is the focus
+function drawRideVignette() {
+  const h = state.hero;
+  if (!h.ride || !h.ride.wind) return;
+  const p = Math.min(1, h.ride.t / h.ride.dur), k = Math.sin(Math.PI * p) * 0.35;
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(10,12,20,${k})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
 
 // =====================================================================
