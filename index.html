@@ -86,6 +86,7 @@ const state = {
   started: false, won: false, busy: false,   // busy = mid transition
   fade: 0, fadeTarget: 0,
   shake: 0, time: 0, keys: {},
+  drops: [], splashes: [], dripTimer: 1,
 };
 
 function enterScene(name) {
@@ -93,6 +94,7 @@ function enterScene(name) {
   state.scene = name;
   Object.assign(state.hero, { x: sc.start.fx * W, y: sc.start.fy * H, vx: 0, vy: 0, stun: 0, invuln: 0 });
   Object.assign(state.beast, { x: W * 0.72, y: H * 0.22, vx: 0, vy: 0, mode: 'sleep', t: 2.2, cool: 0 });
+  state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
   say(sc.msg);
   setMusic(sc.music);
 }
@@ -231,14 +233,11 @@ function scheduleMusic() {
     nextNoteTime += m.step;
     noteIndex++;
   }
-  if (m.drips && audio.currentTime > nextDrip) {
-    drip();
-    nextDrip = audio.currentTime + 0.6 + Math.random() * 2.2;
-  }
 }
 
-function drip() {
-  const pan = Math.random() * 1.6 - 0.8, f = 1400 + Math.random() * 900;
+function drip(pan = 0) {
+  if (!audio) return;
+  const f = 1400 + Math.random() * 900;
   tone(f, 0, 0.12, { type: 'sine', vol: 0.07, attack: 0.002, to: f * 0.4, pan, dest: musicGain });
   tone(f, 0.28, 0.1, { type: 'sine', vol: 0.02, attack: 0.002, to: f * 0.4, pan: -pan, dest: musicGain }); // echo
 }
@@ -306,6 +305,7 @@ function update(dt) {
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-4 * dt));
   state.shake = Math.max(0, state.shake - dt);
+  if (state.started && state.scene === 'cave') updateDrips(dt);
   if (!state.started || state.won) return;
 
   const sc = SCENES[state.scene], h = state.hero, L = longSide();
@@ -333,6 +333,64 @@ function update(dt) {
       say('You escaped the cave. Press R or tap to play again');
       sfxVictory();
     }
+  }
+}
+
+// =====================================================================
+// Water drips: fall from the ceiling, splash on the floor, sound on impact
+// =====================================================================
+function updateDrips(dt) {
+  state.dripTimer -= dt;
+  if (state.dripTimer <= 0) {
+    state.dripTimer = 0.5 + Math.random() * 1.8;
+    const x = Math.random() * W, landY = H * (0.08 + Math.random() * 0.9);
+    const y = landY - H * (0.25 + Math.random() * 0.45);
+    state.drops.push({ x, y, landY, vy: H * 0.2 });
+  }
+  const g = H * 2.6;
+  for (let i = state.drops.length - 1; i >= 0; i--) {
+    const d = state.drops[i];
+    d.vy += g * dt; d.y += d.vy * dt;
+    if (d.y >= d.landY) {
+      state.drops.splice(i, 1);
+      const bits = Array.from({ length: 3 + (Math.random() * 3 | 0) }, () => {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+        const sp = UNIT * (1.5 + Math.random() * 2.5);
+        return { x: d.x, y: d.landY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp };
+      });
+      state.splashes.push({ x: d.x, y: d.landY, t: 0, bits });
+      drip((d.x / W) * 1.6 - 0.8);
+    }
+  }
+  for (let i = state.splashes.length - 1; i >= 0; i--) {
+    const s = state.splashes[i];
+    s.t += dt;
+    for (const b of s.bits) { b.vy += UNIT * 14 * dt; b.x += b.vx * dt; b.y += b.vy * dt; }
+    if (s.t > 0.7) state.splashes.splice(i, 1);
+  }
+}
+
+function drawDrips() {
+  const h = state.hero, reach = UNIT * 6;
+  // near the hero's light: bright; out in the dark: faint glints
+  const lit = (x, y) => 0.3 + 0.7 * Math.max(0, 1 - Math.hypot(x - h.x, y - h.y) / reach);
+  ctx.lineCap = 'round';
+  for (const d of state.drops) {
+    const len = Math.min(UNIT * 0.9, d.vy * 0.03);
+    ctx.strokeStyle = `rgba(170,205,230,${0.8 * lit(d.x, d.y)})`;
+    ctx.lineWidth = Math.max(1, UNIT * 0.05);
+    ctx.beginPath(); ctx.moveTo(d.x, d.y - len); ctx.lineTo(d.x, d.y); ctx.stroke();
+  }
+  for (const s of state.splashes) {
+    const k = s.t / 0.7, a = (1 - k) * lit(s.x, s.y);
+    ctx.strokeStyle = `rgba(170,205,230,${0.7 * a})`;
+    ctx.lineWidth = Math.max(1, UNIT * 0.04);
+    ctx.beginPath();
+    ctx.ellipse(s.x, s.y, UNIT * 0.7 * k + 1, UNIT * 0.25 * k + 0.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = `rgba(190,220,240,${0.9 * a})`;
+    const r = Math.max(1, UNIT * 0.05);
+    for (const b of s.bits) if (b.y <= s.y + 1) ctx.fillRect(b.x - r / 2, b.y - r / 2, r, r);
   }
 }
 
@@ -483,6 +541,8 @@ function drawCave() {
   ctx.fillStyle = eg;
   ctx.fillRect(gx - UNIT * 4, gy - UNIT * 4, UNIT * 8, UNIT * 8);
   ctx.globalCompositeOperation = 'source-over';
+
+  drawDrips();
 
   // beast eyes always visible; closed while asleep, flare during windup
   const eyeY = b.y - UNIT * 0.2, eyeDX = UNIT * 0.28;
