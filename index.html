@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quest</title>
+<style>
+  :root { --bg: #1b1a2e; --grass: #3b8f4a; --grass2: #347f42; --hero: #f5d06f; --goal: #6fc3f5; --ink: #fdf6e3; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: "Courier New", monospace; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+  canvas { image-rendering: pixelated; border: 4px solid #0d0c17; box-shadow: 0 0 0 4px #57538a; max-width: 96vw; height: auto; }
+  #msg { min-height: 1.5em; font-size: 1.1rem; letter-spacing: 1px; }
+  #pad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(3, 56px); gap: 4px; }
+  #pad button { font-size: 1.4rem; background: #57538a; color: var(--ink); border: 0; border-radius: 6px; touch-action: none; }
+  #pad button:active { background: #7a75b8; }
+  @media (min-width: 900px) { #pad { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="game" width="320" height="240"></canvas>
+<div id="msg">Arrow keys or WASD. Reach the blue tile.</div>
+<div id="pad">
+  <span></span><button data-dir="up">&#9650;</button><span></span>
+  <button data-dir="left">&#9664;</button><span></span><button data-dir="right">&#9654;</button>
+  <span></span><button data-dir="down">&#9660;</button><span></span>
+</div>
+
+<script>
+// ---------- Core state (everything the game knows lives here) ----------
+const TILE = 16;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const msg = document.getElementById('msg');
+
+const state = {
+  cols: canvas.width / TILE,
+  rows: canvas.height / TILE,
+  player: { x: 1, y: 7 },          // tile coordinates
+  goal:   { x: 18, y: 7 },
+  won: false,
+  keys: {},
+  moveCooldown: 0,
+};
+
+// ---------- Input ----------
+window.addEventListener('keydown', e => { state.keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
+window.addEventListener('keyup',   e => { state.keys[e.key.toLowerCase()] = false; });
+
+document.querySelectorAll('#pad button').forEach(b => {
+  const map = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright' };
+  const k = map[b.dataset.dir];
+  b.addEventListener('pointerdown', e => { e.preventDefault(); state.keys[k] = true; });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, () => { state.keys[k] = false; }));
+});
+
+function readDirection() {
+  const k = state.keys;
+  if (k.arrowup || k.w)    return { dx: 0, dy: -1 };
+  if (k.arrowdown || k.s)  return { dx: 0, dy: 1 };
+  if (k.arrowleft || k.a)  return { dx: -1, dy: 0 };
+  if (k.arrowright || k.d) return { dx: 1, dy: 0 };
+  return null;
+}
+
+// ---------- Audio (no files needed; synthesized) ----------
+let audio;
+function beep(freq, start, dur, type = 'square', vol = 0.15) {
+  const o = audio.createOscillator();
+  const g = audio.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, audio.currentTime + start);
+  g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + start + dur);
+  o.connect(g).connect(audio.destination);
+  o.start(audio.currentTime + start);
+  o.stop(audio.currentTime + start + dur);
+}
+function playVictory() {
+  audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  const notes = [523, 659, 784, 1047, 784, 1047, 1319];  // C5 E5 G5 C6 G5 C6 E6
+  notes.forEach((f, i) => beep(f, i * 0.11, 0.18));
+  beep(1568, notes.length * 0.11, 0.6, 'triangle', 0.2);  // long G6 to finish
+}
+
+// ---------- Update ----------
+function update(dt) {
+  if (state.won) return;
+  state.moveCooldown -= dt;
+  const dir = readDirection();
+  if (dir && state.moveCooldown <= 0) {
+    const nx = state.player.x + dir.dx;
+    const ny = state.player.y + dir.dy;
+    if (nx >= 0 && nx < state.cols && ny >= 0 && ny < state.rows) {
+      state.player.x = nx; state.player.y = ny;
+    }
+    state.moveCooldown = 0.12;  // seconds between tile steps
+  }
+  if (state.player.x === state.goal.x && state.player.y === state.goal.y) {
+    state.won = true;
+    msg.textContent = 'You made it. Press R to play again.';
+    playVictory();
+  }
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'r' && state.won) {
+    state.won = false; state.player = { x: 1, y: 7 };
+    msg.textContent = 'Arrow keys or WASD. Reach the blue tile.';
+  }
+});
+
+// ---------- Draw ----------
+function draw() {
+  for (let y = 0; y < state.rows; y++)
+    for (let x = 0; x < state.cols; x++) {
+      ctx.fillStyle = (x + y) % 2 ? getCSS('--grass') : getCSS('--grass2');
+      ctx.fillRect(x * TILE, y * TILE, TILE, TILE);
+    }
+  ctx.fillStyle = getCSS('--goal');
+  ctx.fillRect(state.goal.x * TILE, state.goal.y * TILE, TILE, TILE);
+  ctx.fillStyle = getCSS('--hero');
+  ctx.fillRect(state.player.x * TILE + 2, state.player.y * TILE + 2, TILE - 4, TILE - 4);
+}
+function getCSS(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+// ---------- Loop ----------
+let last = performance.now();
+function loop(now) {
+  const dt = (now - last) / 1000; last = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
