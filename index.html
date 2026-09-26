@@ -386,7 +386,7 @@ function genWorld() {
   });
 
   // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
-  const foot = add(newScene({ id: 'foot', area: 'field', msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
+  const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 0.3 }, { a: -0.2, s: 0.3 }], chasms: [], heroStart: [0.5, 0.3] }));
   foot.exits = [{ side: 'e', a: 0.4, b: 0.6, to: 'f1' }];
   foot.feat.plants = [];
   edgeWall(foot, 'n', 'boulder', 1.0, []); edgeWall(foot, 'w', 'boulder', 1.0, []); edgeWall(foot, 's', 'boulder', 1.0, []);
@@ -437,6 +437,7 @@ function genWorld() {
       sc.spawns.push({ type, fx: p[0], fy: p[1] });
     });
     for (let t = 0; t < 46; t++) sc.deco.push({ kind: 'pebble', fx: rng(), fy: rng(), s: rr(0.4, 1.6), shade: rng() });
+    if (i >= 3 && i <= 6) sc.webs = Array.from({ length: i - 1 }, () => { const q = freeSpot(sc, [0.2, 0.8, 0.2, 0.8], 1.2); return { fx: q[0], fy: q[1], r: rr(0.9, 1.4) }; });
     if (i === 3 || i === 6) sc.feat.glimpse = { to: edgePoint('e', (east[0] + east[1]) / 2), line: i === 3 ? 'Still here! Keep coming!' : 'I can hear water! Hurry!' };
     west = east;
   }
@@ -527,7 +528,12 @@ function genWorld() {
     const ePt = east ? edgePoint('e', (east[0] + east[1]) / 2) : [0.8, 0.5];
     sc.paths = [makePath(wPt, ePt, 2)];
     if (i === 2) barrier(sc, 'webs', 'web', 0.94, east[0] - 0.04, 0.94, east[1] + 0.04, 0.6);
-    if (last) { sc.npcs.push({ kind: 'pip', fx: 0.8, fy: 0.5 }); ringBarrier(sc, 'cocoon', 'vine', 0.8, 0.5, 1.3); }
+    if (last) {
+      sc.npcs.push({ kind: 'pip', fx: 0.8, fy: 0.5 }); ringBarrier(sc, 'cocoon', 'vine', 0.8, 0.5, 1.3);
+      sc.feat.darkShroom = [0.8 + 2.4 * UNIT / W, 0.5 - 1.6 * UNIT / H];       // the gremlins' spore mushroom, tangled in the same vines
+      sc.solids.push(solid(sc.feat.darkShroom[0], sc.feat.darkShroom[1], 0.8, 'shroom', null, { bar: 'darkshroom', dark: true }));
+    }
+    sc.webs = Array.from({ length: [4, 7, 5][i - 1] }, () => { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.85], 1.2, last ? [[0.8, 0.5, 3]] : []); return { fx: q[0], fy: q[1], r: rr(0.9, 1.5) }; });
     scatter(sc, 2 + i, 'stalagmite', 0.8, 1.2, 2.0, last ? [[0.8, 0.5, 3]] : [], [0.15, 0.85, 0.15, 0.85], 'moss');
     for (let p = 0; p < i; p++) {
       const q = freeSpot(sc, [0.3, 0.7, 0.2, 0.8], 2, [[...wPt, 5], [0.8, 0.5, 3.5]]);
@@ -1016,6 +1022,7 @@ function breakBarrier(bar, how) {
   const rt = rtFor(state.scene);
   if (rt.flags[bar]) return;
   rt.flags[bar] = true;
+  if (bar === 'cocoon') burstDarkShroom();
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
@@ -1056,6 +1063,8 @@ function enterScene(id, fx, fy) {
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
   state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0;
   state.plateOn = {}; updatePlates(true);
+  state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
+  state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
   state.entry = { id, fx: pos[0], fy: pos[1] };
 
@@ -1178,6 +1187,8 @@ function update(dt) {
   if (sc.amb === 'marsh') ambLevel(0.05);
   if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
   updateGas(dt);
+  updateWebs(dt);
+  for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
   if (state.won) return;
 
@@ -1202,6 +1213,7 @@ function update(dt) {
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
     let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1);
     if (inPool(h.x, h.y)) spd *= 0.55;
+    if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
@@ -1593,10 +1605,12 @@ function deepen(msg) {
   say(msg + ` Vigor ${maxVig()}.`, state.hero.x, state.hero.y - UNIT * 1.1, { key: 'item', life: 5 });
 }
 function collect(it) {
+  if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
   const tell = (s, life = 4, tip) => say(s, h.x, h.y - UNIT * 1.1, { key: 'item', life, tip });
   zoomPulse(it.x, it.y, 'pickup');
   if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
+
   else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || it.type === 'seed' || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
     case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
@@ -1629,7 +1643,8 @@ function collect(it) {
     }
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
-    case 'spores7': inv.spores += 7; sfx.spores(); showTitle('Seven spores', inv.pipSaved ? 'enough for a long jump between mushrooms' : 'the Warden kept a stash. Someone might know what they\'re for', 'relic', 3.5); break;
+    case 'spores7': inv.spores += 7; if (inv.pipSaved) say('+7 spores', h.x, h.y - UNIT * 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
+    case 'spore': inv.spores++; if (inv.pipSaved) say(`+1 spore (${inv.spores})`, h.x, h.y - UNIT * 1.1, { key: 'spore', life: 1.2, color: '#e8d8ff' }); break;
     case 'ear': case 'hide':
       inv.mats[it.type]++;
       say(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
@@ -2118,6 +2133,7 @@ const AI = {
             hurtHero(e.dmg, e.x, e.y);
           }
           e.mode = 'floor'; e.t = 1.3;
+          spinWeb(e.x, e.y);
         }
         break;
       case 'floor': ease(0, 0, 4); if (e.t <= 0) { e.mode = 'ascend'; e.t = 0.6; } break;
@@ -2338,8 +2354,10 @@ function interact() {
       state.inv.shrooms[sc.id] = true;
       sfx.spores(); zoomPulse(mx * W, my * H, 'kill');
       for (let i = 0; i < 20; i++) state.fx.push({ x: mx * W + (Math.random() - 0.5) * UNIT, y: my * H - UNIT, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 1.5, color: '#e8d8ff' });
-      showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
-      say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
+      if (state.inv.pipSaved) {
+        showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
+        say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
+      } else say('A giant mushroom, glowing faintly.', mx * W, my * H - UNIT * 2, { key: 'shroom', life: 2.5 });
     }
     // found mushrooms grow spores over time; walk up to gather them
     if (d < UNIT * 2.3 && state.inv.shrooms[sc.id]) {
@@ -2347,10 +2365,13 @@ function interact() {
       if (inv.sporeAt[sc.id] == null) inv.sporeAt[sc.id] = state.playTime - SPORE_TIME;
       else if (ready > 0) {
         inv.spores += ready; inv.sporeAt[sc.id] = Math.max(last + ready * SPORE_TIME, state.playTime - SPORE_TIME * 2);
-        sfx.spores(); say(`+${ready} spore${ready > 1 ? 's' : ''} (${inv.spores})`, mx * W, my * H - UNIT * 2, { key: 'spore', life: 2, color: '#e8d8ff' });
-        say('Mushroom travel costs spores: the farther the jump, the more it takes.', mx * W, my * H + UNIT * 1.6, { key: 'sporetip', tip: 'spores', life: 4.5 });
+        if (inv.pipSaved) {
+          sfx.spores(); say(`+${ready} spore${ready > 1 ? 's' : ''} (${inv.spores})`, mx * W, my * H - UNIT * 2, { key: 'spore', life: 2, color: '#e8d8ff' });
+          say('Mushroom travel costs spores: the farther the jump, the more it takes.', mx * W, my * H + UNIT * 1.6, { key: 'sporetip', tip: 'spores', life: 4.5 });
+        }
       }
     }
+    if (d < UNIT * 1.9 && pressedNow.act && !state.inv.pipSaved) { say('It hums softly. You have no idea what to do with it.', mx * W, my * H - UNIT * 1.8, { key: 'shroom', life: 2.5 }); return true; }
     if (d < UNIT * 1.9 && pressedNow.act) {
       const dest = travelOptions(sc.id);
       if (!dest.length) say('No other mushrooms found yet. Each region hides one.', mx * W, my * H - UNIT * 1.4, { key: 'shroom', life: 2.5 });
@@ -2451,13 +2472,13 @@ function sporeJump(id, cost) {
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
   if (n.kind === 'toad') {
-    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.', 'And stay off those purple mushroom spores. Last time I sniffed one I woke up in a cave.'], then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
+    if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'].concat(inv.pipSaved ? ['And stay off those purple mushroom spores. Last time I sniffed a pile of them I woke up in a cave.'] : []), then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };
     if (!rt.flags.metToad) { rt.flags.metToad = true; spawnBeans(); return { lines: ['Hrrrmph. Somebody\'s been in my pantry.', 'Beans! My lunch! Little round ones, scattered all over this bog.', `Bring back all ${BEANS} and I'll teach you something... explosive.`] }; }
     return { lines: [`${inv.beans} of ${BEANS}. I'm wasting away here.`] };
   }
   if (n.kind === 'tortoise') {
-    if (inv.tortoise) return { lines: [pick(['Slow and steady, young one.', 'The tall mushrooms? Their spores remember every place they\'ve been. Some folk use them to skip the walking. Hmph.'])] };
+    if (inv.tortoise) return { lines: [inv.pipSaved ? pick(['Slow and steady, young one.', 'Spores, is it? Skipping all that lovely walking. Hmph.']) : 'Slow and steady, young one.'] };
     return {
       lines: ['Oh! A visitor. The rabbits don\'t usually let anyone this close.', 'They aren\'t guarding treasure, you know. They\'re guarding me.', 'Old habit, from a race a long, long time ago.', 'Here. Take some of my patience with you.'],
       then: () => { inv.tortoise = true; setTimeout(() => learnRecipe('guard', 'The tortoise shows you how shells are layered.'), 0); sfx.heart(); zoomPulse(state.hero.x, state.hero.y, 'boss'); deepen('The tortoise\'s patience settles in you.'); state.items.push({ type: 'starseed', x: state.hero.x + UNIT, y: state.hero.y + UNIT }); say('And a seed from the old race\'s finish line. Plant it somewhere sunny.', npcPos(n)[0], npcPos(n)[1] - UNIT * 1.5, { key: 'npc2', life: 4 }); },
@@ -2466,13 +2487,13 @@ function npcLines(n) {
   if (n.kind === 'pip' && n.home) {
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
-      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Down in the Hollow the gremlins kept jars of glittering spores. From the big mushrooms, I think.', 'Those mushrooms remember places. Breathe in their spores and you\'re just... there.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
+      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
     }
     return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. A short hop is only 1.`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
   }
   if (n.kind === 'pip') {
     if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
-    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Let\'s go home. I\'ll put the kettle on.'], then: startRescue };
+    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Wait. Look at the spores drifting off that burst mushroom...', 'I remember now! The gremlins smash a whole handful of spores at once and POP, they\'re at another mushroom. That\'s how they got me down here so fast!', 'Scoop up all you can. Then let\'s go home. I\'ll put the kettle on.'], then: startRescue };
   }
   return { lines: ['...'] };
 }
@@ -2679,6 +2700,7 @@ function updateGas(dt) {
       damage(e, 1, 'fire', 0, 0);
     }
     for (const s of state.solids) if (s.bar && ['reeds', 'web', 'vine'].includes(s.kind) && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
+    for (const w of state.webs) if (!w.burn && Math.hypot(w.x - b.x, w.y - b.y) < w.r + b.r) igniteWeb(w);
     if (state.bird) scareBird(b.x, b.y, 4);
   }
 }
@@ -3086,6 +3108,52 @@ function updateFlock(dt) {
 }
 
 // =====================================================================
+// Webs: slow you down, and burn in a chain that lights up the cave
+// =====================================================================
+const inWeb = (x, y) => (state.webs || []).some(w => !w.burn && Math.hypot(x - w.x, y - w.y) < w.r * 0.9);
+function igniteWeb(w) { if (w.burn || w.pending) return; w.pending = state.time + 0.08; }
+function updateWebs(dt) {
+  const rt = rtFor(state.scene);
+  for (let i = state.webs.length - 1; i >= 0; i--) {
+    const w = state.webs[i];
+    if (w.pending && state.time >= w.pending && !w.burn) { w.burn = 0.001; w.pending = 0; if (Math.random() < 0.5) sfx.whumpf(); else sfx.crackle(); }
+    if (!w.burn) continue;
+    w.burn += dt;
+    if (Math.random() < dt * 20) state.fx.push({ x: w.x + (Math.random() - 0.5) * w.r * 1.6, y: w.y + (Math.random() - 0.5) * w.r, vx: 0, vy: -UNIT * 1.6, t: 0, life: 0.6, color: Math.random() < 0.5 ? '#ffb347' : '#ff6a2a' });
+    if (w.burn > 0.18 && !w.spread) {                // fire runs along to the next strands
+      w.spread = true;
+      for (const o of state.webs) if (o !== w && Math.hypot(o.x - w.x, o.y - w.y) < o.r + w.r + UNIT * 1.3) { o.pending = state.time + 0.12 + Math.random() * 0.15; }
+      for (const p of state.gas) if (!p.burn && p.ign == null && Math.hypot(p.x - w.x, p.y - w.y) < p.r + w.r) p.ign = state.time + 0.1;
+      for (const s of state.solids) if (s.bar && ['web', 'vine'].includes(s.kind) && Math.hypot(s.x - w.x, s.y - w.y) < w.r + s.r + UNIT) { breakBarrier(s.bar, 'fire'); break; }
+    }
+    for (const e of state.enemies) {                  // anything caught in a burning web catches too
+      if (!hittable(e) || (e.webBurnt || 0) > state.time || Math.hypot(e.x - w.x, e.y - w.y) > w.r + e.r) continue;
+      e.webBurnt = state.time + 1; e.burn = Math.min(8, (e.burn || 0) + 3); damage(e, 1, 'fire', 0, 0);
+    }
+    if (w.burn > 1.7) { if (w.idx != null) rt.flags['web' + w.idx] = true; state.webs.splice(i, 1); }
+  }
+}
+function spinWeb(x, y) {                                // a diver's drop leaves fresh silk behind
+  if (!state.webs || state.webs.length > 16) return;
+  if (state.webs.some(w => Math.hypot(w.x - x, w.y - y) < w.r)) return;
+  state.webs.push({ x, y, r: UNIT * rr(0.8, 1.2), idx: null, burn: 0 });
+}
+// ---------------- the Hollow's spore mushroom bursts when Pip is freed ----------------
+function makeFloaters(n) { return Array.from({ length: n }, () => ({ x: Math.random() * W, y: H * (0.2 + Math.random() * 0.6), a: Math.random() * 6, s: 0.5 + Math.random() })); }
+function burstDarkShroom() {
+  const sc = sceneDef(), rt = rtFor(sc.id), f = sc.feat.darkShroom;
+  if (!f || rt.flags.darkshroom) return;
+  rt.flags.darkshroom = true;
+  refreshSceneGeometry();
+  const x = f[0] * W, y = f[1] * H;
+  sfx.whumpf(); sfx.spores(); state.shake = 0.5; zoomPulse(x, y, 'boss');
+  for (let i = 0; i < 40; i++) state.fx.push({ x, y: y - UNIT, vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 1.8, color: '#e8d8ff' });
+  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28, d = UNIT * (1.2 + Math.random() * 2.2); state.items.push({ type: 'spore', x: Math.max(UNIT, Math.min(W - UNIT, x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, y + Math.sin(a) * d)) }); }
+  state.floaters = makeFloaters(8);
+  say('The mushroom bursts! Spores everywhere.', x, y - UNIT * 2, { key: 'burst', life: 3 });
+}
+
+// =====================================================================
 // Drawing: one scene painter for every area. Areas differ by palette,
 // ground detail, and how much shade the lighting pass lays over them.
 // =====================================================================
@@ -3126,6 +3194,7 @@ function drawScene(sc) {
   drawGround(sc);
   drawShadows();
   for (const s of state.solids) if (s.kind !== 'tree' && s.kind !== 'deadtree') drawSolid(s);
+  drawWebs();
   drawItems();
   drawGas(false);
   for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); ctx.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * k, z.r * 0.5 * k, 0, 0, 6.28); ctx.fill(); }
@@ -3195,6 +3264,23 @@ function drawChoice() {
     ox += optW[i] + 10;
   });
   ctx.textAlign = 'left';
+}
+function drawWebs() {
+  for (const w of state.webs || []) {
+    if (w.burn) {
+      const k = w.burn / 1.7, g = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, w.r * 1.3);
+      g.addColorStop(0, `rgba(255,220,130,${0.8 * (1 - k)})`); g.addColorStop(1, 'rgba(255,90,20,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(w.x, w.y, w.r * 1.3, 0, 6.28); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+      continue;
+    }
+    ctx.strokeStyle = 'rgba(220,220,210,.45)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28 + w.x * 0.01; ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.lineTo(w.x + Math.cos(a) * w.r, w.y + Math.sin(a) * w.r * 0.7); ctx.stroke(); }
+    for (const k of [0.35, 0.65, 0.95]) { ctx.beginPath(); ctx.ellipse(w.x, w.y, w.r * k, w.r * k * 0.7, 0, 0, 6.28); ctx.stroke(); }
+  }
+  for (const fl of state.floaters || []) {
+    ctx.fillStyle = `rgba(232,216,255,${0.5 + 0.4 * Math.sin(state.time * 3 + fl.a)})`;
+    ctx.beginPath(); ctx.arc(fl.x, fl.y, UNIT * 0.1, 0, 6.28); ctx.fill();
+  }
 }
 function drawVineWrap(x, y) {
   ctx.strokeStyle = '#3f7a32'; ctx.lineWidth = 3;
@@ -3293,6 +3379,12 @@ function drawGround(sc) {
     }
     drawPools(sc);
     if (f.falls) drawFalls(rtFor(sc.id).bossDead);
+    if (f.darkShroom && rtFor(sc.id).flags.darkshroom) {
+      const x = f.darkShroom[0] * W, y = f.darkShroom[1] * H;
+      ctx.fillStyle = '#1a1414'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 1.1, UNIT * 0.45, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#2e2622'; ctx.fillRect(x - UNIT * 0.15, y - UNIT * 0.5, UNIT * 0.3, UNIT * 0.5);
+    }
+
   } else if (sc.area === 'marsh' || sc.area === 'swamp') {
     drawPools(sc);
     ctx.strokeStyle = '#6b7a40'; ctx.lineWidth = 2;
@@ -3420,7 +3512,7 @@ function drawSolid(s) {
       break;
     }
     case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = state.inv.shrooms[sceneDef().id], pulse = 0.6 + 0.4 * Math.sin(state.time * 2);
+      const found = s.dark || state.inv.shrooms[sceneDef().id], pulse = 0.6 + 0.4 * Math.sin(state.time * 2);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
       const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * 1.6);
@@ -3683,6 +3775,8 @@ function drawLighting(sc) {
     if (sc.id === 'c1') light(0, H * 0.5, UNIT * 2.5, 0.3);
   }
   if (sc.feat.shroom) light(sc.feat.shroom[0] * W, sc.feat.shroom[1] * H - UNIT, UNIT * 2.6, 0.8);
+  for (const w of state.webs || []) if (w.burn) light(w.x, w.y, w.r * 4.5, 0.95);
+  for (const fl of state.floaters || []) light(fl.x, fl.y, UNIT * 0.9, 0.5);
   for (const p of state.gas) if (p.burn) light(p.x, p.y, p.r * 2.6, 0.95 * (1 - p.burn / p.burnDur * 0.6));
   ctx.drawImage(lightCv, 0, 0, W, H);
 }
@@ -3712,10 +3806,10 @@ function drawSky() {
 function drawClouds(sc) {
   for (const c of state.clouds) {
     const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
-    g.addColorStop(0, `rgba(20,25,35,${0.12 + sc.depth * 0.02})`); g.addColorStop(1, 'rgba(20,25,35,0)');
+    g.addColorStop(0, `rgba(20,25,35,${0.12 + (sc.depth || 0) * 0.02})`); g.addColorStop(1, 'rgba(20,25,35,0)');
     ctx.fillStyle = g; ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2);
   }
-  ctx.fillStyle = `rgba(40,50,70,${0.03 * sc.depth})`; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = `rgba(40,50,70,${0.03 * (sc.depth || 0)})`; ctx.fillRect(0, 0, W, H);
 }
 function drawFog() {
   for (let i = 0; i < 5; i++) {
@@ -3773,7 +3867,7 @@ function drawHUD() {
   const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
   if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
   if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
-  if (inv.spores) slot('spores', `x${inv.spores}`);
+  if (inv.spores && inv.pipSaved) slot('spores', `x${inv.spores}`);
   if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
   if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
   const need = 25 * Math.pow(1.35, inv.tlevel);
@@ -4339,8 +4433,8 @@ let last = performance.now();
 function loop(now) {
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }
-  update(dt);
-  draw();
+  // a bad frame should never stop the game: log it once and keep going
+  try { update(dt); draw(); } catch (e) { if (!loop.warned) { loop.warned = true; console.error('Frame error (game continues):', e); } }
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
