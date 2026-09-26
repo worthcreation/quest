@@ -100,6 +100,8 @@ const clamp01 = v => Math.max(0.04, Math.min(0.96, v));
 const AREA_NAMES = { river: 'The Gleaming River', forest: 'The Glade', woods: 'The Deep Woods', field: 'The Windswept Field', cave: 'The Dank Cave', marsh: 'The Marsh', swamp: 'The Sunken Swamp', hollow: 'The Hollow Beneath' };
 const SHROOM_NAMES = { camp: 'Home camp', w2: 'Deep Woods', foot: 'Foothill Farm', c4: 'Dank Cave', m1: 'Marsh edge', sw2: 'Sunken Swamp' };
 const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
+// after the rescue: a gremlin fled with Pip's journal, back through the glade and the woods to where the sword was
+const THIEF_ROUTE = ['start', 'w1', 'w2', 'w3'];
 const BEANS = 7;              // always lying about: 1 on the toad's screen, 2 on each other marsh screen, 1 on each of the first two swamp screens
 
 function edgePoint(side, along) {
@@ -302,6 +304,7 @@ function genWorld() {
   start.solids.forEach(s => { if (s.bar === 'thicket') s.showFlag = 'ambush'; });
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
+  start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   addPlots(start, 2, [0.15, 0.4, 0.6, 0.85]);
   decoFlowers(start, 26);
 
@@ -458,6 +461,7 @@ function genWorld() {
       keep.push([...pen, 3.2], [...p, 2.5], [...r, 2.5], [...sw, 3.5]);
     }
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
+    sc.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.85], 0.8); claim(sc, q[0], q[1], 0.6); return q; });
     if (i === 1) addPlots(sc, 2, [0.3, 0.7, 0.3, 0.7]);
     if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
@@ -708,7 +712,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1215,6 +1219,16 @@ function enterScene(id, fx, fy) {
     const to = sc.feat.glimpse.to, tx = to[0] * W, ty = to[1] * H;
     state.glimpse = { t: -0.4, x0: h.x + (tx - h.x) * 0.55, y0: h.y + (ty - h.y) * 0.55, x1: tx + (tx > W * 0.9 ? UNIT * 3 : 0), y1: ty, line: sc.feat.glimpse.line, x: 0, y: 0, down: sc.feat.stone && to === sc.feat.stone };
   }
+  const ti = THIEF_ROUTE.indexOf(id);
+  if (state.inv.journal === 1 && ti === state.inv.thiefAt) {
+    const last = ti === THIEF_ROUTE.length - 1;
+    const spot = last ? WORLD.w3.feat.sword : [pos[0] < 0.5 ? 0.8 : 0.2, 0.5];
+    const t = makeEnemy('thief', spot[0] * W + (last ? UNIT * 2.6 : 0), spot[1] * H, -1);
+    t.mode = last ? 'idle' : 'taunt'; t.cornered = last; t.route = ti;
+    state.enemies.push(t);
+    if (!last) say('The thief! It has Pip\'s journal!', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 2.5, color: '#ffe38a' });
+    else say('Cornered! It won\'t give the journal up without a fight.', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 3, color: '#ffe38a' });
+  }
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
   if (id === 'start' && !rt.flags.ambush && state.started) startAmbush();
   else if (sc.msg && !state.seen[id]) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });
@@ -1331,7 +1345,9 @@ function update(dt) {
   if (state.won) return;
 
   if (!state.busy) {
-    if (!interact()) { updatePull(dt); updateCombat(dt); }
+    // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
+    state.actUsed = interact();
+    if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
   }
   for (const k of ['lumin', 'slime', 'pepper', 'fishBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
@@ -1350,7 +1366,7 @@ function update(dt) {
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
-    let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1);
+    let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
     if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
@@ -1677,7 +1693,7 @@ function freePullable(pl, x, y) {
   unsay('pull');
   if (pl.kind === 'rock') {
     sfx.lift(); zoomPulse(x, y, 'pickup'); spark(x, y, '#6a4a2a', 12, 3);
-    state.carry = 'rock'; refreshButtons();
+    state.carry = 'rock'; state.carryT = state.time; refreshButtons();
     say(`Heavy! It takes both hands. Tap ${K.act} to set it down ahead of you, or hold ${K.act} to aim and let go to throw.`, x, y - UNIT * 1.6, { key: 'pull', life: 5, tip: 'throw-rock' });
   } else startSwordCut();
 }
@@ -1735,6 +1751,16 @@ const SEEDS = {
   ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
   starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
 };
+const PAGE_NOTES = [
+  'Day 3. The robin\'s hollow tree is full of seeds. It drops them when it flies.',
+  'The big mushrooms hum at night. I swear they\'re talking to each other.',
+  'Fish in the gleaming pool bite if you wait for the ripple, then strike FAST.',
+  'Rabbits on the mountain are guarding something. Something slow.',
+  'Gremlins hate fire. Note to self: learn fire.',
+  'The swamp stones hum like the mushrooms do. Lower, though. Older.',
+  'If a gust is too strong, don\'t jump. You end up at the bottom. Ask me how I know.',
+  'Thorns + a stump + patience = a sharper blade?',
+];
 const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
@@ -1810,6 +1836,16 @@ function collect(it) {
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
     }
+    case 'page': {
+      inv.pages++;
+      const note = PAGE_NOTES[(inv.pages - 1) % PAGE_NOTES.length];
+      say(`A page of Pip's journal: "${note}"`, h.x, h.y - UNIT * 1.3, { key: 'page', life: 6, color: '#fff3c8' });
+      break;
+    }
+    case 'journal':
+      inv.journal = 3; sfx.victory();
+      showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);
+      break;
     case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
     case 'rod': inv.rod = true; showTitle('Old fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
     case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
@@ -2081,19 +2117,21 @@ function makeEnemy(type, x, y, idx, poolIdx) {
     case 'glowworm': return { ...b, r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6, flashCool: rr(1, 3) };
     case 'rabbit':     return { ...b, r: u * 0.45, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1) };
     case 'gremlin':  return { ...b, r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 };
+    case 'thief':    return { ...b, r: u * 0.45, hp: 6, dmg: 1, mode: 'taunt', t: 1, fast: 1.45 };
     case 'lurker':   return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'submerged', t: 0, cool: rr(0.5, 2) };
     case 'warden':   return { ...b, r: u * 1.3, hp: 18, maxHp: 18, dmg: 2, mode: 'dormant', t: 0 };
   }
 }
 function hittable(e) {
   if (e.dead) return false;
+  if (e.type === 'thief') return !!e.cornered;
   if (e.type === 'diver') return ['floor', 'stunned', 'ascend'].includes(e.mode);
   if (e.type === 'lurker') return ['bite', 'risen', 'stunned'].includes(e.mode);
   if (e.type === 'warden') return !['dormant', 'intro', 'talk'].includes(e.mode);
   return true;
 }
 function resumeMode(e) {
-  const m = { stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], gremlin: ['flee', 0.6], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
+  const m = { thief: ['flee', 0.6], stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], gremlin: ['flee', 0.6], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
   e.mode = m[0]; e.t = m[1];
 }
 function spark(x, y, color, n, speed) {
@@ -2132,7 +2170,8 @@ function kill(e) {
   sfx.death();
   state.shake = 0.3;
   spark(e.x, e.y, '#6b1a1a', 14, 3);
-  rtFor(state.scene).deadAt[e.idx] = state.playTime;
+  if (e.idx >= 0) rtFor(state.scene).deadAt[e.idx] = state.playTime;
+  if (e.type === 'thief') { state.items.push({ type: 'journal', x: e.x, y: e.y }); relicMoment('journal', e.x, e.y); state.inv.thiefAt = THIEF_ROUTE.length; return; }
   const t = dropFor(e);
   if (t) {
     state.items.push({ type: t, x: e.x, y: e.y });
@@ -2169,6 +2208,7 @@ const TOUCHES = {
   glowworm: e => e.mode === 'crawl' && e.cool <= 0,
   rabbit: e => e.mode === 'dart',
   gremlin: e => e.mode === 'dart',
+  thief: e => e.cornered && e.mode === 'dart',
   warden: e => ['prowl', 'aim', 'charge', 'rear', 'recover'].includes(e.mode),
 };
 
@@ -2200,10 +2240,11 @@ function updateEnemies(dt) {
     if (e.type !== 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
     const ground = !(e.type === 'diver' && e.mode === 'ceiling') && e.type !== 'lurker';
     let bump = false;
-    if (ground) bump = collideSolids(e, e.r * 0.85);
+    const escaping = e.type === 'thief' && !e.cornered;       // the thief slips through anything on its way out
+    if (ground && !escaping) bump = collideSolids(e, e.r * 0.85);
     const lunging = e.mode === 'lunge' || e.mode === 'charge';
     if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
-    bump = clampTo(e, e.r) || bump;
+    if (!escaping) bump = clampTo(e, e.r) || bump;
     if (lunging && h.dashT > 0 && !state.dodged && dist < e.r + UNIT * 1.3) {
       state.dodged = true; state.slowmo = state.inv.step >= 2 ? 0.7 : 0.45;
       zoomPulse(h.x, h.y, 'parry'); sfx.flip();
@@ -2227,7 +2268,7 @@ function updateEnemies(dt) {
 }
 function afterHit(e) {
   if (e.type === 'stalker' || e.type === 'charger') { e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3; }
-  if (e.type === 'rabbit' || e.type === 'gremlin') { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
+  if (e.type === 'rabbit' || e.type === 'gremlin' || e.type === 'thief') { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
   if (e.type === 'glowworm') e.cool = 1.5;
   if (e.type === 'warden') { e.mode = 'recover'; e.t = 1.0; }
 }
@@ -2280,6 +2321,27 @@ const AI = {
     else { if (e.t <= 0) { e.t = 2; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); } ease(e.lx * 0.03 * L(), e.ly * 0.03 * L(), 2); }
   },
   gremlin(e, dx, dy, dist, ease, dt) { AI.rabbit(e, dx, dy, dist, ease, dt, 1.25); },
+  thief(e, dx, dy, dist, ease, dt) {
+    if (e.cornered) return AI.rabbit(e, dx, dy, dist, ease, dt, 1.45);   // nowhere left to run: it fights
+    if (e.mode === 'taunt') {                         // hops about waving the journal until you get close
+      ease(0, 0, 6);
+      if (e.t <= 0) { e.t = rr(1, 2); sfx.cackle(); }
+      if (dist < UNIT * 5) {
+        e.mode = 'flee';
+        const next = THIEF_ROUTE[e.route + 1], ex = sceneDef().exits.find(o => o.to === next);
+        const [fx, fy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2) : [0.98, 0.5];
+        e.lx = fx * W + (fx > 0.9 ? UNIT * 3 : fx < 0.1 ? -UNIT * 3 : 0); e.ly = fy * H + (fy > 0.9 ? UNIT * 3 : fy < 0.1 ? -UNIT * 3 : 0);
+        say('It\'s getting away!', e.x, e.y - UNIT * 1.3, { key: 'thief', life: 1.5 });
+      }
+    } else if (e.mode === 'flee') {                  // too quick to catch: it always makes the next screen
+      const tx = e.lx - e.x, ty = e.ly - e.y, td = Math.hypot(tx, ty) || 1;
+      ease(tx / td * 0.75 * L(), ty / td * 0.75 * L(), 8);
+      if (td < UNIT * 0.8 || e.x < -UNIT * 2 || e.x > W + UNIT * 2 || e.y < -UNIT * 2 || e.y > H + UNIT * 2) {
+        e.dead = true; e.mode = 'dead'; e.t = 0; state.inv.thiefAt = Math.min(THIEF_ROUTE.length - 1, e.route + 1);
+        say('Gone again. Follow the dropped pages.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'thief', life: 2.5 });
+      }
+    }
+  },
   rabbit(e, dx, dy, dist, ease, dt, fast = 1) {
     switch (e.mode) {
       case 'idle':
@@ -2623,7 +2685,7 @@ function interact() {
   }
   if (!state.carry) {
     const rock = state.items.find(it => it.type === 'bigrock' && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 1.3);
-    if (rock && pressedNow.act) { state.items.splice(state.items.indexOf(rock), 1); state.carry = 'rock'; sfx.lift(); refreshButtons(); return true; }
+    if (rock && pressedNow.act) { state.items.splice(state.items.indexOf(rock), 1); state.carry = 'rock'; state.carryT = state.time; sfx.lift(); refreshButtons(); return true; }
   } else if (pressedNow.act) { dropRock(); return true; }
   return false;
 }
@@ -2789,6 +2851,11 @@ function npcLines(n) {
     };
   }
   if (n.kind === 'pip' && n.home) {
+    if (inv.journal === 3) return { lines: ['My journal! You got it back!', 'Keep it. You\'ll make better use of the maps than me. They\'re in your menu.'], then: () => { inv.journal = 4; sfx.heart(); } };
+    if (rt.flags.pipSpores && !inv.journal) {
+      return { lines: ['I saw it! The gremlin with my journal, sneaking back toward the glade.', 'It\'ll run the way they dragged me: through the glade and into the woods.', 'Follow the torn pages. Please get it back.'],
+        then: () => { inv.journal = 1; inv.thiefAt = 0; spawnPages(); showTitle('The Stolen Journal', 'the thief is in the glade. follow its dropped pages into the woods', 'relic', 4); } };
+    }
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
       return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
@@ -2797,9 +2864,16 @@ function npcLines(n) {
   }
   if (n.kind === 'pip') {
     if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
-    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'Wait. Look at the spores drifting off that burst mushroom...', 'I remember now! The gremlins smash a whole handful of spores at once and POP, they\'re at another mushroom. That\'s how they got me down here so fast!', 'Scoop up all you can. Then let\'s go home. I\'ll put the kettle on.'], then: startRescue };
+    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'And one of them ran off with my journal. Every map I ever drew is in there.', 'Wait. Look at the spores drifting off that burst mushroom...', 'I remember now! The gremlins smash a whole handful of spores at once and POP, they\'re at another mushroom. That\'s how they got me down here so fast!', 'Scoop up all you can. Then let\'s go home. I\'ll put the kettle on.'], then: startRescue };
   }
   return { lines: ['...'] };
+}
+// the thief drops pages as it runs: two on each screen of its route
+function spawnPages() {
+  for (const id of THIEF_ROUTE) for (const q of WORLD[id].feat.pageSpots || []) {
+    if (id === state.scene) state.items.push({ type: 'page', x: q[0] * W, y: q[1] * H });
+    else rtFor(id).items.push({ type: 'page', fx: q[0], fy: q[1] });
+  }
 }
 // once the toad has told you, the rest of his lunch turns up around the marsh
 function spawnBeans() {
@@ -2858,7 +2932,8 @@ function updateAbilities(dt) {
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
   const rock = state.carry === 'rock', acorn = !state.carry && state.equip === 'acorn' && inv.acorns > 0;
   if ((rock || acorn) && !state.pull.grip && !state.npcTalk) {
-    if (pressedNow.act && h.z <= 0 && !state.aim.on) { state.aim.on = true; state.aim.t = 0; }
+    // a throw only starts from a fresh press: not the press that picked the rock up, planted, talked, etc.
+    if (pressedNow.act && h.z <= 0 && !state.aim.on && !state.actUsed && state.time - (state.carryT || -9) > 0.1) { state.aim.on = true; state.aim.t = 0; }
     if (state.aim.on) {
       if (held.act()) state.aim.t += dt;
       else {
@@ -3085,7 +3160,7 @@ function updateCut(dt) {
     if (c.t > 2 && c.t < 3) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
     if (at(1.6)) setMusic('sinister');
     if (at(2.1)) { sfx.cackle(); state.shake = 0.3; }
-    if (at(2.8)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 }); zoomPulse(p.x, p.y, 'parry'); }
+    if (at(2.8)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP! That\'s my journal!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 }); zoomPulse(p.x, p.y, 'parry'); gs[1].book = true; }
     if (c.t > 3.8 && c.t < 5.5) { p.x += UNIT * 5 * dt; gs.forEach((g, i) => { if (i < 2) g.x += UNIT * 5 * dt; }); }
     if (c.t > 4.2 && c.t < 5.4) { const g = gs[2]; g.x += (W * 0.95 - g.x) * (1 - Math.exp(-4 * dt)); }
     if (at(5.5)) { rt.flags.ambush = true; refreshSceneGeometry(); sfx.crash(); state.shake = 0.4; zoomPulse(W * 0.95, H * 0.5, 'kill'); sfx.cackle(); }
@@ -3255,6 +3330,7 @@ const MAIN_ITEMS = () => [
   ['keys', 'Controls'],
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
+  ...(state.inv.journal >= 3 ? [['map', 'Map (Pip\'s journal)']] : []),
   ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
   ['new', 'New adventure'],
 ];
@@ -3274,6 +3350,7 @@ function menuItems() {
   if (m.view === 'save' || m.view === 'load') return [...Array(SLOTS)].map((_, i) => `Slot ${i + 1}: ${slotInfo(i)}`).concat('Back');
   if (m.view === 'new') return ['Yes, start over', 'No, keep playing'];
   if (m.view === 'forge') return forgeItems();
+  if (m.view === 'map') return ['Back'];
   if (m.view === 'spores') return travelOptions(state.scene).map(o => `${SHROOM_NAMES[o.id]}: ${o.cost} spore${o.cost > 1 ? 's' : ''}`).concat('Back');
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
@@ -3310,6 +3387,7 @@ function menuSelect(i) {
     if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
     if (key === 'sound') setSound(!soundOn);
     if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
+    if (key === 'map') Object.assign(m, { view: 'map', sel: 0 });
     if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
     if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
     if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
@@ -3322,7 +3400,7 @@ function menuSelect(i) {
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }
-    else Object.assign(m, { view: 'main', sel: 4 });
+    else Object.assign(m, { view: 'main', sel: mainIndex('keys') });
   } else if (m.view === 'save' || m.view === 'load') {
     if (i >= SLOTS) { Object.assign(m, { view: 'main', sel: mainIndex(m.view) }); return; }
     if (m.view === 'save') m.note = saveSlot(i) ? `Saved to slot ${i + 1}` : 'Could not save on this device';
@@ -3330,15 +3408,16 @@ function menuSelect(i) {
     else if (loadSlot(i)) state.menu = null;
     else m.note = 'That save could not be read';
   } else if (m.view === 'new') {
-    if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: 6 });
-  } else Object.assign(m, { view: 'main', sel: 1 });
+    if (i === 0) { state.menu = null; newGame(); } else Object.assign(m, { view: 'main', sel: mainIndex('new') });
+  } else if (m.view === 'map') Object.assign(m, { view: 'main', sel: mainIndex('map') });
+  else Object.assign(m, { view: 'main', sel: mainIndex('equip') });
 }
 
 function serialize() {
   saveScene();
   const h = state.hero, rtOut = {};
   for (const [k, r] of Object.entries(RT)) rtOut[k] = { deadAt: r.deadAt, items: r.items, pulled: [...r.pulled], flags: r.flags, bossDead: r.bossDead };
-  return { v: 15, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
+  return { v: 16, seed: SEED, scene: state.scene, hero: { fx: h.x / W, fy: h.y / H, vig: h.vig }, inv: state.inv, rt: rtOut, seen: state.seen, tipsSeen: state.tipsSeen, playTime: state.playTime, carry: state.carry, area: sceneDef().area, when: Date.now() };
 }
 function saveSlot(i) { try { localStorage.setItem('quest-slot-' + i, JSON.stringify(serialize())); return true; } catch (e) { return false; } }
 function readSlot(i) { try { const s = localStorage.getItem('quest-slot-' + i); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
@@ -3350,7 +3429,7 @@ function slotInfo(i) {
 }
 function loadSlot(i) {
   const d = readSlot(i);
-  if (!d || !d.seed || d.v !== 15) return false;
+  if (!d || !d.seed || d.v !== 16) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
@@ -3389,6 +3468,7 @@ function inventoryLines() {
   }
   sec('You');
   L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
+  if (state.inv.journal === 1) L2.push(['page', `The stolen journal`, `The thief is somewhere along ${THIEF_ROUTE.join(', ')}. Pages found: ${state.inv.pages}.`]);
   L2.push([null, `World seed ${SEED}`, `Open the game with ?overview=${SEED} to see this world as a map.`]);
   L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
   if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
@@ -3554,7 +3634,7 @@ function drawScene(sc) {
   for (const e of state.enemies) layer.push([e.y, () => drawEnemy(e)]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (state.pip && state.pip.show && (sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
-  if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
+  if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
   const gl = state.glimpse;
   if (gl && gl.t > 0 && !gl.gone) layer.push([gl.y, () => {
@@ -4365,12 +4445,34 @@ function drawMenu() {
   const m = state.menu, items = menuItems();
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory', spores: 'Spore travel' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', equip: 'Inventory', spores: 'Spore travel', map: 'Pip\'s map' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';
   ctx.font = `bold ${Math.round(fs * 1.6)}px Georgia, serif`; ctx.fillText(titles[m.view], W / 2, y); y += fs * 2;
   ctx.font = `${fs}px "Courier New", monospace`;
+  if (m.view === 'map') {                            // Pip's maps: the world as you've seen it
+    const ids = Object.keys(MAP_LAYOUT), cols = 15, rows = 13;
+    const aw = Math.min(W - 40, 900), ah = Math.min(H - y - lh * 2.5, aw * rows / cols * 0.8);
+    const cw = aw / cols, chh = ah / rows, ox = (W - aw) / 2, oy = y;
+    const at = id => [ox + MAP_LAYOUT[id][0] * cw + cw * 0.12, oy + MAP_LAYOUT[id][1] * chh + chh * 0.12];
+    ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,190,170,.35)';
+    for (const id of ids) for (const ex of WORLD[id].exits) if (MAP_LAYOUT[ex.to] && state.seen[id] && state.seen[ex.to]) {
+      const [ax, ay] = at(id), [bx, by] = at(ex.to);
+      ctx.beginPath(); ctx.moveTo(ax + cw * 0.38, ay + chh * 0.38); ctx.lineTo(bx + cw * 0.38, by + chh * 0.38); ctx.stroke();
+    }
+    for (const id of ids) {
+      const [bx, by] = at(id), seen = state.seen[id], here = id === state.scene;
+      ctx.fillStyle = seen ? (REGION_COLOR[WORLD[id].area] || '#888') : 'rgba(255,255,255,.05)';
+      ctx.fillRect(bx, by, cw * 0.76, chh * 0.76);
+      if (here) { ctx.strokeStyle = `rgba(255,227,138,${0.6 + 0.4 * Math.sin(state.time * 6)})`; ctx.lineWidth = 3; ctx.strokeRect(bx - 2, by - 2, cw * 0.76 + 4, chh * 0.76 + 4); }
+      if (seen && WORLD[id].feat.shroom) { ctx.fillStyle = state.inv.shrooms[id] ? '#b48af0' : '#6a5a88'; ctx.beginPath(); ctx.arc(bx + cw * 0.62, by + chh * 0.2, Math.max(3, cw * 0.09), 0, 6.28); ctx.fill(); }
+    }
+    ctx.textAlign = 'left'; ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+    ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${ids.length} places seen · you are at ${MAP_NAMES[state.scene] || state.scene}`, ox, oy + ah + fs * 0.9);
+    ctx.textAlign = 'center';
+    y = oy + ah + lh * 1.4;
+  }
   if (m.view === 'forge') {
     ctx.textAlign = 'left'; ctx.fillStyle = '#d8d0c0';
     ctx.fillText('Materials: ' + Object.keys(MATS).map(k => `${MATS[k]} ${state.inv.mats[k]}`).join(', '), x + 10, y); y += fs * 1.8;
@@ -4660,6 +4762,15 @@ function drawItemIcon(type, x, y, s) {
       for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
       break;
+    case 'page':
+      ctx.fillStyle = '#f2e6c8'; ctx.save(); ctx.rotate(0.2); ctx.fillRect(-s * 0.28, -s * 0.34, s * 0.56, s * 0.68);
+      ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.18, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
+      ctx.restore(); break;
+    case 'journal':
+      ctx.fillStyle = '#7a3a2a'; ctx.fillRect(-s * 0.35, -s * 0.4, s * 0.7, s * 0.8);
+      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(s * 0.3, -s * 0.36, s * 0.07, s * 0.72);
+      ctx.fillStyle = '#e8c04a'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
+      break;
     case 'recipe_temper': case 'recipe_star':
       ctx.fillStyle = '#e8dcb8'; ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.6, s * 0.7);
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
@@ -4722,13 +4833,17 @@ function drawEnemy(e) {
       }
       break;
     }
-    case 'gremlin': {
+    case 'thief': case 'gremlin': {
       const hop = Math.abs(Math.sin(state.time * 18 + e.x)) * UNIT * (e.mode === 'dart' ? 0.2 : 0.08), y = e.y - hop, r = e.r * scale;
       ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.3, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = C('#3c4a2a'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.85, r, 0, 0, 6.28); ctx.fill();
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.5, y - r * 0.5); ctx.lineTo(e.x + s * r * 1.5, y - r * 1.0); ctx.lineTo(e.x + s * r * 0.7, y - r * 0.1); ctx.fill(); }
       ctx.fillStyle = '#ff4a2a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.3, y - r * 0.25, UNIT * 0.07, 0, 6.28); ctx.fill(); }
       ctx.strokeStyle = '#e9e2d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, y + r * 0.1, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke();
+      if (e.type === 'thief') {                      // the stolen journal clutched overhead
+        ctx.fillStyle = '#7a3a2a'; ctx.fillRect(e.x - r * 0.45, y - r * 1.55, r * 0.9, r * 0.65);
+        ctx.fillStyle = '#f2e6c8'; ctx.fillRect(e.x - r * 0.38, y - r * 1.5, r * 0.76, r * 0.08);
+      }
       break;
     }
     case 'rabbit': {
