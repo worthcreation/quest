@@ -1342,15 +1342,19 @@ function updateJump(dt) {
   if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
     // deeper vigor, higher jumps; a tired hero barely leaves the ground
     const k = (1 + Math.min(0.9, Math.log2(maxVig() / 8) * 0.22)) * (0.6 + 0.4 * weakness());
-    h.vz = UNIT * 7.5 * k; h.z = 0.01; state.slam = false; h.jumpHold = 0;
-    if (state.whirl) endWhirl('quiet');
+    h.vz = UNIT * 7.5 * k; h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0;
+    if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow') { rideGust(sc); return; }
   }
   if (h.z > 0 || h.vz > 0) {
     // holding jump while rising floats you higher, for a short while
     const floating = !state.slam && h.vz > 0 && held.jump() && (h.jumpHold += dt) < 0.3;
-    h.vz -= UNIT * (state.slam ? 60 : floating ? 11 : 30) * dt; h.z += h.vz * dt;
+    const gliding = state.whirl && !state.slam && (h.glideT = (h.glideT || 0) + dt) < 1.1;   // a spinning jump rides the air for a moment
+    h.vz -= UNIT * (state.slam ? 60 : gliding ? (h.vz > 0 ? 16 : 6) : floating ? 11 : 30) * dt;
+    if (gliding && h.vz < -UNIT * 3) h.vz = -UNIT * 3;
+    h.z += h.vz * dt;
+    if (gliding && Math.random() < 0.5) state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 2, y: h.y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT, t: 0, life: 0.5, color: 'streak', size: UNIT * 0.4 });
     if (h.z <= 0) {
       h.z = 0; h.vz = 0;
       if (state.slam) slamDown();
@@ -1386,7 +1390,7 @@ function updateRide(dt) {
     return;
   }
   if (p >= 1) {
-    h.ride = null; h.z = 0; h.vx = 0; h.vy = 0; h.rideCool = state.time + 1.5;
+    h.ride = null; h.z = 0; h.vz = 0; h.vx = 0; h.vy = 0; h.rideCool = state.time + 1.5;
     clampTo(h, UNIT * 0.5);
     sfx.land(); zoomPulse(h.x, h.y, 'land'); state.shake = 0.2;
     spark(h.x, h.y + UNIT * 0.4, '#9a8a5a', 10, 3);
@@ -1652,20 +1656,27 @@ const COMBO = { slashWindow: 0.7, stabWindow: 0.9 };
 const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
 function updateCombat(dt) {
-  const inv = state.inv;
-  if (!inv.sword || state.pull.grip || state.hero.ride || state.carry) return;
-  const h = state.hero, hold = state.hold, cb = state.combo;
+  const inv = state.inv, h = state.hero;
+  // in the air, act slams down: sword or no sword, spinning or not
+  if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam && !state.carry && !h.ride) {
+    state.slam = true; h.vz = -UNIT * 16;
+    if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
+    sfx.swoosh(); return;
+  }
+  if (!inv.sword || state.pull.grip || h.ride || state.carry) return;
+  const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
   if (nearPullable) return;
-
-  // in the air, the sword comes down as a slam
-  if (pressedNow.act && h.z > UNIT * 0.3 && !state.slam) { state.slam = true; h.vz = -UNIT * 14; sfx.swoosh(); return; }
   if (state.slam) return;
   if (state.whirl) { updateWhirl(dt); return; }
   if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
+    if (state.time < (state.poundChain || 0)) {             // strike right after a pound's spin: straight into a whirlwind
+      state.slashBuf = -9; state.poundChain = 0; state.chain.n = 0;
+      bumpCrazy('Whirlwind'); startWhirl(); return;
+    }
     if (state.atkCool <= 0) {
       state.slashBuf = -9;
       const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
@@ -1746,7 +1757,7 @@ function startWhirl() {
   state.whirl = { t: 0, end: state.time + WHIRL.length, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
   say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
-  say(`It spins for 3 seconds. Strike ${K.act} as the ring closes to spin faster and longer.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
+  say(`It spins for 3 seconds. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
   const w = state.whirl, h = state.hero;
@@ -1780,24 +1791,40 @@ function updateWhirl(dt) {
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, (1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    damage(e, ((1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
   if (state.bird) scareBird(h.x, h.y, 5);
   scareFlock(h.x, h.y, 5);
 }
+// ---------------- the crazy combo: whirl, jump, glide, pound, spin, whirl again ----------------
+function bumpCrazy(label) {
+  const c = state.crazy || (state.crazy = { n: 0, t: -9 }), h = state.hero;
+  c.n = state.time - c.t < 2.5 ? c.n + 1 : 1; c.t = state.time;
+  if (c.n >= 2) say(`${label}! x${c.n}`, h.x, h.y - UNIT * 1.6, { key: 'crazy', life: 1.1, color: c.n >= 5 ? '#ffb347' : '#ffe38a', size: 1 + Math.min(0.8, c.n * 0.1) });
+}
+const crazyMult = () => { const c = state.crazy; return c && state.time - c.t < 2.5 ? 1 + Math.min(1, c.n * 0.12) : 1; };
 function slamDown() {
-  const h = state.hero, inv = state.inv;
+  const h = state.hero, inv = state.inv, armed = inv.sword;
   state.slam = false;
   sfx.slam(); state.shake = 0.45; zoomPulse(h.x, h.y, 'kill');
   spark(h.x, h.y + UNIT * 0.3, '#9a8a6a', 16, 4);
-  state.fx.push({ x: h.x, y: h.y + UNIT * 0.3, vx: 0, vy: 0, t: 0, life: 0.45, color: 'shock', size: UNIT * 2.6 });
+  state.fx.push({ x: h.x, y: h.y + UNIT * 0.3, vx: 0, vy: 0, t: 0, life: 0.45, color: 'shock', size: UNIT * (armed ? 2.6 : 2) });
   spend(0.8);
+  bumpCrazy('Pound');
   for (const e of state.enemies) {
     if (!hittable(e)) continue;
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
-    if (d > UNIT * 2.4 + e.r) continue;
-    damage(e, (2 + (inv.horn ? 1 : 0) + (inv.slime > 0 ? 1 : 0)) * power(), 'stab', dx / d, dy / d, true);
+    if (d > UNIT * (armed ? 2.4 : 2) + e.r) continue;
+    const dmg = armed ? 2 + (inv.horn ? 1 : 0) + (inv.slime > 0 ? 1 : 0) : 1;   // bare feet still hurt
+    damage(e, dmg * power() * crazyMult(), 'stab', dx / d, dy / d, true);
+  }
+  if (armed) {
+    // the sword sweeps a full circle as you land; strike again right away to whirl
+    state.atk = { type: 'slash', t: 0, dur: 0.3, hit: new Set(), ax: h.fx, ay: h.fy, level: 0, sweep: Math.PI, n: 7 };
+    state.atkCool = 0.15; state.poundChain = state.time + 0.6; state.active = 'sword';
+    sfx.spin();
+    say(`${K.act} now to spin into a whirlwind`, h.x, h.y + UNIT * 1.8, { key: 'pcombo', tip: 'poundchain', life: 3 });
   }
   if (state.bird) scareBird(h.x, h.y, 6);
   scareFlock(h.x, h.y, 6);
