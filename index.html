@@ -2554,7 +2554,7 @@ function updateCombat(dt) {
   if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
-    if (state.time < (state.poundChain || 0)) {             // strike right after a pound's spin: straight into a whirlwind
+    if (false && state.time < (state.poundChain || 0)) {    // (a strike right after a pound no longer turns into a whirlwind)
       state.slashBuf = -9; state.poundChain = 0; state.chain.n = 0;
       bumpCrazy('Whirlwind'); startWhirl(); return;
     }
@@ -2578,7 +2578,6 @@ function updateCombat(dt) {
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
-      bladeWear(1);                                          // a wooden blade gives a little with every swing
       skillUse('sword');
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
@@ -2602,7 +2601,6 @@ function updateCombat(dt) {
         state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
         skillUse('sword');
-        bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
@@ -5795,7 +5793,7 @@ const FOOD = {
 const FOOD_NAME = { mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const foodName = f => FOOD_NAME[f] || f[0].toUpperCase() + f.slice(1);
 // ---------------- blades: the rusty sword from the stump, or a wooden one made of three sticks ----------------
-// The wooden sword splinters as you use it: every swing and every hit takes a little out of it, and after a few
+// The wooden sword splinters as you use it: every hit on something takes a little out of it (swinging at air doesn't), and after a few
 // good fights it shatters. It hits softer than steel. The same combat code swings either.
 const WOOD_SWORD = 14;
 function bladeKind() {
@@ -6149,7 +6147,7 @@ function toggleWear(id) {
 function drawWorn(x, top, pw, ph, u) {
   const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
   if (state.inv.lantern) {                           // the candle lantern, hanging at your side, flickering
-    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x + side * pw * 0.62, ly = top + ph * 0.62;
+    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x - side * pw * 0.62, ly = top + ph * 0.62;
     ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, ly - u * 0.2); ctx.lineTo(lx, ly - u * 0.08); ctx.stroke();
     ctx.fillStyle = '#6a4a2a'; ctx.fillRect(lx - u * 0.09, ly - u * 0.09, u * 0.18, u * 0.04); ctx.fillRect(lx - u * 0.09, ly + u * 0.12, u * 0.18, u * 0.04);
     ctx.fillStyle = `rgba(255,${190 + 40 * f},90,${0.85 * f})`; ctx.fillRect(lx - u * 0.07, ly - u * 0.05, u * 0.14, u * 0.17);
@@ -7339,7 +7337,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 99';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 100';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

@@ -19,7 +19,7 @@ const FOOD = {
 const FOOD_NAME = { mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const foodName = f => FOOD_NAME[f] || f[0].toUpperCase() + f.slice(1);
 // ---------------- blades: the rusty sword from the stump, or a wooden one made of three sticks ----------------
-// The wooden sword splinters as you use it: every swing and every hit takes a little out of it, and after a few
+// The wooden sword splinters as you use it: every hit on something takes a little out of it (swinging at air doesn't), and after a few
 // good fights it shatters. It hits softer than steel. The same combat code swings either.
 const WOOD_SWORD = 14;
 function bladeKind() {
@@ -373,7 +373,7 @@ function toggleWear(id) {
 function drawWorn(x, top, pw, ph, u) {
   const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
   if (state.inv.lantern) {                           // the candle lantern, hanging at your side, flickering
-    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x + side * pw * 0.62, ly = top + ph * 0.62;
+    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x - side * pw * 0.62, ly = top + ph * 0.62;
     ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, ly - u * 0.2); ctx.lineTo(lx, ly - u * 0.08); ctx.stroke();
     ctx.fillStyle = '#6a4a2a'; ctx.fillRect(lx - u * 0.09, ly - u * 0.09, u * 0.18, u * 0.04); ctx.fillRect(lx - u * 0.09, ly + u * 0.12, u * 0.18, u * 0.04);
     ctx.fillStyle = `rgba(255,${190 + 40 * f},90,${0.85 * f})`; ctx.fillRect(lx - u * 0.07, ly - u * 0.05, u * 0.14, u * 0.17);

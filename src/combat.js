@@ -28,7 +28,7 @@ function updateCombat(dt) {
   if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
-    if (state.time < (state.poundChain || 0)) {             // strike right after a pound's spin: straight into a whirlwind
+    if (false && state.time < (state.poundChain || 0)) {    // (a strike right after a pound no longer turns into a whirlwind)
       state.slashBuf = -9; state.poundChain = 0; state.chain.n = 0;
       bumpCrazy('Whirlwind'); startWhirl(); return;
     }
@@ -52,7 +52,6 @@ function updateCombat(dt) {
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
-      bladeWear(1);                                          // a wooden blade gives a little with every swing
       skillUse('sword');
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
@@ -76,7 +75,6 @@ function updateCombat(dt) {
         state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
         skillUse('sword');
-        bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 99, 27 Sep 2026)
+# Quest: handoff notes (as of build 100, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 100: wooden sword wears only on hits; no whirlwind from a pound; lantern opposite the blade
+- bladeWear(1) now only on hits (slash, stab, whirl hits); swinging or lunging at air costs nothing (the lunge and a
+  whirlwind still split it at the end). Two rabbits take about 8 hits; 14 durability leaves ~6.
+- The pound -> strike -> whirlwind chain is off (poundChain is still set but unused). The only way to spin is seven
+  slashes in the rhythm; with a wooden sword that spin splits it at the end.
+- The lantern hangs on the side opposite the blade (drawWorn uses -side).
+- Test: wood-sword (new). 50 of 50.
 
 ## Build 99: quest info under banners
 - The quest banner sits at the top (H * 0.18) and records state.bannerRect; while one is up, bannerBelow() gives the y
