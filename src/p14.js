@@ -167,6 +167,7 @@ function drawShroomRipples(x, y, u, found, key) {
 // which of that kind it holds (a wheel, the world slowed). Anything can still go anywhere from the pack or R.
 const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Use' };
 function laneOf(e) { return e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }   // food and abilities: S first, then A
+const laneAllows = (k, e) => !e || (k === 'f' ? e.kind === 'weapon' && e.id !== 'acorn' : k === 'd' ? e.kind === 'weapon' && e.id === 'acorn' : e.kind === 'food' || e.kind === 'ability');   // F: blades only, D: throwables, A/S: the rest
 const laneOptions = k => slotOptions().filter(e => (k === 'a' || k === 's') ? laneOf(e) === 's' : laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
@@ -221,6 +222,7 @@ function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(
 // put something in a slot: it leaves any other slot it was in; null empties the slot
 function setSlot(k, e) {
   const sl = slotsOf();
+  if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
   if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
@@ -229,7 +231,7 @@ function setSlot(k, e) {
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
 function syncEquip() {
   const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
-  if (!ws.some(e => e.id === state.equip)) state.equip = ws.length ? (sl.f && sl.f.kind === 'weapon' && entryCount(sl.f) ? sl.f.id : ws[0].id) : (inv.sword ? 'sword' : null);
+  state.equip = sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null;   // the hand holds F's blade
 }
 // a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
 function tidySlots() {
@@ -286,7 +288,7 @@ function useEntry(e) {
   if (!e || !entryCount(e)) return null;
   if (e.kind === 'food') { if (h.vig >= maxVig() && !(e.id === 'turnip' && inv.vigBonus < 40)) { sayHero('Not hungry right now.', { life: 1.5 }); return null; } eatFood(e.id); return null; }
   if (e.kind === 'seed') { if (!plantHere(e.id)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 }); return null; }
-  if (e.kind === 'weapon') { state.equip = e.id; state.active = e.id; return null; }
+  if (e.kind === 'weapon') return null;                // blades swing from F, acorns throw from their key: nothing to do here
   if (e.kind === 'ability') { if (e.id === 'flare') { flare(); return null; } return e.id; }   // 'dodge' / 'fire' run with movement
   return null;
 }
@@ -294,7 +296,8 @@ function useEntry(e) {
 function useSlot(k) { return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
-function slotWeaponHeld() {
+function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)
+function slotWeaponHeldOld() {
   if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
   const sl = slotsOf();
   for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
@@ -302,7 +305,7 @@ function slotWeaponHeld() {
 }
 // "put in slot" actions for pack cells
 function slotActs(entry) {
-  return ALL_SLOTS.map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
+  return ALL_SLOTS.filter(k => laneAllows(k, entry)).map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
 }
 // the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {

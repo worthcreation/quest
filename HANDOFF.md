@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 90, 27 Sep 2026)
+# Quest: handoff notes (as of build 91, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,22 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 91 in short
+- Keys keep their jobs (laneAllows, p14): F takes blades only, D throwables only, A/S food and abilities. setSlot refuses
+  anything else, the pack only offers the right keys, R + key lists only what fits, tap R steps F between blades. The
+  hand always holds F's blade (syncEquip); slotWeaponHeld is off.
+- Acorns throw from their own key (the throw code in p6 reads that key; a carried rock still throws with F), so you can
+  wind up an acorn on D and swing the blade on F at once; the acorn shows in the off hand while you wind up.
+- Sword practice counts now (skillUse('sword') on slashes and stabs, hits double). It shapes the big moves: whirlwind
+  length 1.2 s + 0.45 s per level (to 3 s; beats can stretch it to 1.6x), hits x0.7 to x1.1, then a rest of 8 s down to
+  2 s before the next ("Too dizzy to spin again yet."); the lunge (charged stab) charges faster and reaches / hits x0.8
+  to x1.2. A wooden sword flies apart at the end of a whirlwind or a lunge.
+- Crops pull like rocks and the sword: ripe patches join the pullables (syncCropPulls, kind 'crop'); hold F, rock
+  left/right CROP_ROCKS[farm level] times (3, 2, 2, 1, 1, then 0), then up. At the top it's just F. The pull hands the
+  harvest to the patch code (state.cropFree). updatePull now takes the nearest pullable; crop pullables don't block the
+  patch code (nearPull).
+- Tests: t91; t65 pulls its crop; t85 drops the old hold-time check.
 
 ## Build 90 in short
 - No seed key. Seeds are no longer slotted (slotOptions leaves them out; seedSlotKey() is null; old saves' seed slots

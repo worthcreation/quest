@@ -18,7 +18,6 @@ function updateCombat(dt) {
     sfx.swoosh(); return;
   }
   if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
-  if (state.equip === 'acorn' && inv.acorns > 0) return;          // acorns in hand: F throws instead
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
@@ -53,6 +52,7 @@ function updateCombat(dt) {
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
       bladeWear(1);                                          // a wooden blade gives a little with every swing
+      skillUse('sword');
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
@@ -65,7 +65,7 @@ function updateCombat(dt) {
   if (hold.on) {
     if (held.act()) {
       hold.t += dt;
-      const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * sluggish();
+      const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * (1.2 - 0.1 * swordLv()) * sluggish();
       if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
       if (hold.charged && spend(0.6)) {
@@ -73,7 +73,8 @@ function updateCombat(dt) {
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
         cb.step = 'stab'; cb.t = state.time;
         state.active = 'sword';
-        state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
+        state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
+        skillUse('sword');
         bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
@@ -99,36 +100,47 @@ function updateCombat(dt) {
     }
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
-      hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
+      hit = along > -e.r && along < UNIT * (STAB.reach * lungeK() + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
     }
     if (hit) {
       a.hit.add(e);
       let dmg = a.type === 'slash' ? 1 + inv.up.edge * 0.5 : 2 + inv.up.temper * 0.5;
+      if (a.type === 'stab') dmg *= lungeK() + 0.05;
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
-      bladeWear(1);
+      bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) state.atk = null;
+  if (a.t >= a.dur) { if (a.woodBreak && bladeKind() === 'wood') bladeWear(999); state.atk = null; }
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
+// sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits
+// harder, and can come round again sooner; the lunge (charged stab) charges quicker, reaches farther, hits harder
+const swordLv = () => skillLevel('sword');
+const whirlLen = () => 1.2 + 0.45 * swordLv();                    // 1.2 s untrained, 3 s at the top
+const whirlHit = () => 0.7 + 0.1 * swordLv();
+const whirlRest = () => 8 - 1.5 * swordLv();                     // seconds before you can spin again
+const lungeK = () => 0.8 + 0.1 * swordLv();
 const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26, bonus: 0.5 };
 function startWhirl() {
   const h = state.hero;
+  if (state.time < (state.whirlCool || 0)) { say('Too dizzy to spin again yet.', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
   state.atk = null; state.hold.on = false; state.hold.charged = false;
   spend(1.5);
-  state.whirl = { t: 0, end: state.time + WHIRL.length, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
+  state.whirl = { wood: bladeKind() === 'wood', t: 0, end: state.time + whirlLen(), cap: state.time + whirlLen() * 1.6, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
   say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
-  say(`It spins for 3 seconds. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
+  say(`A short spin at first; practice makes it last. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
   const w = state.whirl, h = state.hero;
   if (!w) return;
   state.whirl = null;
+  state.whirlCool = state.time + whirlRest();
+  if (w.wood && bladeKind() === 'wood') bladeWear(999);   // three sticks can't take a whirlwind: it flies apart
   if (why === 'done') { h.stun = 0.3; sfx.dizzy(); say('Whew.', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.8 }); }
   if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
 }
@@ -144,7 +156,7 @@ function updateWhirl(dt) {
     {
       w.streak++;
       if (!spend(0.35)) { endWhirl('done'); return; }
-      w.end += WHIRL.bonus;
+      w.end = Math.min(w.cap || Infinity, w.end + WHIRL.bonus);
       w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
       w.next = state.time + w.beat;
       cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
@@ -157,7 +169,7 @@ function updateWhirl(dt) {
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * whirlHit() * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
     bladeWear(1);
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });

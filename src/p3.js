@@ -248,6 +248,7 @@ function update(dt) {
     // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
     // F is the dynamic action: what's right here comes first. A weapon slotted on A/S/D skips that and just swings.
     state.actUsed = state.radial ? true : state.slotAct ? false : interact();
+    if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
       if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
@@ -668,7 +669,20 @@ function knockRocks(x, y, reach) {
     say(`THUNK. It shifted! Now hold ${K.act} and rock it.`, px, py - UNIT * 1.3, { key: 'pull', life: 3 });
   }
 }
+// ripe crops join the pullables while they're ripe (and need rocking), so they pull exactly like rocks and the sword
+function syncCropPulls(sc) {
+  sc.pullables = sc.pullables.filter(q => q.kind !== 'crop');
+  const plots = sc.feat.plots, rt = rtFor(sc.id), need = cropNeed();
+  if (!plots || !rt.flags.plots || !need) return;
+  rt.flags.plots.forEach((q, i) => { if (q.s === 1 && plotStage(q) >= 3) sc.pullables.push({ id: 'crop' + i, kind: 'crop', plot: i, fx: plots[i][0], fy: plots[i][1], need }); });
+}
 const PULL = {
+  crop: {
+    approach: () => `Ripe! Hold ${K.act}, rock it ${K.l} ${K.r}, then pull ${K.u}`,
+    fails: () => [`It's rooted in. Hold ${K.act} and rock it ${K.l} ${K.r}`, 'Pulling straight just stretches the leaves.'],
+    rock: ['It wiggles.', 'The soil cracks.', 'Loosening...', `Loose! Pull ${K.u}`],
+    notYet: () => `Not yet. Rock it ${K.l} ${K.r}`,
+  },
   rock: {
     approach: () => `A big rock, sunk deep in the earth. Knock it loose first: jump and stomp beside it`,
     fails: () => [`It's sunk deep in the mud. Keep holding ${K.act} and rock it ${K.l} ${K.r}`, `Pulling straight won't work. Hold on and rock it ${K.l} ${K.r}`],
@@ -684,10 +698,12 @@ const PULL = {
 };
 function updatePull(dt) {
   const sc = sceneDef(), rt = rtFor(sc.id), h = state.hero;
-  let near = null;
+  if (sc.feat.plots) syncCropPulls(sc);
+  let near = null, nd = UNIT * 1.7;                  // the nearest one in reach (two ripe patches side by side: the one you're on)
   if (!state.carry) for (const pl of sc.pullables) {
     if (rt.pulled.has(pl.id)) continue;
-    if (Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H) < UNIT * 1.7) near = pl;
+    const d = Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H);
+    if (d < nd) { nd = d; near = pl; }
   }
   let p = state.pull;
   p.tilt += (p.lastSide * Math.min(1, p.wiggle / (near ? near.need : 6)) * 0.35 - p.tilt) * (1 - Math.exp(-8 * dt));
@@ -754,6 +770,7 @@ function sinkRock(x, y, how = 'mud') {
   say(`A buried rock is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
 }
 function freePullable(pl, x, y) {
+  if (pl.kind === 'crop') { state.pull = newPull(null); unsay('pull'); state.cropFree = state.scene + ':' + pl.plot; state.forceInteract = true; syncCropPulls(sceneDef()); return; }   // the patch code harvests it
   if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }
   else rtFor(state.scene).pulled.add(pl.id);
   state.pull = newPull(null);

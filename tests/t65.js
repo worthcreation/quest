@@ -22,6 +22,7 @@ begin();
 let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }catch(e){ errs++; if(errs<6) console.log('ERR', state.scene, e.message, String(e.stack).slice(0,300)); return; } } };
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const h=state.hero;
+const pullCrop=()=>{ state.keys.f=true; run(3); for(let i=0;i<6;i++){ state.keys[i%2?'arrowright':'arrowleft']=true; run(1); state.keys.arrowleft=state.keys.arrowright=false; run(3); } state.keys.arrowup=true; run(1); state.keys.arrowup=false; run(3); state.keys.f=false; run(30); };
 const walkTo=(x,y,n=400)=>{ for(let k=0;k<n;k++){ const dx=x-h.x, dy=y-h.y; if(Math.hypot(dx,dy)<UNIT*0.5) break; state.keys.arrowright=dx>6; state.keys.arrowleft=dx<-6; state.keys.arrowdown=dy>6; state.keys.arrowup=dy<-6; run(1);} ['arrowright','arrowleft','arrowdown','arrowup'].forEach(k=>state.keys[k]=false); };
 const spoken=()=>state.texts.filter(t=>t.hold).map(t=>t.text);
 // --- the opening: you can move, the edges are closed, lines wait for F ---
@@ -65,7 +66,7 @@ while(spoken().length){ press('f'); run(5); }
 if (state.title&&state.title.hold) { console.log('   alert:', state.title.text, state.title.sub); press('f'); run(5); }
 // grow and harvest: multiple turnips per seed
 const rt=rtFor('meadow'); rt.flags.plots.forEach(p=>{ if(p.s) p.t=state.playTime-100; });
-const food0=state.inv.food.length; const q=WORLD.meadow.feat.plots[rt.flags.plots.findIndex(p=>p.s)]; walkTo(q[0]*W,q[1]*H); run(3); press('f', 80); run(10);   /* build 85: hold F to pull it up */
+const food0=state.inv.food.length; const q=WORLD.meadow.feat.plots[rt.flags.plots.findIndex(p=>p.s)]; walkTo(q[0]*W,q[1]*H); run(3); pullCrop();   /* build 91: hold F, rock left/right, pull up */
 console.log('21 harvested', state.inv.food.filter(f=>f==='turnip').length, 'turnip(s) from one seed; harvests', state.inv.harvests, '| garden quest done', !!(state.inv.quests.garden&&state.inv.quests.garden.done!=null));
 console.log('22 reward: carrot', state.inv.food.includes('carrot'), 'carrot seeds', state.inv.bag.carrotseed, '| complete alert held', !!(state.title&&state.title.hold), state.title&&state.title.sub);
 press('f'); run(5);

@@ -1527,6 +1527,7 @@ function update(dt) {
     // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
     // F is the dynamic action: what's right here comes first. A weapon slotted on A/S/D skips that and just swings.
     state.actUsed = state.radial ? true : state.slotAct ? false : interact();
+    if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
       if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
@@ -1947,7 +1948,20 @@ function knockRocks(x, y, reach) {
     say(`THUNK. It shifted! Now hold ${K.act} and rock it.`, px, py - UNIT * 1.3, { key: 'pull', life: 3 });
   }
 }
+// ripe crops join the pullables while they're ripe (and need rocking), so they pull exactly like rocks and the sword
+function syncCropPulls(sc) {
+  sc.pullables = sc.pullables.filter(q => q.kind !== 'crop');
+  const plots = sc.feat.plots, rt = rtFor(sc.id), need = cropNeed();
+  if (!plots || !rt.flags.plots || !need) return;
+  rt.flags.plots.forEach((q, i) => { if (q.s === 1 && plotStage(q) >= 3) sc.pullables.push({ id: 'crop' + i, kind: 'crop', plot: i, fx: plots[i][0], fy: plots[i][1], need }); });
+}
 const PULL = {
+  crop: {
+    approach: () => `Ripe! Hold ${K.act}, rock it ${K.l} ${K.r}, then pull ${K.u}`,
+    fails: () => [`It's rooted in. Hold ${K.act} and rock it ${K.l} ${K.r}`, 'Pulling straight just stretches the leaves.'],
+    rock: ['It wiggles.', 'The soil cracks.', 'Loosening...', `Loose! Pull ${K.u}`],
+    notYet: () => `Not yet. Rock it ${K.l} ${K.r}`,
+  },
   rock: {
     approach: () => `A big rock, sunk deep in the earth. Knock it loose first: jump and stomp beside it`,
     fails: () => [`It's sunk deep in the mud. Keep holding ${K.act} and rock it ${K.l} ${K.r}`, `Pulling straight won't work. Hold on and rock it ${K.l} ${K.r}`],
@@ -1963,10 +1977,12 @@ const PULL = {
 };
 function updatePull(dt) {
   const sc = sceneDef(), rt = rtFor(sc.id), h = state.hero;
-  let near = null;
+  if (sc.feat.plots) syncCropPulls(sc);
+  let near = null, nd = UNIT * 1.7;                  // the nearest one in reach (two ripe patches side by side: the one you're on)
   if (!state.carry) for (const pl of sc.pullables) {
     if (rt.pulled.has(pl.id)) continue;
-    if (Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H) < UNIT * 1.7) near = pl;
+    const d = Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H);
+    if (d < nd) { nd = d; near = pl; }
   }
   let p = state.pull;
   p.tilt += (p.lastSide * Math.min(1, p.wiggle / (near ? near.need : 6)) * 0.35 - p.tilt) * (1 - Math.exp(-8 * dt));
@@ -2033,6 +2049,7 @@ function sinkRock(x, y, how = 'mud') {
   say(`A buried rock is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
 }
 function freePullable(pl, x, y) {
+  if (pl.kind === 'crop') { state.pull = newPull(null); unsay('pull'); state.cropFree = state.scene + ':' + pl.plot; state.forceInteract = true; syncCropPulls(sceneDef()); return; }   // the patch code harvests it
   if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }
   else rtFor(state.scene).pulled.add(pl.id);
   state.pull = newPull(null);
@@ -2280,7 +2297,6 @@ function updateCombat(dt) {
     sfx.swoosh(); return;
   }
   if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
-  if (state.equip === 'acorn' && inv.acorns > 0) return;          // acorns in hand: F throws instead
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
@@ -2315,6 +2331,7 @@ function updateCombat(dt) {
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
       bladeWear(1);                                          // a wooden blade gives a little with every swing
+      skillUse('sword');
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
@@ -2327,7 +2344,7 @@ function updateCombat(dt) {
   if (hold.on) {
     if (held.act()) {
       hold.t += dt;
-      const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * sluggish();
+      const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * (1.2 - 0.1 * swordLv()) * sluggish();
       if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
       if (hold.charged && spend(0.6)) {
@@ -2335,7 +2352,8 @@ function updateCombat(dt) {
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
         cb.step = 'stab'; cb.t = state.time;
         state.active = 'sword';
-        state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
+        state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
+        skillUse('sword');
         bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
@@ -2361,36 +2379,47 @@ function updateCombat(dt) {
     }
     else {
       const along = dx * a.ax + dy * a.ay, perp = Math.abs(dx * a.ay - dy * a.ax);
-      hit = along > -e.r && along < UNIT * (STAB.reach + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
+      hit = along > -e.r && along < UNIT * (STAB.reach * lungeK() + (inv.horn >= 3 ? 0.5 : 0)) + e.r && perp < e.r + UNIT * 0.35;
     }
     if (hit) {
       a.hit.add(e);
       let dmg = a.type === 'slash' ? 1 + inv.up.edge * 0.5 : 2 + inv.up.temper * 0.5;
+      if (a.type === 'stab') dmg *= lungeK() + 0.05;
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
-      bladeWear(1);
+      bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) state.atk = null;
+  if (a.t >= a.dur) { if (a.woodBreak && bladeKind() === 'wood') bladeWear(999); state.atk = null; }
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
+// sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits
+// harder, and can come round again sooner; the lunge (charged stab) charges quicker, reaches farther, hits harder
+const swordLv = () => skillLevel('sword');
+const whirlLen = () => 1.2 + 0.45 * swordLv();                    // 1.2 s untrained, 3 s at the top
+const whirlHit = () => 0.7 + 0.1 * swordLv();
+const whirlRest = () => 8 - 1.5 * swordLv();                     // seconds before you can spin again
+const lungeK = () => 0.8 + 0.1 * swordLv();
 const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26, bonus: 0.5 };
 function startWhirl() {
   const h = state.hero;
+  if (state.time < (state.whirlCool || 0)) { say('Too dizzy to spin again yet.', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
   state.atk = null; state.hold.on = false; state.hold.charged = false;
   spend(1.5);
-  state.whirl = { t: 0, end: state.time + WHIRL.length, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
+  state.whirl = { wood: bladeKind() === 'wood', t: 0, end: state.time + whirlLen(), cap: state.time + whirlLen() * 1.6, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
   say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
-  say(`It spins for 3 seconds. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
+  say(`A short spin at first; practice makes it last. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
   const w = state.whirl, h = state.hero;
   if (!w) return;
   state.whirl = null;
+  state.whirlCool = state.time + whirlRest();
+  if (w.wood && bladeKind() === 'wood') bladeWear(999);   // three sticks can't take a whirlwind: it flies apart
   if (why === 'done') { h.stun = 0.3; sfx.dizzy(); say('Whew.', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.8 }); }
   if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
 }
@@ -2406,7 +2435,7 @@ function updateWhirl(dt) {
     {
       w.streak++;
       if (!spend(0.35)) { endWhirl('done'); return; }
-      w.end += WHIRL.bonus;
+      w.end = Math.min(w.cap || Infinity, w.end + WHIRL.bonus);
       w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
       w.next = state.time + w.beat;
       cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
@@ -2419,7 +2448,7 @@ function updateWhirl(dt) {
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * whirlHit() * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
     bladeWear(1);
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
@@ -3098,7 +3127,7 @@ function interact() {
   }
   if (state.fish) return true;                      // fishing has the hands
   if (riverSideQuest(sc, h)) return true;
-  const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
     if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
@@ -3171,16 +3200,12 @@ function interact() {
       const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
       const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);   // every seed you carry is on offer
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
-      // a ripe crop has to be pulled up: hold F and it works loose, quicker the better you are at farming
+      // a ripe crop comes up like a buried rock: hold F, rock it left and right, then pull up (updatePull, kind 'crop').
+      // Farming makes it easier (fewer rocks); at the top it's just F.
       if (p.s === 1 && stage >= 3) {
-        const cp = state.cropPull;
-        if (!held.act()) { if (cp) state.cropPull = null; return false; }
-        const c2 = cp && cp.i === i && cp.sc === sc.id ? cp : (state.cropPull = { i, sc: sc.id, t: 0, need: CROP_PULL[Math.min(CROP_PULL.length - 1, farmLevel())] });
-        c2.t += state.frameDt || 1 / 60;
-        if (Math.random() < 0.3) state.fx.push({ x: px * W + (Math.random() - 0.5) * UNIT * 0.6, y: py * H + UNIT * 0.1, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 0.5, color: '#5a4128', size: UNIT * 0.06 });
-        if (!c2.tugged) { c2.tugged = true; sfx.strain(); }
-        if (c2.t < c2.need) return true;
-        state.cropPull = null;
+        if (cropNeed() > 0 && state.cropFree !== sc.id + ':' + i) return false;          // the pull does it
+        if (state.cropFree !== sc.id + ':' + i && !pressedNow.act) return false;
+        state.cropFree = null;
       }
       // F at an empty patch opens a small menu: plant any seed you carry, or compost the patch. Nothing to offer: a hint.
       if (p.s === 0 && !have.length && !improve) { if (pressedNow.act) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); return pressedNow.act; }
@@ -3248,7 +3273,7 @@ function dropRock() {                               // set down a step ahead, th
 // The wheel (hold R): every consumable you carry, for use right now. Hold R and press A, S, D or F: everything
 // that could go in that slot; let go of R to put the highlighted one there. Both lists come from slotOptions().
 function radialOptions(slot) {
-  if (slot) return [...slotOptions(), { kind: 'none', id: 'none' }];
+  if (slot) return [...slotOptions().filter(e => laneAllows(slot, e)), { kind: 'none', id: 'none' }];
   return consumableOptions();
 }
 function radialLabel(o, slot) {
@@ -3265,7 +3290,7 @@ function applyRadial(r) {
 }
 // tap R: the F slot steps through your weapons
 function cycleEquip() {
-  const ws = slotOptions().filter(e => e.kind === 'weapon');
+  const ws = slotOptions().filter(e => e.kind === 'weapon' && e.id !== 'acorn');   // tap R: between your blades
   if (!ws.length) return;
   const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
   if (sameEntry(next, f)) return;
@@ -3326,7 +3351,7 @@ function findInteractable() {
       const nx = PATCH[(p.lv || 0) + 1];
       if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
       else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, nx.cost.acorn ? 'Compost' : 'Improve', 0.8);
-      if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Hold: pull up', 0.8);
+      if (p.s && st >= 3 && !cropNeed()) add(q[0] * W, q[1] * H, 'Pull up', 0.8);
     });
   }
   if (f.dock && inv.raft) {
@@ -3660,18 +3685,21 @@ function updateAbilities(dt) {
   if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
-  const rock = state.carry === 'rock', acorn = !state.carry && state.equip === 'acorn' && inv.acorns > 0;
-  if ((rock || acorn) && !state.pull.grip && !state.npcTalk) {
+  // A carried rock throws with F. Acorns throw with their own key (D), on their own: you can wind up an acorn and
+  // swing your blade at the same time.
+  const aSlot = ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'acorn'), tk = state.carry === 'rock' ? 'act' : aSlot && SLOT_ACTION[aSlot];
+  const rock = state.carry === 'rock', acorn = !state.carry && !!aSlot && inv.acorns > 0;
+  if ((rock || acorn) && !state.pull.grip && !state.npcTalk && !state.radial) {
     // a throw only starts from a fresh press: not the press that picked the rock up, planted, talked, etc.
-    if (pressedNow.act && h.z <= 0 && !state.aim.on && !state.actUsed && state.time - (state.carryT || -9) > 0.1) { state.aim.on = true; state.aim.t = 0; }
+    if (pressedNow[tk] && h.z <= 0 && !state.aim.on && !(rock && state.actUsed) && state.time - (state.carryT || -9) > 0.1) { state.aim.on = true; state.aim.t = 0; }
     if (state.aim.on) {
-      if (held.act()) state.aim.t += dt;
+      if (held[tk]()) state.aim.t += dt;
       else {
         const k = Math.min(throwPower(), h.vig <= 1 ? 0.1 : 1), tap = state.aim.t < 0.18;   // spent arms can't throw hard
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
         else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
-        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); state.active = 'acorn'; refreshButtons(); }
+        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); refreshButtons(); }
       }
     }
   } else state.aim.on = false;
@@ -3939,7 +3967,8 @@ function placePipNearHero() {
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
 const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 const PIP_GAP = 8;
-const CROP_PULL = [1.1, 0.8, 0.55, 0.35, 0.15];         // seconds of holding F to pull a crop, by farming level
+const CROP_ROCKS = [3, 2, 2, 1, 1, 0];                   // rocks back and forth before a crop comes up, by farming level (0 = just F)
+const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something
 // that helps (the robin, a patch, the next exit, a stick you still need) and says it a new way. Each situation has a
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
@@ -5534,8 +5563,8 @@ function drawPlots(sc) {
           for (let b = -1; b <= 1; b++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(b * UNIT * 0.2, -UNIT * 0.3 * st, b * UNIT * 0.25, -UNIT * 0.25 * st); ctx.stroke(); }
           if (st >= 3) { drawItemIcon(S.yields[0], 0, -UNIT * 0.8, UNIT * 0.7); if (Math.sin(state.time * 3 + i) > 0.9) spark(x, y - UNIT * 0.8, S.color, 1, 1); }
           ctx.restore();
-        } else if (p.s) { const cp = state.cropPull && state.cropPull.i === i && state.cropPull.sc === sc.id ? state.cropPull : null, lift = cp ? Math.min(1, cp.t / cp.need) : 0;
-          ctx.save(); ctx.translate(x + (cp ? Math.sin(state.time * 40) * UNIT * 0.03 : 0), y - lift * UNIT * 0.45); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
+        } else if (p.s) { const cp = state.pull && state.pull.id === 'crop' + i && sc.pullables.find(q => q.id === 'crop' + i), lift = cp ? Math.min(1, state.pull.wiggle / cp.need) : 0;
+          ctx.save(); ctx.translate(x, y - lift * UNIT * 0.3); if (cp) ctx.rotate(state.pull.tilt * 0.8); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
       });
     }
 
@@ -5898,12 +5927,10 @@ function drawSword(h, pw, ph, y, heroic) {
     ctx.restore(); return;
   }
   if (state.slam) { ctx.rotate(Math.PI / 2); ctx.translate(ph * 0.4, 0); drawBlade(UNIT * 1.1, UNIT * 0.13); drawHilt(); ctx.restore(); return; }
-  if (!a && state.equip === 'acorn' && state.inv.acorns > 0) {
-    // an acorn ready in the hand; the sword is put away, not shown
-    const s = h.side;
+  if (state.aim.on && !state.carry && state.inv.acorns > 0) {       // winding up an acorn in the other hand; the blade stays out
+    const s = -h.side;
     drawItemIcon('acorn', s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1, UNIT * 0.55);
     if (state.inv.silk) { ctx.strokeStyle = 'rgba(232,228,240,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * pw * 0.45, UNIT * 0.25); ctx.lineTo(s * (pw * 0.5 + UNIT * 0.12), UNIT * 0.1); ctx.stroke(); }
-    ctx.restore(); return;
   }
   if (!a) {
     // worn at the side the hero faces, point down and angled back from the way you walk
@@ -5938,6 +5965,7 @@ function drawPullable(sc, pl) {
     const x = pl.fx * W, y = pl.fy * H, done = rt.pulled.has(pl.id);
     const p = state.pull.id === pl.id ? state.pull : null;
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
+    if (pl.kind === 'crop') return;                     // drawn with its patch
     if (pl.kind === 'rock') {
       const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
       ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
@@ -6623,7 +6651,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 90';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 91';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7927,6 +7955,7 @@ function drawShroomRipples(x, y, u, found, key) {
 // which of that kind it holds (a wheel, the world slowed). Anything can still go anywhere from the pack or R.
 const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Use' };
 function laneOf(e) { return e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }   // food and abilities: S first, then A
+const laneAllows = (k, e) => !e || (k === 'f' ? e.kind === 'weapon' && e.id !== 'acorn' : k === 'd' ? e.kind === 'weapon' && e.id === 'acorn' : e.kind === 'food' || e.kind === 'ability');   // F: blades only, D: throwables, A/S: the rest
 const laneOptions = k => slotOptions().filter(e => (k === 'a' || k === 's') ? laneOf(e) === 's' : laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
@@ -7981,6 +8010,7 @@ function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(
 // put something in a slot: it leaves any other slot it was in; null empties the slot
 function setSlot(k, e) {
   const sl = slotsOf();
+  if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
   if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
@@ -7989,7 +8019,7 @@ function setSlot(k, e) {
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
 function syncEquip() {
   const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
-  if (!ws.some(e => e.id === state.equip)) state.equip = ws.length ? (sl.f && sl.f.kind === 'weapon' && entryCount(sl.f) ? sl.f.id : ws[0].id) : (inv.sword ? 'sword' : null);
+  state.equip = sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null;   // the hand holds F's blade
 }
 // a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
 function tidySlots() {
@@ -8046,7 +8076,7 @@ function useEntry(e) {
   if (!e || !entryCount(e)) return null;
   if (e.kind === 'food') { if (h.vig >= maxVig() && !(e.id === 'turnip' && inv.vigBonus < 40)) { sayHero('Not hungry right now.', { life: 1.5 }); return null; } eatFood(e.id); return null; }
   if (e.kind === 'seed') { if (!plantHere(e.id)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 }); return null; }
-  if (e.kind === 'weapon') { state.equip = e.id; state.active = e.id; return null; }
+  if (e.kind === 'weapon') return null;                // blades swing from F, acorns throw from their key: nothing to do here
   if (e.kind === 'ability') { if (e.id === 'flare') { flare(); return null; } return e.id; }   // 'dodge' / 'fire' run with movement
   return null;
 }
@@ -8054,7 +8084,8 @@ function useEntry(e) {
 function useSlot(k) { return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
-function slotWeaponHeld() {
+function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)
+function slotWeaponHeldOld() {
   if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
   const sl = slotsOf();
   for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
@@ -8062,7 +8093,7 @@ function slotWeaponHeld() {
 }
 // "put in slot" actions for pack cells
 function slotActs(entry) {
-  return ALL_SLOTS.map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
+  return ALL_SLOTS.filter(k => laneAllows(k, entry)).map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
 }
 // the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {

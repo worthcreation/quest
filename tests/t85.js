@@ -27,12 +27,7 @@ console.log('1 rule 1 doodle:', BOOK_PAGES()[0].bits[0][0], '| eat something:', 
 // 2. Pip at his garden post never stands still
 enterScene('meadow'); run(20); clear(); h.x=W*0.1; h.y=H*0.15; let still=0, n=0, lp=null; for(let k=0;k<60*10;k++){ run(1); const p=state.pip; if(lp){ n++; if(Math.hypot(p.x-lp[0],p.y-lp[1])<0.05) still++; } lp=[p.x,p.y]; }
 console.log('2 garden post, 10 s: Pip still', Math.round(still/n*100)+'% of frames');
-// 3. pulling crops: hold F, quicker with farming
-const q=WORLD.meadow.feat.plots[0], rt=rtFor('meadow'); rt.flags.plots=rt.flags.plots||WORLD.meadow.feat.plots.map(()=>({s:0,t:0,lv:0}));
-const pullTime=(lvl)=>{ inv.cropXp={turnip:lvl*6}; rt.flags.plots[0]={s:1,t:state.playTime-999,lv:0,seed:'turnipseed'}; h.x=q[0]*W; h.y=q[1]*H; run(3); clear(); const f0=inv.food.length; state.keys.f=true; let k=0; for(;k<180 && inv.food.length===f0;k++) run(1); state.keys.f=false; run(2); return [(k/60).toFixed(2), inv.food.length-f0]; };
-const tap=(()=>{ rt.flags.plots[0]={s:1,t:state.playTime-999,lv:0,seed:'turnipseed'}; h.x=q[0]*W; h.y=q[1]*H; run(3); const f0=inv.food.length; press('f'); run(3); return inv.food.length-f0; })();
-console.log('3 a quick tap of F on a ripe turnip pulls it:', tap>0, '| hold time to pull, by farming level:', [0,1,2,4].map(l=>'L'+l+' '+pullTime(l)[0]+'s').join(', '));
-console.log('   hint says:', (state.hintActs||[]).map(a=>a.verb).join(', ')||'(after harvest)', '| CROP_PULL by level', CROP_PULL.join(', '));
+// 3. (crop pulling moved to t91 in build 91)
 // 4. heading for camp, you stand still: Pip goes on ahead, leaves the screen, comes back to hurry you
 inv.story=STORY.tocamp; enterScene('meadow'); run(10); clear(); const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&o.key==='pip') said.push(Math.round(state.time)+'s '+t); return _s(t,x,y,o); };
 const t0=state.time; let left=null, back=null; for(let k=0;k<60*40;k++){ run(1); const p=state.pip, off=p.x<-UNIT||p.x>W+UNIT||p.y<-UNIT||p.y>H+UNIT; if(off&&left==null) left=state.time-t0; if(left!=null&&!off&&back==null&&p.lead&&p.lead.phase==='back') back=state.time-t0; }

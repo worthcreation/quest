@@ -19,7 +19,7 @@ function interact() {
   }
   if (state.fish) return true;                      // fishing has the hands
   if (riverSideQuest(sc, h)) return true;
-  const nearPull = sc.pullables.some(p => !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
     if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
@@ -92,16 +92,12 @@ function interact() {
       const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
       const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);   // every seed you carry is on offer
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
-      // a ripe crop has to be pulled up: hold F and it works loose, quicker the better you are at farming
+      // a ripe crop comes up like a buried rock: hold F, rock it left and right, then pull up (updatePull, kind 'crop').
+      // Farming makes it easier (fewer rocks); at the top it's just F.
       if (p.s === 1 && stage >= 3) {
-        const cp = state.cropPull;
-        if (!held.act()) { if (cp) state.cropPull = null; return false; }
-        const c2 = cp && cp.i === i && cp.sc === sc.id ? cp : (state.cropPull = { i, sc: sc.id, t: 0, need: CROP_PULL[Math.min(CROP_PULL.length - 1, farmLevel())] });
-        c2.t += state.frameDt || 1 / 60;
-        if (Math.random() < 0.3) state.fx.push({ x: px * W + (Math.random() - 0.5) * UNIT * 0.6, y: py * H + UNIT * 0.1, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 0.5, color: '#5a4128', size: UNIT * 0.06 });
-        if (!c2.tugged) { c2.tugged = true; sfx.strain(); }
-        if (c2.t < c2.need) return true;
-        state.cropPull = null;
+        if (cropNeed() > 0 && state.cropFree !== sc.id + ':' + i) return false;          // the pull does it
+        if (state.cropFree !== sc.id + ':' + i && !pressedNow.act) return false;
+        state.cropFree = null;
       }
       // F at an empty patch opens a small menu: plant any seed you carry, or compost the patch. Nothing to offer: a hint.
       if (p.s === 0 && !have.length && !improve) { if (pressedNow.act) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); return pressedNow.act; }
@@ -169,7 +165,7 @@ function dropRock() {                               // set down a step ahead, th
 // The wheel (hold R): every consumable you carry, for use right now. Hold R and press A, S, D or F: everything
 // that could go in that slot; let go of R to put the highlighted one there. Both lists come from slotOptions().
 function radialOptions(slot) {
-  if (slot) return [...slotOptions(), { kind: 'none', id: 'none' }];
+  if (slot) return [...slotOptions().filter(e => laneAllows(slot, e)), { kind: 'none', id: 'none' }];
   return consumableOptions();
 }
 function radialLabel(o, slot) {
@@ -186,7 +182,7 @@ function applyRadial(r) {
 }
 // tap R: the F slot steps through your weapons
 function cycleEquip() {
-  const ws = slotOptions().filter(e => e.kind === 'weapon');
+  const ws = slotOptions().filter(e => e.kind === 'weapon' && e.id !== 'acorn');   // tap R: between your blades
   if (!ws.length) return;
   const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
   if (sameEntry(next, f)) return;
@@ -247,7 +243,7 @@ function findInteractable() {
       const nx = PATCH[(p.lv || 0) + 1];
       if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
       else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, nx.cost.acorn ? 'Compost' : 'Improve', 0.8);
-      if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Hold: pull up', 0.8);
+      if (p.s && st >= 3 && !cropNeed()) add(q[0] * W, q[1] * H, 'Pull up', 0.8);
     });
   }
   if (f.dock && inv.raft) {
@@ -581,18 +577,21 @@ function updateAbilities(dt) {
   if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
-  const rock = state.carry === 'rock', acorn = !state.carry && state.equip === 'acorn' && inv.acorns > 0;
-  if ((rock || acorn) && !state.pull.grip && !state.npcTalk) {
+  // A carried rock throws with F. Acorns throw with their own key (D), on their own: you can wind up an acorn and
+  // swing your blade at the same time.
+  const aSlot = ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'acorn'), tk = state.carry === 'rock' ? 'act' : aSlot && SLOT_ACTION[aSlot];
+  const rock = state.carry === 'rock', acorn = !state.carry && !!aSlot && inv.acorns > 0;
+  if ((rock || acorn) && !state.pull.grip && !state.npcTalk && !state.radial) {
     // a throw only starts from a fresh press: not the press that picked the rock up, planted, talked, etc.
-    if (pressedNow.act && h.z <= 0 && !state.aim.on && !state.actUsed && state.time - (state.carryT || -9) > 0.1) { state.aim.on = true; state.aim.t = 0; }
+    if (pressedNow[tk] && h.z <= 0 && !state.aim.on && !(rock && state.actUsed) && state.time - (state.carryT || -9) > 0.1) { state.aim.on = true; state.aim.t = 0; }
     if (state.aim.on) {
-      if (held.act()) state.aim.t += dt;
+      if (held[tk]()) state.aim.t += dt;
       else {
         const k = Math.min(throwPower(), h.vig <= 1 ? 0.1 : 1), tap = state.aim.t < 0.18;   // spent arms can't throw hard
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
         else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
-        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); state.active = 'acorn'; refreshButtons(); }
+        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); refreshButtons(); }
       }
     }
   } else state.aim.on = false;
@@ -860,7 +859,8 @@ function placePipNearHero() {
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
 const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 const PIP_GAP = 8;
-const CROP_PULL = [1.1, 0.8, 0.55, 0.35, 0.15];         // seconds of holding F to pull a crop, by farming level
+const CROP_ROCKS = [3, 2, 2, 1, 1, 0];                   // rocks back and forth before a crop comes up, by farming level (0 = just F)
+const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something
 // that helps (the robin, a patch, the next exit, a stick you still need) and says it a new way. Each situation has a
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
