@@ -17,7 +17,11 @@ function promptKey(text) {
   for (const k of Object.values(K).filter(Boolean).sort((a, b) => b.length - a.length)) if (text.startsWith(k + ' to ') || text.startsWith(k + ' now to ')) return k;
   return null;
 }
+// pickups, counts and item notes go to a small feed in the bottom-left corner, not next to you
+const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
+function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
 function say(text, x, y, opts = {}) {
+  if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
   if (opts.tip) { rememberTip(text); return; }
   const badge = promptKey(text);
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label

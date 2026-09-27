@@ -1341,7 +1341,11 @@ function promptKey(text) {
   for (const k of Object.values(K).filter(Boolean).sort((a, b) => b.length - a.length)) if (text.startsWith(k + ' to ') || text.startsWith(k + ' now to ')) return k;
   return null;
 }
+// pickups, counts and item notes go to a small feed in the bottom-left corner, not next to you
+const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
+function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
 function say(text, x, y, opts = {}) {
+  if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
   if (opts.tip) { rememberTip(text); return; }
   const badge = promptKey(text);
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
@@ -4007,7 +4011,7 @@ function updateAbilities(dt) {
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
         else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
-        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); refreshButtons(); }
+        else if (spend(0.1 + k * 0.3)) { inv.acorns--; state.slotLit = state.time; launch('acorn', k); refreshButtons(); }
       }
     }
   } else state.aim.on = false;
@@ -6023,7 +6027,7 @@ const consumableOptions = () => slotOptions().filter(e => e.kind === 'food' || e
 function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(sl[k], e)) || null; }
 // put something in a slot: it leaves any other slot it was in; null empties the slot
 function setSlot(k, e) {
-  const sl = slotsOf();
+  const sl = slotsOf(); if (!sameEntry(sl[k], e)) state.slotLit = state.time;   // a real change brightens the slots for a moment
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
@@ -6095,7 +6099,7 @@ function useEntry(e) {
   return null;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
-function useSlot(k) { return useEntry(slotsOf()[k]); }
+function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
 function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)
@@ -6317,7 +6321,7 @@ function draw() {
   drawTexts();
   drawChoice();
   drawCoach();                                          // quest info first, so a banner always sits on top of it
-  if (!state.menu) drawScroll();
+  if (!state.menu) { drawScroll(); drawFeed(); }
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
 }
@@ -7381,7 +7385,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 104';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 105';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8288,6 +8292,20 @@ function drawCoach() {
   for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
   ctx.restore();
 }
+// the bottom-left feed: newest at the bottom, each line fades after a few seconds
+function drawFeed() {
+  const f = state.feed; if (!f || !f.length) return;
+  const fs = Math.round(Math.max(12, Math.min(15, UNIT * 0.4))), lh = fs * 1.45, x = 14; let y = H - 16;
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  for (let i = f.length - 1; i >= 0; i--) {
+    const n = f[i]; n.t += 1 / 60; const a = Math.min(1, n.t / 0.2, (4 - n.t) / 0.8); if (a <= 0) { f.splice(i, 1); continue; }
+    const w = ctx.measureText(n.text).width;
+    ctx.globalAlpha = a * 0.55; ctx.fillStyle = '#0c0a10'; ctx.fillRect(x - 6, y - fs - 3, w + 12, fs + 8);
+    ctx.globalAlpha = a; ctx.fillStyle = n.color; ctx.fillText(n.text, x, y);
+    y -= lh;
+  }
+  ctx.restore();
+}
 function drawScroll() {
   const q = state.scrolls; if (!q || !q.length) return;
   const S = q[0]; S.t += 1 / 60; if (S.t > S.life) { q.shift(); return; }
@@ -8458,7 +8476,13 @@ function drawRiverQuest(sc) {
 function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
-  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14, hgt = Math.max(10, s * 0.55);
+  const s = Math.min(24, UNIT * 0.6), hgt = Math.max(10, s * 0.55), rowW0 = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35);
+  const x0 = TOUCH ? 14 : W - rowW0 - 16, y0 = TOUCH ? 14 : H - hgt - s * 2.3 - 14;   // bottom-right corner (top-left on touch, clear of the buttons)
+  // faded when nothing's happening: brightens while vigor is changing (hurt, spent, resting) and when a slot is used or changes
+  if (state.hudVig == null || Math.abs(state.hudVig - h.vig) > 0.01) { state.hudVigT = state.time; state.hudVig = h.vig; }
+  const hudA = Math.max(0.28, Math.min(1, 1 - (state.time - (state.hudVigT || -9) - 2.5) / 1.2)), slotA = Math.max(0.28, Math.min(1, 1 - (state.time - (state.slotLit || -9) - 2.5) / 1.2));
+  const lowNow = h.vig / mv <= 0.35;
+  ctx.save(); ctx.globalAlpha = lowNow ? 1 : hudA;
   // Vigor: the bar grows with your vigor up to one full layer of 17 (as wide as the A S D F row). Past that, each
   // further 17 lays another fill over the same bar, darker and more solid than the one below, without end. The first
   // fill is a very light green. The top layer's room shows faintly. Low on vigor, the frame pulses red.
@@ -8483,6 +8507,7 @@ function drawHUD() {
   const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
   ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
   ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
+  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial ? 1 : 0);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
   let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {
@@ -8497,6 +8522,7 @@ function drawHUD() {
   if (inv.slime > 0) eff('slime', inv.slime / 25);
   if (inv.carrotBuff > 0) eff('carrot', inv.carrotBuff / 15);
   if (inv.squashBuff > 0) eff('squash', inv.squashBuff / 20);
+  ctx.restore();
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(bx, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
@@ -8505,7 +8531,7 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  state.hudRect = TOUCH ? { x: 0, y: 0, w: rowW + 40, h: y0 + hgt + s * 1.8 } : { x: x0 - 12, y: y0 - 8, w: W - x0 + 12, h: H - y0 + 8 };   // text keeps out of here
   drawArenaBanner();
   drawRapidsHud();
 }

@@ -47,7 +47,7 @@ function draw() {
   drawTexts();
   drawChoice();
   drawCoach();                                          // quest info first, so a banner always sits on top of it
-  if (!state.menu) drawScroll();
+  if (!state.menu) { drawScroll(); drawFeed(); }
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
 }
@@ -1111,7 +1111,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 104';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 105';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

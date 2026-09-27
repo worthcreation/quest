@@ -53,6 +53,12 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B105) {                            // build 105: HUD bottom-right (bright, then faded), the pickup feed bottom-left
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.sword=true; inv.acorns=5; enterScene('start'); state.cut=null; state.enemies=[]; run(20); state.texts=[]; state.title=null;
+  const h=state.hero; collect({type:'stick',x:h.x,y:h.y}); collect({type:'stick',x:h.x,y:h.y}); collect({type:'acorn',x:h.x,y:h.y}); h.vig-=1; run(10); draw(); fs.writeFileSync('/tmp/b105-a.png', canvas.toBuffer('image/png'));
+  run(60*6); draw(); fs.writeFileSync('/tmp/b105-b.png', canvas.toBuffer('image/png')); console.log('b105 written');
+}
 if (process.env.B102) {                            // build 102: the rusty sword, a raging rabbit, the quest HUD under a bubble
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; inv.sword=true; enterScene('f2'); state.cut=null; run(5); state.texts=[]; state.title=null; updateQuests(true);

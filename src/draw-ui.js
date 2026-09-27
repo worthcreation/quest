@@ -682,6 +682,20 @@ function drawCoach() {
   for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
   ctx.restore();
 }
+// the bottom-left feed: newest at the bottom, each line fades after a few seconds
+function drawFeed() {
+  const f = state.feed; if (!f || !f.length) return;
+  const fs = Math.round(Math.max(12, Math.min(15, UNIT * 0.4))), lh = fs * 1.45, x = 14; let y = H - 16;
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  for (let i = f.length - 1; i >= 0; i--) {
+    const n = f[i]; n.t += 1 / 60; const a = Math.min(1, n.t / 0.2, (4 - n.t) / 0.8); if (a <= 0) { f.splice(i, 1); continue; }
+    const w = ctx.measureText(n.text).width;
+    ctx.globalAlpha = a * 0.55; ctx.fillStyle = '#0c0a10'; ctx.fillRect(x - 6, y - fs - 3, w + 12, fs + 8);
+    ctx.globalAlpha = a; ctx.fillStyle = n.color; ctx.fillText(n.text, x, y);
+    y -= lh;
+  }
+  ctx.restore();
+}
 function drawScroll() {
   const q = state.scrolls; if (!q || !q.length) return;
   const S = q[0]; S.t += 1 / 60; if (S.t > S.life) { q.shift(); return; }
@@ -852,7 +866,13 @@ function drawRiverQuest(sc) {
 function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
-  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14, hgt = Math.max(10, s * 0.55);
+  const s = Math.min(24, UNIT * 0.6), hgt = Math.max(10, s * 0.55), rowW0 = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35);
+  const x0 = TOUCH ? 14 : W - rowW0 - 16, y0 = TOUCH ? 14 : H - hgt - s * 2.3 - 14;   // bottom-right corner (top-left on touch, clear of the buttons)
+  // faded when nothing's happening: brightens while vigor is changing (hurt, spent, resting) and when a slot is used or changes
+  if (state.hudVig == null || Math.abs(state.hudVig - h.vig) > 0.01) { state.hudVigT = state.time; state.hudVig = h.vig; }
+  const hudA = Math.max(0.28, Math.min(1, 1 - (state.time - (state.hudVigT || -9) - 2.5) / 1.2)), slotA = Math.max(0.28, Math.min(1, 1 - (state.time - (state.slotLit || -9) - 2.5) / 1.2));
+  const lowNow = h.vig / mv <= 0.35;
+  ctx.save(); ctx.globalAlpha = lowNow ? 1 : hudA;
   // Vigor: the bar grows with your vigor up to one full layer of 17 (as wide as the A S D F row). Past that, each
   // further 17 lays another fill over the same bar, darker and more solid than the one below, without end. The first
   // fill is a very light green. The top layer's room shows faintly. Low on vigor, the frame pulses red.
@@ -877,6 +897,7 @@ function drawHUD() {
   const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
   ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
   ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
+  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial ? 1 : 0);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
   let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {
@@ -891,6 +912,7 @@ function drawHUD() {
   if (inv.slime > 0) eff('slime', inv.slime / 25);
   if (inv.carrotBuff > 0) eff('carrot', inv.carrotBuff / 15);
   if (inv.squashBuff > 0) eff('squash', inv.squashBuff / 20);
+  ctx.restore();
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(bx, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
@@ -899,7 +921,7 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  state.hudRect = TOUCH ? { x: 0, y: 0, w: rowW + 40, h: y0 + hgt + s * 1.8 } : { x: x0 - 12, y: y0 - 8, w: W - x0 + 12, h: H - y0 + 8 };   // text keeps out of here
   drawArenaBanner();
   drawRapidsHud();
 }

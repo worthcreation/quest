@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 104, 27 Sep 2026)
+# Quest: handoff notes (as of build 105, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 105: HUD bottom-right and quiet; pickups in a bottom-left feed
+- The vigor bar and slots sit in the bottom-right corner (top-left on touch, clear of the buttons). They fade to 28%
+  when nothing's happening: the bar brightens while vigor changes (hurt, spent, resting) and when it's low (always
+  full then); the slots brighten when one is used or changes (state.slotLit; note state.slotT is the tidy timer), and
+  in the pack or a wheel. hudRect follows them.
+- Pickups, counts and item notes (say() with keys item, raw*, mat, matdrift, spore, seedtip, loose, food, acorns) go to
+  notice() instead: a small feed in the bottom-left, newest at the bottom, up to six lines, each fading after ~4 s
+  (drawFeed).
+- tools/shot.js B105=1.
 
 ## Build 104: two lunges for a wooden sword; scrolls at the bottom; Pip strolls ahead
 - A wooden sword takes two lunges that land (inv.woodLunges): the first cracks it ("Crack! One more like that and it's

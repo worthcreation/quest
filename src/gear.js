@@ -222,7 +222,7 @@ const consumableOptions = () => slotOptions().filter(e => e.kind === 'food' || e
 function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(sl[k], e)) || null; }
 // put something in a slot: it leaves any other slot it was in; null empties the slot
 function setSlot(k, e) {
-  const sl = slotsOf();
+  const sl = slotsOf(); if (!sameEntry(sl[k], e)) state.slotLit = state.time;   // a real change brightens the slots for a moment
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
@@ -294,7 +294,7 @@ function useEntry(e) {
   return null;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
-function useSlot(k) { return useEntry(slotsOf()[k]); }
+function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
 function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)

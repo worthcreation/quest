@@ -113,7 +113,7 @@ function updateAbilities(dt) {
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
         else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
-        else if (spend(0.1 + k * 0.3)) { inv.acorns--; launch('acorn', k); refreshButtons(); }
+        else if (spend(0.1 + k * 0.3)) { inv.acorns--; state.slotLit = state.time; launch('acorn', k); refreshButtons(); }
       }
     }
   } else state.aim.on = false;
