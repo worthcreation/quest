@@ -256,7 +256,8 @@ function updatePip(dt) {
   }
   const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
   if (md > UNIT * ((waiting || garden) && !p.visit ? 0.04 : 0.3)) {   // pottering: small steps count too
-    const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
+    const ahead = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'back');   // going on ahead (or coming back to hurry you): an easy pace
+    const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0) * (ahead ? 0.6 : 1)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
   }

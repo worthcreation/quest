@@ -116,7 +116,14 @@ function updateCombat(dt) {
       bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) { if (a.woodBreak && a.hit.size && bladeKind() === 'wood') bladeWear(999); state.atk = null; }   // it splits only if it struck something
+  if (a.t >= a.dur) {                                   // a wooden sword takes two lunges that land: the first cracks it, the second splits it
+    if (a.woodBreak && a.hit.size && bladeKind() === 'wood') {
+      const inv2 = state.inv; inv2.woodLunges = (inv2.woodLunges || 0) + 1;
+      if (inv2.woodLunges >= 2) { inv2.woodLunges = 0; bladeWear(999); }
+      else { const h2 = state.hero; say('Crack! One more like that and it\'s kindling.', h2.x, h2.y - UNIT * 1.3, { key: 'wood', life: 2, color: '#d8b888' }); for (let i = 0; i < 6; i++) state.fx.push({ x: h2.x + h2.fx * UNIT, y: h2.y - UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * Math.random() * 2, t: 0, life: 0.5, color: '#b08a5a' }); }
+    }
+    state.atk = null;
+  }
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
 // sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits

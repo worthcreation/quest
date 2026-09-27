@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 103, 27 Sep 2026)
+# Quest: handoff notes (as of build 104, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 104: two lunges for a wooden sword; scrolls at the bottom; Pip strolls ahead
+- A wooden sword takes two lunges that land (inv.woodLunges): the first cracks it ("Crack! One more like that and it's
+  kindling."), the second splits it. A new wooden sword resets the count. Lunges at air don't count.
+- Scrolls sit near the bottom edge (H - height - max(18, 4% of H)), paper at 72% opacity so the world shows through
+  while the ink stays readable.
+- Pip going on ahead (and coming back to hurry you) moves at 60% of his usual pace.
 
 ## Build 103: banners are for quests only
 - Only a quest's start and its end use the big banner (quests.js calls showTitle with 'herald'). showTitle with 'relic' or

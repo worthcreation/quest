@@ -2646,7 +2646,14 @@ function updateCombat(dt) {
       bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) { if (a.woodBreak && a.hit.size && bladeKind() === 'wood') bladeWear(999); state.atk = null; }   // it splits only if it struck something
+  if (a.t >= a.dur) {                                   // a wooden sword takes two lunges that land: the first cracks it, the second splits it
+    if (a.woodBreak && a.hit.size && bladeKind() === 'wood') {
+      const inv2 = state.inv; inv2.woodLunges = (inv2.woodLunges || 0) + 1;
+      if (inv2.woodLunges >= 2) { inv2.woodLunges = 0; bladeWear(999); }
+      else { const h2 = state.hero; say('Crack! One more like that and it\'s kindling.', h2.x, h2.y - UNIT * 1.3, { key: 'wood', life: 2, color: '#d8b888' }); for (let i = 0; i < 6; i++) state.fx.push({ x: h2.x + h2.fx * UNIT, y: h2.y - UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * Math.random() * 2, t: 0, life: 0.5, color: '#b08a5a' }); }
+    }
+    state.atk = null;
+  }
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
 // sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits
@@ -4425,7 +4432,8 @@ function updatePip(dt) {
   }
   const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
   if (md > UNIT * ((waiting || garden) && !p.visit ? 0.04 : 0.3)) {   // pottering: small steps count too
-    const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
+    const ahead = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'back');   // going on ahead (or coming back to hurry you): an easy pace
+    const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0) * (ahead ? 0.6 : 1)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
   }
@@ -5460,7 +5468,7 @@ function craftNow() {
   sfx.forge();
   const note = s => { if (m) m.note = s + (first ? ' (new!)' : ''); };
   if (r.kind === 'wear') { gainGear(r.out, true); note(`Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); }
-  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
+  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; inv.woodLunges = 0; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
   else if (r.kind === 'aug') { inv.aug = { id: r.out, n: AUG[r.out].n }; note(`${OUT_NAME[r.out]} on your blade: ${AUG[r.out].what}`); }
   else if (r.kind === 'food') { inv.food.push(r.out); tidySlots(); note(`Made: ${OUT_NAME[r.out]}.`); }
   else { raw[r.out] = (raw[r.out] || 0) + 1; note(`Made: ${RAW[r.out]}`); }
@@ -7373,7 +7381,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 103';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 104';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8287,9 +8295,9 @@ function drawScroll() {
   ctx.save(); ctx.globalAlpha = a;
   ctx.font = HAND(Math.round(fs * 1.35), true); const tw = ctx.measureText(S.title).width;
   ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.6, 420)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
-  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
-  ctx.fillStyle = '#e8d8b0'; ctx.fillRect(x, y, w, h);                                                  // the paper
-  ctx.fillStyle = '#c9b48a'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
+  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H - h - Math.max(18, H * 0.04) + (1 - Math.min(1, S.t / 0.35)) * 12;   // near the bottom edge
+  ctx.fillStyle = 'rgba(232,216,176,.72)'; ctx.fillRect(x, y, w, h);                                   // the paper: see-through, but the ink stays readable
+  ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
   ctx.textAlign = 'center'; ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9);
   ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * (3.2 + i * 1.25)));

@@ -67,7 +67,7 @@ function craftNow() {
   sfx.forge();
   const note = s => { if (m) m.note = s + (first ? ' (new!)' : ''); };
   if (r.kind === 'wear') { gainGear(r.out, true); note(`Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); }
-  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
+  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; inv.woodLunges = 0; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
   else if (r.kind === 'aug') { inv.aug = { id: r.out, n: AUG[r.out].n }; note(`${OUT_NAME[r.out]} on your blade: ${AUG[r.out].what}`); }
   else if (r.kind === 'food') { inv.food.push(r.out); tidySlots(); note(`Made: ${OUT_NAME[r.out]}.`); }
   else { raw[r.out] = (raw[r.out] || 0) + 1; note(`Made: ${RAW[r.out]}`); }
