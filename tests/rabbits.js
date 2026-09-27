@@ -10,6 +10,12 @@ console.log('2 a rabbit near you goes:', modes.join(' > '));
 const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&(o.key==='pip'||o.who==='pip')) said.push(t); return _s(t,x,y,o); }; state.pip={x:h.x-UNIT,y:h.y,show:true,follow:true};
 for(let k=0;k<60*30;k++){ run(1); state.pipTalkT=Math.min(state.pipTalkT||0,state.time-7); if(said.some(t=>/lunge/.test(t))) break; }
 console.log('3 Pip on the field:\\n   '+said.filter(t=>/eyes|swing/i.test(t)).join('\\n   '));
+// 3b. arriving the usual way: Pip's line on the field, and the pinned basics until the rabbits are down
+state.coach=null; delete inv.pipTips['coach-combat']; inv.rabbitKills=0; Object.assign(rawOf(),{stick:6,stone:5,fluff:2}); state.pipTalkT=-99; said.length=0; enterScene('f1'); run(10); enterScene('f2'); run(60*3);
+const cs=[]; const note=()=>{ const c=state.coach; if(c&&c.id==='combat'){ const t=COACH.combat()[c.i].text; if(cs[cs.length-1]!==t) cs.push(t); } };
+note(); for (const e of state.enemies.filter(q=>q.type==='rabbit')) { kill(e); run(10); note(); }
+console.log('3b Pip on arrival:', said.filter(t=>/There they are/.test(t))[0]||'(none)');
+console.log('   pinned:\\n     '+cs.join('\\n     ')+'\\n     cleared after both:', !(state.coach&&state.coach.id==='combat'));
 // 4. the quest HUD stays put and sits under everything
 updateQuests(true); run(2); const r0=JSON.stringify(state.questHudRect); showTitle('Test','a new quest','herald',3.6); run(10); const r1=JSON.stringify(state.questHudRect);
 console.log('4 quest HUD moved under a banner?', r0!==r1, '| text steers round it?', reservedRects().some(r=>r===state.questHudRect));

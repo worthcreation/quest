@@ -134,6 +134,7 @@ function needWords(miss) {
   return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
 }
 function pipGatherTalk(sc, p) {
+  if (tutorialPending(sc)) return;                     // the tutorial's line comes first
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
@@ -156,6 +157,11 @@ function pipBeside(v) {
 // Pip gets excited: now and then while he's talking (more often on a line that ends in "!", and when he calls you
 // over) he bounces on the spot, one to three quick hops. His speech bubble stays put.
 // says the current tutorial step's line once (or again when its key changes), where the step wants Pip to stand
+// does the current tutorial step still have a line to say here? (other chatter waits for it)
+function tutorialPending(sc) {
+  const s = tutorialStep(); if (!s || !s.say || (s.scene && s.scene !== sc.id) || (s.once && TUT.tip(s.once))) return false;
+  return !(state.inv.pipTips || {})['tut-' + s.id + '|' + (s.key ? s.key() : '')];
+}
 function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
   state.tutStep = s ? s.id : null;
@@ -172,7 +178,8 @@ function tutorialTalk(sc, p, h) {
   const at = s.spot ? s.spot() : null;
   if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; say(line, p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
   else {
-    state.pipTalkT = -99;                             // tutorial lines don't wait their turn
+    state.pipTalkT = -99;                             // tutorial lines don't wait their turn: any small talk showing makes way
+    for (const t of state.texts) if ((t.key === 'pip' || t.who === 'pip') && !t.hold && t.t < t.life - 0.35) t.life = t.t + 0.3;
     if (!pipSay(key, line, at && Math.hypot(at[0] - p.x, at[1] - p.y) > UNIT * 1.2 ? at : null, 40, at ? { x: at[0], y: at[1], r: 9 } : null)) return;
     if (s.once) tips[s.once] = true;
   }

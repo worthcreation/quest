@@ -61,6 +61,7 @@ function damage(e, amount, kind, nx, ny, bowl) {
 }
 
 function kill(e) {
+  if (e.type === 'rabbit') state.inv.rabbitKills = (state.inv.rabbitKills || 0) + 1;
   e.dead = true; e.mode = 'dead'; e.t = 0.9; e.vx = 0; e.vy = 0;
   sfx.death();
   state.shake = 0.3;

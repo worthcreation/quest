@@ -2822,6 +2822,7 @@ function damage(e, amount, kind, nx, ny, bowl) {
 }
 
 function kill(e) {
+  if (e.type === 'rabbit') state.inv.rabbitKills = (state.inv.rabbitKills || 0) + 1;
   e.dead = true; e.mode = 'dead'; e.t = 0.9; e.vx = 0; e.vy = 0;
   sfx.death();
   state.shake = 0.3;
@@ -4314,6 +4315,7 @@ function needWords(miss) {
   return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
 }
 function pipGatherTalk(sc, p) {
+  if (tutorialPending(sc)) return;                     // the tutorial's line comes first
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
@@ -4336,6 +4338,11 @@ function pipBeside(v) {
 // Pip gets excited: now and then while he's talking (more often on a line that ends in "!", and when he calls you
 // over) he bounces on the spot, one to three quick hops. His speech bubble stays put.
 // says the current tutorial step's line once (or again when its key changes), where the step wants Pip to stand
+// does the current tutorial step still have a line to say here? (other chatter waits for it)
+function tutorialPending(sc) {
+  const s = tutorialStep(); if (!s || !s.say || (s.scene && s.scene !== sc.id) || (s.once && TUT.tip(s.once))) return false;
+  return !(state.inv.pipTips || {})['tut-' + s.id + '|' + (s.key ? s.key() : '')];
+}
 function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
   state.tutStep = s ? s.id : null;
@@ -4352,7 +4359,8 @@ function tutorialTalk(sc, p, h) {
   const at = s.spot ? s.spot() : null;
   if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; say(line, p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
   else {
-    state.pipTalkT = -99;                             // tutorial lines don't wait their turn
+    state.pipTalkT = -99;                             // tutorial lines don't wait their turn: any small talk showing makes way
+    for (const t of state.texts) if ((t.key === 'pip' || t.who === 'pip') && !t.hold && t.t < t.life - 0.35) t.life = t.t + 0.3;
     if (!pipSay(key, line, at && Math.hypot(at[0] - p.x, at[1] - p.y) > UNIT * 1.2 ? at : null, 40, at ? { x: at[0], y: at[1], r: 9 } : null)) return;
     if (s.once) tips[s.once] = true;
   }
@@ -4552,7 +4560,8 @@ const TUTORIAL = [
   { id: 'sword', done: () => !!bladeKind() || !TUT.fluffNeed(), goal: () => TUT.raw().stick >= 3 ? null : 'start', spot: null,
     remind: () => TUT.raw().stick >= 3 ? [`Slap that sword together! ${TUT.M()}, Craft, wooden sword, Combine.`, 'Three sticks on the mat, then Combine!'] : ['Sticks first. The glade has plenty.', 'Three sticks for a sword!'], remindAt: () => TUT.exitSpot() },
   { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'f2', scene: null, spot: null,
-    say: () => 'And go! South, to the rabbits!', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
+    say: () => state.scene === 'f2' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
+    key: () => state.scene === 'f2' ? 'field' : 'go', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
     remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'f2' && r ? [r.x, r.y] : TUT.exitSpot(); } },
   { id: 'build', done: () => campDone(), goal: () => 'camp', scene: 'camp', spot: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; },
     say: () => campMarkLine(), key: () => campMarkLine(), remind: () => [campMarkLine()], remindAt: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; } },
@@ -4657,6 +4666,10 @@ const COACH = {
     { text: `Press ${TUT.F()} on Combine`, done: () => rawOf().tinder > 0 || campBuilt('fire') },
     { text: `Close the pack, then ${TUT.F()} at the ring`, done: () => campBuilt('fire') },
   ],
+  combat: () => [
+    { text: `Eyes flash red? Get out of the way! Then swing (${TUT.F()}) while it's close.`, done: () => (state.inv.rabbitKills || 0) >= 1 || !TUT.fluffNeed() },
+    { text: `Got one! Now the other. Or hold ${TUT.F()}, let go: lunge.`, done: () => (state.inv.rabbitKills || 0) >= 2 || !TUT.fluffNeed() },
+  ],
   frame: () => [
     { text: `Glue first: two fluff. Open your pack (${TUT.M()}), Craft, rabbit glue`, done: () => rawOf().glue > 0 || rawOf().benchframe > 0 || campBuilt('bench') },
     { text: 'Then a frame: two sticks and glue (Recipes: bench frame)', done: () => rawOf().benchframe > 0 || campBuilt('bench') },
@@ -4673,6 +4686,7 @@ function coachUpdate() {
   // camp coaching starts on its own once the lesson has happened
   if (!state.coach && TUT.tip('craftLesson') && !campBuilt('fire') && campParts().stones >= CAMP_PARTS.fire.stones) { hearRecipe('tinder'); startCoach('tinder'); }
   if (!state.coach && TUT.tip('craftLesson') && campBuilt('fire') && !campBuilt('bench') && bladeKind()) { hearRecipe('glue'); hearRecipe('benchframe'); startCoach('frame'); }
+  if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); }
@@ -7385,7 +7399,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 105';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 106';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

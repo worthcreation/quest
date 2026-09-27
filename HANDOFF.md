@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 105, 27 Sep 2026)
+# Quest: handoff notes (as of build 106, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 106: combat guidance you can't miss
+- It wasn't showing because Pip's gathering small talk ("Let's keep looking around...") filled the air on arrival, and
+  every line waits for quiet. Now tutorial lines take priority: tutorialPending(sc) holds pipGatherTalk back while the
+  current step has a line to say here, and a tutorial line clears any free small talk that's showing.
+- The rabbits step says "There they are! Watch their eyes: when they flash red, jump aside. Then swing!" on the field
+  (and "And go! South, to the rabbits!" elsewhere).
+- COACH.combat pins the basics at the top on the rabbits' field until they're done: "Eyes flash red? Get out of the
+  way! Then swing (F) while it's close." until the first rabbit falls (inv.rabbitKills, counted in kill()), then "Got
+  one! Now the other. Or hold F, let go: lunge." until the second.
+- Test: rabbits extended. 51 of 51.
 
 ## Build 105: HUD bottom-right and quiet; pickups in a bottom-left feed
 - The vigor bar and slots sit in the bottom-right corner (top-left on touch, clear of the buttons). They fade to 28%

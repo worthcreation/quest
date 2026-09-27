@@ -69,7 +69,8 @@ const TUTORIAL = [
   { id: 'sword', done: () => !!bladeKind() || !TUT.fluffNeed(), goal: () => TUT.raw().stick >= 3 ? null : 'start', spot: null,
     remind: () => TUT.raw().stick >= 3 ? [`Slap that sword together! ${TUT.M()}, Craft, wooden sword, Combine.`, 'Three sticks on the mat, then Combine!'] : ['Sticks first. The glade has plenty.', 'Three sticks for a sword!'], remindAt: () => TUT.exitSpot() },
   { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'f2', scene: null, spot: null,
-    say: () => 'And go! South, to the rabbits!', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
+    say: () => state.scene === 'f2' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
+    key: () => state.scene === 'f2' ? 'field' : 'go', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
     remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'f2' && r ? [r.x, r.y] : TUT.exitSpot(); } },
   { id: 'build', done: () => campDone(), goal: () => 'camp', scene: 'camp', spot: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; },
     say: () => campMarkLine(), key: () => campMarkLine(), remind: () => [campMarkLine()], remindAt: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; } },
@@ -174,6 +175,10 @@ const COACH = {
     { text: `Press ${TUT.F()} on Combine`, done: () => rawOf().tinder > 0 || campBuilt('fire') },
     { text: `Close the pack, then ${TUT.F()} at the ring`, done: () => campBuilt('fire') },
   ],
+  combat: () => [
+    { text: `Eyes flash red? Get out of the way! Then swing (${TUT.F()}) while it's close.`, done: () => (state.inv.rabbitKills || 0) >= 1 || !TUT.fluffNeed() },
+    { text: `Got one! Now the other. Or hold ${TUT.F()}, let go: lunge.`, done: () => (state.inv.rabbitKills || 0) >= 2 || !TUT.fluffNeed() },
+  ],
   frame: () => [
     { text: `Glue first: two fluff. Open your pack (${TUT.M()}), Craft, rabbit glue`, done: () => rawOf().glue > 0 || rawOf().benchframe > 0 || campBuilt('bench') },
     { text: 'Then a frame: two sticks and glue (Recipes: bench frame)', done: () => rawOf().benchframe > 0 || campBuilt('bench') },
@@ -190,6 +195,7 @@ function coachUpdate() {
   // camp coaching starts on its own once the lesson has happened
   if (!state.coach && TUT.tip('craftLesson') && !campBuilt('fire') && campParts().stones >= CAMP_PARTS.fire.stones) { hearRecipe('tinder'); startCoach('tinder'); }
   if (!state.coach && TUT.tip('craftLesson') && campBuilt('fire') && !campBuilt('bench') && bladeKind()) { hearRecipe('glue'); hearRecipe('benchframe'); startCoach('frame'); }
+  if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); }
