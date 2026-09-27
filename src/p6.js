@@ -840,7 +840,11 @@ function remindNow(sc, h) {
 function pipRemind(sc, p, h) {
   const inv = state.inv, R = state.remind || (state.remind = { t: state.time, i: {}, last: null, n: 0 });
   const prog = [inv.story, inv.bag.turnipseed || 0, ((rtFor('meadow').flags.plots) || []).filter(q => q.s).length, JSON.stringify(campHave()), sc.id].join('|');
-  if (prog !== R.prog) { R.prog = prog; R.t = state.time; R.n = 0; return; }             // something happened: start the clock again
+  if (prog !== R.prog) {                              // something happened: start the clock again, and anything Pip was
+    if (R.prog) for (const t of state.texts) if ((t.key === 'pip' || t.who === 'pip') && !t.hold && t.t > 0.3) { t.life = Math.min(t.life, t.t + 0.35); t.more = []; }   // urging you to do is done: it goes
+    if (R.prog && p.visit && p.visit.key === 'remind') p.visit = null;
+    R.prog = prog; R.t = state.time; R.n = 0; return;
+  }
   if (p.visit || speakingNow() || state.time - (state.pipTalkT || -9) < PIP_GAP) return;
   if (state.time - R.t < 16 + R.n * 6) return;
   const r = remindNow(sc, h); if (!r) return;
@@ -887,7 +891,20 @@ function pipBeside(v) {
   const h = state.hero, dx = h.x - v.x, dy = h.y - v.y, d = Math.hypot(dx, dy) || 1;
   return [v.x + dx / d * UNIT * 1.3, v.y + dy / d * UNIT * 1.3];
 }
+// Pip gets excited: now and then while he's talking (more often on a line that ends in "!", and when he calls you
+// over) he bounces on the spot, one to three quick hops. His speech bubble stays put.
+function pipBounce(dt) {
+  const p = state.pip; if (!p || !p.show) return;
+  const mine = state.texts.filter(t => t.key === 'pip' || t.who === 'pip');
+  for (const t of mine) if (!t.bounced) { t.bounced = true; if (Math.random() < (/!/.test(t.text) ? 0.6 : 0.2)) p.hop = { t: 0, n: 1 + Math.floor(Math.random() * 3) }; }
+  if (!p.hop && mine.length && Math.random() < dt * 0.15) p.hop = { t: 0, n: 1 + Math.floor(Math.random() * 2) };
+  if (p.hop) {
+    p.hop.t += dt; const per = 0.26, k = p.hop.t / per;
+    if (k >= p.hop.n) { p.hop = null; p.bz = 0; } else p.bz = Math.abs(Math.sin(Math.PI * (k % 1))) * UNIT * (0.3 + 0.08 * Math.sin(k * 5));
+  }
+}
 function updatePip(dt) {
+  pipBounce(dt);
   if (state.intro) { updateIntro(dt); return; }
   if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
   const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there

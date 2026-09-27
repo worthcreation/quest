@@ -78,7 +78,7 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); }]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -1542,7 +1542,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 79';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 80';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 79, 27 Sep 2026)
+# Quest: handoff notes (as of build 80, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 80 in short
+- pipBounce (p6, called from updatePip every frame, opening included): Pip hops 1 to 3 times now and then while he's
+  talking (60% on a new line with "!", 20% otherwise, plus an occasional hop mid-line). p.bz lifts only his body (p7);
+  his bubble stays put.
+- When progress happens (the pipRemind progress key changes: story, seeds, planting, camp materials, screen), Pip's
+  free lines that were already showing fade within ~0.35 s and drop their remaining pages; a reminder visit is dropped.
+- Test: t80.
 
 ## Build 79 in short
 - The opening (updateIntro): while Pip talks he wanders the bank around where you started (short walks, pauses, never
