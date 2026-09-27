@@ -167,7 +167,37 @@ function drawItemIcon(type, x, y, s) {
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
       break;
-    case 'seed': ctx.fillStyle = '#d9c28a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.14, s * 0.22, 0.5, 0, 6.28); ctx.fill(); ctx.fillStyle = '#8a7040'; ctx.fillRect(-1, -s * 0.12, 2, s * 0.24); break;
+    // vegetable seeds, a small pinch of each, drawn the way the real ones look
+    case 'turnipseed':                                 // tiny round beads, dark red-brown to near black, a glint on each
+      for (const [ox, oy, r] of [[-0.16, 0.1, 0.11], [0.08, -0.14, 0.12], [0.18, 0.14, 0.1], [-0.04, 0.16, 0.09]]) {
+        ctx.fillStyle = '#3a2016'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#7a3a26'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s * 0.7, 0, 6.28); ctx.fill();
+        ctx.fillStyle = 'rgba(255,240,220,.7)'; ctx.beginPath(); ctx.arc((ox - r * 0.35) * s, (oy - r * 0.4) * s, r * s * 0.28, 0, 6.28); ctx.fill();
+      }
+      break;
+    case 'carrotseed':                                 // small tan ovals, flat, ridged along their length
+      for (const [ox, oy, a] of [[-0.15, 0.08, 0.6], [0.12, -0.12, -0.4], [0.16, 0.16, 1.1]]) {
+        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+        ctx.fillStyle = '#a8905e'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.1, s * 0.16, 0, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#6e5a34'; ctx.lineWidth = 1; for (const k of [-0.05, 0, 0.05]) { ctx.beginPath(); ctx.moveTo(k * s, -s * 0.13); ctx.lineTo(k * s, s * 0.13); ctx.stroke(); }
+        ctx.restore();
+      }
+      break;
+    case 'pepperseed':                                 // flat pale yellow discs, a slight notch where they hung
+      for (const [ox, oy] of [[-0.14, 0.1], [0.1, -0.12], [0.16, 0.16]]) {
+        ctx.fillStyle = '#e8d68a'; ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.13, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#b8a45a'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#c8b46a'; ctx.beginPath(); ctx.arc((ox + 0.09) * s, (oy - 0.06) * s, s * 0.03, 0, 6.28); ctx.fill();
+      }
+      break;
+    case 'squashseed':                                 // cream teardrops with a paler rim, one broad and one on its side
+      for (const [ox, oy, a] of [[-0.1, 0.06, -0.3], [0.14, 0.02, 0.9]]) {
+        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+        ctx.fillStyle = '#e8dcb0'; ctx.beginPath(); ctx.moveTo(0, -s * 0.24); ctx.quadraticCurveTo(s * 0.18, -s * 0.05, s * 0.13, s * 0.14); ctx.quadraticCurveTo(0, s * 0.28, -s * 0.13, s * 0.14); ctx.quadraticCurveTo(-s * 0.18, -s * 0.05, 0, -s * 0.24); ctx.fill();
+        ctx.strokeStyle = '#f8f2dc'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.restore();
+      }
+      break;
     case 'bean':
       ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#d98a6a'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.06, s * 0.08, s * 0.04, 0.3, 0, 6.28); ctx.fill();
@@ -440,6 +470,7 @@ function reservedRects() {
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.questHudRect) r.push(state.questHudRect);
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
     const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
@@ -511,9 +542,19 @@ function drawTexts() {
     ctx.fillStyle = t.color; ctx.textBaseline = 'top';
     if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
     else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    if (t.hold) drawReadOn(b.x + b.w, y + b.h, b.size);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
   ctx.globalAlpha = 1;
+}
+// the small "read on" mark at the corner of anything that waits for you: the action key, or "tap" on a phone
+function drawReadOn(x, y, size) {
+  const k = 0.55 + 0.45 * Math.abs(Math.sin(state.time * 3)), lab = TOUCH ? 'tap' : K.act.toUpperCase().slice(0, 5), fs = Math.round(Math.max(10, size * 0.62));
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(lab).width + fs * 0.9, h = fs * 1.35, bx = x - w * 0.5 - 4, by = y;
+  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx - w / 2, by - h / 2, w, h, h / 2) : ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill();
+  ctx.fillStyle = '#2a1e10'; ctx.fillText(lab, bx, by + 1);
+  ctx.restore();
 }
 function drawTitle() {
   const T = state.title;
@@ -549,6 +590,7 @@ function drawTitle() {
     ctx.fillStyle = relic ? '#ffe38a' : '#fdf6e3'; ctx.fillText(T.text, W / 2, H * 0.22);
     ctx.shadowBlur = 0;
     if (T.sub) { ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(size * 0.45)}px "Courier New", monospace`; wrap(T.sub, Math.min(W * 0.85, 560)).forEach((l, i) => ctx.fillText(l, W / 2, H * 0.22 + size * (1.1 + i * 0.6))); }
+    if (T.hold) drawReadOn(W / 2 + size * 1.2, H * 0.22 + size * (T.sub ? 2.1 : 1.1), size * 0.9);
   }
   ctx.restore();
 }

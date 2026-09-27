@@ -196,7 +196,7 @@ function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id
 function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
-  sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },
+  sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
   granite: { name: 'Granite', dur: 2, tint: '#8f8a86', inside: [['stone', 1], ['stone', 0.6], ['ironseed', 0.12]] },
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
@@ -348,7 +348,7 @@ function genWorld() {
   for (const side of ['n', 'w', 'e']) edgeWall(shack, side, 'wall', 1.0, [], 1.2);
   edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
   shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
-  item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'seed', fx: 0.78, fy: 0.62 });
+  item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'carrotseed', fx: 0.78, fy: 0.62 });
 
   // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
   add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
@@ -721,8 +721,8 @@ const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
-// seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
+// seeds: vegetable seeds (turnip, carrot, pepper, squash) grow that vegetable; rarer seeds grow crafting materials
+function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 

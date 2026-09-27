@@ -23,16 +23,19 @@ const tap=k=>{state.keys[k]=true;step(2);state.keys[k]=false;step(2);};
 const go=(x,y)=>{state.hero.x=x;state.hero.y=y;step(2);};
 begin();
 let errs2=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }catch(e){ errs2++; if(errs2<8) console.log('ERR', state.scene, e.message, String(e.stack).slice(0,300)); return; } } };
-const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
+const clearHeld=()=>{ for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++){ state.keys.f=true; run(1); state.keys.f=false; run(4);} };
+const press=(k,n=1)=>{ if(k==='f') clearHeld(); state.keys[k]=true; run(n); state.keys[k]=false; run(2); };   // build 65: F reads held text first
 const log=[]; const _say=say; say=function(text,x,y,o){ if(o&&(o.key==='pip'||o.key==='npc')) log.push(state.scene+': '+text); return _say(text,x,y,o); };
 let h=state.hero;
-run(5); console.log('opens in', state.scene, '| on the old jetty', !!sceneDef().feat.oldJetty, '| cut', state.cut && state.cut.type, '| can steer?', false);
-// try to move during the walk: you can't
-run(60*10); const hx=state.hero.x; state.keys.arrowleft=true; run(20); state.keys.arrowleft=false; console.log('during the walk, pressing left moved you', Math.abs(state.hero.x-hx) < UNIT*0.3 ? 'no' : 'yes', '| scene', state.scene);
-for (let k=0;k<60*8 && state.cut;k++) run(1);
-h=state.hero; console.log('control back in', state.scene, '| seeds', state.inv.bag.seed, '| story', state.inv.story);
+run(5); console.log('opens in', state.scene, '| on the old jetty', !!sceneDef().feat.oldJetty, '| intro', !!state.intro, '| can steer?', true);
+// you can move during the talk
+run(30); const hx=state.hero.x; state.keys.arrowleft=true; run(20); state.keys.arrowleft=false; console.log('during the talk, pressing left moved you', Math.abs(state.hero.x-hx) < UNIT*0.3 ? 'no' : 'yes', '| scene', state.scene);
+// build 65 opening: read Pip's three lines with F, wait for Pip to head south, walk out the south edge, clear the quest alert
+const opening=()=>{ run(20); for(let i=0;i<3;i++){ press('f'); run(25);} for(let k=0;k<60*14 && state.intro;k++) run(1); if(state.title&&state.title.hold) press('f'); const hh=state.hero; hh.x=W*0.5; hh.y=H-UNIT*0.6; run(3); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(40); };
+opening();
+h=state.hero; console.log('control back in', state.scene, '| turnip seeds', state.inv.bag.turnipseed, '| story', state.inv.story); state.inv.bag.turnipseed=3;  // the lesson's seeds, handed over for the camp test
 // plant the three seeds
-const plots=WORLD.meadow.feat.plots; for (const q of plots) { h.x=q[0]*W; h.y=q[1]*H; run(3); const before=state.inv.bag.seed; press('f'); if (state.choice) press('f'); run(20); console.log('  plot', q.map(v=>v.toFixed(2)).join(','), 'planted?', state.inv.bag.seed<before, 'cut', !!state.cut, 'menu', !!state.menu, 'npcTalk', !!state.npcTalk); }
+const plots=WORLD.meadow.feat.plots; for (const q of plots) { h.x=q[0]*W; h.y=q[1]*H; run(3); const before=state.inv.bag.turnipseed; while(state.texts.some(t=>t.hold)){press('f');run(4);} press('d'); run(20); console.log('  plot', q.map(v=>v.toFixed(2)).join(','), 'planted?', state.inv.bag.turnipseed<before, 'cut', !!state.cut, 'menu', !!state.menu, 'npcTalk', !!state.npcTalk); }
 run(60*6); console.log('planted', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, '| story', state.inv.story, '| Pip heading for', pipExit(WORLD.meadow) && pipExit(WORLD.meadow).to);
 // follow Pip to camp
 enterScene('start', 0.04, 0.5); run(30); console.log('in the glade Pip heads for', pipExit(WORLD.start) && pipExit(WORLD.start).to);

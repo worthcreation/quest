@@ -19,8 +19,8 @@ if (process.env.DUSK) {
 }
 if (process.env.QUESTLOG) {
   state.started=true; const inv=state.inv; enterScene('camp'); state.cut=null;
-  inv.story=STORY.garden; inv.bag.seed=1; state.playTime=40; updateQuests(true);
-  const pl=rtFor('meadow').flags.plots=WORLD.meadow.feat.plots.map(()=>({s:1,t:0,lv:0})); inv.bag.seed=0; inv.story=STORY.tocamp; state.playTime=95; updateQuests(true);
+  inv.story=STORY.garden; inv.bag.turnipseed=1; state.playTime=40; updateQuests(true);
+  const pl=rtFor('meadow').flags.plots=WORLD.meadow.feat.plots.map(()=>({s:1,t:0,lv:0})); inv.bag.turnipseed=0; inv.story=STORY.tocamp; state.playTime=95; updateQuests(true);
   inv.story=STORY.gather; state.playTime=130; updateQuests(true); Object.assign(rawOf(),{stone:2,stick:1}); state.playTime=200; updateQuests(true);
   state.texts=[]; state.title=null; state.menu={view:'pack',tab:PACK_TABS.indexOf('Quests'),sel:0,focus:'grid',act:0,sys:0,note:'',qsel:0};
   draw(); fs.writeFileSync('/tmp/quests-folded.png', canvas.toBuffer('image/png'));
@@ -53,6 +53,19 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B65) {                             // build 65: the held opening line, Pip at the garden with the quest HUD, seeds, a quest alert, the Quests tab
+  const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
+  const F=()=>{ state.keys.f=true; run(1); state.keys.f=false; run(30); };
+  state.started=true; startIntro(); run(40); draw(); fs.writeFileSync('/tmp/b65-open.png', canvas.toBuffer('image/png'));
+  F(); F(); F(); run(60*9); state.hero.x=W*0.5; state.hero.y=H-UNIT*0.6; run(2); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(30);
+  draw(); fs.writeFileSync('/tmp/b65-alert.png', canvas.toBuffer('image/png'));
+  F(); const g=gardenSpot(); state.hero.x=g[0]-UNIT*2.2; state.hero.y=g[1]; run(80); draw(); fs.writeFileSync('/tmp/b65-garden.png', canvas.toBuffer('image/png'));
+  F(); state.texts=[]; state.inv.bag.turnipseed=2; state.inv.bag.carrotseed=1; state.inv.bag.pepperseed=1; state.inv.bag.squashseed=1; state.inv.bag.thornseed=1;
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Seeds'),sel:0,focus:'grid',act:0}; draw(); fs.writeFileSync('/tmp/b65-seeds.png', canvas.toBuffer('image/png'));
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Quests'),sel:0,focus:'grid',act:0,qsel:0}; draw(); fs.writeFileSync('/tmp/b65-quests.png', canvas.toBuffer('image/png'));
+  state.menu=null; const items=['turnipseed','carrotseed','pepperseed','squashseed']; ctx.fillStyle='#4a9650'; ctx.fillRect(0,0,W,H); items.forEach((t,i)=>drawItemIcon(t, 120+i*160, 120, 96)); fs.writeFileSync('/tmp/b65-seedicons.png', canvas.toBuffer('image/png'));
+  console.log('b65 shots written');
+}
 if (process.env.OPEN) {
   state.started=true; startIntro(); for (let k=0;k<60*4.5;k++) update(1/60); draw(); fs.writeFileSync('/tmp/open.png', canvas.toBuffer('image/png'));
   state.cut=null; enterScene('tentin'); state.texts=[]; state.title=null; for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/tent.png', canvas.toBuffer('image/png'));
@@ -69,7 +82,7 @@ if (process.env.CAMP) {
 }
 if (process.env.FARM) {
   state.started=true; state.inv.sword=true; enterScene('camp'); state.cut=null; const f=WORLD.camp.feat; const rt=rtFor('camp');
-  rt.flags.plots = f.plots.map((q,i)=>({ s: i>=4?1:0, t: state.playTime - [0,0,0,0,25,60,25,60][i], seed:'seed', lv: i%4 }));
+  rt.flags.plots = f.plots.map((q,i)=>({ s: i>=4?1:0, t: state.playTime - [0,0,0,0,25,60,25,60][i], seed:'turnipseed', lv: i%4 }));
   for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; state.hero.x=W*0.8; state.hero.y=H*0.8; draw();
   fs.writeFileSync('/tmp/farm.png', canvas.toBuffer('image/png'));
   console.log(JSON.stringify(f.plots));

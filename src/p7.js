@@ -500,7 +500,7 @@ function drawPlots(sc) {
       f.plots.forEach(([px, py], i) => {
         const x = px * W, y = py * H, p = plots[i] || { s: 0 }, st = plotStage(p);
         drawPatch(x, y, p.lv != null ? p.lv : (f.plotLv || 0), i);
-        const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
+        const S = SEEDS[seedOfPlot(p, sc, i)], crop = cropOfPlot(p, sc, i);
         if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
           ctx.save(); ctx.translate(x, y);
           ctx.strokeStyle = S.color; ctx.lineWidth = 2;
@@ -1045,7 +1045,7 @@ function drawFalls(open) {
 
 // ---------------- HUD: vigor instead of hearts ----------------
 function drawHUD() {
-  if (!state.started || (state.cut && state.cut.type === 'intro')) return;
+  if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
   const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
   const len = Math.min(W * 0.55, 110 + inv.depth * 34), hgt = Math.max(10, s * 0.55);
@@ -1080,6 +1080,7 @@ function drawHUD() {
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
   state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
 }
@@ -1164,8 +1165,10 @@ function drawPack(m, x, y, pw, fs) {
         const { q, s, step } = r.c;
         drawItemIcon(q.icon, lx + fs * 1.5, yy + rh / 2, fs * 1.7);
         ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(step.name, lx + fs * 3, yy + fs * 1.25);
-        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name;
-        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2); ctx.textAlign = 'left';
+        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name, on2 = tracked(q.id);
+        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2);
+        ctx.fillStyle = on2 ? '#b8f28a' : 'rgba(253,246,227,.4)'; ctx.fillText(on2 ? (on ? `active \u00b7 ${K.act} to hide from HUD` : 'active') : (on ? `${K.act} to track on HUD` : 'not tracked'), lx + lw - 12, yy + fs * 2.6); ctx.textAlign = 'left';
+        if (on2) { ctx.fillStyle = '#b8f28a'; ctx.beginPath(); ctx.arc(lx + fs * 0.55, yy + fs * 0.7, fs * 0.2, 0, 6.28); ctx.fill(); }
         ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(step.line(), lx + fs * 3, yy + fs * 2.6);
       } else if (r.kind === 'none') {
         ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText('Nothing pressing. Look around.', lx + 14, yy + rh * 0.65);
@@ -1185,7 +1188,8 @@ function drawPack(m, x, y, pw, fs) {
         ctx.fillText(e.last && e.q.steps.length > 1 ? `${e.st.name}. ${e.q.name} complete.` : e.last ? `${e.q.name} complete.` : e.st.name, lx + 36, yy + rh * 0.66);
         ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(`${e.q.name}${e.t != null ? ' \u00b7 ' + clock(e.t) : ''}`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
       }
-      if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
+      if (r.kind === 'cur') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { if (m.qsel === i && m.focus === 'grid') trackQuest(r.c.q.id, !tracked(r.c.q.id)); m.qsel = i; m.focus = 'grid'; } });
+      else if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
       yy += rh + gap;
     }
     ctx.textAlign = 'center';
@@ -1370,7 +1374,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 64';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 65';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

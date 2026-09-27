@@ -38,7 +38,7 @@ enterScene('h3'); state.cut=null; state.enemies=[]; const hero=state.hero; hero.
 state.keys.e=true; run(60); state.keys.e=false; run(240,'burn');
 console.log('cocoon', broken('h3','cocoon'), 'dark shroom burst', !!rtFor('h3').flags.darkshroom, 'spore items', state.items.filter(i=>i.type==='spore').length, 'floaters', state.floaters.length);
 const sp0=state.inv.spores; for(const it of state.items.filter(i=>i.type==='spore')) { hero.x=it.x; hero.y=it.y; run(2); } console.log('gathered spores', state.inv.spores-sp0);
-hero.x=W*0.8-UNIT*1.3; hero.y=H*0.5; for(let k=0;k<7;k++){ state.keys.f=true; run(1); state.keys.f=false; run(3); } run(90); console.log('rescued', state.inv.pipSaved, state.scene);
+hero.x=W*0.8-UNIT*1.3; hero.y=H*0.5; for(let k=0;k<12 && !state.inv.pipSaved;k++){ state.keys.f=true; run(1); state.keys.f=false; run(3); }  /* build 65: the first F clears the held quest title */ run(90); console.log('rescued', state.inv.pipSaved, state.scene);
 // tour with strict stub
 for (const id of Object.keys(WORLD)) {
   enterScene(id); state.cut=null; state.hero.vig=maxVig();

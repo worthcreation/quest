@@ -251,7 +251,7 @@ function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id
 function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
-  sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },
+  sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
   granite: { name: 'Granite', dur: 2, tint: '#8f8a86', inside: [['stone', 1], ['stone', 0.6], ['ironseed', 0.12]] },
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
@@ -403,7 +403,7 @@ function genWorld() {
   for (const side of ['n', 'w', 'e']) edgeWall(shack, side, 'wall', 1.0, [], 1.2);
   edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
   shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
-  item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'seed', fx: 0.78, fy: 0.62 });
+  item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'carrotseed', fx: 0.78, fy: 0.62 });
 
   // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
   add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
@@ -776,8 +776,8 @@ const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
-// seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
+// seeds: vegetable seeds (turnip, carrot, pepper, squash) grow that vegetable; rarer seeds grow crafting materials
+function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -849,6 +849,7 @@ document.getElementById('menubtn').addEventListener('pointerdown', e => { e.prev
 canvas.addEventListener('pointerdown', e => {
   if (state.won) { newGame(); return; }
   if (state.menu) menuTap(e.clientX, e.clientY);
+  else if (!state.choice && TOUCH && heldText()) dismissHeld();   // a tap on the screen reads on, same as the action button
   else if (state.choice) { const r = (state.choiceRects || []).find(o => e.clientX >= o.x && e.clientX <= o.x + o.w && e.clientY >= o.y && e.clientY <= o.y + o.h); if (r) { const c = state.choice; state.choice = null; c.cb(r.i); } }
 });
 
@@ -1217,9 +1218,11 @@ function say(text, x, y, opts = {}) {
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
     const o = state.texts.find(o => o.key === opts.key && o.text === text);
-    if (o) { o.x = x; o.y = y; o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
+    if (o) { o.x = x; o.y = y; if (!o.hold) o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
   }
-  const t = { text, x, y, t: 0, life: opts.life || 3.2, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
+  const hold = SPEECH.has(opts.key) && opts.hold !== false;
+  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
@@ -1229,9 +1232,20 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// anything waiting to be read? (a held title or held speech)
+function heldText() { return (state.title && state.title.hold) || state.texts.some(t => t.hold); }
+// the action key clears one thing at a time: the quest alert first, then the oldest held speech.
+// Returns true when the press was used up this way.
+function dismissHeld() {
+  if (state.title && state.title.hold) { state.title.life = state.title.t + 0.3; state.title.hold = false; sfx.tock(); return true; }
+  const t = state.texts.find(o => o.hold);
+  if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
+  return false;
+}
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
-function showTitle(text, sub, style = 'area', life = 3) {
-  const t = { text, sub, style, t: 0, life, at: state.time };
+// a title with hold: true (quest alerts) waits on screen until you clear it with the action key
+function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+  const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
 }
@@ -1260,9 +1274,9 @@ function breakBarrier(bar, how) {
     const x = cs.fx * W, y = cs.fy * H;
     for (let i = 0; i < 14; i++) state.fx.push({ x, y, vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#8f887c' : '#6a4a2a', size: UNIT * 0.12 });
     const S = cs.stone && STONES[cs.stone];
-    const finds = S ? S.inside.filter(([, p]) => rng() < p).map(([t]) => t) : (rng() < 0.12 ? ['seed'] : []);
+    const finds = (S ? S.inside.filter(([, p]) => rng() < p).map(([t]) => t) : (rng() < 0.12 ? ['seed'] : [])).map(t => t === 'seed' ? localSeed() : t);
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
-    if (finds.length) { say(finds.some(t => t !== 'stone' && t !== 'seed') ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
+    if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
   if (bar === 'burrow') { say('The hole caves in. There\'s a tunnel through!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
@@ -1384,6 +1398,7 @@ function transitionTo(id, fx, fy, quick) {
 
 function checkEdges() {
   const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 8;
+  if (state.intro && !state.intro.gone) return;        // the opening: the bank is yours to wander, but not to leave until Pip heads off
   for (const ex of sc.exits) {
     let at = false, along = 0;
     if (ex.side === 'n') { at = h.y <= r && held.up(); along = h.x / W; }
@@ -1448,6 +1463,8 @@ function update(dt) {
   if (!state.started) return;
   readPresses();
   updateQuests();
+  // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
+  if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
@@ -1481,6 +1498,11 @@ function update(dt) {
     updateAbilities(dt);
   }
   for (const k of ['lumin', 'slime', 'pepper', 'fishBuff', 'carrotBuff', 'squashBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
+  if (inv.turnipRegen > 0) {                          // a turnip's vigor, trickling back
+    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt);
+    inv.turnipRegen -= give; h.vig = Math.min(maxVig(), h.vig + give);
+    if (h.vig >= maxVig()) inv.turnipRegen = 0;
+  }
   if (h.vig > maxVig()) h.vig = maxVig();
   const mv = maxVig();
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
@@ -1975,19 +1997,29 @@ const DROPS = {
   diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
   charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
   glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
-  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['seed', 0.1]],
+  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['carrotseed', 0.12]],
   lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
-  gremlin:  [['thornseed', 0.1], ['seed', 0.25], ['acorn', 0.3]],
+  gremlin:  [['thornseed', 0.1], ['turnipseed', 0.25], ['acorn', 0.3]],
   warden:   [['warden', 1]],
 };
-// Seeds, rarest last. Common seed grows the local food; the rest grow materials.
+// Seeds, rarest last. Vegetable seeds (crop) grow that vegetable, one to a few per seed; the rest grow materials.
+// Colours and shapes follow the real seeds: turnip seeds are tiny dark round beads, carrot seeds small tan ridged ovals,
+// pepper seeds flat pale discs, squash seeds cream teardrops with a rim.
 const SEEDS = {
-  seed:      { name: 'Seed', rarity: 'Common', grow: 20, color: '#d9c28a' },
+  turnipseed: { name: 'Turnip seeds', rarity: 'Common', grow: 20, crop: 'turnip', n: [1, 3], color: '#4a2a1e' },
+  carrotseed: { name: 'Carrot seeds', rarity: 'Common', grow: 24, crop: 'carrot', n: [1, 2], color: '#a8905e' },
+  pepperseed: { name: 'Pepper seeds', rarity: 'Uncommon', grow: 28, crop: 'pepper', n: [1, 3], color: '#e8d68a' },
+  squashseed: { name: 'Squash seeds', rarity: 'Uncommon', grow: 34, crop: 'squash', n: [1, 1], color: '#f2e8cc' },
   thornseed: { name: 'Thornseed', rarity: 'Uncommon', grow: 25, yields: ['thorn', 2], color: '#c98ad8' },
   emberseed: { name: 'Emberseed', rarity: 'Rare', grow: 32, yields: ['ember', 2], color: '#ffa04a' },
   ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
   starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
 };
+const SEED_OF = { turnip: 'turnipseed', carrot: 'carrotseed', pepper: 'pepperseed', squash: 'squashseed' };
+const CROP_SEEDS = Object.keys(SEED_OF).map(k => SEED_OF[k]);
+const isSeed = t => !!SEEDS[t];
+// the seed that grows what this place grows (a stray "seed" drop becomes the local one)
+function localSeed(sc) { sc = sc || sceneDef(); return SEED_OF[CROP[sc.area]] || 'turnipseed'; }
 const PAGE_NOTES = [
   'Day 3. The robin\'s hollow tree is full of seeds. It drops them when it flies.',
   'The big mushrooms hum at night. I swear they\'re talking to each other.',
@@ -2039,7 +2071,7 @@ function collect(it) {
   zoomPulse(it.x, it.y, 'pickup');
   if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
 
-  else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || it.type === 'seed' || it.type === 'bean') sfx.tock(); else sfx.pickup();
+  else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || CROP_SEEDS.includes(it.type) || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
     case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
     case 'step': case 'silk': case 'horn': {
@@ -2065,10 +2097,10 @@ function collect(it) {
       if (!inv.sword) state.equip = 'acorn';
       tell(inv.sword ? `Acorn. ${K.swap} swaps to acorns; then ${K.act} throws, and holding it throws harder.` : `Acorn. ${K.act} throws it; hold for a harder throw.`, 4, 'acorn');
       break;
-    case 'seed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
-      inv.bag[it.type]++;
+    case 'turnipseed': case 'carrotseed': case 'pepperseed': case 'squashseed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
+      inv.bag[it.type] = (inv.bag[it.type] || 0) + 1;
       const S = SEEDS[it.type];
-      if (it.type === 'seed') tell('A seed. Plant it in any patch of rich soil.', 3.5, 'seed');
+      if (S.crop) tell(`${S.name}. Plant them in any patch of rich soil; ${CROP_NAME[S.crop].toLowerCase()} grow.`, 3.5, 'seed-' + S.crop);
       else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
@@ -2818,8 +2850,8 @@ function scareBird(x, y, range) {
   const lesson = state.inv.story === STORY.garden;
   let drop = Math.random() < 0.4;
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
-  if (drop) { state.items.push({ type: 'seed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
-  else if (lesson && state.pip && state.pip.show) {
+  if (drop) { state.items.push({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
+  else if (lesson && state.pip && state.pip.show && !speakingNow()) {
     const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing! Doesn\'t always work. Again!', 'Ha, not this time. Wait for it to come back.'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
   }
 }
@@ -2960,7 +2992,7 @@ function interact() {
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
-      const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
+      const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
       const slotSeeds = p.s === 0 && !!seedSlotKey();
       const have = slotSeeds ? [] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
@@ -2974,7 +3006,7 @@ function interact() {
       const plant = kind => {
         state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-        say(kind === 'seed' ? `Planted. ${CROP_NAME[crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
+        say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
       const imp = improve ? [`Improve to ${next.name} (${patchCost(next.cost)})`] : [];
       if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
@@ -2982,12 +3014,16 @@ function interact() {
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
-        const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
+        const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
         p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
-        else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+        else {                                       // one seed, a few vegetables: the seed's own range, plus the patch's bonus
+          const n0 = S.n[0] + Math.floor(rng() * (S.n[1] - S.n[0] + 1)) + extra;
+          for (let n = 0; n < n0; n++) collect({ type: crop, x: px * W, y: py * H });
+          say(n0 > 1 ? `${['', '', 'Two', 'Three', 'Four', 'Five'][n0] || n0} ${crop}s!${extra ? ' A good crop!' : ''}` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
+        }
         if (!S.yields) gainCropXp(crop);
-        if (rng() < Math.min(0.85, P.seedBack + farmLevel() * 0.06)) { state.inv.bag[p.seed || 'seed']++; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
+        if (rng() < Math.min(0.85, P.seedBack + farmLevel() * 0.06)) { const sk = seedOfPlot(p, sc, i); state.inv.bag[sk] = (state.inv.bag[sk] || 0) + 1; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
       }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
@@ -3013,7 +3049,10 @@ function canAfford(c) { const inv = state.inv; return Object.entries(c).every(([
 function payFor(c) { const inv = state.inv; for (const [k, n] of Object.entries(c)) { if (k === 'acorn') inv.acorns -= n; else inv.mats[k] -= n; } }
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper', swamp: 'pepper', cave: 'squash' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
-const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / SEEDS[p.seed || 'seed'].grow)) : 0;
+// what was planted in a patch (old saves planted a plain "seed": that was the local vegetable's)
+const seedOfPlot = (p, sc, i) => SEEDS[p.seed] ? p.seed : SEED_OF[(sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip'];
+const cropOfPlot = (p, sc, i) => { const S = SEEDS[p.seed]; return S && S.crop ? S.crop : (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip'; };
+const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / (SEEDS[p.seed] || SEEDS.turnipseed).grow)) : 0;
 function dropRock() {                               // set down a step ahead, the way you face
   const h = state.hero;
   state.carry = null;
@@ -3293,7 +3332,7 @@ function updateFishing(dt) {
       sfx.pickup(); zoomPulse(f.x, f.y, 'pickup'); spark(f.x, f.y, 'rgba(210,235,245,.9)', 10, 3);
       state.items.push({ type: 'fish', x: h.x + h.fx * UNIT, y: h.y + h.fy * UNIT });
       if (rng() < 0.35) {                            // sometimes a seed in its belly
-        const r = rng(), seed = r < 0.5 ? 'seed' : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
+        const r = rng(), seed = r < 0.5 ? localSeed() : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
         state.items.push({ type: seed, x: h.x - h.fx * UNIT * 0.6 + UNIT * 0.5, y: h.y + UNIT * 0.6 });
         say('Something was in its belly!', h.x, h.y - UNIT * 1.6, { key: 'belly', life: 2 });
       }
@@ -3364,7 +3403,7 @@ function advanceTalk() {
   if (t.i >= t.lines.length) { state.npcTalk = null; unsay('npc'); if (t.then) t.then(); return; }
   const [nx, ny] = npcPos(t.n);
   sfx.talk();
-  say(t.lines[t.i] + (t.i < t.lines.length - 1 ? '  \u25B8' : ''), nx, ny - UNIT * 1.4, { key: 'npc', life: 999 });
+  say(t.lines[t.i] + (t.i < t.lines.length - 1 ? '  \u25B8' : ''), nx, ny - UNIT * 1.4, { key: 'npc', life: 999, hold: false });
 }
 
 // =====================================================================
@@ -3587,11 +3626,41 @@ function startIntro() {
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());
   const [jx, jy, dx, dy] = sceneDef().feat.oldJetty, h = state.hero;
-  h.x = (jx + dx * 0.9 * UNIT / W) * W; h.y = (jy + dy * 0.9 * UNIT / H) * H; h.fx = dx; h.fy = dy; h.side = dx < 0 ? -1 : 1;
-  state.pip = { x: h.x + UNIT * 0.9, y: h.y + UNIT * 0.3, show: true, follow: true, side: -1 };
-  state.cut = { type: 'intro', t: 0, step: 0 };
+  { const sc = sceneDef(), fx = jx - dx * 1.2 * UNIT / W, fy = jy - dy * 1.2 * UNIT / H;   // nothing buried at the jetty's foot: that's where you stand
+    sc.solids = sc.solids.filter(s => Math.hypot((s.fx - fx) * W, (s.fy - fy) * H) > UNIT * 2.6); refreshSceneGeometry(); }
+  h.x = (jx - dx * 0.7 * UNIT / W) * W; h.y = (jy - dy * 0.7 * UNIT / H) * H; h.fx = dx; h.fy = dy; h.side = dx < 0 ? -1 : 1;   // on the bank at the jetty's foot, facing the water
+  state.pip = { x: h.x - dx * UNIT * 0.9 - dy * UNIT * 1.0, y: h.y - dy * UNIT * 0.9 + dx * UNIT * 1.0, show: true, follow: true, side: -1 };
+  for (let k = 0; k < 6; k++) collideSolids(state.pip, UNIT * 0.45);   // not inside (or behind) a rock at the jetty's foot
+  state.intro = { step: 0, gone: false };              // not a cutscene: you can wander the bank while Pip talks
   setMusic('forest'); setAmbience('rain');
 }
+// The opening, mid-conversation on the old jetty. Each of Pip's lines waits until you've read it (action key);
+// the screen edges stay closed until Pip is done and heads south. Then Pip wanders off the bottom of the
+// screen and waits for you by the garden.
+const INTRO_LINES = [
+  '...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!',
+  'And past the woods? Treasure. Actual, real, heavy treasure!',
+  'We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!',
+];
+function updateIntro(dt) {
+  const c = state.intro, p = state.pip, h = state.hero;
+  if (!c) return;
+  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = STORY.garden; };
+  if (state.scene !== 'riverbank') { finish(); return; }
+  if (!c.gone) {
+    p.side = h.x > p.x ? 1 : -1;
+    if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
+    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc' }); c.step++; }
+    else { c.gone = true; c.t0 = state.time; }
+    return;
+  }
+  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.15 * dt;
+  p.x += dx / d * sp; p.y += dy / d * sp; p.side = dx > 0 ? 1 : -1;
+  collideSolids(p, UNIT * 0.38);
+  if (p.y > H + UNIT * 0.6 || state.time - c.t0 > 12) finish();
+}
+// Pip's waiting spot by the garden: a step to the side of the first patch of rich soil
+function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W + UNIT * 1.25, q[1] * H - UNIT * 0.15]; }
 // ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
 function pipWithYou() {
@@ -3615,7 +3684,7 @@ function placePipNearHero() {
 }
 function pipSay(key, text, at, sight = 7) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key }; return true; }   // go over there first
@@ -3642,7 +3711,7 @@ function pipGatherTalk(sc, p) {
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
-  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2) return;
+  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
   say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
 }
@@ -3652,13 +3721,18 @@ function pipBeside(v) {
   return [v.x + dx / d * UNIT * 1.3, v.y + dy / d * UNIT * 1.3];
 }
 function updatePip(dt) {
+  if (state.intro) { updateIntro(dt); return; }
   if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
+  const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
+  if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
+  if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
   if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
   const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
   let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
   const v = p.visit;
   if (v) {                                            // walking over to point something out, then waiting there for you
     [tx, ty] = v.spot || pipBeside(v);
@@ -3672,7 +3746,7 @@ function updatePip(dt) {
       const close = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 2.6;
       if (close && state.time - v.said > 0.8) { p.visit = null; state.pipTalkT = state.time; }   // you came over: carry on together
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
-        v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff' });
+        v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
       }
     }
   }
@@ -3683,7 +3757,8 @@ function updatePip(dt) {
     p.side = mx > 0 ? 1 : -1;
   }
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
-  if (!p.visit && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
+  if (garden) p.side = h.x > p.x ? 1 : -1;
+  if (!p.visit && !garden && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
   const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
@@ -3693,18 +3768,20 @@ function updatePip(dt) {
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
   // the garden: plant your three seeds in the rich soil, then Pip has a place to show you
   if (sc.id === 'meadow' && inv.story === STORY.garden) {
-    const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.seed || 0;
-    if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
-    if (!seeds && b && b.mode === 'perch') pipSay('robin-lesson', 'But first, seeds. Over here! Run at the robin and it drops one. Go on!', [b.x, b.y + UNIT], 12);
-    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`, [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.5], 12); } else if (b) p.robinHide = 0;
-    if (seeds && inv.firstBirdSeed) pipSay('firstseed', `See? A seed! Stand on the rich soil and press ${seedKeyLabel()}.`, plot ? P(plot) : null);
+    const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
+    const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
+    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!');
+    if (!seeds && b && b.mode === 'perch' && nearPip) pipSay('robin-lesson', 'But first, seeds. See the robin? Run at it and it drops one. Go on!');
+    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`); } else if (b) p.robinHide = 0;
+    if (seeds && inv.firstBirdSeed && nearPip) pipSay('firstseed', `See? Turnip seeds! Stand on the rich soil and press ${seedKeyLabel()}.`);
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
-    if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.', b ? [b.x, b.y + UNIT] : null, 12);
+    if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.');
     const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted >= Math.min(2, f.plots.length)) inv.story = STORY.tocamp;   // the lesson's done, whatever Pip is busy saying
   }
   if (sc.id === 'meadow' && inv.story === STORY.tocamp) {
     if (p.visit && !p.visit.said) p.visit = null;        // drop anything half-said: this is the news
+    p.atGarden = false;
     pipSay('tocamp', 'They\'ll grow while we\'re out. Now... I found the most AWESOME spot for a camp. Follow me!');
   }
   if (sc.id === 'camp') {
@@ -3806,23 +3883,9 @@ function startEnding() {
 function updateCut(dt) {
   const c = state.cut, h = state.hero;
   const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
+  if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
   c.t += dt;
-  if (c.type === 'intro') {
-    const p = state.pip;
-    if (c.t < 9.5 && (pressedNow.act || pressedNow.fire)) { c.t = 9.5; c.step = 95; unsay('npc'); }
-    if (at(0.5)) say('...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3.2 });
-    if (at(3.8)) say('And past the woods? Treasure. Actual, real, heavy treasure!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
-    if (at(6.8)) say('We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (c.t > 9.6 && !c.walked) {                     // a walk you don't steer: off the jetty and south to the garden
-      const sp = UNIT * 3.2 * dt;
-      h.y += sp; h.fx = 0; h.fy = 1; h.vx = 0; h.vy = sp / dt; p.y += sp; p.x += (h.x + UNIT * 0.9 - p.x) * 0.05;
-      if (h.y > H - UNIT * 0.8) { c.walked = true; const gx = h.x / W; enterScene('meadow', gx, 0.06); nudgeFree(); p.x = state.hero.x + UNIT; p.y = state.hero.y; c.t2 = 0; }
-    }
-    if (c.walked) {                                    // into the meadow, over to the patches of rich soil
-      c.t2 += dt; const q = sceneDef().feat.plots[0], tx = q[0] * W - UNIT * 1.4, ty = q[1] * H, dx2 = tx - h.x, dy2 = ty - h.y, d2 = Math.hypot(dx2, dy2);
-      if (d2 > UNIT * 0.3 && c.t2 < 5) { const sp = Math.min(d2, UNIT * 3.2 * dt); h.x += dx2 / d2 * sp; h.y += dy2 / d2 * sp; h.fx = dx2 / d2; h.fy = dy2 / d2; h.vx = h.fx * UNIT * 3; h.vy = h.fy * UNIT * 3; p.x += (h.x + UNIT * 1.1 - p.x) * 0.06; p.y += (h.y - UNIT * 0.3 - p.y) * 0.06; }
-      else { h.vx = h.vy = 0; state.cut = null; p.follow = true; state.inv.story = STORY.garden; }
-    }
+  if (false) {
   } else if (c.type === 'dusk') {                       // later that day: twilight in the lean-to, and Pip can't sit still
     const p = state.pip;
     if (at(0.1)) { state.fadeTarget = 1; state.fadeRate = 3; }
@@ -3902,8 +3965,8 @@ function updateCut(dt) {
     h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
     h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y));
     if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
-    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5 });
-    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a' }); }
+    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5, hold: false });
+    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
     if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
@@ -4090,7 +4153,7 @@ function packCells(tab) {
   if (tab === 'Gear') {
     if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: (state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }]).concat(slotActs({ kind: 'weapon', id: 'sword' })) });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: (state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }]).concat(slotActs({ kind: 'weapon', id: 'acorn' })) });
-    cells.push({ icon: 'seed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
+    cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
@@ -4105,7 +4168,7 @@ function packCells(tab) {
   }
   if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
     const fav = inv.favSeed === k;
-    cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : 'grows the local food',
+    cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : `grows ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()}`,
       acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, ...slotActs({ kind: 'seed', id: k }), drop(k, () => inv.bag[k]--)] });
   }
   if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
@@ -4143,7 +4206,9 @@ function updatePack() {
     if (pressedNow.down) { m.qsel = Math.min(n - 1, m.qsel + 1); sfx.tock(); }
     if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
     if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
-    if (pressedNow.act && questRows(v)[m.qsel] && questRows(v)[m.qsel].kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    const row = questRows(v)[m.qsel];
+    if (pressedNow.act && row && row.kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    if (pressedNow.act && row && row.kind === 'cur') { trackQuest(row.c.q.id, !tracked(row.c.q.id)); sfx.tock(); }   // active on the HUD, or not
     return;
   }
   if (tab === 'System') {                              // a plain list
@@ -4266,12 +4331,23 @@ function slotInfo(i) {
   const m = Math.floor(d.playTime / 60), s = Math.floor(d.playTime % 60);
   return `${AREA_NAMES[d.area] || '?'}, ${m}:${String(s).padStart(2, '0')}`;
 }
+// builds before 65 had one plain "seed" that grew the local vegetable: it becomes turnip seeds, and planted patches keep their crop
+function migrateSeeds(inv) {
+  const bag = inv.bag || (inv.bag = {});
+  for (const k of Object.keys(SEEDS)) if (!(k in bag)) bag[k] = 0;
+  if (bag.seed) { bag.turnipseed += bag.seed; }
+  delete bag.seed;
+  if (inv.favSeed === 'seed') inv.favSeed = 'turnipseed';
+  if (inv.slots) for (const k of Object.keys(inv.slots)) { const s = inv.slots[k]; if (s && s.kind === 'seed' && s.id === 'seed') s.id = 'auto'; }
+  for (const [id, rt] of Object.entries(RT)) { const sc = WORLD[id]; if (!sc || !rt.flags || !rt.flags.plots) continue; rt.flags.plots.forEach((p, i) => { if (p.s && !SEEDS[p.seed]) p.seed = seedOfPlot(p, sc, i); }); }
+}
 function loadSlot(i) {
   const d = readSlot(i);
   if (!d || !d.seed || d.v !== 16) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
+  migrateSeeds(state.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
   if (!d.inv.raw && (state.inv.sword || state.inv.pipTaken || state.inv.pipSaved || state.seen.w1)) { const rt = rtFor('camp'); for (const pc of ['fire', 'tent', 'bench']) rt.flags['built_' + pc] = true; refreshSceneGeometry(); }
@@ -4280,7 +4356,7 @@ function loadSlot(i) {
   return true;
 }
 // every line of the inventory: [icon, title, detail]
-const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
+const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${k === 'turnip' ? ' over time, sometimes sturdies you' : ''}${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
 function inventoryLines() {
   const inv = state.inv, L2 = [];
   const sec = t => L2.push([null, t, null]);
@@ -4298,7 +4374,7 @@ function inventoryLines() {
     if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${inv.sword ? K.swap + ' to equip, then ' : ''}${K.act} throws; hold longer to throw faster and harder. Slash, pound or throw a rock at trees for more.`]);
   }
   const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
-  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : 'Plant it; it grows the local food.']); }
+  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : `Plant them; ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()} grow.`]); }
   const mats = Object.keys(MATS).filter(k => inv.mats[k]);
   if (mats.length) { sec('Materials'); for (const k of mats) { const uses = FORGE.filter(f => inv.recipes[f.k] && f.cost.some(c => c[k])).map(f => f.name); L2.push([k, `${MATS[k]} x${inv.mats[k]}`, uses.length ? `Used for: ${uses.join(', ')}.` : 'You haven\'t learned a use for this yet.']); } }
   sec('Recipes');
@@ -4345,7 +4421,7 @@ function scareFlock(x, y, range) {
     const a = Math.atan2(b.y - y, b.x - x) + (Math.random() - 0.5);
     b.mode = 'fly'; b.vx = Math.cos(a) * 0.4 * L(); b.vy = Math.sin(a) * 0.4 * L() - UNIT * 3;
     sfx.flap(panOf(b.x));
-    if (Math.random() < 0.12) state.items.push({ type: 'seed', x: b.x, y: b.y });
+    if (Math.random() < 0.12) state.items.push({ type: localSeed(), x: b.x, y: b.y });
   }
 }
 function updateFlock(dt) {
@@ -4955,7 +5031,7 @@ function drawPlots(sc) {
       f.plots.forEach(([px, py], i) => {
         const x = px * W, y = py * H, p = plots[i] || { s: 0 }, st = plotStage(p);
         drawPatch(x, y, p.lv != null ? p.lv : (f.plotLv || 0), i);
-        const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
+        const S = SEEDS[seedOfPlot(p, sc, i)], crop = cropOfPlot(p, sc, i);
         if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
           ctx.save(); ctx.translate(x, y);
           ctx.strokeStyle = S.color; ctx.lineWidth = 2;
@@ -5500,7 +5576,7 @@ function drawFalls(open) {
 
 // ---------------- HUD: vigor instead of hearts ----------------
 function drawHUD() {
-  if (!state.started || (state.cut && state.cut.type === 'intro')) return;
+  if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
   const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
   const len = Math.min(W * 0.55, 110 + inv.depth * 34), hgt = Math.max(10, s * 0.55);
@@ -5535,6 +5611,7 @@ function drawHUD() {
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
   state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
 }
@@ -5619,8 +5696,10 @@ function drawPack(m, x, y, pw, fs) {
         const { q, s, step } = r.c;
         drawItemIcon(q.icon, lx + fs * 1.5, yy + rh / 2, fs * 1.7);
         ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(step.name, lx + fs * 3, yy + fs * 1.25);
-        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name;
-        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2); ctx.textAlign = 'left';
+        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name, on2 = tracked(q.id);
+        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2);
+        ctx.fillStyle = on2 ? '#b8f28a' : 'rgba(253,246,227,.4)'; ctx.fillText(on2 ? (on ? `active \u00b7 ${K.act} to hide from HUD` : 'active') : (on ? `${K.act} to track on HUD` : 'not tracked'), lx + lw - 12, yy + fs * 2.6); ctx.textAlign = 'left';
+        if (on2) { ctx.fillStyle = '#b8f28a'; ctx.beginPath(); ctx.arc(lx + fs * 0.55, yy + fs * 0.7, fs * 0.2, 0, 6.28); ctx.fill(); }
         ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(step.line(), lx + fs * 3, yy + fs * 2.6);
       } else if (r.kind === 'none') {
         ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText('Nothing pressing. Look around.', lx + 14, yy + rh * 0.65);
@@ -5640,7 +5719,8 @@ function drawPack(m, x, y, pw, fs) {
         ctx.fillText(e.last && e.q.steps.length > 1 ? `${e.st.name}. ${e.q.name} complete.` : e.last ? `${e.q.name} complete.` : e.st.name, lx + 36, yy + rh * 0.66);
         ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(`${e.q.name}${e.t != null ? ' \u00b7 ' + clock(e.t) : ''}`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
       }
-      if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
+      if (r.kind === 'cur') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { if (m.qsel === i && m.focus === 'grid') trackQuest(r.c.q.id, !tracked(r.c.q.id)); m.qsel = i; m.focus = 'grid'; } });
+      else if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
       yy += rh + gap;
     }
     ctx.textAlign = 'center';
@@ -5825,7 +5905,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 64';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 65';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6774,11 +6854,15 @@ function campHave() {                                    // raw counted with wha
   return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
 }
 const QUESTS = [
-  { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
-    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
+  { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
+    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
     { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
-    { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
-  ] },
+    { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
+  ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
+    const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;
+    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away.', { key: 'reward', life: 6, color: '#b8f28a' });
+    refreshButtons();
+  } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
     { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
@@ -6814,13 +6898,51 @@ function updateQuests(force) {
   const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
   for (const q of QUESTS) {
     let s = qs[q.id];
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; if (!quiet) showTitle('New quest', q.name, 'area', 2.6); }
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) showTitle('New quest', q.name, 'area', 2.6, true); }
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6); sfx.heart(); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); } }
     }
   }
+}
+// tracking: a quest marked active on the Quests tab shows on the quest HUD. New quests start tracked.
+function tracked(id) { const t = state.inv.qtrack; return t ? !!t[id] : true; }
+function trackQuest(id, on) { const t = state.inv.qtrack || (state.inv.qtrack = {}); if (on) t[id] = true; else delete t[id]; }
+// what the HUD shows: tracked quests still under way, newest first
+function trackedView() { return questView().cur.filter(c => tracked(c.q.id)); }
+// the quest HUD: top right, small, out of the way. Step name, one line of progress, an icon. Text keeps clear of it.
+function drawQuestHud() {
+  state.questHudRect = null;
+  if (ARENA || PUZZLE || !state.started || state.menu || state.won || (state.intro && !state.intro.gone)) return;
+  const v = trackedView().slice(0, 3);
+  if (!v.length) return;
+  const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
+  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;
+  ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+  let y = top, ymax = top, wmin = 0;
+  const rows = v.map(c => {
+    ctx.font = `bold ${fs}px Georgia, serif`;
+    const name = ctx.measureText(c.step.name).width;
+    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    const lines = wrap(c.step.line(), wmax - icon - pad * 2);
+    const w = Math.max(name, ...lines.map(l => ctx.measureText(l).width)) + icon + pad * 3;
+    wmin = Math.max(wmin, Math.min(wmax + pad, w));
+    return { c, lines };
+  });
+  const bw = wmin, bx = right - bw;
+  for (const r of rows) {
+    const bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
+    ctx.fillStyle = 'rgba(10,8,14,.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,227,138,.25)'; ctx.lineWidth = 1; ctx.stroke();
+    drawItemIcon(r.c.q.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
+    ctx.fillStyle = QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.c.step.name, right - pad, y + pad * 0.6 + fs);
+    ctx.fillStyle = 'rgba(253,246,227,.8)'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    r.lines.forEach((l, i) => ctx.fillText(l, right - pad, y + pad * 0.6 + fs + lh * 0.9 * (i + 1)));
+    y += bh + 4; ymax = y;
+  }
+  ctx.restore(); ctx.textAlign = 'left';
+  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: ymax - top + 4 };
 }
 // what the tab shows: current objectives (newest quest first) and the log (newest first)
 function questView() {
@@ -6855,7 +6977,7 @@ function foodRange(k) {                                // higher levels raise th
 }
 const CROP_PERK = {                                    // what level 3 adds
   berries: 'restore twice as much when you\'re below half vigor',
-  turnip: 'add 2 max vigor instead of 1',
+  turnip: 'when it sturdies you, it adds 2 max vigor instead of 1',
   carrot: 'a spring in your step for 15 seconds',
   pepper: 'bigger fire for 90 seconds instead of 60',
   squash: 'faster vigor recovery for 20 seconds',
@@ -6869,10 +6991,15 @@ function eatFood(food) {
   const [lo, hi] = foodRange(food), perk = cropLevel(food) >= 3;
   let amt = lo + Math.random() * (hi - lo);
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
-  heal(amt);
+  if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
+    inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
+    say(`+${Math.round(amt * maxVig())} vigor, slowly`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
+    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+    refreshButtons(); return;
+  }
+  heal(amt);                                           // everything else, the carrot first among them, mends you on the spot
   say(`+${Math.round(amt * maxVig())} vigor`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
   if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-  if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
   if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
@@ -6924,14 +7051,14 @@ function autoFood() {
 function autoSeed() {
   const inv = state.inv;
   if (inv.favSeed && inv.bag[inv.favSeed] > 0) return inv.favSeed;
-  return ['seed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
+  return ['turnipseed', 'carrotseed', 'pepperseed', 'squashseed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
 }
 // what a slot shows right now: an icon, and a count if it has one
 function slotShow(s) {
   const inv = state.inv;
   if (!s) return null;
   if (s.kind === 'food') { const f = s.id === 'auto' ? autoFood() : s.id; return f ? { icon: f, n: inv.food.filter(x => x === f).length || null, dim: !inv.food.includes(f) } : { icon: 'carrot', dim: true }; }
-  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'seed', dim: true }; }
+  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'turnipseed', dim: true }; }
   if (s.kind === 'weapon') return { icon: s.id, n: s.id === 'acorn' ? inv.acorns : null, dim: s.id === 'acorn' ? !(inv.acorns > 0) : !inv.sword };
   if (s.kind === 'ability') return { icon: s.id === 'dodge' ? 'step' : 'fire', dim: s.id === 'dodge' ? !inv.step : !inv.fire };
   return null;
@@ -6946,7 +7073,7 @@ function plantHere(kind) {
   const p = plots[best], [px, py] = sc.feat.plots[best];
   state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
   sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-  say(`${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
+  say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
   return true;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
@@ -7222,7 +7349,37 @@ function drawItemIcon(type, x, y, s) {
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
       break;
-    case 'seed': ctx.fillStyle = '#d9c28a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.14, s * 0.22, 0.5, 0, 6.28); ctx.fill(); ctx.fillStyle = '#8a7040'; ctx.fillRect(-1, -s * 0.12, 2, s * 0.24); break;
+    // vegetable seeds, a small pinch of each, drawn the way the real ones look
+    case 'turnipseed':                                 // tiny round beads, dark red-brown to near black, a glint on each
+      for (const [ox, oy, r] of [[-0.16, 0.1, 0.11], [0.08, -0.14, 0.12], [0.18, 0.14, 0.1], [-0.04, 0.16, 0.09]]) {
+        ctx.fillStyle = '#3a2016'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill();
+        ctx.fillStyle = '#7a3a26'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s * 0.7, 0, 6.28); ctx.fill();
+        ctx.fillStyle = 'rgba(255,240,220,.7)'; ctx.beginPath(); ctx.arc((ox - r * 0.35) * s, (oy - r * 0.4) * s, r * s * 0.28, 0, 6.28); ctx.fill();
+      }
+      break;
+    case 'carrotseed':                                 // small tan ovals, flat, ridged along their length
+      for (const [ox, oy, a] of [[-0.15, 0.08, 0.6], [0.12, -0.12, -0.4], [0.16, 0.16, 1.1]]) {
+        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+        ctx.fillStyle = '#a8905e'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.1, s * 0.16, 0, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#6e5a34'; ctx.lineWidth = 1; for (const k of [-0.05, 0, 0.05]) { ctx.beginPath(); ctx.moveTo(k * s, -s * 0.13); ctx.lineTo(k * s, s * 0.13); ctx.stroke(); }
+        ctx.restore();
+      }
+      break;
+    case 'pepperseed':                                 // flat pale yellow discs, a slight notch where they hung
+      for (const [ox, oy] of [[-0.14, 0.1], [0.1, -0.12], [0.16, 0.16]]) {
+        ctx.fillStyle = '#e8d68a'; ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.13, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#b8a45a'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.fillStyle = '#c8b46a'; ctx.beginPath(); ctx.arc((ox + 0.09) * s, (oy - 0.06) * s, s * 0.03, 0, 6.28); ctx.fill();
+      }
+      break;
+    case 'squashseed':                                 // cream teardrops with a paler rim, one broad and one on its side
+      for (const [ox, oy, a] of [[-0.1, 0.06, -0.3], [0.14, 0.02, 0.9]]) {
+        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+        ctx.fillStyle = '#e8dcb0'; ctx.beginPath(); ctx.moveTo(0, -s * 0.24); ctx.quadraticCurveTo(s * 0.18, -s * 0.05, s * 0.13, s * 0.14); ctx.quadraticCurveTo(0, s * 0.28, -s * 0.13, s * 0.14); ctx.quadraticCurveTo(-s * 0.18, -s * 0.05, 0, -s * 0.24); ctx.fill();
+        ctx.strokeStyle = '#f8f2dc'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.restore();
+      }
+      break;
     case 'bean':
       ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#d98a6a'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.06, s * 0.08, s * 0.04, 0.3, 0, 6.28); ctx.fill();
@@ -7495,6 +7652,7 @@ function reservedRects() {
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.questHudRect) r.push(state.questHudRect);
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
     const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
@@ -7566,9 +7724,19 @@ function drawTexts() {
     ctx.fillStyle = t.color; ctx.textBaseline = 'top';
     if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
     else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    if (t.hold) drawReadOn(b.x + b.w, y + b.h, b.size);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
   ctx.globalAlpha = 1;
+}
+// the small "read on" mark at the corner of anything that waits for you: the action key, or "tap" on a phone
+function drawReadOn(x, y, size) {
+  const k = 0.55 + 0.45 * Math.abs(Math.sin(state.time * 3)), lab = TOUCH ? 'tap' : K.act.toUpperCase().slice(0, 5), fs = Math.round(Math.max(10, size * 0.62));
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(lab).width + fs * 0.9, h = fs * 1.35, bx = x - w * 0.5 - 4, by = y;
+  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx - w / 2, by - h / 2, w, h, h / 2) : ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill();
+  ctx.fillStyle = '#2a1e10'; ctx.fillText(lab, bx, by + 1);
+  ctx.restore();
 }
 function drawTitle() {
   const T = state.title;
@@ -7604,6 +7772,7 @@ function drawTitle() {
     ctx.fillStyle = relic ? '#ffe38a' : '#fdf6e3'; ctx.fillText(T.text, W / 2, H * 0.22);
     ctx.shadowBlur = 0;
     if (T.sub) { ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(size * 0.45)}px "Courier New", monospace`; wrap(T.sub, Math.min(W * 0.85, 560)).forEach((l, i) => ctx.fillText(l, W / 2, H * 0.22 + size * (1.1 + i * 0.6))); }
+    if (T.hold) drawReadOn(W / 2 + size * 1.2, H * 0.22 + size * (T.sub ? 2.1 : 1.1), size * 0.9);
   }
   ctx.restore();
 }

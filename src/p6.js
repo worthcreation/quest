@@ -88,7 +88,7 @@ function interact() {
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
-      const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
+      const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
       const slotSeeds = p.s === 0 && !!seedSlotKey();
       const have = slotSeeds ? [] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
@@ -102,7 +102,7 @@ function interact() {
       const plant = kind => {
         state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-        say(kind === 'seed' ? `Planted. ${CROP_NAME[crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
+        say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
       const imp = improve ? [`Improve to ${next.name} (${patchCost(next.cost)})`] : [];
       if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
@@ -110,12 +110,16 @@ function interact() {
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
-        const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
+        const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
         p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
-        else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+        else {                                       // one seed, a few vegetables: the seed's own range, plus the patch's bonus
+          const n0 = S.n[0] + Math.floor(rng() * (S.n[1] - S.n[0] + 1)) + extra;
+          for (let n = 0; n < n0; n++) collect({ type: crop, x: px * W, y: py * H });
+          say(n0 > 1 ? `${['', '', 'Two', 'Three', 'Four', 'Five'][n0] || n0} ${crop}s!${extra ? ' A good crop!' : ''}` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
+        }
         if (!S.yields) gainCropXp(crop);
-        if (rng() < Math.min(0.85, P.seedBack + farmLevel() * 0.06)) { state.inv.bag[p.seed || 'seed']++; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
+        if (rng() < Math.min(0.85, P.seedBack + farmLevel() * 0.06)) { const sk = seedOfPlot(p, sc, i); state.inv.bag[sk] = (state.inv.bag[sk] || 0) + 1; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
       }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
@@ -141,7 +145,10 @@ function canAfford(c) { const inv = state.inv; return Object.entries(c).every(([
 function payFor(c) { const inv = state.inv; for (const [k, n] of Object.entries(c)) { if (k === 'acorn') inv.acorns -= n; else inv.mats[k] -= n; } }
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper', swamp: 'pepper', cave: 'squash' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
-const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / SEEDS[p.seed || 'seed'].grow)) : 0;
+// what was planted in a patch (old saves planted a plain "seed": that was the local vegetable's)
+const seedOfPlot = (p, sc, i) => SEEDS[p.seed] ? p.seed : SEED_OF[(sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip'];
+const cropOfPlot = (p, sc, i) => { const S = SEEDS[p.seed]; return S && S.crop ? S.crop : (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip'; };
+const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / (SEEDS[p.seed] || SEEDS.turnipseed).grow)) : 0;
 function dropRock() {                               // set down a step ahead, the way you face
   const h = state.hero;
   state.carry = null;
@@ -421,7 +428,7 @@ function updateFishing(dt) {
       sfx.pickup(); zoomPulse(f.x, f.y, 'pickup'); spark(f.x, f.y, 'rgba(210,235,245,.9)', 10, 3);
       state.items.push({ type: 'fish', x: h.x + h.fx * UNIT, y: h.y + h.fy * UNIT });
       if (rng() < 0.35) {                            // sometimes a seed in its belly
-        const r = rng(), seed = r < 0.5 ? 'seed' : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
+        const r = rng(), seed = r < 0.5 ? localSeed() : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
         state.items.push({ type: seed, x: h.x - h.fx * UNIT * 0.6 + UNIT * 0.5, y: h.y + UNIT * 0.6 });
         say('Something was in its belly!', h.x, h.y - UNIT * 1.6, { key: 'belly', life: 2 });
       }
@@ -492,7 +499,7 @@ function advanceTalk() {
   if (t.i >= t.lines.length) { state.npcTalk = null; unsay('npc'); if (t.then) t.then(); return; }
   const [nx, ny] = npcPos(t.n);
   sfx.talk();
-  say(t.lines[t.i] + (t.i < t.lines.length - 1 ? '  \u25B8' : ''), nx, ny - UNIT * 1.4, { key: 'npc', life: 999 });
+  say(t.lines[t.i] + (t.i < t.lines.length - 1 ? '  \u25B8' : ''), nx, ny - UNIT * 1.4, { key: 'npc', life: 999, hold: false });
 }
 
 // =====================================================================
@@ -715,11 +722,41 @@ function startIntro() {
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());
   const [jx, jy, dx, dy] = sceneDef().feat.oldJetty, h = state.hero;
-  h.x = (jx + dx * 0.9 * UNIT / W) * W; h.y = (jy + dy * 0.9 * UNIT / H) * H; h.fx = dx; h.fy = dy; h.side = dx < 0 ? -1 : 1;
-  state.pip = { x: h.x + UNIT * 0.9, y: h.y + UNIT * 0.3, show: true, follow: true, side: -1 };
-  state.cut = { type: 'intro', t: 0, step: 0 };
+  { const sc = sceneDef(), fx = jx - dx * 1.2 * UNIT / W, fy = jy - dy * 1.2 * UNIT / H;   // nothing buried at the jetty's foot: that's where you stand
+    sc.solids = sc.solids.filter(s => Math.hypot((s.fx - fx) * W, (s.fy - fy) * H) > UNIT * 2.6); refreshSceneGeometry(); }
+  h.x = (jx - dx * 0.7 * UNIT / W) * W; h.y = (jy - dy * 0.7 * UNIT / H) * H; h.fx = dx; h.fy = dy; h.side = dx < 0 ? -1 : 1;   // on the bank at the jetty's foot, facing the water
+  state.pip = { x: h.x - dx * UNIT * 0.9 - dy * UNIT * 1.0, y: h.y - dy * UNIT * 0.9 + dx * UNIT * 1.0, show: true, follow: true, side: -1 };
+  for (let k = 0; k < 6; k++) collideSolids(state.pip, UNIT * 0.45);   // not inside (or behind) a rock at the jetty's foot
+  state.intro = { step: 0, gone: false };              // not a cutscene: you can wander the bank while Pip talks
   setMusic('forest'); setAmbience('rain');
 }
+// The opening, mid-conversation on the old jetty. Each of Pip's lines waits until you've read it (action key);
+// the screen edges stay closed until Pip is done and heads south. Then Pip wanders off the bottom of the
+// screen and waits for you by the garden.
+const INTRO_LINES = [
+  '...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!',
+  'And past the woods? Treasure. Actual, real, heavy treasure!',
+  'We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!',
+];
+function updateIntro(dt) {
+  const c = state.intro, p = state.pip, h = state.hero;
+  if (!c) return;
+  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = STORY.garden; };
+  if (state.scene !== 'riverbank') { finish(); return; }
+  if (!c.gone) {
+    p.side = h.x > p.x ? 1 : -1;
+    if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
+    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc' }); c.step++; }
+    else { c.gone = true; c.t0 = state.time; }
+    return;
+  }
+  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.15 * dt;
+  p.x += dx / d * sp; p.y += dy / d * sp; p.side = dx > 0 ? 1 : -1;
+  collideSolids(p, UNIT * 0.38);
+  if (p.y > H + UNIT * 0.6 || state.time - c.t0 > 12) finish();
+}
+// Pip's waiting spot by the garden: a step to the side of the first patch of rich soil
+function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W + UNIT * 1.25, q[1] * H - UNIT * 0.15]; }
 // ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
 function pipWithYou() {
@@ -743,7 +780,7 @@ function placePipNearHero() {
 }
 function pipSay(key, text, at, sight = 7) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key }; return true; }   // go over there first
@@ -770,7 +807,7 @@ function pipGatherTalk(sc, p) {
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
-  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2) return;
+  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
   say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
 }
@@ -780,13 +817,18 @@ function pipBeside(v) {
   return [v.x + dx / d * UNIT * 1.3, v.y + dy / d * UNIT * 1.3];
 }
 function updatePip(dt) {
+  if (state.intro) { updateIntro(dt); return; }
   if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
+  const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
+  if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
+  if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
   if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
   const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
   let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
   const v = p.visit;
   if (v) {                                            // walking over to point something out, then waiting there for you
     [tx, ty] = v.spot || pipBeside(v);
@@ -800,7 +842,7 @@ function updatePip(dt) {
       const close = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 2.6;
       if (close && state.time - v.said > 0.8) { p.visit = null; state.pipTalkT = state.time; }   // you came over: carry on together
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
-        v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff' });
+        v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
       }
     }
   }
@@ -811,7 +853,8 @@ function updatePip(dt) {
     p.side = mx > 0 ? 1 : -1;
   }
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
-  if (!p.visit && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
+  if (garden) p.side = h.x > p.x ? 1 : -1;
+  if (!p.visit && !garden && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
   const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
@@ -821,18 +864,20 @@ function updatePip(dt) {
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
   // the garden: plant your three seeds in the rich soil, then Pip has a place to show you
   if (sc.id === 'meadow' && inv.story === STORY.garden) {
-    const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.seed || 0;
-    if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
-    if (!seeds && b && b.mode === 'perch') pipSay('robin-lesson', 'But first, seeds. Over here! Run at the robin and it drops one. Go on!', [b.x, b.y + UNIT], 12);
-    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`, [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.5], 12); } else if (b) p.robinHide = 0;
-    if (seeds && inv.firstBirdSeed) pipSay('firstseed', `See? A seed! Stand on the rich soil and press ${seedKeyLabel()}.`, plot ? P(plot) : null);
+    const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
+    const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
+    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!');
+    if (!seeds && b && b.mode === 'perch' && nearPip) pipSay('robin-lesson', 'But first, seeds. See the robin? Run at it and it drops one. Go on!');
+    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`); } else if (b) p.robinHide = 0;
+    if (seeds && inv.firstBirdSeed && nearPip) pipSay('firstseed', `See? Turnip seeds! Stand on the rich soil and press ${seedKeyLabel()}.`);
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
-    if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.', b ? [b.x, b.y + UNIT] : null, 12);
+    if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.');
     const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted >= Math.min(2, f.plots.length)) inv.story = STORY.tocamp;   // the lesson's done, whatever Pip is busy saying
   }
   if (sc.id === 'meadow' && inv.story === STORY.tocamp) {
     if (p.visit && !p.visit.said) p.visit = null;        // drop anything half-said: this is the news
+    p.atGarden = false;
     pipSay('tocamp', 'They\'ll grow while we\'re out. Now... I found the most AWESOME spot for a camp. Follow me!');
   }
   if (sc.id === 'camp') {
@@ -934,23 +979,9 @@ function startEnding() {
 function updateCut(dt) {
   const c = state.cut, h = state.hero;
   const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
+  if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
   c.t += dt;
-  if (c.type === 'intro') {
-    const p = state.pip;
-    if (c.t < 9.5 && (pressedNow.act || pressedNow.fire)) { c.t = 9.5; c.step = 95; unsay('npc'); }
-    if (at(0.5)) say('...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3.2 });
-    if (at(3.8)) say('And past the woods? Treasure. Actual, real, heavy treasure!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
-    if (at(6.8)) say('We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (c.t > 9.6 && !c.walked) {                     // a walk you don't steer: off the jetty and south to the garden
-      const sp = UNIT * 3.2 * dt;
-      h.y += sp; h.fx = 0; h.fy = 1; h.vx = 0; h.vy = sp / dt; p.y += sp; p.x += (h.x + UNIT * 0.9 - p.x) * 0.05;
-      if (h.y > H - UNIT * 0.8) { c.walked = true; const gx = h.x / W; enterScene('meadow', gx, 0.06); nudgeFree(); p.x = state.hero.x + UNIT; p.y = state.hero.y; c.t2 = 0; }
-    }
-    if (c.walked) {                                    // into the meadow, over to the patches of rich soil
-      c.t2 += dt; const q = sceneDef().feat.plots[0], tx = q[0] * W - UNIT * 1.4, ty = q[1] * H, dx2 = tx - h.x, dy2 = ty - h.y, d2 = Math.hypot(dx2, dy2);
-      if (d2 > UNIT * 0.3 && c.t2 < 5) { const sp = Math.min(d2, UNIT * 3.2 * dt); h.x += dx2 / d2 * sp; h.y += dy2 / d2 * sp; h.fx = dx2 / d2; h.fy = dy2 / d2; h.vx = h.fx * UNIT * 3; h.vy = h.fy * UNIT * 3; p.x += (h.x + UNIT * 1.1 - p.x) * 0.06; p.y += (h.y - UNIT * 0.3 - p.y) * 0.06; }
-      else { h.vx = h.vy = 0; state.cut = null; p.follow = true; state.inv.story = STORY.garden; }
-    }
+  if (false) {
   } else if (c.type === 'dusk') {                       // later that day: twilight in the lean-to, and Pip can't sit still
     const p = state.pip;
     if (at(0.1)) { state.fadeTarget = 1; state.fadeRate = 3; }
@@ -1030,8 +1061,8 @@ function updateCut(dt) {
     h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
     h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y));
     if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
-    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5 });
-    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a' }); }
+    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5, hold: false });
+    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
     if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
@@ -1218,7 +1249,7 @@ function packCells(tab) {
   if (tab === 'Gear') {
     if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: (state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }]).concat(slotActs({ kind: 'weapon', id: 'sword' })) });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: (state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }]).concat(slotActs({ kind: 'weapon', id: 'acorn' })) });
-    cells.push({ icon: 'seed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
+    cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
@@ -1233,7 +1264,7 @@ function packCells(tab) {
   }
   if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
     const fav = inv.favSeed === k;
-    cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : 'grows the local food',
+    cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : `grows ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()}`,
       acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, ...slotActs({ kind: 'seed', id: k }), drop(k, () => inv.bag[k]--)] });
   }
   if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
@@ -1271,7 +1302,9 @@ function updatePack() {
     if (pressedNow.down) { m.qsel = Math.min(n - 1, m.qsel + 1); sfx.tock(); }
     if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
     if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
-    if (pressedNow.act && questRows(v)[m.qsel] && questRows(v)[m.qsel].kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    const row = questRows(v)[m.qsel];
+    if (pressedNow.act && row && row.kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    if (pressedNow.act && row && row.kind === 'cur') { trackQuest(row.c.q.id, !tracked(row.c.q.id)); sfx.tock(); }   // active on the HUD, or not
     return;
   }
   if (tab === 'System') {                              // a plain list
@@ -1394,12 +1427,23 @@ function slotInfo(i) {
   const m = Math.floor(d.playTime / 60), s = Math.floor(d.playTime % 60);
   return `${AREA_NAMES[d.area] || '?'}, ${m}:${String(s).padStart(2, '0')}`;
 }
+// builds before 65 had one plain "seed" that grew the local vegetable: it becomes turnip seeds, and planted patches keep their crop
+function migrateSeeds(inv) {
+  const bag = inv.bag || (inv.bag = {});
+  for (const k of Object.keys(SEEDS)) if (!(k in bag)) bag[k] = 0;
+  if (bag.seed) { bag.turnipseed += bag.seed; }
+  delete bag.seed;
+  if (inv.favSeed === 'seed') inv.favSeed = 'turnipseed';
+  if (inv.slots) for (const k of Object.keys(inv.slots)) { const s = inv.slots[k]; if (s && s.kind === 'seed' && s.id === 'seed') s.id = 'auto'; }
+  for (const [id, rt] of Object.entries(RT)) { const sc = WORLD[id]; if (!sc || !rt.flags || !rt.flags.plots) continue; rt.flags.plots.forEach((p, i) => { if (p.s && !SEEDS[p.seed]) p.seed = seedOfPlot(p, sc, i); }); }
+}
 function loadSlot(i) {
   const d = readSlot(i);
   if (!d || !d.seed || d.v !== 16) return false;
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
+  migrateSeeds(state.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
   if (!d.inv.raw && (state.inv.sword || state.inv.pipTaken || state.inv.pipSaved || state.seen.w1)) { const rt = rtFor('camp'); for (const pc of ['fire', 'tent', 'bench']) rt.flags['built_' + pc] = true; refreshSceneGeometry(); }
@@ -1408,7 +1452,7 @@ function loadSlot(i) {
   return true;
 }
 // every line of the inventory: [icon, title, detail]
-const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
+const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${k === 'turnip' ? ' over time, sometimes sturdies you' : ''}${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
 function inventoryLines() {
   const inv = state.inv, L2 = [];
   const sec = t => L2.push([null, t, null]);
@@ -1426,7 +1470,7 @@ function inventoryLines() {
     if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${inv.sword ? K.swap + ' to equip, then ' : ''}${K.act} throws; hold longer to throw faster and harder. Slash, pound or throw a rock at trees for more.`]);
   }
   const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
-  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : 'Plant it; it grows the local food.']); }
+  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : `Plant them; ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()} grow.`]); }
   const mats = Object.keys(MATS).filter(k => inv.mats[k]);
   if (mats.length) { sec('Materials'); for (const k of mats) { const uses = FORGE.filter(f => inv.recipes[f.k] && f.cost.some(c => c[k])).map(f => f.name); L2.push([k, `${MATS[k]} x${inv.mats[k]}`, uses.length ? `Used for: ${uses.join(', ')}.` : 'You haven\'t learned a use for this yet.']); } }
   sec('Recipes');
@@ -1473,7 +1517,7 @@ function scareFlock(x, y, range) {
     const a = Math.atan2(b.y - y, b.x - x) + (Math.random() - 0.5);
     b.mode = 'fly'; b.vx = Math.cos(a) * 0.4 * L(); b.vy = Math.sin(a) * 0.4 * L() - UNIT * 3;
     sfx.flap(panOf(b.x));
-    if (Math.random() < 0.12) state.items.push({ type: 'seed', x: b.x, y: b.y });
+    if (Math.random() < 0.12) state.items.push({ type: localSeed(), x: b.x, y: b.y });
   }
 }
 function updateFlock(dt) {

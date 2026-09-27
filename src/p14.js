@@ -21,7 +21,7 @@ function foodRange(k) {                                // higher levels raise th
 }
 const CROP_PERK = {                                    // what level 3 adds
   berries: 'restore twice as much when you\'re below half vigor',
-  turnip: 'add 2 max vigor instead of 1',
+  turnip: 'when it sturdies you, it adds 2 max vigor instead of 1',
   carrot: 'a spring in your step for 15 seconds',
   pepper: 'bigger fire for 90 seconds instead of 60',
   squash: 'faster vigor recovery for 20 seconds',
@@ -35,10 +35,15 @@ function eatFood(food) {
   const [lo, hi] = foodRange(food), perk = cropLevel(food) >= 3;
   let amt = lo + Math.random() * (hi - lo);
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
-  heal(amt);
+  if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
+    inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
+    say(`+${Math.round(amt * maxVig())} vigor, slowly`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
+    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+    refreshButtons(); return;
+  }
+  heal(amt);                                           // everything else, the carrot first among them, mends you on the spot
   say(`+${Math.round(amt * maxVig())} vigor`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
   if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-  if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
   if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
@@ -90,14 +95,14 @@ function autoFood() {
 function autoSeed() {
   const inv = state.inv;
   if (inv.favSeed && inv.bag[inv.favSeed] > 0) return inv.favSeed;
-  return ['seed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
+  return ['turnipseed', 'carrotseed', 'pepperseed', 'squashseed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
 }
 // what a slot shows right now: an icon, and a count if it has one
 function slotShow(s) {
   const inv = state.inv;
   if (!s) return null;
   if (s.kind === 'food') { const f = s.id === 'auto' ? autoFood() : s.id; return f ? { icon: f, n: inv.food.filter(x => x === f).length || null, dim: !inv.food.includes(f) } : { icon: 'carrot', dim: true }; }
-  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'seed', dim: true }; }
+  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'turnipseed', dim: true }; }
   if (s.kind === 'weapon') return { icon: s.id, n: s.id === 'acorn' ? inv.acorns : null, dim: s.id === 'acorn' ? !(inv.acorns > 0) : !inv.sword };
   if (s.kind === 'ability') return { icon: s.id === 'dodge' ? 'step' : 'fire', dim: s.id === 'dodge' ? !inv.step : !inv.fire };
   return null;
@@ -112,7 +117,7 @@ function plantHere(kind) {
   const p = plots[best], [px, py] = sc.feat.plots[best];
   state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
   sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-  say(`${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
+  say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
   return true;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)

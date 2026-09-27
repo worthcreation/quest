@@ -705,8 +705,8 @@ function scareBird(x, y, range) {
   const lesson = state.inv.story === STORY.garden;
   let drop = Math.random() < 0.4;
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
-  if (drop) { state.items.push({ type: 'seed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
-  else if (lesson && state.pip && state.pip.show) {
+  if (drop) { state.items.push({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
+  else if (lesson && state.pip && state.pip.show && !speakingNow()) {
     const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing! Doesn\'t always work. Again!', 'Ha, not this time. Wait for it to come back.'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
   }
 }

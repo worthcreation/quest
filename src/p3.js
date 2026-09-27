@@ -23,9 +23,9 @@ function breakBarrier(bar, how) {
     const x = cs.fx * W, y = cs.fy * H;
     for (let i = 0; i < 14; i++) state.fx.push({ x, y, vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#8f887c' : '#6a4a2a', size: UNIT * 0.12 });
     const S = cs.stone && STONES[cs.stone];
-    const finds = S ? S.inside.filter(([, p]) => rng() < p).map(([t]) => t) : (rng() < 0.12 ? ['seed'] : []);
+    const finds = (S ? S.inside.filter(([, p]) => rng() < p).map(([t]) => t) : (rng() < 0.12 ? ['seed'] : [])).map(t => t === 'seed' ? localSeed() : t);
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
-    if (finds.length) { say(finds.some(t => t !== 'stone' && t !== 'seed') ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
+    if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
   if (bar === 'burrow') { say('The hole caves in. There\'s a tunnel through!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
@@ -147,6 +147,7 @@ function transitionTo(id, fx, fy, quick) {
 
 function checkEdges() {
   const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 8;
+  if (state.intro && !state.intro.gone) return;        // the opening: the bank is yours to wander, but not to leave until Pip heads off
   for (const ex of sc.exits) {
     let at = false, along = 0;
     if (ex.side === 'n') { at = h.y <= r && held.up(); along = h.x / W; }
@@ -211,6 +212,8 @@ function update(dt) {
   if (!state.started) return;
   readPresses();
   updateQuests();
+  // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
+  if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
@@ -244,6 +247,11 @@ function update(dt) {
     updateAbilities(dt);
   }
   for (const k of ['lumin', 'slime', 'pepper', 'fishBuff', 'carrotBuff', 'squashBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
+  if (inv.turnipRegen > 0) {                          // a turnip's vigor, trickling back
+    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt);
+    inv.turnipRegen -= give; h.vig = Math.min(maxVig(), h.vig + give);
+    if (h.vig >= maxVig()) inv.turnipRegen = 0;
+  }
   if (h.vig > maxVig()) h.vig = maxVig();
   const mv = maxVig();
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
@@ -738,19 +746,29 @@ const DROPS = {
   diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
   charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
   glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
-  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['seed', 0.1]],
+  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['carrotseed', 0.12]],
   lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
-  gremlin:  [['thornseed', 0.1], ['seed', 0.25], ['acorn', 0.3]],
+  gremlin:  [['thornseed', 0.1], ['turnipseed', 0.25], ['acorn', 0.3]],
   warden:   [['warden', 1]],
 };
-// Seeds, rarest last. Common seed grows the local food; the rest grow materials.
+// Seeds, rarest last. Vegetable seeds (crop) grow that vegetable, one to a few per seed; the rest grow materials.
+// Colours and shapes follow the real seeds: turnip seeds are tiny dark round beads, carrot seeds small tan ridged ovals,
+// pepper seeds flat pale discs, squash seeds cream teardrops with a rim.
 const SEEDS = {
-  seed:      { name: 'Seed', rarity: 'Common', grow: 20, color: '#d9c28a' },
+  turnipseed: { name: 'Turnip seeds', rarity: 'Common', grow: 20, crop: 'turnip', n: [1, 3], color: '#4a2a1e' },
+  carrotseed: { name: 'Carrot seeds', rarity: 'Common', grow: 24, crop: 'carrot', n: [1, 2], color: '#a8905e' },
+  pepperseed: { name: 'Pepper seeds', rarity: 'Uncommon', grow: 28, crop: 'pepper', n: [1, 3], color: '#e8d68a' },
+  squashseed: { name: 'Squash seeds', rarity: 'Uncommon', grow: 34, crop: 'squash', n: [1, 1], color: '#f2e8cc' },
   thornseed: { name: 'Thornseed', rarity: 'Uncommon', grow: 25, yields: ['thorn', 2], color: '#c98ad8' },
   emberseed: { name: 'Emberseed', rarity: 'Rare', grow: 32, yields: ['ember', 2], color: '#ffa04a' },
   ironseed:  { name: 'Ironseed', rarity: 'Rare', grow: 40, yields: ['ironwood', 1], color: '#b0b8c0' },
   starseed:  { name: 'Starseed', rarity: 'Very rare', grow: 60, yields: ['starpetal', 1], color: '#fff6c8' },
 };
+const SEED_OF = { turnip: 'turnipseed', carrot: 'carrotseed', pepper: 'pepperseed', squash: 'squashseed' };
+const CROP_SEEDS = Object.keys(SEED_OF).map(k => SEED_OF[k]);
+const isSeed = t => !!SEEDS[t];
+// the seed that grows what this place grows (a stray "seed" drop becomes the local one)
+function localSeed(sc) { sc = sc || sceneDef(); return SEED_OF[CROP[sc.area]] || 'turnipseed'; }
 const PAGE_NOTES = [
   'Day 3. The robin\'s hollow tree is full of seeds. It drops them when it flies.',
   'The big mushrooms hum at night. I swear they\'re talking to each other.',
@@ -802,7 +820,7 @@ function collect(it) {
   zoomPulse(it.x, it.y, 'pickup');
   if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
 
-  else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || it.type === 'seed' || it.type === 'bean') sfx.tock(); else sfx.pickup();
+  else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || CROP_SEEDS.includes(it.type) || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
     case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
     case 'step': case 'silk': case 'horn': {
@@ -828,10 +846,10 @@ function collect(it) {
       if (!inv.sword) state.equip = 'acorn';
       tell(inv.sword ? `Acorn. ${K.swap} swaps to acorns; then ${K.act} throws, and holding it throws harder.` : `Acorn. ${K.act} throws it; hold for a harder throw.`, 4, 'acorn');
       break;
-    case 'seed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
-      inv.bag[it.type]++;
+    case 'turnipseed': case 'carrotseed': case 'pepperseed': case 'squashseed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
+      inv.bag[it.type] = (inv.bag[it.type] || 0) + 1;
       const S = SEEDS[it.type];
-      if (it.type === 'seed') tell('A seed. Plant it in any patch of rich soil.', 3.5, 'seed');
+      if (S.crop) tell(`${S.name}. Plant them in any patch of rich soil; ${CROP_NAME[S.crop].toLowerCase()} grow.`, 3.5, 'seed-' + S.crop);
       else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;

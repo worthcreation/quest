@@ -51,6 +51,7 @@ document.getElementById('menubtn').addEventListener('pointerdown', e => { e.prev
 canvas.addEventListener('pointerdown', e => {
   if (state.won) { newGame(); return; }
   if (state.menu) menuTap(e.clientX, e.clientY);
+  else if (!state.choice && TOUCH && heldText()) dismissHeld();   // a tap on the screen reads on, same as the action button
   else if (state.choice) { const r = (state.choiceRects || []).find(o => e.clientX >= o.x && e.clientX <= o.x + o.w && e.clientY >= o.y && e.clientY <= o.y + o.h); if (r) { const c = state.choice; state.choice = null; c.cb(r.i); } }
 });
 
@@ -419,9 +420,11 @@ function say(text, x, y, opts = {}) {
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
     const o = state.texts.find(o => o.key === opts.key && o.text === text);
-    if (o) { o.x = x; o.y = y; o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
+    if (o) { o.x = x; o.y = y; if (!o.hold) o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
   }
-  const t = { text, x, y, t: 0, life: opts.life || 3.2, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
+  const hold = SPEECH.has(opts.key) && opts.hold !== false;
+  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
@@ -431,9 +434,20 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// anything waiting to be read? (a held title or held speech)
+function heldText() { return (state.title && state.title.hold) || state.texts.some(t => t.hold); }
+// the action key clears one thing at a time: the quest alert first, then the oldest held speech.
+// Returns true when the press was used up this way.
+function dismissHeld() {
+  if (state.title && state.title.hold) { state.title.life = state.title.t + 0.3; state.title.hold = false; sfx.tock(); return true; }
+  const t = state.texts.find(o => o.hold);
+  if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
+  return false;
+}
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
-function showTitle(text, sub, style = 'area', life = 3) {
-  const t = { text, sub, style, t: 0, life, at: state.time };
+// a title with hold: true (quest alerts) waits on screen until you clear it with the action key
+function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+  const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
 }

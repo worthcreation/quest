@@ -194,11 +194,15 @@ function campHave() {                                    // raw counted with wha
   return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
 }
 const QUESTS = [
-  { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
-    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
+  { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
+    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
     { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
-    { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
-  ] },
+    { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
+  ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
+    const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;
+    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away.', { key: 'reward', life: 6, color: '#b8f28a' });
+    refreshButtons();
+  } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
     { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
@@ -234,13 +238,51 @@ function updateQuests(force) {
   const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
   for (const q of QUESTS) {
     let s = qs[q.id];
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; if (!quiet) showTitle('New quest', q.name, 'area', 2.6); }
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) showTitle('New quest', q.name, 'area', 2.6, true); }
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6); sfx.heart(); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); } }
     }
   }
+}
+// tracking: a quest marked active on the Quests tab shows on the quest HUD. New quests start tracked.
+function tracked(id) { const t = state.inv.qtrack; return t ? !!t[id] : true; }
+function trackQuest(id, on) { const t = state.inv.qtrack || (state.inv.qtrack = {}); if (on) t[id] = true; else delete t[id]; }
+// what the HUD shows: tracked quests still under way, newest first
+function trackedView() { return questView().cur.filter(c => tracked(c.q.id)); }
+// the quest HUD: top right, small, out of the way. Step name, one line of progress, an icon. Text keeps clear of it.
+function drawQuestHud() {
+  state.questHudRect = null;
+  if (ARENA || PUZZLE || !state.started || state.menu || state.won || (state.intro && !state.intro.gone)) return;
+  const v = trackedView().slice(0, 3);
+  if (!v.length) return;
+  const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
+  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;
+  ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+  let y = top, ymax = top, wmin = 0;
+  const rows = v.map(c => {
+    ctx.font = `bold ${fs}px Georgia, serif`;
+    const name = ctx.measureText(c.step.name).width;
+    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    const lines = wrap(c.step.line(), wmax - icon - pad * 2);
+    const w = Math.max(name, ...lines.map(l => ctx.measureText(l).width)) + icon + pad * 3;
+    wmin = Math.max(wmin, Math.min(wmax + pad, w));
+    return { c, lines };
+  });
+  const bw = wmin, bx = right - bw;
+  for (const r of rows) {
+    const bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
+    ctx.fillStyle = 'rgba(10,8,14,.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,227,138,.25)'; ctx.lineWidth = 1; ctx.stroke();
+    drawItemIcon(r.c.q.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
+    ctx.fillStyle = QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.c.step.name, right - pad, y + pad * 0.6 + fs);
+    ctx.fillStyle = 'rgba(253,246,227,.8)'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    r.lines.forEach((l, i) => ctx.fillText(l, right - pad, y + pad * 0.6 + fs + lh * 0.9 * (i + 1)));
+    y += bh + 4; ymax = y;
+  }
+  ctx.restore(); ctx.textAlign = 'left';
+  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: ymax - top + 4 };
 }
 // what the tab shows: current objectives (newest quest first) and the log (newest first)
 function questView() {
