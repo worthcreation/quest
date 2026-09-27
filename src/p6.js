@@ -109,7 +109,7 @@ function interact() {
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
         const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
-        p.s = 0; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
+        p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
         else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
         if (!S.yields) gainCropXp(crop);
@@ -1213,14 +1213,14 @@ function packCells(tab) {
     for (const [id, z] of Object.entries(ARENA_ZONES)) cells.push({ icon: { river: 'gremlin', cave: 'stalker', swamp: 'lurker', wind: 'rabbit' }[id], name: z.name, done: !!(recs['zone:' + id] || {}).clears, line: `${z.waves.length} waves in ${MAP_NAMES[z.scene] || z.scene}` });
     return cells;
   }
-  if (tab === 'Quests') {
-    cells.push({ icon: 'heart', name: 'Find Pip', done: inv.pipSaved, line: inv.pipSaved ? 'Pip is safe at camp' : 'the gremlins took Pip' });
-    if (rtFor('m2').flags.metToad || inv.beans) cells.push({ icon: 'bean', name: 'The toad\'s beans', done: !!inv.fire, count: inv.fire ? 0 : inv.beans, line: inv.fire ? 'the toad taught you fire' : `${inv.beans} of ${BEANS} beans` });
-    if (inv.journal) cells.push({ icon: 'journal', name: 'The stolen journal', done: inv.journal >= 3, line: inv.journal >= 3 ? 'found' : `pages: ${inv.pages}; the thief runs toward the woods` });
-    if (inv.raft) cells.push({ icon: 'driftwood', name: 'Downriver', done: inv.raft >= 3, line: inv.raft >= 3 ? 'you reached the gleaming pool' : inv.raft === 2 ? 'the raft waits at the jetty' : `raft: driftwood ${inv.mats.driftwood}/4, thorns ${inv.mats.thorn}/2` });
-    cells.push({ icon: 'spores', name: 'Traveler\'s mushrooms', count: Object.keys(inv.shrooms).length, line: `${Object.keys(inv.shrooms).length} of 6 found` });
-  }
   return cells;
+}
+// the Quests tab as rows: one per current objective, the log header, and (when unfolded) the log entries
+function questRows(v) {
+  const rows = v.cur.map(c => ({ kind: 'cur', c }));
+  if (!rows.length) rows.push({ kind: 'none' });
+  if (v.log.length) { rows.push({ kind: 'loghead', n: v.log.length }); if (state.qlogOpen) for (const e of v.log) rows.push({ kind: 'log', e }); }
+  return rows;
 }
 function updatePack() {
   const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' ? [] : packCells(tab), cols = m.cols || 5;
@@ -1230,8 +1230,19 @@ function updatePack() {
     if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
     if (pressedNow.act || pressedNow.down) {
       if (tab === 'System') { m.focus = 'grid'; m.sys = m.sys || 0; sfx.tock(); }
+      else if (tab === 'Quests' && !ARENA) { m.focus = 'grid'; m.qsel = 0; sfx.tock(); }
       else if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
     }
+    return;
+  }
+  if (tab === 'Quests' && !ARENA) {                    // current objectives, then the folded log
+    const v = questView(), n = questRows(v).length;
+    m.qsel = Math.min(m.qsel || 0, n - 1);
+    if (pressedNow.up) { if (m.qsel <= 0) m.focus = 'tabs'; else m.qsel--; sfx.tock(); }
+    if (pressedNow.down) { m.qsel = Math.min(n - 1, m.qsel + 1); sfx.tock(); }
+    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.act && questRows(v)[m.qsel] && questRows(v)[m.qsel].kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
     return;
   }
   if (tab === 'System') {                              // a plain list

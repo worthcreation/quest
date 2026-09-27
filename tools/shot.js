@@ -17,6 +17,15 @@ if (process.env.DUSK) {
   for (let k=0;k<30;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/dusk-in.png', canvas.toBuffer('image/png'));
   enterScene('w1', 0.06, 0.5); state.cut=null; state.enemies=[]; for (let k=0;k<30;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/dusk-w1.png', canvas.toBuffer('image/png'));
 }
+if (process.env.QUESTLOG) {
+  state.started=true; const inv=state.inv; enterScene('camp'); state.cut=null;
+  inv.story=STORY.garden; inv.bag.seed=1; state.playTime=40; updateQuests(true);
+  const pl=rtFor('meadow').flags.plots=WORLD.meadow.feat.plots.map(()=>({s:1,t:0,lv:0})); inv.bag.seed=0; inv.story=STORY.tocamp; state.playTime=95; updateQuests(true);
+  inv.story=STORY.gather; state.playTime=130; updateQuests(true); Object.assign(rawOf(),{stone:2,stick:1}); state.playTime=200; updateQuests(true);
+  state.texts=[]; state.title=null; state.menu={view:'pack',tab:PACK_TABS.indexOf('Quests'),sel:0,focus:'grid',act:0,sys:0,note:'',qsel:0};
+  draw(); fs.writeFileSync('/tmp/quests-folded.png', canvas.toBuffer('image/png'));
+  state.qlogOpen=true; state.menu.qsel=2; draw(); fs.writeFileSync('/tmp/quests-open.png', canvas.toBuffer('image/png'));
+}
 if (process.env.SKILL) {
   state.started=true; state.inv.sword=true; state.inv.acorns=12; enterScene('meadow'); state.cut=null; const h=state.hero; h.x=W*0.4; h.y=H*0.55; h.fx=1; h.fy=0; state.equip='acorn';
   const e=makeEnemy('rabbit', h.x+UNIT*4, h.y-UNIT*0.5, -1); e.mode='idle'; e.t=9; e.cool=9; state.enemies.push(e);

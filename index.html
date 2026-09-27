@@ -777,7 +777,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {} }; }
+function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1420,6 +1420,7 @@ function resetRun(seed) {
   state.area = null; state.seen = {}; state.playTime = 0;
   state.won = false; state.cut = null; state.title = null; state.cam.focus = null; state.menu = null;
   state.night = 0; state.rain = 0;
+  state.questQuiet = true; state.questT = -9; state.qlogOpen = false;
 }
 function newGame() {
   state.busy = true;
@@ -1446,6 +1447,7 @@ function update(dt) {
   updateTexts(dt);
   if (!state.started) return;
   readPresses();
+  updateQuests();
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
@@ -2979,7 +2981,7 @@ function interact() {
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
         const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
-        p.s = 0; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
+        p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
         else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
         if (!S.yields) gainCropXp(crop);
@@ -4083,14 +4085,14 @@ function packCells(tab) {
     for (const [id, z] of Object.entries(ARENA_ZONES)) cells.push({ icon: { river: 'gremlin', cave: 'stalker', swamp: 'lurker', wind: 'rabbit' }[id], name: z.name, done: !!(recs['zone:' + id] || {}).clears, line: `${z.waves.length} waves in ${MAP_NAMES[z.scene] || z.scene}` });
     return cells;
   }
-  if (tab === 'Quests') {
-    cells.push({ icon: 'heart', name: 'Find Pip', done: inv.pipSaved, line: inv.pipSaved ? 'Pip is safe at camp' : 'the gremlins took Pip' });
-    if (rtFor('m2').flags.metToad || inv.beans) cells.push({ icon: 'bean', name: 'The toad\'s beans', done: !!inv.fire, count: inv.fire ? 0 : inv.beans, line: inv.fire ? 'the toad taught you fire' : `${inv.beans} of ${BEANS} beans` });
-    if (inv.journal) cells.push({ icon: 'journal', name: 'The stolen journal', done: inv.journal >= 3, line: inv.journal >= 3 ? 'found' : `pages: ${inv.pages}; the thief runs toward the woods` });
-    if (inv.raft) cells.push({ icon: 'driftwood', name: 'Downriver', done: inv.raft >= 3, line: inv.raft >= 3 ? 'you reached the gleaming pool' : inv.raft === 2 ? 'the raft waits at the jetty' : `raft: driftwood ${inv.mats.driftwood}/4, thorns ${inv.mats.thorn}/2` });
-    cells.push({ icon: 'spores', name: 'Traveler\'s mushrooms', count: Object.keys(inv.shrooms).length, line: `${Object.keys(inv.shrooms).length} of 6 found` });
-  }
   return cells;
+}
+// the Quests tab as rows: one per current objective, the log header, and (when unfolded) the log entries
+function questRows(v) {
+  const rows = v.cur.map(c => ({ kind: 'cur', c }));
+  if (!rows.length) rows.push({ kind: 'none' });
+  if (v.log.length) { rows.push({ kind: 'loghead', n: v.log.length }); if (state.qlogOpen) for (const e of v.log) rows.push({ kind: 'log', e }); }
+  return rows;
 }
 function updatePack() {
   const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' ? [] : packCells(tab), cols = m.cols || 5;
@@ -4100,8 +4102,19 @@ function updatePack() {
     if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
     if (pressedNow.act || pressedNow.down) {
       if (tab === 'System') { m.focus = 'grid'; m.sys = m.sys || 0; sfx.tock(); }
+      else if (tab === 'Quests' && !ARENA) { m.focus = 'grid'; m.qsel = 0; sfx.tock(); }
       else if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
     }
+    return;
+  }
+  if (tab === 'Quests' && !ARENA) {                    // current objectives, then the folded log
+    const v = questView(), n = questRows(v).length;
+    m.qsel = Math.min(m.qsel || 0, n - 1);
+    if (pressedNow.up) { if (m.qsel <= 0) m.focus = 'tabs'; else m.qsel--; sfx.tock(); }
+    if (pressedNow.down) { m.qsel = Math.min(n - 1, m.qsel + 1); sfx.tock(); }
+    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.act && questRows(v)[m.qsel] && questRows(v)[m.qsel].kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
     return;
   }
   if (tab === 'System') {                              // a plain list
@@ -5557,6 +5570,55 @@ function drawPack(m, x, y, pw, fs) {
     drawTipMarquee(fs);
     return;
   }
+  if (tab === 'Quests' && !ARENA) {                   // current objectives up top, the log folded underneath
+    const v = questView(), rows = questRows(v), lw = pwide, lx = px, sel = m.focus !== 'tabs' ? (m.qsel || 0) : -1;
+    const hOf = r => r.kind === 'cur' ? fs * 3.3 : fs * 1.7, gap = 4, avail = H - y - fs * 3;
+    // keep the selected row on screen: start from the row that lets it fit
+    let first = 0, tot = 0;
+    for (let i = 0; i <= Math.max(0, sel); i++) tot += hOf(rows[i]) + gap;
+    while (tot > avail && first < sel) { tot -= hOf(rows[first]) + gap; first++; }
+    let yy = y + fs * 0.4;
+    ctx.textAlign = 'left';
+    if (first === 0) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText('CURRENT', lx + 6, yy + fs * 0.5); yy += fs * 1.0; }
+    for (let i = first; i < rows.length; i++) {
+      const r = rows[i], rh = hOf(r), on = i === sel;
+      if (yy + rh > H - fs * 2.2) break;
+      if (r.kind === 'loghead' && i > 0) yy += fs * 0.5;
+      ctx.fillStyle = on ? 'rgba(242,201,76,.2)' : r.kind === 'log' ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.07)'; rr_(lx, yy, lw, rh, 8); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+      if (r.kind === 'cur') {
+        const { q, s, step } = r.c;
+        drawItemIcon(q.icon, lx + fs * 1.5, yy + rh / 2, fs * 1.7);
+        ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(step.name, lx + fs * 3, yy + fs * 1.25);
+        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name;
+        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2); ctx.textAlign = 'left';
+        ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(step.line(), lx + fs * 3, yy + fs * 2.6);
+      } else if (r.kind === 'none') {
+        ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText('Nothing pressing. Look around.', lx + 14, yy + rh * 0.65);
+      } else if (r.kind === 'loghead') {
+        ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+        const tx = lx + 20, ty = yy + rh * 0.5, a = fs * 0.28; ctx.beginPath();          // a drawn fold arrow: fonts vary
+        if (state.qlogOpen) { ctx.moveTo(tx - a, ty - a * 0.6); ctx.lineTo(tx + a, ty - a * 0.6); ctx.lineTo(tx, ty + a * 0.7); }
+        else { ctx.moveTo(tx - a * 0.6, ty - a); ctx.lineTo(tx + a * 0.7, ty); ctx.lineTo(tx - a * 0.6, ty + a); }
+        ctx.fill();
+        ctx.fillText(`Log (${r.n})`, lx + 34, yy + rh * 0.66);
+        ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(state.qlogOpen ? 'newest first' : `${K.act} to open`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
+        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; state.qlogOpen = !state.qlogOpen; } });
+      } else {
+        const e = r.e;
+        ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(lx + 16, yy + rh * 0.5); ctx.lineTo(lx + 20, yy + rh * 0.66); ctx.lineTo(lx + 27, yy + rh * 0.3); ctx.stroke();
+        ctx.fillStyle = e.last ? '#b8f28a' : '#fdf6e3'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+        ctx.fillText(e.last && e.q.steps.length > 1 ? `${e.st.name}. ${e.q.name} complete.` : e.last ? `${e.q.name} complete.` : e.st.name, lx + 36, yy + rh * 0.66);
+        ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(`${e.q.name}${e.t != null ? ' \u00b7 ' + clock(e.t) : ''}`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
+      }
+      if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
+      yy += rh + gap;
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+    drawTipMarquee(fs);
+    return;
+  }
   if (tab === 'Map') {
     if (state.inv.journal >= 3) {
       const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
@@ -5734,7 +5796,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 62';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 63';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6670,6 +6732,77 @@ function drawLamps() {
     ctx.fillStyle = `rgba(255,${200 + 30 * f},${110 + 40 * f},.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.05, u * 0.05, u * 0.11 * f, 0, 0, 6.28); ctx.fill();
   });
 }
+
+// ---------------- the quest log ----------------
+// Each quest is a short chain of steps. A step is done the first time its test passes (after the step before it),
+// and that moment goes into inv.qlog. The Quests tab shows what's current, newest quest first, and a folded log
+// underneath, newest first. Story beats elsewhere stay the source of truth; this only watches them.
+const plantedIn = id => ((rtFor(id).flags.plots) || []).filter(p => p.s === 1).length;
+function campHave() {                                    // raw counted with what's already crafted or built into it
+  const raw = rawOf(), inv = state.inv, known = inv.known || {};
+  const ring = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
+  const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
+  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
+}
+const QUESTS = [
+  { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
+    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Plant them in Pip's rich soil. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
+  ] },
+  { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
+    { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
+    { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
+    { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
+  ] },
+  { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
+    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },
+  ] },
+  { id: 'beans', name: 'The toad\'s beans', icon: 'bean', start: () => rtFor('m2').flags.metToad || state.inv.beans || state.inv.fire, steps: [
+    { id: 'beans', name: 'Bring the toad beans', line: () => `${state.inv.beans || 0} of ${BEANS} beans.`, done: () => !!state.inv.fire },
+  ] },
+  { id: 'journal', name: 'The stolen journal', icon: 'journal', start: () => state.inv.journal, steps: [
+    { id: 'pages', name: 'Get the journal back', line: () => `Pages: ${state.inv.pages}. The thief runs toward the woods.`, done: () => state.inv.journal >= 3 },
+  ] },
+  { id: 'raft', name: 'Downriver', icon: 'driftwood', start: () => state.inv.raft, steps: [
+    { id: 'build', name: 'Build a raft', line: () => `Driftwood ${state.inv.mats.driftwood}/4, thorns ${state.inv.mats.thorn}/2.`, done: () => state.inv.raft >= 2 },
+    { id: 'ride', name: 'Ride it downriver', line: () => 'The raft waits at the jetty.', done: () => state.inv.raft >= 3 },
+  ] },
+  { id: 'shrooms', name: 'Traveler\'s mushrooms', icon: 'spores', start: () => state.inv.pipSaved || Object.keys(state.inv.shrooms).length > 0, steps: [
+    { id: 'all', name: 'Find the traveler\'s mushrooms', line: () => `${Object.keys(state.inv.shrooms).length} of 6 found.`, done: () => Object.keys(state.inv.shrooms).length >= 6 },
+  ] },
+];
+const QUEST_COLOR = '#ffe38a';
+function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }
+// runs a few times a second; quiet right after a load or a new game, so an old save's progress is filed without fanfare
+function updateQuests(force) {
+  if (ARENA || PUZZLE || !state.inv) return;
+  if (!force && state.time - (state.questT || -9) < 0.25) return;
+  state.questT = state.time;
+  const inv = state.inv, qs = inv.quests || (inv.quests = {}), log = inv.qlog || (inv.qlog = []), quiet = !!state.questQuiet;
+  state.questQuiet = false;
+  const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
+  for (const q of QUESTS) {
+    let s = qs[q.id];
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; if (!quiet) showTitle('New quest', q.name, 'area', 2.6); }
+    while (s.step < q.steps.length && q.steps[s.step].done()) {
+      log.push({ q: q.id, s: q.steps[s.step].id, t });
+      s.step++;
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6); sfx.heart(); } }
+    }
+  }
+}
+// what the tab shows: current objectives (newest quest first) and the log (newest first)
+function questView() {
+  updateQuests(true);
+  const inv = state.inv, qs = inv.quests || {}, cur = [];
+  for (const q of QUESTS) { const s = qs[q.id]; if (s && s.step < q.steps.length) cur.push({ q, s, step: q.steps[s.step] }); }
+  cur.sort((a, b) => (b.s.at ?? -1) - (a.s.at ?? -1) || QUESTS.indexOf(b.q) - QUESTS.indexOf(a.q));
+  const log = (inv.qlog || []).map((e, i) => { const q = QUESTS.find(x => x.id === e.q), st = q && q.steps.find(x => x.id === e.s); return q && st ? { q, st, t: e.t, i, last: st === q.steps[q.steps.length - 1] } : null; }).filter(Boolean).reverse();
+  return { cur, log };
+}
+const clock = t => t == null ? '' : `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 
 // =====================================================================
 // Food and farming skill: each vegetable restores a range of vigor (rarer, higher). Growing a vegetable

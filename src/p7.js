@@ -1144,6 +1144,55 @@ function drawPack(m, x, y, pw, fs) {
     drawTipMarquee(fs);
     return;
   }
+  if (tab === 'Quests' && !ARENA) {                   // current objectives up top, the log folded underneath
+    const v = questView(), rows = questRows(v), lw = pwide, lx = px, sel = m.focus !== 'tabs' ? (m.qsel || 0) : -1;
+    const hOf = r => r.kind === 'cur' ? fs * 3.3 : fs * 1.7, gap = 4, avail = H - y - fs * 3;
+    // keep the selected row on screen: start from the row that lets it fit
+    let first = 0, tot = 0;
+    for (let i = 0; i <= Math.max(0, sel); i++) tot += hOf(rows[i]) + gap;
+    while (tot > avail && first < sel) { tot -= hOf(rows[first]) + gap; first++; }
+    let yy = y + fs * 0.4;
+    ctx.textAlign = 'left';
+    if (first === 0) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText('CURRENT', lx + 6, yy + fs * 0.5); yy += fs * 1.0; }
+    for (let i = first; i < rows.length; i++) {
+      const r = rows[i], rh = hOf(r), on = i === sel;
+      if (yy + rh > H - fs * 2.2) break;
+      if (r.kind === 'loghead' && i > 0) yy += fs * 0.5;
+      ctx.fillStyle = on ? 'rgba(242,201,76,.2)' : r.kind === 'log' ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.07)'; rr_(lx, yy, lw, rh, 8); ctx.fill();
+      if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+      if (r.kind === 'cur') {
+        const { q, s, step } = r.c;
+        drawItemIcon(q.icon, lx + fs * 1.5, yy + rh / 2, fs * 1.7);
+        ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(step.name, lx + fs * 3, yy + fs * 1.25);
+        const tag = q.steps.length > 1 ? `${q.name} \u00b7 step ${s.step + 1} of ${q.steps.length}` : q.name;
+        ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(tag, lx + lw - 12, yy + fs * 1.2); ctx.textAlign = 'left';
+        ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(step.line(), lx + fs * 3, yy + fs * 2.6);
+      } else if (r.kind === 'none') {
+        ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText('Nothing pressing. Look around.', lx + 14, yy + rh * 0.65);
+      } else if (r.kind === 'loghead') {
+        ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+        const tx = lx + 20, ty = yy + rh * 0.5, a = fs * 0.28; ctx.beginPath();          // a drawn fold arrow: fonts vary
+        if (state.qlogOpen) { ctx.moveTo(tx - a, ty - a * 0.6); ctx.lineTo(tx + a, ty - a * 0.6); ctx.lineTo(tx, ty + a * 0.7); }
+        else { ctx.moveTo(tx - a * 0.6, ty - a); ctx.lineTo(tx + a * 0.7, ty); ctx.lineTo(tx - a * 0.6, ty + a); }
+        ctx.fill();
+        ctx.fillText(`Log (${r.n})`, lx + 34, yy + rh * 0.66);
+        ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(state.qlogOpen ? 'newest first' : `${K.act} to open`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
+        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; state.qlogOpen = !state.qlogOpen; } });
+      } else {
+        const e = r.e;
+        ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(lx + 16, yy + rh * 0.5); ctx.lineTo(lx + 20, yy + rh * 0.66); ctx.lineTo(lx + 27, yy + rh * 0.3); ctx.stroke();
+        ctx.fillStyle = e.last ? '#b8f28a' : '#fdf6e3'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+        ctx.fillText(e.last && e.q.steps.length > 1 ? `${e.st.name}. ${e.q.name} complete.` : e.last ? `${e.q.name} complete.` : e.st.name, lx + 36, yy + rh * 0.66);
+        ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(`${e.q.name}${e.t != null ? ' \u00b7 ' + clock(e.t) : ''}`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
+      }
+      if (r.kind !== 'loghead') hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; } });
+      yy += rh + gap;
+    }
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+    drawTipMarquee(fs);
+    return;
+  }
   if (tab === 'Map') {
     if (state.inv.journal >= 3) {
       const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
@@ -1321,7 +1370,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 62';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 63';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

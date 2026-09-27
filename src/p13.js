@@ -181,3 +181,74 @@ function drawLamps() {
     ctx.fillStyle = `rgba(255,${200 + 30 * f},${110 + 40 * f},.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.05, u * 0.05, u * 0.11 * f, 0, 0, 6.28); ctx.fill();
   });
 }
+
+// ---------------- the quest log ----------------
+// Each quest is a short chain of steps. A step is done the first time its test passes (after the step before it),
+// and that moment goes into inv.qlog. The Quests tab shows what's current, newest quest first, and a folded log
+// underneath, newest first. Story beats elsewhere stay the source of truth; this only watches them.
+const plantedIn = id => ((rtFor(id).flags.plots) || []).filter(p => p.s === 1).length;
+function campHave() {                                    // raw counted with what's already crafted or built into it
+  const raw = rawOf(), inv = state.inv, known = inv.known || {};
+  const ring = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
+  const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
+  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
+}
+const QUESTS = [
+  { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
+    { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Plant them in Pip's rich soil. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
+  ] },
+  { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
+    { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
+    { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
+    { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
+  ] },
+  { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
+    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },
+  ] },
+  { id: 'beans', name: 'The toad\'s beans', icon: 'bean', start: () => rtFor('m2').flags.metToad || state.inv.beans || state.inv.fire, steps: [
+    { id: 'beans', name: 'Bring the toad beans', line: () => `${state.inv.beans || 0} of ${BEANS} beans.`, done: () => !!state.inv.fire },
+  ] },
+  { id: 'journal', name: 'The stolen journal', icon: 'journal', start: () => state.inv.journal, steps: [
+    { id: 'pages', name: 'Get the journal back', line: () => `Pages: ${state.inv.pages}. The thief runs toward the woods.`, done: () => state.inv.journal >= 3 },
+  ] },
+  { id: 'raft', name: 'Downriver', icon: 'driftwood', start: () => state.inv.raft, steps: [
+    { id: 'build', name: 'Build a raft', line: () => `Driftwood ${state.inv.mats.driftwood}/4, thorns ${state.inv.mats.thorn}/2.`, done: () => state.inv.raft >= 2 },
+    { id: 'ride', name: 'Ride it downriver', line: () => 'The raft waits at the jetty.', done: () => state.inv.raft >= 3 },
+  ] },
+  { id: 'shrooms', name: 'Traveler\'s mushrooms', icon: 'spores', start: () => state.inv.pipSaved || Object.keys(state.inv.shrooms).length > 0, steps: [
+    { id: 'all', name: 'Find the traveler\'s mushrooms', line: () => `${Object.keys(state.inv.shrooms).length} of 6 found.`, done: () => Object.keys(state.inv.shrooms).length >= 6 },
+  ] },
+];
+const QUEST_COLOR = '#ffe38a';
+function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }
+// runs a few times a second; quiet right after a load or a new game, so an old save's progress is filed without fanfare
+function updateQuests(force) {
+  if (ARENA || PUZZLE || !state.inv) return;
+  if (!force && state.time - (state.questT || -9) < 0.25) return;
+  state.questT = state.time;
+  const inv = state.inv, qs = inv.quests || (inv.quests = {}), log = inv.qlog || (inv.qlog = []), quiet = !!state.questQuiet;
+  state.questQuiet = false;
+  const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
+  for (const q of QUESTS) {
+    let s = qs[q.id];
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; if (!quiet) showTitle('New quest', q.name, 'area', 2.6); }
+    while (s.step < q.steps.length && q.steps[s.step].done()) {
+      log.push({ q: q.id, s: q.steps[s.step].id, t });
+      s.step++;
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6); sfx.heart(); } }
+    }
+  }
+}
+// what the tab shows: current objectives (newest quest first) and the log (newest first)
+function questView() {
+  updateQuests(true);
+  const inv = state.inv, qs = inv.quests || {}, cur = [];
+  for (const q of QUESTS) { const s = qs[q.id]; if (s && s.step < q.steps.length) cur.push({ q, s, step: q.steps[s.step] }); }
+  cur.sort((a, b) => (b.s.at ?? -1) - (a.s.at ?? -1) || QUESTS.indexOf(b.q) - QUESTS.indexOf(a.q));
+  const log = (inv.qlog || []).map((e, i) => { const q = QUESTS.find(x => x.id === e.q), st = q && q.steps.find(x => x.id === e.s); return q && st ? { q, st, t: e.t, i, last: st === q.steps[q.steps.length - 1] } : null; }).filter(Boolean).reverse();
+  return { cur, log };
+}
+const clock = t => t == null ? '' : `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;

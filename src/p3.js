@@ -183,6 +183,7 @@ function resetRun(seed) {
   state.area = null; state.seen = {}; state.playTime = 0;
   state.won = false; state.cut = null; state.title = null; state.cam.focus = null; state.menu = null;
   state.night = 0; state.rain = 0;
+  state.questQuiet = true; state.questT = -9; state.qlogOpen = false;
 }
 function newGame() {
   state.busy = true;
@@ -209,6 +210,7 @@ function update(dt) {
   updateTexts(dt);
   if (!state.started) return;
   readPresses();
+  updateQuests();
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }

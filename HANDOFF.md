@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 62, 26 Sep 2026)
+# Quest: handoff notes (as of build 63, 26 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -30,7 +30,8 @@ Ship step (every build): download index.html, then
 - p10.js      puzzle mode (?puzzle): PUZZLES list, portals, records in localStorage 'quest-puzzles'
 - p11.js      drawn hero model (arena only / &model): POSES, drawHeroModel, pose sheet (mirror in arena glade)
 - p12.js      wind ledges, landing shadow, ravines drawing, Wick's jetty (placeDock/drawJetty), shack drawing
-- p13.js      camp building & crafting (RAW, RECIPES, craft mat), lean-to interior, old jetty, STORY flags
+- p13.js      camp building & crafting (RAW, RECIPES, craft mat), lean-to interior, old jetty, STORY flags,
+              quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
 
@@ -45,6 +46,15 @@ Ship step (every build): download index.html, then
   Prompts "F to ..." are replaced by the action ring + label (findInteractable). Text boxes are placed once and fixed (t.pos).
 - Pip: pipSay(key, text, at, sight) says once per key, walks to `at` and waits there until you come over.
 - Story flags: inv.story = STORY.garden(1) -> tocamp(2) -> gather(3) -> adventure(4). campBuilt('fire'|'tent'|'bench').
+- Quests (build 63): QUESTS in p13 = chains of steps {id, name, line(), done()}; a quest opens when start() is true.
+  updateQuests() (4x/s from update) advances steps in order and appends {q, s, t: playTime secs} to inv.qlog, and
+  inv.quests[id] = {at, step, done}. It only watches story state; never drive the story from it. First tick after
+  resetRun (load/new game) is quiet with t null, so old saves backfill without titles. New quest / Quest complete use
+  showTitle(..., 'area') so they wait for speech. Chains: Pip's garden (Gather seeds, Plant seeds, Come back later =
+  first harvest, inv.harvests), Set up camp (Follow Pip, Gather 2 stones/3 sticks/2 fluff counting crafted pieces,
+  Build fire ring, Build bench), then Find Pip, toad's beans, journal, Downriver, mushrooms. Quests tab (main game)
+  is a list: CURRENT (newest quest first, step name, progress line, "step n of m"), then a folded "Log (n)" row,
+  F toggles it, entries newest first with quest and play time. Arena keeps its zone grid in that tab.
 - Keys: arrows move, Space jump, F act/weapon, R swap (hold = wheel), A/S/D quick slots, E fire, M menu.
 - Skills (build 62): inv.skill[id] = {n (uses), hits, lvl}; progress = n + 2*hits crosses SKILLS[id].steps (4 levels);
   each step says SKILLS[id].lines[lvl-1] once, in SKILL_COLOR '#c9a2ff', key 'skill'. Never show numbers. Only 'acorn' is
@@ -60,8 +70,9 @@ Ship step (every build): download index.html, then
 /mnt/user-data/outputs/index.html (or edit the path). Useful ones:
 - t21 full game tour to the rescue  - t57 garden/robin lesson  - t56 opening + camp build  - t59 twilight/forest/hole
 - t42 stepping stones (12 crossings) - t44 rock columns + crags - t51/t52 wind sets & rides - t60 food levels/gusts/HUD
-- t61 quick slots + fixed text - t62 acorn skill (hit rates by level, level-up once, save round trip) - t43 puzzle mode (11 stones) - t47 arena (4 zones) - t33 text overlap - t41 legibility
-- tools/overlap.js: 300 worlds, expects "overlaps 0". tools/shot.js renders PNGs with @napi-rs/canvas (npm i in tools/); SKILL=1 renders the level-up line.
+- t61 quick slots + fixed text - t62 acorn skill (hit rates by level, level-up once, save round trip) - t63 quest chain, log order, fold, old-save backfill - t43 puzzle mode (11 stones) - t47 arena (4 zones) - t33 text overlap - t41 legibility
+- t33 frames-with-overlap baseline: 104 at build 61, 122 at build 63 (quest titles); worst pair/res/off still 0.
+- tools/overlap.js: 300 worlds, expects "overlaps 0". tools/shot.js renders PNGs with @napi-rs/canvas (npm i in tools/); SKILL=1 renders the level-up line, QUESTLOG=1 the Quests tab folded/open.
 Some older tests (t15, t32, t38, t27) are stale after redesigns.
 
 ## Where things are (world)
