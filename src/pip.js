@@ -84,7 +84,7 @@ function placePipNearHero() {
 // Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
 const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
-const PIP_GAP = 8;
+let PIP_GAP = 8;                                    // (a let so the test harness can shorten it)
 const CROP_ROCKS = [3, 2, 2, 1, 1, 0];                   // rocks back and forth before a crop comes up, by farming level (0 = just F)
 const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something

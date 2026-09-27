@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 96, 27 Sep 2026)
+# Quest: handoff notes (as of build 97, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 97: what F does, one handler per thing
+- interact() (interact.js) is now a driver over INTERACTIONS, an ordered list of handlers, each about one kind of
+  thing: interactTalk (paging a conversation), interactHandsFull (a carried rock owns F), interactPickup, interactMirror,
+  interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor,
+  interactBedroll, interactChest, interactBook, interactBuild (camp marks), interactCampfire, interactBench,
+  interactPatches (plant/compost menu, harvest handoff), interactLift (a loose rock). A handler returns true when it
+  used the press, false to stop (hands full, mid-talk), or nothing to pass. The order in the list is the priority.
+  Bodies are the old blocks moved verbatim; nearPull is computed once in the driver and handed to each.
+- PIP_GAP is a `let` now, so the harness (or a test) can shorten Pip's gap between lines.
+- Suite unchanged: 48 of 48.
 
 ## Build 96: tests fast and deterministic
 - tests/harness.js is the one place the browser mocks live; every test starts `const src = require('./harness.js').src;`

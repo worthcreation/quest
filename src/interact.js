@@ -5,22 +5,43 @@
 // =====================================================================
 function npcPos(n) { return [n.fx * W, n.fy * H]; }
 function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : !state.inv.pipSaved); }
+// F does what is here. Each handler looks at one kind of thing and returns true when it used the press (or false to
+// stop: hands full, mid-talk). Falling through means "not mine". INTERACTIONS is the priority order.
+const INTERACTIONS = [interactTalk, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
+  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+  for (const f of INTERACTIONS) { const r = f(sc, h, rt, nearPull); if (r === true || r === false) return r; }
+  return false;
+}
+function interactTalk(sc, h, rt, nearPull) {
   if (state.npcTalk) {
     if (pressedNow.act) advanceTalk();
     return true;
   }
+}
+function interactHandsFull(sc, h, rt, nearPull) {
   if (state.carry) return false;                    // hands full: F belongs to the rock
+}
+function interactPickup(sc, h, rt, nearPull) {
   if (pressedNow.act && pickUpHere()) return true;  // something at your feet: F picks it up (it sparkles harder as you near it)
+}
+function interactMirror(sc, h, rt, nearPull) {
   if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { state.menu = { view: 'poses', sel: 0, note: '' }; sfx.tock(); return true; }
+}
+function interactPortals(sc, h, rt, nearPull) {
   for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
     if (q.pid.startsWith('zone:')) enterZone(q.pid.slice(5)); else enterPuzzle(PUZZLES.find(p => p.id === q.pid));
     return true;
   }
+}
+function interactFishing(sc, h, rt, nearPull) {
   if (state.fish) return true;                      // fishing has the hands
+}
+function interactRiverQuest(sc, h, rt, nearPull) {
   if (riverSideQuest(sc, h)) return true;
-  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+}
+function interactMushroom(sc, h, rt, nearPull) {
   if (sc.feat.shroom) {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
     if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
@@ -53,21 +74,35 @@ function interact() {
       return true;
     }
   }
+}
+function interactPeople(sc, h, rt, nearPull) {
   for (const n of sc.npcs) {
     if (!npcHere(n)) continue;
     const [nx, ny] = npcPos(n), d = Math.hypot(h.x - nx, h.y - ny);
     if (d < UNIT * 3.2) say(`${K.act} to talk`, nx, ny - UNIT * 1.5, { key: 'talk-' + n.kind, tip: 'talk', life: 2.5 });
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
   }
+}
+function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
+}
+function interactBedroll(sc, h, rt, nearPull) {
   if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); say('A quick nap. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
+}
+function interactChest(sc, h, rt, nearPull) {
   if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
+}
+function interactBook(sc, h, rt, nearPull) {
   if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { state.menu = { view: 'book', page: 0 }; sfx.tock(); return true; }
+}
+function interactBuild(sc, h, rt, nearPull) {
   for (const b of sc.feat.buildSpots || []) {
     if (campBuilt(b.piece) || !pressedNow.act || Math.hypot(h.x - b.fx * W, h.y - b.fy * H) > UNIT * (b.r + 0.9)) continue;
     if ((rawOf()[PIECE_OF[b.piece]] || 0) > 0) { placePiece(b); return true; }
     say(`The ${RAW[PIECE_OF[b.piece]].toLowerCase()} goes here.`, b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2 }); return true;
   }
+}
+function interactCampfire(sc, h, rt, nearPull) {
   if (sc.id === 'camp' && campBuilt('fire')) {
     const [fx, fy] = sc.feat.fire, d = Math.hypot(h.x - fx * W, h.y - fy * H);
     if (d < UNIT * 2.2) say(`${K.act} to rest by the fire`, fx * W, fy * H - UNIT * 1.2, { key: 'fire', tip: 'rest', life: 3 });
@@ -78,11 +113,15 @@ function interact() {
       return true;
     }
   }
+}
+function interactBench(sc, h, rt, nearPull) {
   if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
     if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
   }
+}
+function interactPatches(sc, h, rt, nearPull) {
   if (sc.feat.plots && !nearPull) {
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0, lv: sc.feat.plotLv || 0 })));
     let nearestPlot = -1, nd = UNIT * 0.8;              // the patch you're standing on, not just the first one in reach
@@ -132,11 +171,12 @@ function interact() {
       return true;
     }
   }
+}
+function interactLift(sc, h, rt, nearPull) {
   if (!state.carry) {
     const rock = state.items.find(it => it.type === 'bigrock' && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 1.3);
     if (rock && pressedNow.act) { state.items.splice(state.items.indexOf(rock), 1); state.carry = 'rock'; state.carryT = state.time; sfx.lift(); refreshButtons(); return true; }
   } else if (pressedNow.act) { dropRock(); return true; }
-  return false;
 }
 // Farm patches start as a wild tuft of rich earth and can be improved, one step at a time:
 // faster growth, a chance of an extra harvest, a chance to get a seed back.
