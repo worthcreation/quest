@@ -93,7 +93,7 @@ function updateAbilities(dt) {
         const k = Math.min(throwPower(), h.vig <= 1 ? 0.1 : 1), tap = state.aim.t < 0.18;   // spent arms can't throw hard
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
-        else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
+        else if (rock) { state.carry = null; state.noSwingUntil = state.time + 0.4; state.slashBuf = -9; state.hold.on = false; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }   // a throw is only a throw
         else if (spend(0.1 + k * 0.3)) { inv.acorns--; state.slotLit = state.time; launch('acorn', k); refreshButtons(); }
       }
     }

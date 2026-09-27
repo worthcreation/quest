@@ -18,7 +18,7 @@ function updateCombat(dt) {
     if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
     sfx.swoosh(); return;
   }
-  if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
+  if (!bladeKind() || state.pull.grip || h.ride || state.carry || state.time < (state.noSwingUntil || 0)) { if (state.carry) { state.hold.on = false; state.slashBuf = -9; } return; }
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !pullLocked(p) && !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);

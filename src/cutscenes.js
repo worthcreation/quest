@@ -97,7 +97,7 @@ function updateCut(dt) {
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
     if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
-    if (at(9.4) && !state.inv.lantern && !state.items.some(i => i.type === 'lantern')) { const lb = WORLD.tentin.feat.bedroll; state.items.push({ type: 'lantern', x: (lb[0] + 0.06) * W, y: (lb[1] + 0.1) * H }); }   // it's there on the floor by the bedroll
+    // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
   } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;

@@ -261,7 +261,7 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 // breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
-function keystone(sc, bar, at, rope, rU = 0.8, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
+function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
   sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
@@ -472,7 +472,7 @@ function genWorld() {
     // rock puzzles on the way to the sword, one more idea each screen
     if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
                                                      // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
-      barrier(sc, 'crack1', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      barrier(sc, 'crack1', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);   // tight against the edge, past both ends of the opening
       const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
       (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
@@ -482,7 +482,7 @@ function genWorld() {
       keep.push([...k, 3], [...r, 2.5]);
     }
     if (i === 2) {                                   // the boulder pile's keystone sits in the middle of a mud wallow: hit it square, or dig your rock out
-      barrier(sc, 'crack2', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      barrier(sc, 'crack2', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);
       const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null); (sc.mud = sc.mud || []).push([p[0], p[1], 2.3]);
       const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
@@ -500,7 +500,7 @@ function genWorld() {
       const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
       stoneRing(sc, pen, 1.5, gapAng, 0.75);
       const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
-      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
+      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.85);
       pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
       const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null); (sc.mud = sc.mud || []).push([p[0] - 1.6 * UNIT / W, p[1], 1.1]);
       const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
@@ -1809,6 +1809,7 @@ function clampTo(a, r) {
 function collideSolids(a, r) {
   let hit = null;
   for (const o of state.solids) {
+    if (a.type === 'gremlin' && o.kind === 'wedge') continue;   // gremlins slip between the cracks of the boulders
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -2557,7 +2558,7 @@ function updateCombat(dt) {
     if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
     sfx.swoosh(); return;
   }
-  if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
+  if (!bladeKind() || state.pull.grip || h.ride || state.carry || state.time < (state.noSwingUntil || 0)) { if (state.carry) { state.hold.on = false; state.slashBuf = -9; } return; }
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
   const nearPullable = sceneDef().pullables.some(p => !pullLocked(p) && !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
@@ -3376,7 +3377,12 @@ function npcPos(n) { return [n.fx * W, n.fy * H]; }
 function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : !state.inv.pipSaved); }
 // F does what is here. Each handler looks at one kind of thing and returns true when it used the press (or false to
 // stop: hands full, mid-talk). Falling through means "not mine". INTERACTIONS is the priority order.
-const INTERACTIONS = [interactTalk, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+function interactLantern(sc, h) {
+  if (sc.id !== 'tentin' || state.inv.lantern || !state.dusk) return;
+  const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
+  collect({ type: 'lantern', x, y }); return true;
+}
+const INTERACTIONS = [interactTalk, interactLantern, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -3609,6 +3615,7 @@ function findInteractable() {
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
+  if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }
   if (f.book) add(f.book[0] * W, f.book[1] * H, 'Read', 1.6);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
   if (f.plots && !state.carry) {
@@ -3997,7 +4004,7 @@ function updateAbilities(dt) {
         const k = Math.min(throwPower(), h.vig <= 1 ? 0.1 : 1), tap = state.aim.t < 0.18;   // spent arms can't throw hard
         state.aim.on = false; state.aim.t = 0;
         if (rock && tap) dropRock();
-        else if (rock) { state.carry = null; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }
+        else if (rock) { state.carry = null; state.noSwingUntil = state.time + 0.4; state.slashBuf = -9; state.hold.on = false; spend(0.6 + k * 0.8) || true; launch('rock', k); refreshButtons(); }   // a throw is only a throw
         else if (spend(0.1 + k * 0.3)) { inv.acorns--; state.slotLit = state.time; launch('acorn', k); refreshButtons(); }
       }
     }
@@ -4777,7 +4784,7 @@ function updateCut(dt) {
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
     if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
-    if (at(9.4) && !state.inv.lantern && !state.items.some(i => i.type === 'lantern')) { const lb = WORLD.tentin.feat.bedroll; state.items.push({ type: 'lantern', x: (lb[0] + 0.06) * W, y: (lb[1] + 0.1) * H }); }   // it's there on the floor by the bedroll
+    // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
   } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
@@ -6335,7 +6342,7 @@ function draw() {
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
   state.frameNo = (state.frameNo || 0) + 1;
-  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (state.dusk && sc.id === 'tentin') drawCandles(sc); }
+  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } }
   ctx.restore();
   if (state.dusk && sc.area !== 'indoor') {
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(60,40,110,.36)'); g.addColorStop(1, 'rgba(200,100,60,.18)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // twilight
@@ -6364,10 +6371,21 @@ function draw() {
 }
 
 // dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
+const lanternSpot = () => { const b = WORLD.tentin.feat.bedroll; return [(b[0] + 0.07) * W, (b[1] + 0.1) * H]; };
+function drawTentLantern(sc) {
+  if (sc.id !== 'tentin' || state.inv.lantern) return;
+  const [x, y] = lanternSpot(), u = UNIT, lit = !!state.dusk, f = 0.85 + 0.15 * Math.sin(state.time * 11);
+  if (lit) { const g = ctx.createRadialGradient(x, y - u * 0.25, 0, x, y - u * 0.25, u * 2.4 * f); g.addColorStop(0, 'rgba(255,200,120,.35)'); g.addColorStop(1, 'rgba(255,200,120,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.25, u * 2.4 * f, 0, 6.28); ctx.fill(); }
+  ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y - u * 0.52, u * 0.1, Math.PI, 0); ctx.stroke();
+  ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.16, y - u * 0.46, u * 0.32, u * 0.07); ctx.fillRect(x - u * 0.16, y - u * 0.04, u * 0.32, u * 0.07);
+  ctx.fillStyle = lit ? `rgba(255,${190 + 40 * f},90,.95)` : 'rgba(210,200,170,.55)'; ctx.fillRect(x - u * 0.12, y - u * 0.39, u * 0.24, u * 0.35);   // glass: glowing, or dull by day
+  ctx.fillStyle = lit ? '#fff4c0' : '#efe6d2'; ctx.fillRect(x - u * 0.03, y - u * 0.26, u * 0.06, u * 0.15);   // the candle inside
+}
 function drawCandles(sc) {
   const f = sc.feat, spots = [f.book && [f.book[0] + 0.03, f.book[1] - 0.02], f.chest && [f.chest[0] - 0.03, f.chest[1] - 0.03], f.bedroll && [f.bedroll[0] + 0.07, f.bedroll[1] - 0.05]].filter(Boolean);
   spots.forEach(([fx, fy], i) => {
     const x = fx * W, y = fy * H, u = UNIT, fl = 0.8 + 0.12 * Math.sin(state.time * (9 + i * 2)) + 0.08 * Math.sin(state.time * (23 + i * 5));
+    if (!state.dusk) { ctx.fillStyle = '#efe6d2'; ctx.fillRect(x - u * 0.06, y - u * 0.3, u * 0.12, u * 0.3); ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - u * 0.01, y - u * 0.36, u * 0.02, u * 0.06); return; }   // unlit by day
     const g = ctx.createRadialGradient(x, y - u * 0.35, 0, x, y - u * 0.35, u * 2.2 * fl); g.addColorStop(0, 'rgba(255,200,120,.32)'); g.addColorStop(1, 'rgba(255,200,120,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.35, u * 2.2 * fl, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#efe6d2'; ctx.fillRect(x - u * 0.06, y - u * 0.3, u * 0.12, u * 0.3);
@@ -6932,11 +6950,10 @@ function drawSolid(s) {
       ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
       break;
-    case 'wedge': {                                // boulders heaped and wedged against each other, moss in the cracks
-      const k = Math.abs(Math.sin(x * 7.1 + y * 3.3));
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.15, r * 0.42, 0, 0, 6.28); ctx.fill();
-      drawRock(x - r * 0.25, y + r * 0.1, r * (0.95 + k * 0.2)); drawRock(x + r * 0.35, y - r * 0.15, r * (0.8 + k * 0.15));
-      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y - r * 0.05, r * 0.28, r * 0.12, 0.4, 0, 6.28); ctx.fill();
+    case 'wedge': {                                // one big irregular boulder each, jammed against its neighbours; moss in the joins
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+      drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
+      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
       break;
     }
     case 'log':                                    // a heavy log braced across the way
@@ -6948,7 +6965,7 @@ function drawSolid(s) {
     case 'wall': break;                                // the room draws its own walls
     case 'cracked': {
       if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
-      drawRock(x, y, r * 1.05);
+      drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64']);   // big, faceted, rough: nothing like a smooth throwing stone
       const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
       if (ST) { ctx.fillStyle = ST.tint; ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.ellipse(x, y - r * 0.1, r * 0.95, r * 0.75, 0, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1; }
       if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
@@ -7116,9 +7133,18 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
   drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
-  else if (bladeKind() && !(state.cut && state.cut.type === 'sword' && !state.inv.sword)) drawSword(h, pw, ph, y, heroic);
+  else if (bladeKind() && !state.carry && state.time >= (state.noSwingUntil || 0) && !(state.cut && state.cut.type === 'sword' && !state.inv.sword)) drawSword(h, pw, ph, y, heroic);   // both hands on a stone: the blade's put away
 }
 // the steel blade on its own (honing level given), so the stump sword and the sword in hand look the same
+// a big rough stone: an irregular outline of flat facets (seeded so it holds still), a lit face and a shadowed face
+function drawJagged(x, y, r, seed, [mid, lit, dark]) {
+  let s = Math.abs(Math.floor(seed * 1000)) % 233280; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const n = 9, pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.28 + (rnd() - 0.5) * 0.35, rr = r * (0.78 + rnd() * 0.32); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.82]); }
+  ctx.fillStyle = mid; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = lit; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 5; i <= 8; i++) ctx.lineTo(pts[i % n][0], pts[i % n][1]); ctx.lineTo(pts[0][0], pts[0][1]); ctx.closePath(); ctx.fill();   // the top-left faces catch the light
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 1; i <= 3; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(40,34,28,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.stroke();
+}
 function drawSteelBlade(len, w, edge) {
   ctx.fillStyle = ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, edge)]; ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
@@ -7217,9 +7243,13 @@ function drawPullable(sc, pl) {
       const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
       ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
       if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
-      const rise = p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0;
+      const loose = mud ? false : !!rtFor(sc.id).flags['knocked_' + pl.id];
+      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.14 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
+      const lean = loose ? -0.38 : 0;                                                                                    // and sits at a tilt
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
-      ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt); drawRock(0, 0, UNIT * 0.72); ctx.restore();
+      ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt + lean); drawRock(0, 0, UNIT * 0.72); ctx.restore();
+      if (!loose && !mud) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
+      if (loose) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x + UNIT * 0.35, y + UNIT * 0.28, UNIT * 0.22, UNIT * 0.08, 0, 0, 6.28); ctx.fill(); }   // the gap the stomp opened
       ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
       if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
       else { ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14); }   // a few grass blades at the rim
@@ -7433,7 +7463,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 109';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 110';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

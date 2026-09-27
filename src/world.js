@@ -204,7 +204,7 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 // breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
-function keystone(sc, bar, at, rope, rU = 0.8, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
+function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
   sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
@@ -415,7 +415,7 @@ function genWorld() {
     // rock puzzles on the way to the sword, one more idea each screen
     if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
                                                      // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
-      barrier(sc, 'crack1', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      barrier(sc, 'crack1', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);   // tight against the edge, past both ends of the opening
       const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
       (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
@@ -425,7 +425,7 @@ function genWorld() {
       keep.push([...k, 3], [...r, 2.5]);
     }
     if (i === 2) {                                   // the boulder pile's keystone sits in the middle of a mud wallow: hit it square, or dig your rock out
-      barrier(sc, 'crack2', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      barrier(sc, 'crack2', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);
       const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null); (sc.mud = sc.mud || []).push([p[0], p[1], 2.3]);
       const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
@@ -443,7 +443,7 @@ function genWorld() {
       const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
       stoneRing(sc, pen, 1.5, gapAng, 0.75);
       const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
-      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
+      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.85);
       pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
       const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null); (sc.mud = sc.mud || []).push([p[0] - 1.6 * UNIT / W, p[1], 1.1]);
       const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);

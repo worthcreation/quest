@@ -7,7 +7,12 @@ function npcPos(n) { return [n.fx * W, n.fy * H]; }
 function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : !state.inv.pipSaved); }
 // F does what is here. Each handler looks at one kind of thing and returns true when it used the press (or false to
 // stop: hands full, mid-talk). Falling through means "not mine". INTERACTIONS is the priority order.
-const INTERACTIONS = [interactTalk, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+function interactLantern(sc, h) {
+  if (sc.id !== 'tentin' || state.inv.lantern || !state.dusk) return;
+  const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
+  collect({ type: 'lantern', x, y }); return true;
+}
+const INTERACTIONS = [interactTalk, interactLantern, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -240,6 +245,7 @@ function findInteractable() {
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
+  if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }
   if (f.book) add(f.book[0] * W, f.book[1] * H, 'Read', 1.6);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
   if (f.plots && !state.carry) {

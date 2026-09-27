@@ -53,6 +53,18 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
+if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
+if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B110) {                            // build 110: the boulder barrier and a cracked stone in w1; the buried rock flat then tilted; the tent lantern
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  console.log('b110 start'); state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(5); console.log('ran'); state.texts=[]; state.title=null;
+  const k1=sceneDef().solids.find(s=>s.bar==='crack1'&&s.kind==='cracked'); state.hero.x=k1.fx*W-UNIT*3; state.hero.y=k1.fy*H; run(3); state.texts=[]; console.log('w1 ok'); draw(); fs.writeFileSync('/tmp/b110-w1.png', canvas.toBuffer('image/png'));
+  enterScene('start'); run(3); const rock=sceneDef().pullables.find(p=>p.id==='rock'); state.hero.x=rock.fx*W-UNIT*1.6; state.hero.y=rock.fy*H; run(3); console.log('start ok'); state.texts=[]; draw(); fs.writeFileSync('/tmp/b110-flat.png', canvas.toBuffer('image/png'));
+  rtFor('start').flags.knocked_rock=true; run(2); draw(); fs.writeFileSync('/tmp/b110-tilt.png', canvas.toBuffer('image/png'));
+  enterScene('tentin'); run(3); console.log('tent ok'); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b110-tent-day.png', canvas.toBuffer('image/png')); state.dusk=true; run(3); state.texts=[]; draw(); fs.writeFileSync('/tmp/b110-tent-dusk.png', canvas.toBuffer('image/png'));
+  console.log('b110 written');
+}
 if (process.env.B108) {                            // build 108: the spore swirl on the way home, the stump sword rising
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; state.dusk=true; enterScene('c7'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;

@@ -384,6 +384,7 @@ function clampTo(a, r) {
 function collideSolids(a, r) {
   let hit = null;
   for (const o of state.solids) {
+    if (a.type === 'gremlin' && o.kind === 'wedge') continue;   // gremlins slip between the cracks of the boulders
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;

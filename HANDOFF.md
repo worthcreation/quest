@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 109, 27 Sep 2026)
+# Quest: handoff notes (as of build 110, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,23 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 110: stones, barriers, the tent lantern
+- The lantern is a fixture by Pip's bed from the start (drawTentLantern, lanternSpot): unlit glass by day, lit with the
+  candles at twilight (candles are unlit stubs by day). At twilight F takes it (interactLantern, hint "Take lantern").
+  The dusk scene no longer drops a lantern item.
+- Throwing a carried stone never swings: the blade is put away while you carry (not drawn), and a throw clears the
+  press and holds off swings for 0.4 s (state.noSwingUntil).
+- Buried rocks: flush with the soil at first (a round back and a packed rim showing); once stomped loose they pop up
+  and sit tilted with a gap beside them (drawPullable).
+- Breakable (cracked) stones and barrier boulders are drawn with drawJagged: big, irregular, faceted, lit and shadowed
+  faces, nothing like a smooth throwing stone. Keystones 1.0 tiles, practice stones 0.7, barrier boulders 0.85, thrown
+  rocks 0.6.
+- Barriers: one big irregular boulder per solid, set tight against the edge (x 0.968) and past both ends of the
+  opening (+-0.08), so an unbroken barrier can't be slipped round (stones test: 0 of 14 walks got through). No log or
+  stone-row barriers remain.
+- Gremlins slip through the barrier boulders (collideSolids skips 'wedge' for gremlins).
+- Test: stones (new). 54 of 54. (Note for scripts: WORLD solids have fx/fy; state.solids have x/y.)
 
 ## Build 109: R is the only swap; the journal quest starts in the morning
 - R (actions.js): press it and the wheel opens on the key you last used (state.lastSlot: set by A/S/D presses and by F
