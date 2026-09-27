@@ -1,22 +1,4 @@
-const src=require('fs').readFileSync(require('path').join(__dirname,'..','index.html'),'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
-const noop=()=>{}; const grad={addColorStop:(o,c)=>{ if(!(o>=0&&o<=1)) throw new Error('colorstop offset '+o); if(/NaN|undefined|Infinity/.test(String(c))) throw new Error('bad color '+c); }};
-const chk=(name,vals)=>{ for(const v of vals) if(!(isFinite(v))) throw new Error(name+' non-finite '+vals.join(',')); };
-const mkctx=()=>new Proxy({},{get:(t,k)=>{ if(k in t) return t[k];
- if(k==='measureText') return (s)=>({width:s.length*8});
- if(k==='arc') return (x,y,r)=>{ chk('arc',[x,y,r]); if(r<0) throw new Error('arc negative radius '+r); };
- if(k==='ellipse') return (x,y,rx,ry)=>{ chk('ellipse',[x,y,rx,ry]); if(rx<0||ry<0) throw new Error('ellipse negative radius '+rx+','+ry); };
- if(k==='createRadialGradient') return (x0,y0,r0,x1,y1,r1)=>{ chk('radial',[x0,y0,r0,x1,y1,r1]); if(r0<0||r1<0) throw new Error('radial negative '+r0+','+r1); return grad; };
- if(k==='createLinearGradient') return (a,b,c,d)=>{ chk('linear',[a,b,c,d]); return grad; };
- if(k==='addColorStop') return noop;
- if(k.startsWith('create')) return ()=>grad; return noop; },set:(t,k,v)=>(t[k]=v,true)});
-const el=()=>({addEventListener:noop,getContext:mkctx,remove:noop,style:{},classList:{toggle:noop},dataset:{}});
-const P=()=>{const param={value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){},setTargetAtTime(){},cancelScheduledValues(){}};
- return new Proxy({},{get:(t,k)=>{ if(k in t) return t[k]; if(['gain','frequency','Q','pan'].includes(k)) return t[k]=param; if(k==='connect') return (n)=>n||P(); if(k==='getChannelData') return ()=>new Float32Array(10); return ()=>P(); }, set:(t,k,v)=>(t[k]=v,true)});};
-class AC{constructor(){this.currentTime=0;this.sampleRate=100;this.state='running';this.destination=P();} createGain(){return P()} createOscillator(){return P()} createBufferSource(){return P()} createBiquadFilter(){return P()} createStereoPanner(){return P()} createBuffer(){return P()} resume(){}}
-global.document={getElementById:el,querySelectorAll:()=>[],createElement:el,documentElement:{},addEventListener:noop};
-global.window={AudioContext:AC,innerWidth:1280,innerHeight:800,devicePixelRatio:1,addEventListener:noop,matchMedia:()=>({matches:false})};
-const store={}; global.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v)}};
-global.setTimeout=(f)=>{f()}; global.setInterval=noop; global.requestAnimationFrame=noop; global.performance={now:()=>0};
+const src = require('./harness.js').src;
 eval(src+`;
 begin();
 let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }catch(e){ errs++; if(errs<6) console.log('ERR', state.scene, e.message, String(e.stack).slice(0,300)); return; } } };
@@ -55,7 +37,7 @@ walkTo(UNIT*0.6, H*0.5); state.keys.arrowleft=true; run(90); state.keys.arrowlef
 console.log('17 back in the meadow, Pip back at the garden:', state.scene, state.pip&&state.pip.atGarden);
 while(spoken().length){ press('f'); run(5); }
 // robin: turnip seeds
-let tries=0; const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return false; tries++; const b=state.bird; walkTo(b.x, b.y+UNIT*1.2); run(30); const sd=state.items.find(i=>i.type==='turnipseed'); if(sd){ walkTo(sd.x, sd.y); run(5); for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f'); const dd=(Math.hypot(h.x-sd.x,h.y-sd.y)/UNIT).toFixed(2); press('f'); run(3); if(!state.inv.bag.turnipseed) console.log('   dbg: at', dd, 'tiles, atFeet', !!itemAtFeet(), 'held', state.texts.filter(t=>t.hold).length, 'visit', !!(state.pip&&state.pip.visit), 'choice', !!state.choice, 'menu', !!state.menu); return true;} return false; };
+let tries=0; const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return false; tries++; const b=state.bird; walkTo(b.x, b.y+UNIT*1.2); run(30); const sd=state.items.find(i=>i.type==='turnipseed'); if(sd){ h.x=sd.x+UNIT*0.9; h.y=sd.y; run(2); walkTo(sd.x, sd.y); run(5); for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f'); press('f'); run(3); return true;} return false; };
 tryRobin(); console.log('18 first startle drops turnip seeds:', state.inv.bag.turnipseed, 'firstBirdSeed', state.inv.firstBirdSeed, 'items', state.items.map(i=>i.type).join(','), '| no plain seed item', !state.items.some(i=>i.type==='seed'));
 const plantOne=()=>{ const rt=rtFor('meadow'), plots=WORLD.meadow.feat.plots; const j=plots.findIndex((q,ix)=>!((rt.flags.plots||[])[ix]||{}).s); const q=plots[j]; walkTo(q[0]*W,q[1]*H); run(3); while(spoken().length){ press('f'); run(5); } press('f'); if(state.choice) press('f'); run(30); };
 plantOne(); console.log('19 planted with the seed slot key ('+(seedSlotKey()||'-')+'):', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, 'seed kind', (rtFor('meadow').flags.plots||[]).find(p=>p.s)?.seed);

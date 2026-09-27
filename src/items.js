@@ -210,6 +210,17 @@ function relicMoment(type, x, y) {
 const TOUCH_PICKUP = new Set(['spore', 'spores7', 'wisp']);
 const PICK_R = 1.15;                                     // tiles: how close F reaches for something on the ground
 // the thing on the ground F would pick up right now (nearest, within reach), or null
+// a dropped thing must be reachable: if it would land inside a tree or rock, it's nudged out past the edge
+function freeItemSpot(it) {
+  for (let k = 0; k < 8; k++) {
+    const s = state.solids.find(o => o.kind !== 'shroom' && Math.hypot(o.x - it.x, o.y - it.y) < o.r + UNIT * 0.35);
+    if (!s) break;
+    const dx = it.x - s.x, dy = it.y - s.y, d = Math.hypot(dx, dy) || 1, r = s.r + UNIT * 0.45;
+    it.x = s.x + (d < 1e-3 ? 0 : dx / d) * r; it.y = s.y + (d < 1e-3 ? 1 : dy / d) * r;
+  }
+  it.x = Math.max(UNIT * 0.6, Math.min(W - UNIT * 0.6, it.x)); it.y = Math.max(UNIT * 0.6, Math.min(H - UNIT * 0.6, it.y));
+  return it;
+}
 function itemAtFeet() {
   const h = state.hero;
   if (h.z > 0 || state.carry) return null;

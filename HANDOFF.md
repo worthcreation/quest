@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 95, 27 Sep 2026)
+# Quest: handoff notes (as of build 96, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 96: tests fast and deterministic
+- tests/harness.js is the one place the browser mocks live; every test starts `const src = require('./harness.js').src;`
+  (the ?arena / ?puzzle tests set global.location first). It seeds Math.random (mulberry32, HARNESS_SEED to vary) and
+  fixes the world seed (?seed=1000003, WORLD_SEED to vary), so a test does exactly the same thing every run.
+- Drawing was ~70% of test time. draw.js has `let DRAW_SCENE_STRIDE = 1`; the harness sets it to 4 in the source it
+  hands the test, so the world layer is drawn every 4th frame while HUD, text boxes, hints and menus still draw every
+  frame (FULL_DRAW=1 restores everything). Suite: 75 s, was about 4 minutes. run.js skips harness.js.
+- The determinism caught the "seed on the ground you can't pick up" flake: the robin sometimes dropped its seed inside
+  the hollow tree's trunk, out of reach. freeItemSpot (items.js) nudges a dropped thing out of any solid; the robin's
+  drop uses it. The garden tests also step next to an item before walking onto it (walkTo has no pathfinding).
+- Open (harness-only): a few tests still time gaps in real seconds (PIP_GAP is a const 8); if the reminder tests ever
+  need to go faster, make PIP_GAP a `let` and set it from the harness.
 
 ## Build 95: Pip's remaining lines as data, and design pages
 - PIP_LINES (tutorial.js, after TUTORIAL): every non-tutorial Pip line (compost, chest, pounding, the tent book, the

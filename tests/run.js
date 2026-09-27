@@ -2,7 +2,7 @@
 // (and the last line it printed). Exit code 1 if any test errored or crashed. Usage: node tests/run.js [name ...]
 const fs = require('fs'), path = require('path'), { execFileSync } = require('child_process');
 const dir = __dirname, pick = process.argv.slice(2);
-const files = fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'run.js' && (!pick.length || pick.some(p => f.startsWith(p)))).sort();
+const files = fs.readdirSync(dir).filter(f => f.endsWith('.js') && f !== 'run.js' && f !== 'harness.js' && (!pick.length || pick.some(p => f.startsWith(p)))).sort();
 let bad = 0;
 for (const f of files) {
   let out = '', ok = true;

@@ -17,6 +17,7 @@ const BRANCHES = [
   [[0.6, -1.3, 0.7, 0], [0.62, 1.2, 0.55, 1], [0.92, -0.5, 0.3, 1]],
 ];
 
+let DRAW_SCENE_STRIDE = 1;                             // tests set this higher: the world is drawn every Nth frame, the UI every frame
 function draw() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
@@ -24,7 +25,8 @@ function draw() {
   ctx.save();
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
-  drawScene(sc);
+  state.frameNo = (state.frameNo || 0) + 1;
+  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) drawScene(sc);
   ctx.restore();
   if (state.dusk && sc.area !== 'indoor') {
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(60,40,110,.36)'); g.addColorStop(1, 'rgba(200,100,60,.18)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // twilight
@@ -1090,7 +1092,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 95';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 96';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

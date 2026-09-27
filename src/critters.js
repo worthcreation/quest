@@ -464,7 +464,7 @@ function scareBird(x, y, range) {
   const lesson = state.inv.story === STORY.garden;
   let drop = Math.random() < (lesson ? 0.8 : 0.4);            // doubled during Pip's garden lesson
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
-  if (drop) { state.items.push({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
+  if (drop) { state.items.push(freeItemSpot({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 })); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
   else if (lesson && state.pip && state.pip.show && !speakingNow()) {
     const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
   }

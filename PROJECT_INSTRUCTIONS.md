@@ -13,4 +13,4 @@ Design rules to keep: gusts come in sets of three (two gentle, one strong), only
 Story so far: opens on the old jetty mid-conversation (free to wander, exits closed until Pip's three lines are read and Pip heads south), Pip waits by the garden, robin seed lesson (first drop guaranteed), plant two seeds (quest: Pip's garden), Pip leads to the camp spot (quest: Set up camp; lean-to already up), gather river stones / forest sticks / rabbit fluff with Pip saying what's still needed, craft glue then fire ring and workbench on the mat (2 slots, then 3), twilight scene by lantern light in the lean-to, forest map run at dusk, gremlins take Pip down a small weird hole, smash it open with a rock, sword at w3, hidden to the hilt in a stump, with a slow, bright reveal. Pip and the gremlins can be chased during the abduction; they hop clear every time.
 
 
-Source lives in src/ by topic (see src/ORDER); build with sh build.sh; run node tests/run.js before shipping.
+Source lives in src/ by topic (see src/ORDER); build with sh build.sh; run node tests/run.js before shipping (about 75 s, deterministic: seeded randomness and a fixed world seed via tests/harness.js).
