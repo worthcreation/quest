@@ -45,9 +45,9 @@ function draw() {
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
   drawTexts();
   drawChoice();
+  drawCoach();                                          // quest info first, so a banner always sits on top of it
   drawTitle();
-  if (state.menu) drawMenu();
-  drawCoach();
+  if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
 }
 
 // dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
@@ -1104,7 +1104,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 98';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 99';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

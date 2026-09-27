@@ -53,6 +53,12 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B99) {                             // build 99: a quest banner with the quest HUD and the pinned step under it
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; enterScene('camp'); state.cut=null; run(5); state.texts=[]; state.title=null;
+  updateQuests(true); state.coach={id:'sword',i:1,t:0}; rawOf().stick=3; showTitle('Set up camp','a new quest','herald',3.6); state.title.t=1.2; run(3); draw();
+  fs.writeFileSync('/tmp/b99.png', canvas.toBuffer('image/png')); console.log('b99 written');
+}
 if (process.env.B98) {                             // build 98: craft columns, the coach note, the book's map pages, candles at dusk, the ring's stones
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; inv.pipTips.craftLesson=true;

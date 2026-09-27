@@ -663,12 +663,14 @@ function heraldImage(T) {
   return c;
 }
 // the coached step: a small fixed note at the top, over everything (the pack too), until you've done it
+// while a quest banner is up, the y just below it (quest info sits there); otherwise null
+function bannerBelow() { const b = state.bannerRect; return b && state.title && state.title.style === 'herald' && state.time - b.at < 0.2 ? b.y + b.h + 8 : null; }
 function drawCoach() {
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = 8 - (1 - k) * 10;
+  const B = bannerBelow(), label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = (B || 8) - (1 - k) * 10;   // under a banner, never over it
   ctx.globalAlpha = 0.6 + 0.4 * k;
   ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
   ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
@@ -688,7 +690,8 @@ function drawTitle() {
     const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * x * (x * (x * 6 - 15) + 10); };   // smootherstep
     const fin = smooth(k / 0.9), unfurl = smooth(k / 0.75), fout = smooth((T.life - k) / 1.1), a = Math.min(fin, fout);
     const drift = (1 - fin) * UNIT * 0.5 - (1 - fout) * UNIT * 0.35;
-    const dw = img.width / img.dpr, dh = img.height / img.dpr, x = W / 2 - dw / 2, y = H * 0.27 - dh / 2 + drift;
+    const dw = img.width / img.dpr, dh = img.height / img.dpr, x = W / 2 - dw / 2, y = Math.max(8, H * 0.18 - dh / 2) + drift;   // the banner owns the top; quest info goes under it
+    state.bannerRect = { x, y, w: dw, h: dh, at: state.time };
     const vis = Math.max(1, img.width * unfurl), sx = (img.width - vis) / 2;           // the ribbon unrolls from the middle out
     ctx.globalAlpha = a;
     ctx.drawImage(img, sx, 0, vis, img.height, x + sx / img.dpr, y, vis / img.dpr, dh);

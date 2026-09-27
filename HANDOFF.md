@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 98, 27 Sep 2026)
+# Quest: handoff notes (as of build 99, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,11 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 99: quest info under banners
+- The quest banner sits at the top (H * 0.18) and records state.bannerRect; while one is up, bannerBelow() gives the y
+  just under it, and the pinned coach note and the quest HUD move down there. Draw order puts the banner on top of
+  both (drawCoach runs before drawTitle; inside the pack it's drawn again over the menu). tools/shot.js B99=1.
 
 ## Build 98: camp built piece by piece, the camp tour, coached steps, craft columns, twilight
 - Camp parts (craft.js): CAMP_PARTS (fire: 5 stones then tinder; bench: 2 frames), campParts() in rtFor('camp').flags.parts,

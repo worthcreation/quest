@@ -5737,7 +5737,7 @@ function drawQuestHud() {
   for (const d of done) rows.unshift({ icon: d.q.icon, name: `${d.q.name} complete`, line: '', glow: questGlow(d.t), done: true, fade: Math.min(1, (Q_DONE - (state.time - d.t)) / 1.5), t: d.t });
   if (!rows.length) return;
   const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
-  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;
+  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = Math.max(12, bannerBelow() || 0);   // pushed under a quest banner while one is up
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
   let wmin = 0;
   for (const r of rows) {
@@ -6280,9 +6280,9 @@ function draw() {
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
   drawTexts();
   drawChoice();
+  drawCoach();                                          // quest info first, so a banner always sits on top of it
   drawTitle();
-  if (state.menu) drawMenu();
-  drawCoach();
+  if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
 }
 
 // dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
@@ -7339,7 +7339,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 98';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 99';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8227,12 +8227,14 @@ function heraldImage(T) {
   return c;
 }
 // the coached step: a small fixed note at the top, over everything (the pack too), until you've done it
+// while a quest banner is up, the y just below it (quest info sits there); otherwise null
+function bannerBelow() { const b = state.bannerRect; return b && state.title && state.title.style === 'herald' && state.time - b.at < 0.2 ? b.y + b.h + 8 : null; }
 function drawCoach() {
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = 8 - (1 - k) * 10;
+  const B = bannerBelow(), label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = (B || 8) - (1 - k) * 10;   // under a banner, never over it
   ctx.globalAlpha = 0.6 + 0.4 * k;
   ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
   ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
@@ -8252,7 +8254,8 @@ function drawTitle() {
     const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * x * (x * (x * 6 - 15) + 10); };   // smootherstep
     const fin = smooth(k / 0.9), unfurl = smooth(k / 0.75), fout = smooth((T.life - k) / 1.1), a = Math.min(fin, fout);
     const drift = (1 - fin) * UNIT * 0.5 - (1 - fout) * UNIT * 0.35;
-    const dw = img.width / img.dpr, dh = img.height / img.dpr, x = W / 2 - dw / 2, y = H * 0.27 - dh / 2 + drift;
+    const dw = img.width / img.dpr, dh = img.height / img.dpr, x = W / 2 - dw / 2, y = Math.max(8, H * 0.18 - dh / 2) + drift;   // the banner owns the top; quest info goes under it
+    state.bannerRect = { x, y, w: dw, h: dh, at: state.time };
     const vis = Math.max(1, img.width * unfurl), sx = (img.width - vis) / 2;           // the ribbon unrolls from the middle out
     ctx.globalAlpha = a;
     ctx.drawImage(img, sx, 0, vis, img.height, x + sx / img.dpr, y, vis / img.dpr, dh);
