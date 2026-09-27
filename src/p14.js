@@ -162,6 +162,12 @@ function drawShroomRipples(x, y, u, found, key) {
 // into an empty slot on their own (weapons into F first); a full bar is never overwritten, you're pointed
 // to R instead. One list of what can be slotted (slotOptions) feeds the wheel, the pack and auto-equip.
 // =====================================================================
+// Lanes: each key has a job, so things land somewhere you can guess. F: act, and your blade. D: things you throw
+// (acorns). S: things you use up or call on (food, abilities). A: seeds. Tap a key to use it; hold A or S to pick
+// which of that kind it holds (a wheel, the world slowed). Anything can still go anywhere from the pack or R.
+const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Seeds' };
+function laneOf(e) { return e.kind === 'seed' ? 'a' : e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }
+const laneOptions = k => slotOptions().filter(e => laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
 const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
@@ -237,10 +243,10 @@ function tidySlots() {
     if (seen[key]) continue;
     seen[key] = true;
     if (slotOf(e)) continue;
-    const order = e.kind === 'weapon' ? ['f', 'a', 's', 'd'] : ['a', 's', 'd'];
+    const order = [laneOf(e)];                                                  // only its own key (lanes): F stays for blades, D for throws
     const k = order.find(j => !sl[j]);
     if (k) { setSlot(k, e); changed = true; }
-    else if (!state.tipsSeen.slotsFull && !ARENA && !PUZZLE) {        // never overwrite: show the way to swap instead
+    else if (false) {                                                  // its key is taken: it waits in the pack; holding that key picks between them
       state.tipsSeen.slotsFull = true;
       sayHero(`Your slots are full. Hold ${K.swap.toUpperCase()} and press a slot key to swap, or use the pack (${K.menu.toUpperCase()}).`, { life: 5, color: '#ffe38a' });
     }

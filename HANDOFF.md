@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 88, 27 Sep 2026)
+# Quest: handoff notes (as of build 89, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 89 in short
+- Lanes (p14 laneOf / laneOptions / LANE_NAME): F = act + blade (sword, wooden sword), D = throw (acorns), S = use
+  (food, abilities), A = seeds. New things auto-equip only into their own key, and only if it's empty; a second food or
+  seed waits in the pack. Anything can still be put anywhere from the pack or R + key.
+- A and S: a tap uses on release; holding past 0.22 s opens that lane's wheel (state.radial.lane, world slowed), steer
+  with the arrows, let go of the key to put the highlighted one there (updateAbilities, p6). D still uses on press
+  (holding D aims a throw). A one-time line explains tap vs hold when a lane first has a choice. Book page "Your keys".
+- QWER as a second row is not built; the lanes leave room for it (same lanes, a second choice each).
+- Tests: t89.
 
 ## Build 88 in short
 - Thrown rocks can bury themselves anywhere on soft ground, not only in mud: a 20% chance on EARTHEN areas (forest,

@@ -1594,11 +1594,11 @@ function drawRadial() {
   const sel = r.opts[r.sel], fs = Math.round(Math.max(14, UNIT * 0.45));
   ctx.textAlign = 'center'; ctx.font = `bold ${fs}px "Courier New", monospace`;
   ctx.fillStyle = r.slot ? '#9fd4ff' : 'rgba(253,246,227,.75)';
-  ctx.fillText(r.slot ? `Set ${slotLabel(r.slot)}` : 'Use now', sx, sy - fs * 0.7);
+  ctx.fillText(r.slot ? `${r.lane ? LANE_NAME[r.slot] + ': ' : 'Set '}${slotLabel(r.slot)}` : 'Use now', sx, sy - fs * 0.7);
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 88';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 89';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

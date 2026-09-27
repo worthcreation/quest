@@ -527,7 +527,31 @@ function advanceTalk() {
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
   let wantDodge = false;
-  if (!state.radial && state.swapT == null) for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  // A and S: a tap uses what's there (on release, so a hold can mean something else); a hold opens that lane's wheel.
+  // D uses on press as before (holding D aims a throw).
+  const LH = state.laneHold || (state.laneHold = {});
+  if (state.swapT == null) for (const k of ['a', 's']) {
+    const act = SLOT_ACTION[k], down = held[act]();
+    if (pressedNow[act] && !state.radial) LH[k] = { t0: state.time, open: false };
+    const L = LH[k]; if (!L) continue;
+    if (down && !L.open && state.time - L.t0 > 0.22 && laneOptions(k).length) {
+      L.open = true; const cur = laneOptions(k).findIndex(e => sameEntry(e, slotsOf()[k]));
+      state.radial = { slot: k, lane: true, opts: laneOptions(k), sel: Math.max(0, cur) }; sfx.tock();
+    }
+    if (!down) {
+      if (L.open && state.radial && state.radial.lane) { applyRadial(state.radial); state.radial = null; }
+      else if (!L.open && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+      LH[k] = null;
+    }
+  }
+  for (const k of ['a', 's']) if (laneOptions(k).length >= 2 && !state.tipsSeen['lane' + k]) {   // once you have a choice, say how to make it
+    state.tipsSeen['lane' + k] = true; sayHero(`Tap ${slotLabel(k)} to ${k === 'a' ? 'plant' : 'use'}. Hold ${slotLabel(k)} to pick which ${k === 'a' ? 'seeds' : 'one'}.`, { life: 4.5, color: '#ffe38a' });
+  }
+  if (state.radial && state.radial.lane) {                 // steering the lane wheel
+    let x = 0, y = 0; if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1;
+    const R = state.radial; if (x || y) { const n = R.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); R.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
+  }
+  if (!state.radial && state.swapT == null && pressedNow[SLOT_ACTION.d] && !state.actUsed) { const r = useSlot('d'); if (r === 'dodge') wantDodge = true; }
   if (state.fSlotAbility === 'dodge') wantDodge = true;              // F holding the dodge
   state.fSlotAbility = null;
   if (wantDodge && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
@@ -538,7 +562,7 @@ function updateAbilities(dt) {
   }
   // R: tap steps F through your weapons; hold opens the wheel of consumables (the world all but stops);
   // while holding, A/S/D/F switches the wheel to everything that could go in that slot. Point, then let go of R.
-  if (pressedNow.swap && !state.carry) state.swapT = state.time;
+  if (pressedNow.swap && !state.carry && !(state.radial && state.radial.lane)) state.swapT = state.time;
   if (state.swapT != null) {
     if (held.swap()) {
       const pick = ALL_SLOTS.find(k => pressedNow[SLOT_ACTION[k]]);
@@ -1895,6 +1919,7 @@ function updateChest(m) {
 const BOOK_PAGES = () => [
   { title: 'Pip\'s Rules', bits: [['carrot', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
   { title: 'Getting about', bits: [['arrows', TOUCH ? 'Walk with the pad.' : 'Arrows walk.'], ['jump', `${keyName(K.jump)} jumps.`], ['goldf', `${K.act.toUpperCase()} does what the gold label says.`]] },
+  { title: 'Your keys', bits: [['goldf', `${K.act.toUpperCase()}: do things, swing your blade.`], ['compost', `${slotLabel('d')}: throw acorns.`], ['snack', `${slotLabel('s')}: eat. Hold it to pick.`], ['seed', `${slotLabel('a')}: plant. Hold it to pick.`]] },
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
