@@ -1299,7 +1299,7 @@ function enterScene(id, fx, fy) {
   state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
   state.bird = id === 'meadow' ? makeBird() : null;
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
-  state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0;
+  state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0; state.gustDur = 2 + Math.random();
   state.plateOn = {}; updatePlates(true);
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
@@ -1474,10 +1474,10 @@ function update(dt) {
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
   }
-  for (const k of ['lumin', 'slime', 'pepper', 'fishBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
+  for (const k of ['lumin', 'slime', 'pepper', 'fishBuff', 'carrotBuff', 'squashBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
   if (h.vig > maxVig()) h.vig = maxVig();
   const mv = maxVig();
-  if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * dt);
+  if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
 
   // movement
   const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
@@ -1495,7 +1495,7 @@ function update(dt) {
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
-    let spd = sc.speed * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
+    let spd = sc.speed * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
     if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
@@ -1807,7 +1807,8 @@ function updateWind(dt, sc) {
     state.gustStep = ((state.gustStep || 0) + 1) % SEQ.length;
     state.gustPhase = SEQ[state.gustStep];
     if (state.gustStep === 1) { state.gustIdx = (state.gustIdx + 1) % sc.gusts.length; state.gustTempo = 0.7 + Math.random() * 0.7; }   // a new series: maybe a new direction, its own pace
-    state.gustDur = T[state.gustPhase] * (state.gustTempo || 1) * (0.8 + Math.random() * 0.45);                        // and every gust and pause a little different
+    state.gustDur = state.gustStep === 0 ? 3 + Math.random() * 1.6                                                   // a long, calm pause before each set of three
+      : (state.gustPhase === 'lull' ? 0.85 : T[state.gustPhase]) * (state.gustTempo || 1) * (0.8 + Math.random() * 0.45);   // short ones inside it; every gust a little different
     if (state.gustPhase === 'gentle') sfx.whoosh();
     if (state.gustPhase === 'blow') { sfx.whoosh(); sfx.whoosh(); state.shake = Math.max(state.shake, 0.12); }
   }
@@ -2888,8 +2889,9 @@ function interact() {
     const [mx, my] = sc.feat.shroom, d = Math.hypot(h.x - mx * W, h.y - my * H);
     if (d < UNIT * 2.3 && !state.inv.shrooms[sc.id]) {
       state.inv.shrooms[sc.id] = true;
-      sfx.spores(); zoomPulse(mx * W, my * H, 'kill');
-      for (let i = 0; i < 20; i++) state.fx.push({ x: mx * W + (Math.random() - 0.5) * UNIT, y: my * H - UNIT, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 1.5, color: '#e8d8ff' });
+      (state.shroomWoke = state.shroomWoke || {})[sc.id] = state.time;
+      sfx.spores();
+      for (let i = 0; i < 12; i++) state.fx.push({ x: mx * W + (Math.random() - 0.5) * UNIT, y: my * H - UNIT * 1.2, vx: (Math.random() - 0.5) * UNIT * 0.8, vy: -UNIT * (0.2 + Math.random() * 0.4), t: 0, life: 3, color: '#e8d8ff' });   // a few spores drift up, slowly
       if (state.inv.pipSaved) {
         showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
         say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
@@ -2972,11 +2974,12 @@ function interact() {
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
-        const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus ? 1 : 0;
+        const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
         p.s = 0; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
         else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
-        if (rng() < P.seedBack) { state.inv.bag[p.seed || 'seed']++; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
+        if (!S.yields) gainCropXp(crop);
+        if (rng() < Math.min(0.85, P.seedBack + farmLevel() * 0.06)) { state.inv.bag[p.seed || 'seed']++; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
       }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
@@ -3021,17 +3024,6 @@ function applyRadial(opt) {
   const h = state.hero;
   if (opt.kind === 'weapon') { state.equip = opt.id; state.active = opt.id; sfx.tock(); say(opt.label, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' }); }
   else eatFood(opt.id);
-}
-function eatFood(food) {
-  const inv = state.inv, h = state.hero, i = inv.food.indexOf(food);
-  if (i < 0) return;
-  inv.food.splice(i, 1);
-  sfx.munch();
-  if (food === 'fish') { inv.fishBuff = 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-  heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15, fish: 0.3 }[food] || 0.2);
-  if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus++; sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
-  if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
-  refreshButtons();
 }
 function cycleEquip() {
   const inv = state.inv, opts = [];
@@ -3382,14 +3374,8 @@ function updateAbilities(dt) {
     else {
       const miss = 1 - h.vig / maxVig(), auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
       const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
-      const pickF = order.find(f => inv.food.includes(f)), i = pickF ? inv.food.indexOf(pickF) : 0;
-      const food = inv.food.splice(i, 1)[0];
-      sfx.munch(); zoomPulse(h.x, h.y, 'tap');
-      if (food === 'fish') { inv.fishBuff = 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-      heal({ carrot: 0.35, pepper: 0.2, turnip: 0.25, squash: 0.5, berries: 0.15, fish: 0.3 }[food] || 0.2);
-      if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus++; sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
-      if (food === 'pepper') { inv.pepper = 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
-      refreshButtons();
+      const pickF = order.find(f => inv.food.includes(f)) || inv.food[0];
+      eatFood(pickF);
     }
   }
   // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
@@ -4070,6 +4056,7 @@ function packCells(tab) {
   if (tab === 'Gear') {
     if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }] });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }] });
+    cells.push({ icon: 'seed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark` });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1] });
@@ -4248,7 +4235,7 @@ function loadSlot(i) {
   return true;
 }
 // every line of the inventory: [icon, title, detail]
-const FOOD_INFO = { fish: 'restores 30% and raises max vigor by 30% for two minutes', carrot: 'restores about a third of your vigor', turnip: 'restores a quarter, and adds 1 max vigor for good', squash: 'restores half your vigor', berries: 'a small snack', pepper: 'a little vigor, and bigger marsh fire for a minute' };
+const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
 function inventoryLines() {
   const inv = state.inv, L2 = [];
   const sec = t => L2.push([null, t, null]);
@@ -5051,15 +5038,16 @@ function drawSolid(s) {
       break;
     }
     case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = s.dark || state.inv.shrooms[sceneDef().id], pulse = 0.6 + 0.4 * Math.sin(state.time * 2);
+      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.12 + 0.05 * Math.sin(state.time * 0.8);
+      drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
-      const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * 1.6);
-      g.addColorStop(0, `rgba(200,160,255,${0.25 * pulse * (found ? 1.4 : 1)})`); g.addColorStop(1, 'rgba(200,160,255,0)');
-      ctx.fillStyle = g; ctx.fillRect(x - u * 1.6, y - u * 2.8, u * 3.2, u * 3.2);
+      const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * (1.2 + glow * 1.4));
+      g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)');
+      ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, y - u * 4, u * 5.6, u * 5.6);
       ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
-      ctx.fillStyle = '#efe0ff'; for (const [dx, dy] of [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]]) { ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * 0.08, 0, 6.28); ctx.fill(); }
-      if (Math.random() < 0.03) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
+      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 1.3) : 0.3; ctx.fillStyle = `rgba(245,232,255,${0.45 + 0.55 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
+      if (found && Math.random() < 0.02) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
       break;
     }
     case 'stone':
@@ -5479,38 +5467,33 @@ function drawHUD() {
   for (let d = 1; d <= inv.depth; d++) { const xx = x0 + len * baseVig(d - 1) / mv; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + hgt); ctx.stroke(); }
   ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3';
   ctx.fillText(`vigor ${Math.ceil(h.vig)}/${mv}`, x0 + 4, y0 + hgt * 0.85);
-  let x = x0 + s / 2, y = y0 + hgt + s * 0.9;
-  const slot = (type, label, bar) => {
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    drawItemIcon(type, x, y, s * 0.8);
+  // only what you have equipped, beside the bar: the sword or acorns; then any effect that's running out
+  let x = x0 + len + 12 + s * 0.6, y = y0 + hgt / 2;
+  const slot = (type, label, bar, small) => {
+    const k = small ? 0.75 : 1;
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6 * k, y - s * 0.6 * k, s * 1.2 * k, s * 1.2 * k);
+    drawItemIcon(type, x, y, s * 0.8 * k);
     if (label) { ctx.font = `bold ${Math.round(s * 0.42)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.fillText(label, x, y + s * 0.95); ctx.textAlign = 'left'; }
-    if (bar != null) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.55, y + s * 0.62, s * 1.1, 4); ctx.fillStyle = '#c9f27a'; ctx.fillRect(x - s * 0.55, y + s * 0.62, s * 1.1 * bar, 4); }
-    x += s * 1.55;
+    if (bar != null) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k, 3); ctx.fillStyle = '#c9f27a'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k * bar, 3); }
+    x += s * 1.45 * k;
   };
-  if (inv.scalp) slot('scalp');
-  if (inv.horn) slot('horn', 'I'.repeat(inv.horn));
-  if (inv.step) slot('step', 'I'.repeat(inv.step));
-  if (inv.silk) slot('silk', 'I'.repeat(inv.silk));
-  if (inv.fire) slot('fire', null);
-  if (inv.food.length) slot(inv.food.includes('carrot') ? 'carrot' : inv.food[0], `x${inv.food.length}`);
-  if (inv.acorns) slot('acorn', `x${inv.acorns}`);
-  const seedCount = Object.values(inv.bag).reduce((a, b) => a + b, 0);
-  if (seedCount) slot(Object.keys(SEEDS).filter(k => inv.bag[k]).pop(), `x${seedCount}`);
-  if (inv.beans && !inv.fire) slot('bean', `${inv.beans}/${BEANS}`);
-  if (inv.spores && inv.pipSaved) slot('spores', `x${inv.spores}`);
-  if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45));
-  if (inv.pepper > 0) slot('pepper', null, inv.pepper / 60);
-  if (inv.fishBuff > 0) slot('fish', null, inv.fishBuff / 120);
+  if (state.equip === 'acorn' && inv.acorns > 0) slot('acorn', `x${inv.acorns}`);
+  else if (inv.sword) slot('sword');
+  if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45), true);
+  if (inv.pepper > 0) slot('pepper', null, Math.min(1, inv.pepper / 90), true);
+  if (inv.fishBuff > 0) slot('fish', null, Math.min(1, inv.fishBuff / 180), true);
+  if (inv.slime > 0) slot('slime', null, inv.slime / 25, true);
+  if (inv.carrotBuff > 0) slot('carrot', null, inv.carrotBuff / 15, true);
+  if (inv.squashBuff > 0) slot('squash', null, inv.squashBuff / 20, true);
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
-  if (inv.slime > 0) slot('slime', null, inv.slime / 25);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
   if (boss) {
     const bw = Math.min(W * 0.6, 420), bx = (W - bw) / 2, by = H - 34;
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y + s * 1.3 };   // text keeps out of here
+  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.2 };   // text keeps out of here
   drawArenaBanner();
   drawRapidsHud();
 }
@@ -5635,7 +5618,7 @@ function drawActionHint() {
   state.actionHint = it;
   if (!it) return;
   const [sx, sy] = toScreen(it.x, it.y), z = state.cam.ez, u = UNIT * z, t = state.time;
-  ctx.strokeStyle = `rgba(255,236,160,${0.55 + 0.2 * Math.sin(t * 3)})`; ctx.lineWidth = 1.5;   // a thin ring on the ground: this one
+  ctx.strokeStyle = `rgba(255,236,160,${0.28 + 0.1 * Math.sin(t * 3)})`; ctx.lineWidth = 1.5;   // a thin ring on the ground, at half strength: this one
   ctx.beginPath(); ctx.ellipse(sx, sy + u * 0.3, u * 0.75, u * 0.28, 0, 0, 6.28); ctx.stroke();
   const k = (0.5 + 0.5 * Math.sin(t * 2.5)) * u * 0.1 + u * 0.03, tx = sx + u * 0.45, ty = sy - u * 0.55;   // one small twinkle
   ctx.fillStyle = 'rgba(255,248,210,.9)'; ctx.beginPath(); ctx.moveTo(tx, ty - k); ctx.lineTo(tx + k * 0.25, ty); ctx.lineTo(tx, ty + k); ctx.lineTo(tx - k * 0.25, ty); ctx.closePath(); ctx.fill();
@@ -5752,7 +5735,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 58';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 59';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6687,6 +6670,75 @@ function drawLamps() {
     else { ctx.fillStyle = '#e8dcc0'; ctx.fillRect(x - u * 0.06, y, u * 0.12, u * 0.22); }
     ctx.fillStyle = `rgba(255,${200 + 30 * f},${110 + 40 * f},.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.05, u * 0.05, u * 0.11 * f, 0, 0, 6.28); ctx.fill();
   });
+}
+
+// =====================================================================
+// Food and farming skill: each vegetable restores a range of vigor (rarer, higher). Growing a vegetable
+// raises your level with it: higher levels lift the bottom of its range, add to harvests, and at level 3
+// give it a little extra. Your overall farming level makes seeds come back more often.
+// =====================================================================
+const FOOD = {
+  berries: { lo: 0.1, hi: 0.2, rarity: 'common' },
+  turnip: { lo: 0.15, hi: 0.3, rarity: 'common' },
+  carrot: { lo: 0.25, hi: 0.4, rarity: 'uncommon' },
+  pepper: { lo: 0.15, hi: 0.35, rarity: 'uncommon' },
+  fish: { lo: 0.25, hi: 0.4, rarity: 'uncommon' },
+  squash: { lo: 0.4, hi: 0.6, rarity: 'rare' },
+};
+const CROP_XP = [0, 3, 8, 15, 25, 40];                 // harvests of that crop to reach each level
+const cropLevel = k => { const n = ((state.inv.cropXp || {})[k]) || 0; let l = 0; while (l + 1 < CROP_XP.length && n >= CROP_XP[l + 1]) l++; return l; };
+const farmLevel = () => Math.floor(Object.values(state.inv.cropXp || {}).reduce((a, b) => a + b, 0) / 6);   // one level per six harvests of anything
+function foodRange(k) {                                // higher levels raise the floor toward the top
+  const F = FOOD[k] || { lo: 0.15, hi: 0.25 }, l = cropLevel(k);
+  return [F.lo + (F.hi - F.lo) * Math.min(0.8, l * 0.16), F.hi];
+}
+const CROP_PERK = {                                    // what level 3 adds
+  berries: 'restore twice as much when you\'re below half vigor',
+  turnip: 'add 2 max vigor instead of 1',
+  carrot: 'a spring in your step for 15 seconds',
+  pepper: 'bigger fire for 90 seconds instead of 60',
+  squash: 'faster vigor recovery for 20 seconds',
+  fish: 'the swell lasts three minutes',
+};
+function eatFood(food) {
+  const inv = state.inv, h = state.hero, i = inv.food.indexOf(food);
+  if (i < 0) return;
+  inv.food.splice(i, 1);
+  sfx.munch(); zoomPulse(h.x, h.y, 'tap');
+  const [lo, hi] = foodRange(food), perk = cropLevel(food) >= 3;
+  let amt = lo + Math.random() * (hi - lo);
+  if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
+  heal(amt);
+  say(`+${Math.round(amt * maxVig())} vigor`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
+  if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
+  if (food === 'turnip' && inv.vigBonus < 40) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+  if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
+  if (food === 'carrot' && perk) inv.carrotBuff = 15;
+  if (food === 'squash' && perk) inv.squashBuff = 20;
+  refreshButtons();
+}
+function gainCropXp(k) {
+  const inv = state.inv, xp = inv.cropXp || (inv.cropXp = {}), before = cropLevel(k), fBefore = farmLevel();
+  xp[k] = (xp[k] || 0) + 1;
+  const h = state.hero;
+  if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
+  if (farmLevel() > fBefore) say(`Farming level ${farmLevel()}: seeds come back more often`, h.x, h.y - UNIT * 2.4, { key: 'farmlvl', life: 3.5, color: '#ffe38a' });
+}
+// the mushroom's light: a slow, lilting glow that drifts between barely-there and shining, never quite the same twice
+function shroomGlow(seed, t) {
+  const a = Math.sin(t * 0.7 + seed) * 0.5 + 0.5, b = Math.sin(t * 1.13 + seed * 2.1) * 0.5 + 0.5, c = Math.sin(t * 0.29 + seed * 0.7) * 0.5 + 0.5;
+  return 0.12 + 0.88 * Math.pow(a * 0.45 + b * 0.3 + c * 0.25, 2.2);   // mostly dim, now and then it blooms
+}
+function drawShroomRipples(x, y, u, found, key) {
+  const t = state.time, woke = (state.shroomWoke || {})[key];
+  const since = woke != null ? t - woke : 99;
+  for (let k = 0; k < 3; k++) {                        // soft rings drifting out across the ground; many at first, then an occasional one
+    const period = since < 8 ? 2.2 : 6.5, p = ((t + k * period / 3) % period) / period;
+    if (!found && since > 8) continue;
+    const a = (1 - p) * (since < 8 ? 0.35 : 0.14);
+    ctx.strokeStyle = `rgba(210,180,255,${a})`; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * (0.6 + p * 3.2), u * (0.22 + p * 1.1), 0, 0, 6.28); ctx.stroke();
+  }
 }
 
 // =====================================================================
