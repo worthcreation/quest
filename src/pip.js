@@ -62,24 +62,10 @@ function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
-// out gathering for camp, where Pip takes you next: sticks in the glade, stones on the riverbank, fluff on the windy
-// field, then (fluff still short) the rabbits one field further, once you have a blade; back to camp when it's all in
-function gatherGoal() {
-  const miss = campMissing(), raw = rawOf();
-  if (miss.stick) return 'start';
-  if (miss.stone) return 'riverbank';
-  if (miss.fluff) {
-    const f1 = state.scene === 'f1' ? state.items : (RT.f1 ? RT.f1.items : (WORLD.f1.initItems || []));
-    if (f1.some(i => i.type === 'fluff')) return 'f1';
-    if (!bladeKind()) return (raw.stick || 0) >= 3 ? null : 'start';   // make the sword first (null: stay and craft)
-    return 'f2';
-  }
-  return 'camp';
-}
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
   const inv = state.inv;
   if (!storyAt('tocamp')) return null;                 // practising in the garden
-  const goal = storyAt('gather') && !campDone() ? gatherGoal() : storyAt('adventure') ? 'w2' : 'camp';   // out gathering: to wherever the next thing is
+  const goal = tutorialStep() ? tutorialGoal() : storyAt('adventure') ? 'w2' : 'camp';   // the tutorial says where next; after it, the woods
   if (!goal) return null;
   if (sc.id === goal) return null;
   let best = null, bd = screensBetween(sc.id, goal);
@@ -104,25 +90,11 @@ const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something
 // that helps (the robin, a patch, the next exit, a stick you still need) and says it a new way. Each situation has a
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
-function remindNow(sc, h) {
-  const inv = state.inv, f = sc.feat, P = q => [q[0] * W, q[1] * H], seeds = inv.bag.turnipseed || 0;
-  if (sc.id === 'meadow' && inv.story === STORY.garden) {
-    if (!seeds) { const b = state.bird, rb = b && b.mode === 'perch' ? [b.x, b.y + UNIT] : hollowPoint(), n = (state.remind && state.remind.n) || 0;
-      const at = [rb, [(rb[0] + h.x) / 2, (rb[1] + h.y) / 2], [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.2]][n % 3];   // by the robin, halfway to you, by its tree
-      return { key: 'robin', at, lines: ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'No seeds yet? That robin has plenty.', 'If it hides in its tree, jump and stomp by the trunk!', 'Go on, give the robin a scare!'] }; }
-    const q = f.plots && f.plots.find((pl, i) => !((rtFor('meadow').flags.plots || [])[i] || {}).s);
-    if (q) return { key: 'plant', at: P(q), lines: ['This patch is empty. Pop a seed in!', 'Right here! The dirt wants those seeds.', 'Stand on the soil and plant one.', 'Seeds do best in the ground, not your pocket!'] };
-  }
-  if (inv.story === STORY.tocamp || (storyAt('gather') && !campDone())) {
-    const miss = campMissing(), want = Object.keys(miss);
-    const it = state.items.filter(i => want.includes(i.type)).sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
-    const NAME = { stone: 'smooth stone', stick: 'stick', fluff: 'tuft of fluff' };
-    if (it) return { key: 'item-' + it.type, at: [it.x, it.y], lines: [`Here's a good ${NAME[it.type]}!`, `Grab this ${NAME[it.type]}!`, `Look, a ${NAME[it.type]}. We need that.`, `Don't miss this ${NAME[it.type]}!`] };
-    const ex = pipExit(sc);
-    if (ex) { const e = edgePoint(ex.side, (ex.a + ex.b) / 2), at = [e[0] * W - (ex.side === 'e' ? UNIT * 1.5 : ex.side === 'w' ? -UNIT * 1.5 : 0), e[1] * H - (ex.side === 's' ? UNIT * 1.5 : ex.side === 'n' ? -UNIT * 1.5 : 0)];
-      return { key: 'exit-' + sc.id, at, lines: ['This way!', 'Let\'s try over here.', 'Follow me, it\'s not far.', 'Onward! Through here.'] }; }
-  }
-  return null;
+function remindNow(sc, h) {                          // the current tutorial step's nag, phrased its way, at a spot that helps
+  const s = tutorialStep(); if (!s || !s.remind || (s.scene && s.scene !== sc.id && s.id !== 'rabbits')) return null;
+  const lines = s.remind().filter(Boolean); if (!lines.length) return null;
+  const n = (state.remind && state.remind.n) || 0;
+  return { key: s.id, at: s.remindAt ? s.remindAt(n) : (s.spot ? s.spot() : null), lines };
 }
 function pipRemind(sc, p, h) {
   const inv = state.inv, R = state.remind || (state.remind = { t: state.time, i: {}, last: null, n: 0 });
@@ -138,7 +110,8 @@ function pipRemind(sc, p, h) {
   const k = R.i[r.key] = ((R.i[r.key] ?? -1) + 1) % r.lines.length;
   let line = r.lines[k]; if (line === R.last) line = r.lines[(k + 1) % r.lines.length];
   R.last = line; R.t = state.time; R.n++; state.pipTalkT = state.time;
-  p.visit = { x: r.at[0], y: r.at[1], t0: state.time, text: line, key: 'remind', site: { x: r.at[0], y: r.at[1], r: 9 } };
+  if (r.at) p.visit = { x: r.at[0], y: r.at[1], t0: state.time, text: line, key: 'remind', site: { x: r.at[0], y: r.at[1], r: 9 } };
+  else say(line, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
 }
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
@@ -180,6 +153,30 @@ function pipBeside(v) {
 }
 // Pip gets excited: now and then while he's talking (more often on a line that ends in "!", and when he calls you
 // over) he bounces on the spot, one to three quick hops. His speech bubble stays put.
+// says the current tutorial step's line once (or again when its key changes), where the step wants Pip to stand
+function tutorialTalk(sc, p, h) {
+  const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
+  state.tutStep = s ? s.id : null;
+  if (!s || heldText() || p.visit) return;
+  if (sc.id === 'camp' && s.scene !== 'camp' && !s.hold) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
+    const line = campMarkLine(), b = campMark(), key = 'tut-camp|' + line;
+    if (line && b && !tips[key]) { state.pipTalkT = -99; pipSay(key, line, [b.fx * W, b.fy * H], 40, { x: b.fx * W, y: b.fy * H, r: 7 }); }
+    return;
+  }
+  if (!s.say || (s.scene && s.scene !== sc.id)) return;
+  if (s.once && tips[s.once]) return;
+  const key = 'tut-' + s.id + '|' + (s.key ? s.key() : ''), line = s.say();
+  if (!line || tips[key]) return;
+  const at = s.spot ? s.spot() : null;
+  if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; say(line, p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
+  else {
+    state.pipTalkT = -99;                             // tutorial lines don't wait their turn
+    if (!pipSay(key, line, at && Math.hypot(at[0] - p.x, at[1] - p.y) > UNIT * 1.2 ? at : null, 40, at ? { x: at[0], y: at[1], r: 9 } : null)) return;
+    if (s.once) tips[s.once] = true;
+  }
+  if (s.id === 'tada') state.inv.story = STORY.gather;
+  if (s.after) s.after();
+}
 function pipBounce(dt) {
   const p = state.pip; if (!p || !p.show) return;
   const mine = state.texts.filter(t => t.key === 'pip' || t.who === 'pip');
@@ -270,87 +267,22 @@ function updatePip(dt) {
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
   // the garden: plant your three seeds in the rich soil, then Pip has a place to show you
   pipRemind(sc, p, h);                                 // no progress for a while: a fresh nudge, from a new spot
-  if (sc.id === 'meadow' && inv.story === STORY.garden) {
-    const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
-    const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
-    // Pip opens with the quest's first step (gather seeds), then the garden once you have some. Nothing else first.
-    if (!seeds && !(inv.pipTips || {})['garden-open']) pipSay('garden-open', 'My garden! First we need seeds. The robin drops them when you startle it. Run right at it!', null, 7, { x: p.x, y: p.y, r: 14 });
-    if (!seeds && b && b.mode === 'perch' && nearPip && (inv.pipTips || {})['garden-open']) pipSay('robin-lesson', 'There it is, on its perch. Go on, give it a scare!');
-    if (seeds && plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 9 });
-    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`); } else if (b) p.robinHide = 0;
-    const atPlots = plot && Math.hypot(h.x - plot[0] * W, h.y - plot[1] * H) < UNIT * 4;          // said at the site, and only while it's the thing in front of you
-    if (seeds && inv.firstBirdSeed && atPlots) pipSay('firstseed', 'Stand over here and shove them in the dirt! They love this stuff.', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 6 });
-    const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
-    if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.');
-    const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
-    if (planted >= Math.min(2, f.plots.length)) inv.story = STORY.tocamp;   // the lesson's done, whatever Pip is busy saying
-  }
-  if (sc.id === 'meadow' && inv.story === STORY.tocamp) {
-    if (p.visit && !p.visit.said) p.visit = null;        // drop anything half-said: this is the news
-    p.atGarden = false;
-    pipSay('tocamp', 'They\'ll grow while we\'re out. Now... I found the most AWESOME spot for a camp. Follow me!');
-  }
-  if (sc.id === 'camp') {
-    const spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
-    if (inv.story === STORY.tocamp) { if (pipSay('tada', 'TA-DA! Best spot in the whole world. I built us a lean-to! It mostly stays up.')) inv.story = STORY.gather; }
-    else if (storyAt('gather') && !campDone()) {
-      // Pip walks to the next mark still to build and says, in a line, what goes there and what it takes, or that you
-      // have it all and how to make it, or where to set it down. What he says changes as you gather and craft.
-      const pc = ['fire', 'bench'].find(q => !campBuilt(q)), b = pc && spot(pc);
-      if (b) {
-        const at = P([b.fx, b.fy]), NAME = { fire: 'fire ring', bench: 'workbench' }, n = k => raw[k] || 0;
-        const glueOK = n('glue') >= 1 || n('fluff') >= 2;
-        const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 1 - n('stick'), 'fluff': (n('glue') ? 1 : 3) - n('fluff') };
-        const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
-        let key, line;
-        if (n(PIECE_OF[pc]) > 0) { key = 'set'; line = `Set the ${NAME[pc]} down right here!`; }
-        else if (!miss.length && !(inv.pipTips || {}).craftLesson) { key = 'have'; line = `Got it all for the ${NAME[pc]}! We'll put it together soon.`; }
-        else if (!miss.length && pc === 'bench' && !n('glue')) { key = 'glue'; line = `Glue first: two fluff on the Craft mat (${K.menu.toUpperCase()}).`; }
-        else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: a stick, glue and fluff (${K.menu.toUpperCase()}).`; }
-        else { key = 'need-' + miss.join(','); line = `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`; }
-        pipSay('camp-' + pc + '-' + key, line, at, 14, { x: at[0], y: at[1], r: 7 });
-      }
-      if (Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
-    } else if (campDone() && !storyAt('adventure') && !state.cut) {
-      if (!(inv.pipTips || {}).campdone) {            // the big moment: Pip's line waits for you (F), then the feather, then dusk
-        (inv.pipTips = inv.pipTips || {}).campdone = true; p.visit = null;
-        say('Home base! We did it! Here, I found this feather. It\'s for you.', p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-        p.hop = { t: 0, n: 3 };
-      }
-      if (!gearOwned().includes('feather') && !heldText()) gainGear('feather');
-      if (gearOwned().includes('feather') && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+  // the early game runs off the TUTORIAL list (tutorial.js): the current step's line, where Pip stands for it
+  {
+    const planted = (rtFor('meadow').flags.plots || []).filter(q => q.s).length;
+    if (inv.story === STORY.garden && planted >= 2) inv.story = STORY.tocamp;   // the lesson's done, whatever Pip is busy saying
+    tutorialTalk(sc, p, h);
+    if (sc.id === 'camp') {
+      const tips = inv.pipTips || {};
+      if (tips.campdone && !gearOwned().includes('feather') && !heldText()) gainGear('feather');
+      if (gearOwned().includes('feather') && !storyAt('adventure') && !state.cut && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+      if (storyAt('gather') && !campDone() && Object.keys(tips).some(k => k.startsWith('tut-build'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
+      if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
     }
-    if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (inv.acorns > 0 && !storyAt('adventure') && inv.quests && inv.quests.garden && inv.quests.garden.done != null) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
   if (sc.id === 'tentin' && f.chest) pipSay('chest', 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!', P(f.chest));
-  if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
-    const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
-    const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
-    if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
-    if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
-    const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
-    if (false) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
-    if (sc.id === 'f1' && fluffNeed && state.items.some(i => i.type === 'fluff')) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
-    const f1Empty = sc.id === 'f1' && !state.items.some(i => i.type === 'fluff');
-    // two tufts in hand: the crafting lesson, one page at a time, Pip waits on you (F each). Not a word of crafting before this.
-    if ((raw.fluff || 0) >= 2 && fluffNeed && !(inv.pipTips || {}).craftLesson && !heldText()) {
-      (inv.pipTips = inv.pipTips || {}).craftLesson = true; p.visit = null; hearRecipe('woodsword');
-      const enough = (raw.stick || 0) >= 3, M = K.menu.toUpperCase(), F = K.act.toUpperCase();
-      say(`Two tufts! The bench needs one more. There are rabbits to the south... but they are mean! Time you learned crafting. ` +
-        (enough ? `Open your pack: ${M}. Go to the Craft tab. Under Recipes, pick the wooden sword and press ${F}: three sticks go on the mat. Then ${F} on Combine!`
-                : `First, three sticks. Get some more back in the glade, then open your pack: ${M}, Craft tab, and make a wooden sword.`),
-        p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    }
-    if (f1Empty && fluffNeed && blade && (inv.pipTips || {}).craftLesson && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }
-    if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
-    if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
-    if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
-    if (false && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
-    if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
-    if (false) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
-    if (false) pipSay('craft3', 'Two stones and a stick make a fire ring!');
-  }
+  if (storyAt('gather') && !campDone() && sc.id !== 'camp' && (inv.pipTips || {})['tut-tada|']) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
   if (sc.id === 'start' && storyAt('adventure')) {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
     if (!rt.flags.thicket) {
@@ -365,7 +297,7 @@ function updatePip(dt) {
       if (tree) pipSay('jump', 'Stomp by a tree for acorns.', [tree.x, tree.y]);
     }
   }
-  if (sc.id === 'meadow' && state.bird && storyAt('tocamp')) pipSay('robin', 'Startle that robin for a seed.', [state.bird.x, state.bird.y + UNIT]);
+  if (false) pipSay('robin', 'Startle that robin for a seed.', [state.bird.x, state.bird.y + UNIT]);
   if (sc.id === 'w1') {
     const ks = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'), kA = sc.solids.find(s => s.bar === 'knockA');
     if (!broken('w1', 'crack1')) {

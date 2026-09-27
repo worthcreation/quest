@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 93, 27 Sep 2026)
+# Quest: handoff notes (as of build 94, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,23 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 94: the tutorial as one ordered list (src/tutorial.js)
+- TUTORIAL is an array of steps in play order: seeds, plant, tocamp, tada, sticks, stones, fluff, lesson, sword, rabbits,
+  build, homebase. A step has done() (what must be true to move on), goal() (which screen Pip leads to), scene and
+  spot (where Pip stands to say it), say() (the line; key() when it should be re-said as things change), hold (waits
+  for F), once (a pipTips flag), remind() (nag phrasings used in turn) and remindAt(n) (where he stands to nag),
+  after() (side effects: the lesson marks the wooden sword recipe heard). Steps also count as done when the story
+  is already past them, so saves and tests that jump in still work.
+- tutorialStep() is the first step not done; tutorialGoal() feeds pipExit; tutorialTalk() (pip.js) says the step's line
+  once at its spot (tutorial lines don't wait for the usual 8 s gap), and at camp mid-gathering reads the next mark
+  (campMarkLine) instead. remindNow() takes its phrasings and spots from the step. The old per-block gating in
+  updatePip (garden, tocamp, camp marks, gathering, lesson, and-go) is gone; what's left in pip.js is flavour
+  (compost, the chest, pounding, the mushroom, the woods lines) and the feather -> dusk handoff.
+- To change what Pip says or where the early game goes, edit tutorial.js. Adding a step is one object in the list.
+- Not yet moved to data: RECIPES (craft.js), QUESTS (quests.js) and BOOK_PAGES (menu.js) are already plain tables
+  in their own files; Pip's later-game lines are still inline in pip.js.
+- Tests updated for the driver: gathering (uses tutorialGoal, jumps in with the story set), pip-leading, garden.
 
 ## How the code is laid out (build 93 reorganization)
 - `src/` is split by topic; `src/ORDER` lists the load order; `sh build.sh` concatenates head.html plus those files into

@@ -46,8 +46,8 @@ walkTo(W*0.5, H-UNIT*0.6); state.keys.arrowdown=true; run(90); state.keys.arrowd
 console.log('12 in the meadow:', state.scene, '| Pip at the garden', state.pip&&state.pip.atGarden, 'dist to spot', state.pip? (Math.hypot(state.pip.x-gardenSpot()[0], state.pip.y-gardenSpot()[1])/UNIT).toFixed(2):'-');
 console.log('13 quest HUD shown:', !!state.questHudRect, JSON.stringify(state.questHudRect));
 walkTo(gardenSpot()[0]-UNIT*2, gardenSpot()[1]); run(90);
-console.log('14 Pip talks from the garden (free words now):', (state.texts.find(t=>t.key==='pip')||{}).text);
-const gp0=[state.pip.x,state.pip.y]; walkTo(W*0.15,H*0.85); run(120); console.log('15 Pip stayed put while you wandered:', Math.hypot(state.pip.x-gp0[0], state.pip.y-gp0[1])<UNIT*0.5);
+console.log('14 Pip opened with the seeds step:', !!(state.inv.pipTips||{})['tut-seeds|'], '| step now', state.tutStep);
+const gp0=[state.pip.x,state.pip.y]; walkTo(W*0.15,H*0.85); run(120); console.log('15 while you wandered Pip moved', (Math.hypot(state.pip.x-gp0[0], state.pip.y-gp0[1])/UNIT).toFixed(1), 'tiles (reminders take him to the robin and back)');
 // leave the meadow east: Pip is not with you
 walkTo(W-UNIT*0.6, H*0.5); state.keys.arrowright=true; run(90); state.keys.arrowright=false; run(30);
 console.log('16 in the glade, Pip hidden:', state.scene, !(state.pip&&state.pip.show));
@@ -55,7 +55,7 @@ walkTo(UNIT*0.6, H*0.5); state.keys.arrowleft=true; run(90); state.keys.arrowlef
 console.log('17 back in the meadow, Pip back at the garden:', state.scene, state.pip&&state.pip.atGarden);
 while(spoken().length){ press('f'); run(5); }
 // robin: turnip seeds
-let tries=0; const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return false; tries++; const b=state.bird; walkTo(b.x, b.y+UNIT*1.2); run(30); const sd=state.items.find(i=>i.type==='turnipseed'); if(sd){ walkTo(sd.x, sd.y); run(5); for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f'); press('f'); run(3); return true;} return false; };
+let tries=0; const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return false; tries++; const b=state.bird; walkTo(b.x, b.y+UNIT*1.2); run(30); const sd=state.items.find(i=>i.type==='turnipseed'); if(sd){ walkTo(sd.x, sd.y); run(5); for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f'); const dd=(Math.hypot(h.x-sd.x,h.y-sd.y)/UNIT).toFixed(2); press('f'); run(3); if(!state.inv.bag.turnipseed) console.log('   dbg: at', dd, 'tiles, atFeet', !!itemAtFeet(), 'held', state.texts.filter(t=>t.hold).length, 'visit', !!(state.pip&&state.pip.visit), 'choice', !!state.choice, 'menu', !!state.menu); return true;} return false; };
 tryRobin(); console.log('18 first startle drops turnip seeds:', state.inv.bag.turnipseed, 'firstBirdSeed', state.inv.firstBirdSeed, 'items', state.items.map(i=>i.type).join(','), '| no plain seed item', !state.items.some(i=>i.type==='seed'));
 const plantOne=()=>{ const rt=rtFor('meadow'), plots=WORLD.meadow.feat.plots; const j=plots.findIndex((q,ix)=>!((rt.flags.plots||[])[ix]||{}).s); const q=plots[j]; walkTo(q[0]*W,q[1]*H); run(3); while(spoken().length){ press('f'); run(5); } press('f'); if(state.choice) press('f'); run(30); };
 plantOne(); console.log('19 planted with the seed slot key ('+(seedSlotKey()||'-')+'):', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, 'seed kind', (rtFor('meadow').flags.plots||[]).find(p=>p.s)?.seed);
