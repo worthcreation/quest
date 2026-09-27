@@ -90,8 +90,7 @@ function interact() {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
       const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
-      const sk = seedSlotKey(), slotSeeds = p.s === 0 && !!sk && sk !== 'f';   // seeds on A/S/D: that key plants. Seeds on F: F plants them
-      const have = slotSeeds ? [] : sk === 'f' ? [slotsOf().f.id] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
+      const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);   // every seed you carry is on offer
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
       // a ripe crop has to be pulled up: hold F and it works loose, quicker the better you are at farming
       if (p.s === 1 && stage >= 3) {
@@ -104,10 +103,8 @@ function interact() {
         if (c2.t < c2.need) return true;
         state.cropPull = null;
       }
-      if (slotSeeds && !improve) { if (pressedNow.act) say(`${seedKeyLabel()} plants.`, px * W, py * H - UNIT, { key: 'plot', life: 1.6 }); if (!pressedNow.act) return false; return true; }
-      if (improve && (slotSeeds || !have.length)) { if (!pressedNow.act) return false; payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5);   // seeds are on their own key: F composts
-        say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' }); return true; }
-      if (p.s === 0 && !have.length && !improve && !slotSeeds) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
+      // F at an empty patch opens a small menu: plant any seed you carry, or compost the patch. Nothing to offer: a hint.
+      if (p.s === 0 && !have.length && !improve) { if (pressedNow.act) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 }); return pressedNow.act; }
       if (!pressedNow.act && !(p.s === 1 && stage >= 3)) return false;
       const doImprove = () => {
         payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
@@ -118,11 +115,10 @@ function interact() {
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
         say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
-      const imp = improve ? [`${next.cost.acorn ? 'Compost it' : 'Improve'}: ${next.name} (${patchCost(next.cost)})`] : [];
-      if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
-      else if (p.s === 0 && !improve && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
-      else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
-      else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
+      if (p.s === 0) {
+        const opts = have.map(k => `Plant ${SEEDS[k].name.toLowerCase()} (${state.inv.bag[k]})`).concat(improve ? [`${next.cost.acorn ? 'Compost' : 'Improve'} (${patchCost(next.cost)})`] : []);
+        ask(patchOf(p).name, px * W, py * H - UNIT, opts, i2 => i2 < have.length ? plant(have[i2]) : doImprove());
+      }
       else if (p.s === 1 && stage >= 3) {                 // pulled all the way up
         const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
         p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
@@ -249,8 +245,7 @@ function findInteractable() {
     f.plots.forEach((q, i) => {
       const p = plots[i] || { s: 0 }, st = plotStage(p);
       const nx = PATCH[(p.lv || 0) + 1];
-      if (p.s === 0 && seedSlotKey()) add(q[0] * W, q[1] * H, 'Plant', 0.8, seedKeyLabel());
-      else if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
+      if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
       else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, nx.cost.acorn ? 'Compost' : 'Improve', 0.8);
       if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Hold: pull up', 0.8);
     });
@@ -544,8 +539,8 @@ function updateAbilities(dt) {
       LH[k] = null;
     }
   }
-  for (const k of ['a', 's']) if (laneOptions(k).length >= 2 && !state.tipsSeen['lane' + k]) {   // once you have a choice, say how to make it
-    state.tipsSeen['lane' + k] = true; sayHero(`Tap ${slotLabel(k)} to ${k === 'a' ? 'plant' : 'use'}. Hold ${slotLabel(k)} to pick which ${k === 'a' ? 'seeds' : 'one'}.`, { life: 4.5, color: '#ffe38a' });
+  if (laneOptions('s').length >= 3 && !state.tipsSeen.lanes) {   // once you have a choice, say how to make it
+    state.tipsSeen.lanes = true; sayHero(`Tap ${slotLabel('s')} or ${slotLabel('a')} to use. Hold one to pick what it holds.`, { life: 4.5, color: '#ffe38a' });
   }
   if (state.radial && state.radial.lane) {                 // steering the lane wheel
     let x = 0, y = 0; if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1;
@@ -828,10 +823,25 @@ function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
+// out gathering for camp, where Pip takes you next: sticks in the glade, stones on the riverbank, fluff on the windy
+// field, then (fluff still short) the rabbits one field further, once you have a blade; back to camp when it's all in
+function gatherGoal() {
+  const miss = campMissing(), raw = rawOf();
+  if (miss.stick) return 'start';
+  if (miss.stone) return 'riverbank';
+  if (miss.fluff) {
+    const f1 = state.scene === 'f1' ? state.items : (RT.f1 ? RT.f1.items : (WORLD.f1.initItems || []));
+    if (f1.some(i => i.type === 'fluff')) return 'f1';
+    if (!bladeKind()) return (raw.stick || 0) >= 3 ? null : 'start';   // make the sword first (null: stay and craft)
+    return 'f2';
+  }
+  return 'camp';
+}
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
   const inv = state.inv;
-  if (!storyAt('tocamp') || (storyAt('gather') && !campDone())) return null;   // practising in the garden, or out gathering: Pip just keeps you company
-  const goal = storyAt('adventure') ? 'w2' : 'camp';
+  if (!storyAt('tocamp')) return null;                 // practising in the garden
+  const goal = storyAt('gather') && !campDone() ? gatherGoal() : storyAt('adventure') ? 'w2' : 'camp';   // out gathering: to wherever the next thing is
+  if (!goal) return null;
   if (sc.id === goal) return null;
   let best = null, bd = screensBetween(sc.id, goal);
   for (const ex of sc.exits) { const d = screensBetween(ex.to, goal); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
@@ -1071,8 +1081,15 @@ function updatePip(dt) {
     if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
-    if (!blade && fluffNeed && (raw.stick || 0) >= 3) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
-    if (sc.id === 'f1' && fluffNeed) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
+    if (!blade && fluffNeed && (raw.stick || 0) >= 3 && sc.id !== 'f1') pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
+    if (sc.id === 'f1' && fluffNeed && state.items.some(i => i.type === 'fluff')) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
+    const f1Empty = sc.id === 'f1' && !state.items.some(i => i.type === 'fluff');
+    if (f1Empty && fluffNeed) {                         // the fluff here is gone and it isn't enough: the rabbits, and a sword first
+      pipSay('more-fluff', 'Need one more! There are rabbits to the south... but they are mean!');
+      if (!blade && (raw.stick || 0) < 3 && (inv.pipTips || {})['more-fluff']) pipSay('more-sticks', 'Do you have enough sticks? Get some more back in the glade.');
+      if (!blade && (raw.stick || 0) >= 3 && (inv.pipTips || {})['more-fluff'] && pipSay('slap-sword', `Use what you have: slap together a wooden sword! ${K.menu.toUpperCase()}, Craft: stick, stick, stick. Then Combine.`)) hearRecipe('woodsword');
+      if (blade && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }   // the sword's done: say it now
+    }
     if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
     if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
@@ -1919,7 +1936,7 @@ function updateChest(m) {
 const BOOK_PAGES = () => [
   { title: 'Pip\'s Rules', bits: [['carrot', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
   { title: 'Getting about', bits: [['arrows', TOUCH ? 'Walk with the pad.' : 'Arrows walk.'], ['jump', `${keyName(K.jump)} jumps.`], ['goldf', `${K.act.toUpperCase()} does what the gold label says.`]] },
-  { title: 'Your keys', bits: [['goldf', `${K.act.toUpperCase()}: do things, swing your blade.`], ['compost', `${slotLabel('d')}: throw acorns.`], ['snack', `${slotLabel('s')}: eat. Hold it to pick.`], ['seed', `${slotLabel('a')}: plant. Hold it to pick.`]] },
+  { title: 'Your keys', bits: [['goldf', `${K.act.toUpperCase()}: do things, swing your blade.`], ['compost', `${slotLabel('d')}: throw acorns.`], ['snack', `${slotLabel('s')}, ${slotLabel('a')}: eat, use. Hold to pick.`], ['seed', `${K.act.toUpperCase()} at a patch: plant or compost.`]] },
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },

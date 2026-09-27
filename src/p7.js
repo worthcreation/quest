@@ -1378,12 +1378,13 @@ function actionList(it) {
   const jk = keyName(K.jump === ' ' ? ' ' : K.jump);
   if (itemAtFeet() && it.verb !== 'Pick up') out.push({ key: K.act, verb: 'Pick up' });
   out.push({ key: it.key || K.act, verb: it.verb });
-  if (sc.feat.plots) {                                   // at a patch: plant (on the seed key) and compost (F), each only if you have what it takes
-    const sk = seedSlotKey(), rt = rtFor(sc.id);
+  if (sc.feat.plots) {                                   // at an empty patch F opens the menu: say what's in it (plant, compost), nothing if neither
+    const rt = rtFor(sc.id);
     sc.feat.plots.forEach(([fx, fy], i) => {
       const pp = (rt.flags.plots || [])[i] || {}; if (pp.s || !near(fx * W, fy * H, 1.3)) return;
-      if (sk && !out.some(o => o.verb === 'Plant')) out.push({ key: slotLabel(sk), verb: 'Plant' });
-      const nx = PATCH[(pp.lv || 0) + 1]; if (nx && canAfford(nx.cost) && !out.some(o => /^(Compost|Improve) \(/.test(o.verb))) out.push({ key: K.act, verb: `${nx.cost.acorn ? 'Compost' : 'Improve'} (${patchCost(nx.cost)})` });
+      const seeds = Object.values(state.inv.bag || {}).some(n => n > 0), nx = PATCH[(pp.lv || 0) + 1], comp = nx && canAfford(nx.cost);
+      for (let j = out.length - 1; j >= 0; j--) if (/^(Plant|Compost|Improve)/.test(out[j].verb)) out.splice(j, 1);
+      if (seeds || comp) out.unshift({ key: K.act, verb: [seeds ? 'Plant' : '', comp ? (nx.cost.acorn ? 'Compost' : 'Improve') : ''].filter(Boolean).join(' / ') });
     });
   }
   for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
@@ -1598,7 +1599,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 89';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 90';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

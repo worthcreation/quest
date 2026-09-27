@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 89, 27 Sep 2026)
+# Quest: handoff notes (as of build 90, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,21 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 90 in short
+- No seed key. Seeds are no longer slotted (slotOptions leaves them out; seedSlotKey() is null; old saves' seed slots
+  are emptied, inv.slotV 3). F at an empty patch opens a small menu (ask) listing "Plant <seeds> (n)" for every seed
+  you carry and "Compost (3 acorns)" when you can pay; nothing on offer gives a short hint. The hint chip reads
+  "F Plant / Compost" (whichever apply).
+- A and S are both for food and abilities: things go to S, then A if S is taken; holding either shows the same wheel.
+- Gathering is led (gatherGoal, p6; pipExit now uses it while gathering): sticks (glade) -> stones (riverbank) -> fluff
+  (first field) -> if fluff is still short: no blade and under 3 sticks, back to the glade; 3 sticks, stay and craft;
+  blade in hand, the rabbits' field -> camp when all's in. On the bare first field Pip says, in order: "Need one more!
+  There are rabbits to the south... but they are mean!", then "Do you have enough sticks? Get some more back in the
+  glade." or "Use what you have: slap together a wooden sword! M, Craft: stick, stick, stick. Then Combine." (and the
+  wooden sword recipe is marked heard, so it lays itself out), then, as soon as you have a blade, "And go! South, to
+  the rabbits!".
+- Tests: t90; t56/t57/t64/t65 plant through the menu.
 
 ## Build 89 in short
 - Lanes (p14 laneOf / laneOptions / LANE_NAME): F = act + blade (sword, wooden sword), D = throw (acorns), S = use

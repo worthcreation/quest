@@ -35,7 +35,7 @@ const opening=()=>{ run(20); for(let i=0;i<3;i++){ press('f'); run(25);} for(let
 opening();
 h=state.hero; console.log('control back in', state.scene, '| turnip seeds', state.inv.bag.turnipseed, '| story', state.inv.story); state.inv.bag.turnipseed=3;  // the lesson's seeds, handed over for the camp test
 // plant the three seeds
-const plots=WORLD.meadow.feat.plots; for (const q of plots) { h.x=q[0]*W; h.y=q[1]*H; run(3); const before=state.inv.bag.turnipseed; while(state.texts.some(t=>t.hold)){press('f');run(4);} press(seedSlotKey()||'f'); run(20); console.log('  plot', q.map(v=>v.toFixed(2)).join(','), 'planted?', state.inv.bag.turnipseed<before, 'cut', !!state.cut, 'menu', !!state.menu, 'npcTalk', !!state.npcTalk); }
+const plots=WORLD.meadow.feat.plots; for (const q of plots) { h.x=q[0]*W; h.y=q[1]*H; run(3); const before=state.inv.bag.turnipseed; while(state.texts.some(t=>t.hold)){press('f');run(4);} press('f'); if(state.choice) press('f'); run(20); console.log('  plot', q.map(v=>v.toFixed(2)).join(','), 'planted?', state.inv.bag.turnipseed<before, 'cut', !!state.cut, 'menu', !!state.menu, 'npcTalk', !!state.npcTalk); }
 run(60*6); console.log('planted', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, '| story', state.inv.story, '| Pip heading for', pipExit(WORLD.meadow) && pipExit(WORLD.meadow).to);
 // follow Pip to camp
 enterScene('start', 0.04, 0.5); run(30); console.log('in the glade Pip heads for', pipExit(WORLD.start) && pipExit(WORLD.start).to);

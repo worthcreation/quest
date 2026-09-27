@@ -165,9 +165,9 @@ function drawShroomRipples(x, y, u, found, key) {
 // Lanes: each key has a job, so things land somewhere you can guess. F: act, and your blade. D: things you throw
 // (acorns). S: things you use up or call on (food, abilities). A: seeds. Tap a key to use it; hold A or S to pick
 // which of that kind it holds (a wheel, the world slowed). Anything can still go anywhere from the pack or R.
-const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Seeds' };
-function laneOf(e) { return e.kind === 'seed' ? 'a' : e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }
-const laneOptions = k => slotOptions().filter(e => laneOf(e) === k);
+const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Use' };
+function laneOf(e) { return e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }   // food and abilities: S first, then A
+const laneOptions = k => slotOptions().filter(e => (k === 'a' || k === 's') ? laneOf(e) === 's' : laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
 const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
@@ -176,11 +176,12 @@ const sameEntry = (x, y) => !!x && !!y && x.kind === y.kind && x.id === y.id;
 function slotsOf() {
   const inv = state.inv;
   if (!inv.slots) inv.slots = { a: null, s: null, d: null, f: null };
-  if (inv.slotV !== 2) {                                 // older saves: 'auto' slots become what they showed, F takes the weapon
+  if (inv.slotV === 2) { for (const k of ALL_SLOTS) if (inv.slots[k] && inv.slots[k].kind === 'seed') inv.slots[k] = null; inv.slotV = 3; }   // seeds left the slots in build 90
+  if (inv.slotV !== 2 && inv.slotV !== 3) {                                 // older saves: 'auto' slots become what they showed, F takes the weapon
     const sl = inv.slots;
     for (const k of SLOT_KEYS) { const s = sl[k]; if (s && s.id === 'auto') sl[k] = s.kind === 'food' ? (oldAutoFood() ? { kind: 'food', id: oldAutoFood() } : null) : (oldAutoSeed() ? { kind: 'seed', id: oldAutoSeed() } : null); }
     if (!('f' in sl) || !sl.f) sl.f = inv.sword ? { kind: 'weapon', id: 'sword' } : inv.acorns > 0 ? { kind: 'weapon', id: 'acorn' } : null;
-    inv.slotV = 2;
+    inv.slotV = 3;
   }
   return inv.slots;
 }
@@ -213,8 +214,7 @@ function slotOptions() {
   for (const id of ['dodge', 'fire', 'flare']) if (entryCount({ kind: 'ability', id })) o.push({ kind: 'ability', id });
   for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash', 'trailmix', 'mash', 'salad']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
   for (const f of [...new Set(inv.food)]) if (!o.some(e => e.kind === 'food' && e.id === f)) o.push({ kind: 'food', id: f });
-  for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) o.push({ kind: 'seed', id: k });
-  return o;
+  return o;                                            // (seeds aren't slotted: F at a patch plants them)
 }
 const consumableOptions = () => slotOptions().filter(e => e.kind === 'food' || e.kind === 'seed');
 function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(sl[k], e)) || null; }
@@ -243,7 +243,7 @@ function tidySlots() {
     if (seen[key]) continue;
     seen[key] = true;
     if (slotOf(e)) continue;
-    const order = [laneOf(e)];                                                  // only its own key (lanes): F stays for blades, D for throws
+    const order = laneOf(e) === 's' ? ['s', 'a'] : [laneOf(e)];                 // its own keys only: F for blades, D for throws, S then A for the rest
     const k = order.find(j => !sl[j]);
     if (k) { setSlot(k, e); changed = true; }
     else if (false) {                                                  // its key is taken: it waits in the pack; holding that key picks between them
@@ -261,7 +261,8 @@ function slotShow(s) {
   return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && (s.id === 'sword' || s.id === 'woodsword') || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id, wear: s.id === 'woodsword' ? state.inv.woodsword / WOOD_SWORD : null };
 }
 // the plant button: the slot holding seeds you have
-function seedSlotKey() {
+function seedSlotKey() { return null; }                 // no seed key any more: F at a patch plants
+function seedSlotKeyOld() {
   const sl = slotsOf();
   return ALL_SLOTS.find(k => sl[k] && sl[k].kind === 'seed' && entryCount(sl[k])) || null;
 }

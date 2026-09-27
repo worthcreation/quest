@@ -26,7 +26,7 @@ const h=state.hero, q=WORLD.meadow.feat.plots[0];
 const atPlot=()=>{ h.x=q[0]*W; h.y=q[1]*H; h.vx=h.vy=0; state.pip.visit=null; run(3); };
 inv.bag.turnipseed=2; run(20); atPlot(); drawActionHint(); console.log('hint on the patch:', state.actionHint && state.actionHint.verb, state.actionHint && state.actionHint.key);
 press('f'); console.log('F: seeds left', inv.bag.turnipseed, '(still 2)');
-press(seedSlotKey()); console.log('seed key ('+'slot'+'): seeds left', inv.bag.turnipseed, '| patch planted', rtFor('meadow').flags.plots[0].s===1);
+press('f'); if(state.choice) press('f'); console.log('seed key ('+'slot'+'): seeds left', inv.bag.turnipseed, '| patch planted', rtFor('meadow').flags.plots[0].s===1);
 // seeds moved to slot A: the hint follows
 rtFor('meadow').flags.plots[0].s=0; slotsOf().a={kind:'seed',id:'auto'}; slotsOf().d=null; atPlot(); drawActionHint(); console.log('seeds in A: hint key', state.actionHint.key);
 press('a'); console.log('A plants: seeds left', inv.bag.turnipseed);
