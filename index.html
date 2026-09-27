@@ -5735,7 +5735,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 59';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 60';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6925,10 +6925,19 @@ function drawItemIcon(type, x, y, s) {
 function drawItems() {
   for (const it of state.items) {
     if (it.type === 'bigrock') { drawRock(it.x, it.y, UNIT * 0.62); continue; }
-    const bob = Math.sin(state.time * 4 + it.x) * UNIT * 0.08;
-    ctx.fillStyle = 'rgba(0,0,0,.25)';
-    ctx.beginPath(); ctx.ellipse(it.x, it.y + UNIT * 0.35, UNIT * 0.35, UNIT * 0.12, 0, 0, 6.28); ctx.fill();
-    drawItemIcon(it.type, it.x, it.y + bob, UNIT * 0.8);
+    // things lie on the ground: a tight contact shadow, a little lean of their own, no floating
+    const hsh = Math.abs(Math.sin(it.x * 12.9898 + it.y * 78.233)) % 1, lean = (hsh - 0.5) * 0.6;
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
+    ctx.beginPath(); ctx.ellipse(it.x + 1, it.y + UNIT * 0.2, UNIT * 0.28, UNIT * 0.07, 0, 0, 6.28); ctx.fill();
+    ctx.save(); ctx.translate(it.x, it.y + UNIT * 0.08); ctx.rotate(lean); drawItemIcon(it.type, 0, 0, UNIT * 0.72); ctx.restore();
+    // now and then, at its own random moments, a small glimmer catches your eye
+    const period = 3.5 + hsh * 4, ph = ((state.time + hsh * 17) % period) / period;
+    if (ph < 0.07) {
+      const k = Math.sin(ph / 0.07 * Math.PI), gx = it.x + (hsh - 0.5) * UNIT * 0.4, gy = it.y - UNIT * 0.15, r = UNIT * 0.2 * k;
+      ctx.fillStyle = `rgba(255,250,220,${0.9 * k})`;
+      ctx.beginPath(); ctx.moveTo(gx, gy - r); ctx.lineTo(gx + r * 0.22, gy); ctx.lineTo(gx, gy + r); ctx.lineTo(gx - r * 0.22, gy); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(gx - r, gy); ctx.lineTo(gx, gy + r * 0.22); ctx.lineTo(gx + r, gy); ctx.lineTo(gx, gy - r * 0.22); ctx.closePath(); ctx.fill();
+    }
   }
 }
 // ---------- enemies ----------
