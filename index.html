@@ -3833,7 +3833,10 @@ function pipExit(sc) {                                // where Pip is heading: t
 function placePipNearHero() {
   const old = state.pip && state.pip.visit;          // left before Pip got to say it: Pip can say it next time
   if (old && !old.said && state.inv.pipTips) delete state.inv.pipTips[old.key];
-  const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
+  // placed a few steps ahead of you toward where we're going (never behind you, so he never has to run around you)
+  const h = state.hero, sc0 = sceneDef(), ex = sc0 && pipExit(sc0), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [h.x + h.fx * UNIT * 3, h.y + h.fy * UNIT * 3];
+  const ddx = gx - h.x, ddy = gy - h.y, dd = Math.hypot(ddx, ddy) || 1, k0 = Math.min(dd, UNIT * 2.5);
+  const bx = h.x + ddx / dd * k0 - ddy / dd * UNIT * 0.9, by = h.y + ddy / dd * k0 + ddx / dd * UNIT * 0.9;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
 // Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
@@ -3888,8 +3891,14 @@ function updatePip(dt) {
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
-  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 4.2);   // well out in front, so the way is plain
-  let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
+  // Pip leads: out in front along the way to the exit, on one side of your line (his lane), and never loops around you.
+  // Already a few steps ahead of you and roughly on the way? He waits there. Fallen behind (you ran past)? He
+  // runs up his own side to get in front again.
+  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 4.2), ux = dx / dl, uy = dy / dl;
+  const ppx = p.x - h.x, ppy = p.y - h.y, along = ppx * ux + ppy * uy, side = -ppx * uy + ppy * ux;
+  if (p.lane == null || Math.abs(side) > UNIT * 0.6) p.lane = side >= 0 ? 1 : -1;
+  const waiting = along > Math.min(lead, UNIT * 3.4) - UNIT * 0.3 && along < UNIT * 6.5 && Math.abs(side) < UNIT * 3;
+  let tx = waiting ? p.x : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.y : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
   if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
   const v = p.visit;
   if (v) {                                            // walking over to point something out, then waiting there for you
@@ -3916,7 +3925,7 @@ function updatePip(dt) {
     p.side = mx > 0 ? 1 : -1;
   }
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
-  if (garden) p.side = h.x > p.x ? 1 : -1;
+  if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   if (!p.visit && !garden && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
   const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
   const gathering = storyAt('gather') && !campDone();
@@ -6196,7 +6205,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 72';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 73';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -8331,6 +8340,13 @@ function layoutTexts() {
       const b = { t, x: t.pos.x, y: t.pos.y, drawY: t.pos.y, w: bw, h: bh, lines, size: fs, lh };
       boxes.push(b); placed.push(b); continue;
     }
+    if (sp && t.off && t.off.w !== bw) t.off = { dx: t.off.dx + t.off.w / 2 - bw / 2, dy: t.off.dy + (t.off.h || bh) - bh, w: bw, h: bh };   // a new page: same spot, new size
+    if (sp && t.off) {                                        // riding with its speaker: same offset every frame, glided, never re-dodged
+      const tx = Math.max(8, Math.min(W - bw - 8, ax + t.off.dx)), ty = Math.max(6, Math.min(H - bh - 6, ay + t.off.dy));
+      t.sx = t.sx == null ? tx : t.sx + (tx - t.sx) * 0.25; t.sy = t.sy == null ? ty : t.sy + (ty - t.sy) * 0.25;
+      const b = { t, x: t.sx, y: t.sy, drawY: t.sy, w: bw, h: bh, lines, size: fs, lh };
+      boxes.push(b); placed.push(b); continue;
+    }
     const x = Math.max(8, Math.min(W - bw - 8, ax - bw / 2));
     const pref = ay - bh;                             // above the thing it talks about
     let best = null, bestCost = Infinity;
@@ -8344,9 +8360,11 @@ function layoutTexts() {
       if (cost < bestCost) { bestCost = cost; best = cand; }
       if (!hit) break;
     }
-    if (!best || bestCost >= 1e6) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
+    if ((!best || bestCost >= 1e6) && SPEECH.has(t.key)) best = { x, y: Math.max(6, Math.min(H - bh - 6, pref)) };   // speech always shows, where it belongs
+    if (!best || bestCost >= 1e6 && !SPEECH.has(t.key)) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
     const y = best.y;
-    t.pos = { x: best.x, y, w: bw };                  // fixed from now on
+    if (sp) { t.off = { dx: best.x - ax, dy: y - ay, w: bw, h: bh }; t.sx = best.x; t.sy = y; }   // from now on it keeps this spot relative to Pip
+    else t.pos = { x: best.x, y, w: bw };             // fixed from now on
     const b = { t, x: best.x, y, drawY: y, w: bw, h: bh, lines, size: fs, lh };
     boxes.push(b); placed.push(b);
   }

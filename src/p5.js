@@ -550,6 +550,13 @@ function layoutTexts() {
       const b = { t, x: t.pos.x, y: t.pos.y, drawY: t.pos.y, w: bw, h: bh, lines, size: fs, lh };
       boxes.push(b); placed.push(b); continue;
     }
+    if (sp && t.off && t.off.w !== bw) t.off = { dx: t.off.dx + t.off.w / 2 - bw / 2, dy: t.off.dy + (t.off.h || bh) - bh, w: bw, h: bh };   // a new page: same spot, new size
+    if (sp && t.off) {                                        // riding with its speaker: same offset every frame, glided, never re-dodged
+      const tx = Math.max(8, Math.min(W - bw - 8, ax + t.off.dx)), ty = Math.max(6, Math.min(H - bh - 6, ay + t.off.dy));
+      t.sx = t.sx == null ? tx : t.sx + (tx - t.sx) * 0.25; t.sy = t.sy == null ? ty : t.sy + (ty - t.sy) * 0.25;
+      const b = { t, x: t.sx, y: t.sy, drawY: t.sy, w: bw, h: bh, lines, size: fs, lh };
+      boxes.push(b); placed.push(b); continue;
+    }
     const x = Math.max(8, Math.min(W - bw - 8, ax - bw / 2));
     const pref = ay - bh;                             // above the thing it talks about
     let best = null, bestCost = Infinity;
@@ -563,9 +570,11 @@ function layoutTexts() {
       if (cost < bestCost) { bestCost = cost; best = cand; }
       if (!hit) break;
     }
-    if (!best || bestCost >= 1e6) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
+    if ((!best || bestCost >= 1e6) && SPEECH.has(t.key)) best = { x, y: Math.max(6, Math.min(H - bh - 6, pref)) };   // speech always shows, where it belongs
+    if (!best || bestCost >= 1e6 && !SPEECH.has(t.key)) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
     const y = best.y;
-    t.pos = { x: best.x, y, w: bw };                  // fixed from now on
+    if (sp) { t.off = { dx: best.x - ax, dy: y - ay, w: bw, h: bh }; t.sx = best.x; t.sy = y; }   // from now on it keeps this spot relative to Pip
+    else t.pos = { x: best.x, y, w: bw };             // fixed from now on
     const b = { t, x: best.x, y, drawY: y, w: bw, h: bh, lines, size: fs, lh };
     boxes.push(b); placed.push(b);
   }

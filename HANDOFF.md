@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 72, 27 Sep 2026)
+# Quest: handoff notes (as of build 73, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 73 in short
+- Text boxes no longer dodge things frame by frame. A box that belongs to a speaker (Pip) searches for clear room once,
+  then keeps that offset from the speaker and glides with them (t.off, t.sx/t.sy in layoutTexts); a new page keeps the
+  spot. Other boxes were already fixed once placed. Speech always shows (if there's no clear room it sits in its
+  preferred spot rather than hiding). Moving the hero no longer moves any box.
+- Pip leads without circling (p6 updatePip): he keeps to one side of your line toward the exit (p.lane), waits once
+  he's 3 to 6.5 tiles ahead on the way (looking back at you), and if you run past him he catches up along his own side.
+  placePipNearHero now puts him ahead of you toward the exit, never behind.
+- Tests: t73 (turn angle around you, lane switches, catching up, bubble offset while you walk about).
 
 ## Build 72 in short
 - Gathering skill (p14 SKILLS.gather, 12 quiet levels; gatherGain on every pickup, rare and secret things count triple).
