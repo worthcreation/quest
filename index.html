@@ -327,8 +327,7 @@ function genWorld() {
   riverbank.river = { pts: [[0.62, -0.08], [0.5, 0.14], [0.3, 0.34], [0.12, 0.47], [-0.08, 0.56]], w: 3.2 };
   riverbank.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'meadow' }, { side: 'w', a: 0.72, b: 0.95, to: 'ford' }];
   riverbank.feat.farside = [0.13, 0.13];          // across the water: Old Wick's shack, his sign, his unfinished raft (reach it by crossing the ford)
-  riverbank.feat.dock = [0.47, 0.35];             // an old jetty on this side, where a raft could be launched
-  claim(riverbank, 0.47, 0.35, 1.6);
+  placeDock(riverbank);                            // Wick's jetty, on his side of the river, a few steps from the shack
   edgeWall(riverbank, 'e', 'tree', 1.1, [], 1.5, 'green');
   riverbank.paths = [makePath([0.5, 0.97], [0.55, 0.6], 1), makePath([0.55, 0.6], [0.03, 0.85], 1)];
   scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
@@ -1278,6 +1277,7 @@ function enterScene(id, fx, fy) {
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
   if (sc.windLedges) layoutLedges(sc);
+  if (sc.feat.farside) placeDock(sc);                 // the jetty sits on the far bank at any screen shape
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
@@ -2981,7 +2981,7 @@ function riverSideQuest(sc, h) {
     const nearSide = !isChasm(h.x, h.y) && (h.x / W + h.y / H > 0.62);          // south of the river
     if (nearSide && !rt.flags.sawFarside && state.time - (state.enterT || 0) > 1.2) {   // seen from across: a mystery, not yet a quest
       rt.flags.sawFarside = true;
-      say('Across the water: a shack, a sign too far to read, and something made of logs.', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 5 });
+      say('Across the water: a shack, a jetty, and something made of logs. No way over from here.', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 5 });
     }
     // on the far side (reached by crossing the ford): the sign, the unfinished raft, the shack door
     const sign = [x + UNIT * 1.35, y - UNIT * 0.4], door = [x - UNIT * 0.05, y + UNIT * 0.65], wreck = [x - UNIT * 0.05, y + UNIT * 1.35];
@@ -3109,8 +3109,8 @@ function updateRapids(dt) {
   } else if (r.phase === 'wreck' && r.t > 1.2 && !r.gone) {
     r.gone = true;
     const inv = state.inv; inv.raft = 1; inv.mats.driftwood += 2;
-    const [dx, dy] = WORLD.riverbank.feat.dock;
-    transitionTo('riverbank', dx + 1.2 * UNIT / W, dy + 1.4 * UNIT / H);
+    const [ax, ay] = dockLanding();
+    transitionTo('riverbank', ax, ay);
     setTimeout(() => say('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'wreck', life: 5 }), 1100);
   }
   h.x = r.x; h.y = ry; h.z = Math.abs(Math.sin(r.t * 5)) * UNIT * 0.08; h.vx = r.vx; h.vy = 0; h.fx = 0; h.fy = -1;
@@ -4590,21 +4590,13 @@ function drawRiverQuest(sc) {
   const f = sc.feat, u = UNIT, inv = state.inv;
   if (f.farside) {
     const x = f.farside[0] * W, y = f.farside[1] * H;
-    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.6, u * 1.1);           // hut
-    ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.moveTo(x - u * 1.1, y - u * 0.55); ctx.lineTo(x - u * 0.1, y - u * 1.3); ctx.lineTo(x + u * 0.9, y - u * 0.55); ctx.fill();
-    ctx.fillStyle = '#2a1c10'; ctx.fillRect(x - u * 0.25, y - u * 0.1, u * 0.4, u * 0.6);
+    drawShack(x, y, u);
     ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x + u * 1.3, y - u * 0.9, u * 0.1, u * 1.1); ctx.fillRect(x + u * 0.95, y - u * 1.05, u * 0.8, u * 0.4);   // sign
     ctx.fillStyle = '#3a2614'; ctx.fillRect(x + u * 1.05, y - u * 0.95, u * 0.6, u * 0.05); ctx.fillRect(x + u * 1.05, y - u * 0.82, u * 0.45, u * 0.05);
     if (!rtFor(sc.id).flags.salvaged) { ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 3; i++) ctx.fillRect(x - u * 0.4 + i * u * 0.3, y + u * 0.9, u * 0.22, u * 0.9); }   // Wick's unfinished raft
     else { ctx.fillStyle = '#6b5a3a'; ctx.fillRect(x - u * 0.4, y + u * 1.6, u * 0.8, u * 0.12); }
   }
-  if (f.dock) {
-    const x = f.dock[0] * W, y = f.dock[1] * H;
-    ctx.fillStyle = '#7a5a34';
-    for (let i = 0; i < 4; i++) ctx.fillRect(x - u * 0.9 + i * u * 0.1, y - u * 0.6 - i * u * 0.35, u * 1.1, u * 0.28);   // planks out over the water
-    ctx.fillStyle = '#4a3420'; ctx.fillRect(x - u * 0.95, y - u * 1.7, u * 0.14, u * 1.5); ctx.fillRect(x + u * 0.1, y - u * 1.9, u * 0.14, u * 1.5);
-    if (inv.raft === 2) { ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(x - u * 1.6 + i * u * 0.3, y - u * 2.2, u * 0.26, u * 1.1); ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - u * 1.6, y - u * 1.9); ctx.lineTo(x - u * 0.45, y - u * 1.9); ctx.moveTo(x - u * 1.6, y - u * 1.4); ctx.lineTo(x - u * 0.45, y - u * 1.4); ctx.stroke(); }
-  }
+  if (f.dock) drawJetty(sc);
   for (const [x, y, i] of fishSpots(sc)) {             // rising fish: rings that spread and fade, always in the water
     const k = (state.time * 0.7 + i * 0.37) % 1;
     ctx.strokeStyle = `rgba(230,245,250,${0.7 * (1 - k)})`; ctx.lineWidth = 1.5;
@@ -5379,7 +5371,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 48';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 49';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -5691,7 +5683,7 @@ function enterPuzzle(p) {
   state.hero.vig = maxVig();
   state.puzzle = { p, t0: null, solved: false, tries: 0 };
   const recs = puzzleRecords(); (recs[p.id] = recs[p.id] || { tries: 0, solves: 0 }).tries++; savePuzzleRecords(recs);
-  if (p.raft) { const [dx, dy] = WORLD.riverbank.feat.dock; enterScene('riverbank', dx + 1.2 * UNIT / W, dy + 1.4 * UNIT / H); startRaftRide(); }
+  if (p.raft) { const [ax, ay] = dockLanding(); enterScene('riverbank', ax, ay); startRaftRide(); }
   else transitionTo(p.scene, p.at[0], p.at[1], true);
 }
 function updatePuzzle(dt) {
@@ -5931,6 +5923,67 @@ function drawPoseSheet() {
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
 // a dotted path that shows where a ride will land, and ravines that look like ravines.
 // =====================================================================
+// Wick's jetty: rooted on his bank beside the shack, pointing straight out into the current
+function placeDock(sc) {
+  const r = sc.river, [sx, sy] = sc.feat.farside, half = r.w * UNIT / 2;
+  const R = [sx * W + UNIT * 3.4, sy * H + UNIT * 0.6];  // a few steps east of the shack
+  let best = null;
+  for (let i = 0; i < r.pts.length - 1; i++) {
+    const ax = r.pts[i][0] * W, ay = r.pts[i][1] * H, bx = r.pts[i + 1][0] * W, by = r.pts[i + 1][1] * H, vx = bx - ax, vy = by - ay;
+    const t = Math.max(0, Math.min(1, ((R[0] - ax) * vx + (R[1] - ay) * vy) / (vx * vx + vy * vy))), qx = ax + vx * t, qy = ay + vy * t, d = Math.hypot(R[0] - qx, R[1] - qy);
+    if (!best || d < best.d) best = { d, qx, qy };
+  }
+  const nx = (R[0] - best.qx) / best.d, ny = (R[1] - best.qy) / best.d;      // from the water toward Wick's bank
+  const root = [best.qx + nx * (half + UNIT * 0.45), best.qy + ny * (half + UNIT * 0.45)];
+  sc.feat.dock = [root[0] / W, root[1] / H];
+  sc.feat.dockDir = [-nx, -ny];                                                // out over the water
+}
+// where you stand at the foot of the jetty, on dry ground (fractions)
+function dockLanding() {
+  const f = WORLD.riverbank.feat, [dx, dy] = f.dockDir || [0.5, 0.85];
+  return [f.dock[0] - dx * UNIT * 1.1 / W, f.dock[1] - dy * UNIT * 1.1 / H];
+}
+// a jetty: two rows of posts, straight planks with a little wear, one board replaced; the raft ties up at the end
+function drawJetty(sc) {
+  const [fx, fy] = sc.feat.dock, [dx, dy] = sc.feat.dockDir || [0.5, 0.85], x = fx * W, y = fy * H, u = UNIT;
+  const len = u * 2.6, wid = u * 1.0, ang = Math.atan2(dy, dx);
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(-u * 0.1, -wid / 2 + 4, len + u * 0.2, wid);          // shadow on the water
+  for (let i = 0; i < 9; i++) {                                                                        // deck boards across the jetty
+    const bx = i * len / 9, j = Math.sin(i * 12.9898) * 0.5, w0 = len / 9 - 2;
+    ctx.fillStyle = i === 5 ? '#9a7a4e' : i % 2 ? '#7a5a34' : '#83623a';                               // board six is newer wood
+    ctx.fillRect(bx, -wid / 2 + j * 2, w0, wid + (i === 7 ? -u * 0.08 : 0));
+    ctx.fillStyle = 'rgba(40,26,14,.5)'; ctx.fillRect(bx + w0 * 0.5, -wid / 2 + u * 0.12, 2, 2); ctx.fillRect(bx + w0 * 0.5, wid / 2 - u * 0.16, 2, 2);   // nail heads
+  }
+  ctx.fillStyle = '#5a3f24'; ctx.fillRect(0, -wid / 2 - 2, len, 3); ctx.fillRect(0, wid / 2 - 1, len, 3);   // stringers
+  ctx.fillStyle = '#4a3420';
+  for (const px of [u * 0.15, len * 0.5, len - u * 0.12]) for (const py of [-wid / 2 - 3, wid / 2 - 3]) { ctx.fillRect(px - 3, py, 7, 7); }   // posts
+  ctx.fillStyle = '#4a3420'; ctx.fillRect(len - u * 0.12 - 3, -wid / 2 - u * 0.45, 6, u * 0.45);        // a tall mooring post at the end
+  if (state.inv.raft === 2) {                                                                          // the new raft, tied alongside the end
+    ctx.save(); ctx.translate(len - u * 0.9, wid / 2 + u * 0.75); ctx.rotate(0.06);
+    ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(-u * 0.75 + i * u * 0.38, -u * 0.5, u * 0.34, u * 1.0);
+    ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-u * 0.75, -u * 0.25); ctx.lineTo(u * 0.75, -u * 0.25); ctx.moveTo(-u * 0.75, u * 0.25); ctx.lineTo(u * 0.75, u * 0.25); ctx.stroke();
+    ctx.strokeStyle = '#c9b890'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(u * 0.7, -u * 0.4); ctx.quadraticCurveTo(u * 0.9, -u * 0.8, u * 0.8, -u * 1.2); ctx.stroke();   // the line to the post
+    ctx.restore();
+  }
+  ctx.restore();
+}
+// Wick's shack: log walls, a lopsided roof with one board patched, a stone step, a crooked stovepipe. Sturdy, not neat.
+function drawShack(x, y, u) {
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.55, u * 1.2, u * 0.3, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = '#8a8378'; ctx.fillRect(x - u * 0.95, y + u * 0.35, u * 1.75, u * 0.2);                 // stone footing
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.65, u * 0.97);                  // walls
+  ctx.strokeStyle = '#4e3520'; ctx.lineWidth = 1.5;
+  for (let k = 1; k < 5; k++) { const yy = y - u * 0.6 + k * u * 0.19; ctx.beginPath(); ctx.moveTo(x - u * 0.9, yy); ctx.lineTo(x + u * 0.75 + (k === 3 ? u * 0.06 : 0), yy); ctx.stroke(); }   // log courses, one sticking out
+  ctx.fillStyle = '#5a3f24'; ctx.fillRect(x - u * 0.98, y - u * 0.62, u * 0.12, u * 1.0); ctx.fillRect(x + u * 0.72, y - u * 0.62, u * 0.12, u * 1.0);   // corner posts
+  ctx.fillStyle = '#3e2e1c'; ctx.beginPath(); ctx.moveTo(x - u * 1.18, y - u * 0.52); ctx.lineTo(x - u * 0.12, y - u * 1.35); ctx.lineTo(x + u * 1.02, y - u * 0.48); ctx.lineTo(x + u * 0.96, y - u * 0.4); ctx.lineTo(x - u * 1.12, y - u * 0.44); ctx.closePath(); ctx.fill();   // roof, longer on one side
+  ctx.fillStyle = '#5c4a30'; ctx.beginPath(); ctx.moveTo(x + u * 0.25, y - u * 1.03); ctx.lineTo(x + u * 0.55, y - u * 0.8); ctx.lineTo(x + u * 0.48, y - u * 0.72); ctx.lineTo(x + u * 0.18, y - u * 0.95); ctx.fill();   // a patched board
+  ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x + u * 0.42, y - u * 1.35, u * 0.14, u * 0.42); ctx.fillRect(x + u * 0.38, y - u * 1.4, u * 0.22, u * 0.07);   // stovepipe, a touch crooked
+  ctx.fillStyle = '#2a1c10'; ctx.fillRect(x - u * 0.28, y - u * 0.18, u * 0.42, u * 0.55);                // door
+  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.32, y - u * 0.22, u * 0.5, u * 0.06);                 // lintel
+  ctx.fillStyle = '#9fc8d8'; ctx.fillRect(x + u * 0.28, y - u * 0.35, u * 0.3, u * 0.22); ctx.strokeStyle = '#3a2616'; ctx.lineWidth = 1.5; ctx.strokeRect(x + u * 0.28, y - u * 0.35, u * 0.3, u * 0.22);   // window
+  ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.ellipse(x - u * 0.07, y + u * 0.46, u * 0.32, u * 0.11, 0, 0, 6.28); ctx.fill();   // stone step
+}
 // Ledges: grassy shelves on each bank, five across where there's room. Rides land on them; wind can't move you on them.
 function layoutLedges(sc) {
   sc.rocks = (sc.rocks || []).filter(r => !r.ledge);
