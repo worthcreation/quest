@@ -45,7 +45,7 @@ walkTo(W*0.5, H-UNIT*0.6); state.keys.arrowdown=true; run(90); state.keys.arrowd
 console.log('12 in the meadow:', state.scene, '| Pip at the garden', state.pip&&state.pip.atGarden, 'dist to spot', state.pip? (Math.hypot(state.pip.x-gardenSpot()[0], state.pip.y-gardenSpot()[1])/UNIT).toFixed(2):'-');
 console.log('13 quest HUD shown:', !!state.questHudRect, JSON.stringify(state.questHudRect));
 walkTo(gardenSpot()[0]-UNIT*2, gardenSpot()[1]); run(90);
-console.log('14 Pip talks from the garden:', spoken()[0]);
+console.log('14 Pip talks from the garden (free words now):', (state.texts.find(t=>t.key==='pip')||{}).text);
 const gp0=[state.pip.x,state.pip.y]; walkTo(W*0.15,H*0.85); run(120); console.log('15 Pip stayed put while you wandered:', Math.hypot(state.pip.x-gp0[0], state.pip.y-gp0[1])<UNIT*0.5);
 // leave the meadow east: Pip is not with you
 walkTo(W-UNIT*0.6, H*0.5); state.keys.arrowright=true; run(90); state.keys.arrowright=false; run(30);

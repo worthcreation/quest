@@ -585,14 +585,25 @@ function drawTexts() {
   for (const b of layoutTexts()) {
     const t = b.t, a = Math.min(1, t.t / 0.15) * Math.min(1, (t.life - t.t) / 0.5);
     ctx.globalAlpha = a;
-    const y = b.panel ? b.y : b.drawY;
-    ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : 'rgba(10,8,14,.82)';
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    const y = b.panel ? b.y : b.drawY, speech = SPEECH.has(t.key) && !b.panel, wait = t.hold;
+    // Two kinds of speech. Waiting words (they need F) sit in a solid box with a bright edge in the speaker's colour and
+    // the key badge. Free words (they'll go by themselves) are a light, see-through bubble with no edge. Both point at
+    // whoever is talking.
+    ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : speech && !wait ? 'rgba(10,8,14,.5)' : 'rgba(10,8,14,.86)';
+    if (speech && !wait) ctx.globalAlpha = a * 0.92;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
     if (b.panel || t.badge) { ctx.strokeStyle = t.badge ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = t.badge ? 2 : 1.5; ctx.stroke(); }
+    if (speech && wait) { ctx.strokeStyle = t.color; ctx.lineWidth = 2; ctx.globalAlpha = a * (0.7 + 0.3 * Math.sin(state.time * 3)); ctx.stroke(); ctx.globalAlpha = a; }
+    if (speech) {                                                            // the little tail toward the speaker
+      const sp = t.who === 'pip' && state.pip && state.pip.show ? state.pip : null, [sx, sy] = toScreen(sp ? sp.x : t.x, sp ? sp.y - UNIT * 0.9 : t.y + UNIT * 0.4);
+      const below = sy > y + b.h / 2, tx = Math.max(b.x + 12, Math.min(b.x + b.w - 12, sx)), ty = below ? y + b.h : y, tip = below ? Math.min(sy, ty + 12) : Math.max(sy, ty - 12);
+      ctx.fillStyle = wait ? 'rgba(10,8,14,.86)' : 'rgba(10,8,14,.5)'; ctx.beginPath(); ctx.moveTo(tx - 7, ty); ctx.lineTo(tx + 7, ty); ctx.lineTo(tx + (sx - tx) * 0.3, tip); ctx.closePath(); ctx.fill();
+    }
     if (t.badge) { ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(t.badge, b.x + b.w / 2, y + TEXT.pad * 0.7); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; continue; }
     ctx.fillStyle = t.color; ctx.textBaseline = 'top';
     if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
-    else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    else { ctx.font = speech && !wait ? `italic bold ${b.size}px "Courier New", monospace` : `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    ctx.globalAlpha = a;
     if (t.hold) drawReadOn(b.x + b.w, y + b.h, b.size);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }

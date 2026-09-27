@@ -301,7 +301,7 @@ function genWorld() {
   scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
   scatter(riverbank, 3, 'boulder', 0.6, 1.0, 1.4, [], [0.2, 0.9, 0.3, 0.8]);
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
-  {                                                   // river stones along the near bank
+  {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
     [0.25, 0.45, 0.65].forEach(t => {
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;

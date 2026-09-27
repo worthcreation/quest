@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 75, 27 Sep 2026)
+# Quest: handoff notes (as of build 76, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 76 in short
+- Waiting vs free words (p5 drawTexts): speech that waits for F is a solid box with a pulsing edge in the speaker's
+  colour and the key badge; free speech is a light see-through bubble, italic, no edge. Both have a small tail toward
+  the speaker.
+- The tutorial is free text now: PIP_HOLD is empty, so only the jetty opening waits for F.
+- Reminders (p6 pipRemind / remindNow): with no progress for 16 s (+6 s each time), Pip walks to something that helps and
+  says it a new way: the robin (by the robin, halfway to you, by its tree), an empty patch, a camp material still
+  needed, or the way on. Each situation has 4 or 5 phrasings used in turn, never the same twice running; a reminder
+  visit gives up after 12 s. "Over here!" nudges and the robin-miss lines cycle through variants too. In the garden a
+  reminder can take Pip off his post for a moment.
+- "River stone" is now "Smooth stone" everywhere (RAW, recipes, the charm, Pip's lines, the camp quest).
+- Tests: t76; t65/t69 adjusted for free text. tools/shot.js B76=1.
 
 ## Build 75 in short
 - Pickups barely nudge the camera now (ZP.pickup 0.012 / 0.3 s / 1 bounce).

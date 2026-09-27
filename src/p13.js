@@ -4,7 +4,7 @@
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
-const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
 // Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
 // (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
 // sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
@@ -12,10 +12,10 @@ const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue:
 // a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
   { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'smooth stones in a ring, kindling in the middle', piece: 'fire' },
   { out: 'benchkit', kind: 'piece', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
   { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
-  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat smooth stone on a loop of glue-stiff fluff. Worn on the chest.' },
   { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
   { out: 'embercharm', kind: 'wear', in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
   { out: 'thornwrap', kind: 'aug', in: ['thorn', 'fluff'], line: 'thorns wound in fluff around your blade: the next strikes bite deeper.', needs: () => !!bladeKind() },
@@ -269,7 +269,7 @@ const QUESTS = [
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
-    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
     { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
     { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
   ] },

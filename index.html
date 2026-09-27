@@ -356,7 +356,7 @@ function genWorld() {
   scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
   scatter(riverbank, 3, 'boulder', 0.6, 1.0, 1.4, [], [0.2, 0.9, 0.3, 0.8]);
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
-  {                                                   // river stones along the near bank
+  {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
     [0.25, 0.45, 0.65].forEach(t => {
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
@@ -2986,7 +2986,7 @@ function scareBird(x, y, range) {
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
   if (drop) { state.items.push({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
   else if (lesson && state.pip && state.pip.show && !speakingNow()) {
-    const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing! Doesn\'t always work. Again!', 'Ha, not this time. Wait for it to come back.'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
+    const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
   }
 }
 function updateBird(dt) {
@@ -3841,8 +3841,43 @@ function placePipNearHero() {
 }
 // Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
-const PIP_HOLD = new Set(['plots', 'robin-lesson', 'firstseed', 'tocamp', 'campdone', 'tentin', 'chest']);
+const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 const PIP_GAP = 8;
+// Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something
+// that helps (the robin, a patch, the next exit, a stick you still need) and says it a new way. Each situation has a
+// handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
+function remindNow(sc, h) {
+  const inv = state.inv, f = sc.feat, P = q => [q[0] * W, q[1] * H], seeds = inv.bag.turnipseed || 0;
+  if (sc.id === 'meadow' && inv.story === STORY.garden) {
+    if (!seeds) { const b = state.bird, rb = b && b.mode === 'perch' ? [b.x, b.y + UNIT] : hollowPoint(), n = (state.remind && state.remind.n) || 0;
+      const at = [rb, [(rb[0] + h.x) / 2, (rb[1] + h.y) / 2], [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.2]][n % 3];   // by the robin, halfway to you, by its tree
+      return { key: 'robin', at, lines: ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'No seeds yet? That robin has plenty.', 'If it hides in its tree, jump and stomp by the trunk!', 'Go on, give the robin a scare!'] }; }
+    const q = f.plots && f.plots.find((pl, i) => !((rtFor('meadow').flags.plots || [])[i] || {}).s);
+    if (q) return { key: 'plant', at: P(q), lines: ['This patch is empty. Pop a seed in!', 'Right here! The dirt wants those seeds.', 'Stand on the soil and plant one.', 'Seeds do best in the ground, not your pocket!'] };
+  }
+  if (inv.story === STORY.tocamp || (storyAt('gather') && !campDone())) {
+    const miss = campMissing(), want = Object.keys(miss);
+    const it = state.items.filter(i => want.includes(i.type)).sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+    const NAME = { stone: 'smooth stone', stick: 'stick', fluff: 'tuft of fluff' };
+    if (it) return { key: 'item-' + it.type, at: [it.x, it.y], lines: [`Here's a good ${NAME[it.type]}!`, `Grab this ${NAME[it.type]}!`, `Look, a ${NAME[it.type]}. We need that.`, `Don't miss this ${NAME[it.type]}!`] };
+    const ex = pipExit(sc);
+    if (ex) { const e = edgePoint(ex.side, (ex.a + ex.b) / 2), at = [e[0] * W - (ex.side === 'e' ? UNIT * 1.5 : ex.side === 'w' ? -UNIT * 1.5 : 0), e[1] * H - (ex.side === 's' ? UNIT * 1.5 : ex.side === 'n' ? -UNIT * 1.5 : 0)];
+      return { key: 'exit-' + sc.id, at, lines: ['This way!', 'Let\'s try over here.', 'Follow me, it\'s not far.', 'Onward! Through here.'] }; }
+  }
+  return null;
+}
+function pipRemind(sc, p, h) {
+  const inv = state.inv, R = state.remind || (state.remind = { t: state.time, i: {}, last: null, n: 0 });
+  const prog = [inv.story, inv.bag.turnipseed || 0, ((rtFor('meadow').flags.plots) || []).filter(q => q.s).length, JSON.stringify(campHave()), sc.id].join('|');
+  if (prog !== R.prog) { R.prog = prog; R.t = state.time; R.n = 0; return; }             // something happened: start the clock again
+  if (p.visit || speakingNow() || state.time - (state.pipTalkT || -9) < PIP_GAP) return;
+  if (state.time - R.t < 16 + R.n * 6) return;
+  const r = remindNow(sc, h); if (!r) return;
+  const k = R.i[r.key] = ((R.i[r.key] ?? -1) + 1) % r.lines.length;
+  let line = r.lines[k]; if (line === R.last) line = r.lines[(k + 1) % r.lines.length];
+  R.last = line; R.t = state.time; R.n++; state.pipTalkT = state.time;
+  p.visit = { x: r.at[0], y: r.at[1], t0: state.time, text: line, key: 'remind', site: { x: r.at[0], y: r.at[1], r: 9 } };
+}
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
   if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < (PIP_HOLD.has(key) ? 2.2 : PIP_GAP) || speakingNow()) return false;
@@ -3857,7 +3892,7 @@ function pipSay(key, text, at, sight = 7, site = null) {
 const CAMP_NEED = { stone: 2, stick: 3, fluff: 2 };
 function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
 function needWords(miss) {
-  const w = { stone: n => `${n} river stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
+  const w = { stone: n => `${n} smooth stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
   const parts = Object.entries(miss).map(([k, n]) => w[k](n));
   return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
 }
@@ -3899,7 +3934,7 @@ function updatePip(dt) {
   if (p.lane == null || Math.abs(side) > UNIT * 0.6) p.lane = side >= 0 ? 1 : -1;
   const waiting = along > Math.min(lead, UNIT * 3.4) - UNIT * 0.3 && along < UNIT * 6.5 && Math.abs(side) < UNIT * 3;
   let tx = waiting ? p.x : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.y : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
-  if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
+  if (garden && !p.visit) [tx, ty] = gardenSpot();        // Pip's post is the garden; a reminder can take him off it for a moment
   const v = p.visit;
   if (v) {                                            // walking over to point something out, then waiting there for you
     [tx, ty] = v.spot || pipBeside(v);
@@ -3913,8 +3948,9 @@ function updatePip(dt) {
       const close = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 2.6;
       const reading = state.texts.some(t => t.hold && t.key === 'pip');
       if (close && state.time - v.said > 0.8 && !reading) { p.visit = null; state.pipTalkT = state.time; }   // you came over and read it: carry on together
+      else if (v.key === 'remind' && state.time - v.said > 12) p.visit = null;                          // a reminder doesn't wait forever
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
-        v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
+        v.call = state.time; state.pipCalls = (state.pipCalls || 0) + 1; say(['Over here!', 'This way!', 'Come see!', 'Psst! Here!', 'Hey! Over here!'][(state.pipCalls - 1) % 5], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
       }
     }
   }
@@ -3935,6 +3971,7 @@ function updatePip(dt) {
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
   // the garden: plant your three seeds in the rich soil, then Pip has a place to show you
+  pipRemind(sc, p, h);                                 // no progress for a while: a fresh nudge, from a new spot
   if (sc.id === 'meadow' && inv.story === STORY.garden) {
     const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
     const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
@@ -3957,7 +3994,7 @@ function updatePip(dt) {
     const spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
     if (inv.story === STORY.tocamp) { if (pipSay('tada', 'TA-DA! Best spot in the whole world. I built us a lean-to! It mostly stays up.')) inv.story = STORY.gather; }
     else if (storyAt('gather') && !campDone()) {
-      pipSay('shopping', 'We still need a fire ring and a bench. River stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields down south. For glue. Trust me.');
+      pipSay('shopping', 'We still need a fire ring and a bench. Smooth stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields down south. For glue. Trust me.');
       pipSay('tentin', 'Go on, crawl inside the lean-to. My book\'s in there.', P([0.33, 0.33]));
       for (const pc of ['fire', 'bench']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, 'Set it down on the marks, right here.', P([spot(pc).fx, spot(pc).fy]));
       if (campBuilt('fire') && !campBuilt('bench')) pipSay('fireok', 'A real fire! Now the bench: two sticks and some of that glue.');
@@ -3969,7 +4006,7 @@ function updatePip(dt) {
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
     const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
-    if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
+    if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
     if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
@@ -6288,7 +6325,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 75';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 76';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7065,7 +7102,7 @@ function drawMud(sc) {
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
-const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
 // Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
 // (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
 // sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
@@ -7073,10 +7110,10 @@ const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue:
 // a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
   { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'smooth stones in a ring, kindling in the middle', piece: 'fire' },
   { out: 'benchkit', kind: 'piece', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
   { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
-  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat smooth stone on a loop of glue-stiff fluff. Worn on the chest.' },
   { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
   { out: 'embercharm', kind: 'wear', in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
   { out: 'thornwrap', kind: 'aug', in: ['thorn', 'fluff'], line: 'thorns wound in fluff around your blade: the next strikes bite deeper.', needs: () => !!bladeKind() },
@@ -7330,7 +7367,7 @@ const QUESTS = [
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
-    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `River stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
     { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
     { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
   ] },
@@ -7766,7 +7803,7 @@ function flare() {
 // =====================================================================
 const WEAR = {
   cap:     { name: 'Stalker cap', kind: 'armament', line: 'Things falling from above bounce off.' },
-  stonecharm: { name: 'River-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
+  stonecharm: { name: 'Smooth-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
   mitts:   { name: 'Gardener\'s mitts', kind: 'charm', line: 'Food mends a quarter more, and turnips work twice as fast.' },
   embercharm: { name: 'Ember charm', kind: 'charm', line: 'Acorns set things alight. Gives Flare: a ring of sparks for your slots.' },
   feather: { name: 'Pip\'s feather', kind: 'flair', line: 'Pip found it. It does nothing. It looks great.' },
@@ -8458,14 +8495,25 @@ function drawTexts() {
   for (const b of layoutTexts()) {
     const t = b.t, a = Math.min(1, t.t / 0.15) * Math.min(1, (t.life - t.t) / 0.5);
     ctx.globalAlpha = a;
-    const y = b.panel ? b.y : b.drawY;
-    ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : 'rgba(10,8,14,.82)';
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    const y = b.panel ? b.y : b.drawY, speech = SPEECH.has(t.key) && !b.panel, wait = t.hold;
+    // Two kinds of speech. Waiting words (they need F) sit in a solid box with a bright edge in the speaker's colour and
+    // the key badge. Free words (they'll go by themselves) are a light, see-through bubble with no edge. Both point at
+    // whoever is talking.
+    ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : speech && !wait ? 'rgba(10,8,14,.5)' : 'rgba(10,8,14,.86)';
+    if (speech && !wait) ctx.globalAlpha = a * 0.92;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
     if (b.panel || t.badge) { ctx.strokeStyle = t.badge ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = t.badge ? 2 : 1.5; ctx.stroke(); }
+    if (speech && wait) { ctx.strokeStyle = t.color; ctx.lineWidth = 2; ctx.globalAlpha = a * (0.7 + 0.3 * Math.sin(state.time * 3)); ctx.stroke(); ctx.globalAlpha = a; }
+    if (speech) {                                                            // the little tail toward the speaker
+      const sp = t.who === 'pip' && state.pip && state.pip.show ? state.pip : null, [sx, sy] = toScreen(sp ? sp.x : t.x, sp ? sp.y - UNIT * 0.9 : t.y + UNIT * 0.4);
+      const below = sy > y + b.h / 2, tx = Math.max(b.x + 12, Math.min(b.x + b.w - 12, sx)), ty = below ? y + b.h : y, tip = below ? Math.min(sy, ty + 12) : Math.max(sy, ty - 12);
+      ctx.fillStyle = wait ? 'rgba(10,8,14,.86)' : 'rgba(10,8,14,.5)'; ctx.beginPath(); ctx.moveTo(tx - 7, ty); ctx.lineTo(tx + 7, ty); ctx.lineTo(tx + (sx - tx) * 0.3, tip); ctx.closePath(); ctx.fill();
+    }
     if (t.badge) { ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(t.badge, b.x + b.w / 2, y + TEXT.pad * 0.7); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; continue; }
     ctx.fillStyle = t.color; ctx.textBaseline = 'top';
     if (b.panel) { ctx.font = `${b.size}px Georgia, serif`; ctx.textAlign = 'left'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + TEXT.pad * 1.5, y + TEXT.pad + i * b.lh)); }
-    else { ctx.font = `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    else { ctx.font = speech && !wait ? `italic bold ${b.size}px "Courier New", monospace` : `bold ${b.size}px "Courier New", monospace`; ctx.textAlign = 'center'; b.lines.forEach((l, i) => ctx.fillText(l, b.x + b.w / 2, y + TEXT.pad * 0.7 + i * b.lh)); }
+    ctx.globalAlpha = a;
     if (t.hold) drawReadOn(b.x + b.w, y + b.h, b.size);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }

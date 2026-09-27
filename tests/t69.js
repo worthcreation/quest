@@ -65,7 +65,7 @@ inv.heard={}; inv.pages=4; collect({type:'page',x:h.x,y:h.y}); inv.pages=7; coll
 // 12. text about a place stays while you're there, lets go when you leave
 inv.pipTaken=false; enterScene('meadow'); inv.story=STORY.garden; delete inv.pipTips.firstseed; delete inv.pipTips.plots; inv.pipTips.plots=true; inv.firstBirdSeed=true; inv.bag.turnipseed=1; run(10); clear();
 const q=WORLD.meadow.feat.plots[0]; h.x=q[0]*W-UNIT; h.y=q[1]*H; state.pipTalkT=-9; for(let k=0;k<60*3;k++) run(1);
-const line=state.texts.find(t=>/shove them/.test(t.text)); console.log('12 at the patches Pip says:', line&&line.text, '| held', !!(line&&line.hold));
-run(60*5); const still=state.texts.includes(line)&&line.hold; h.x=q[0]*W+UNIT*9; h.y=q[1]*H; run(60); console.log('   still there after 5 s at the patches', still, '| walked away: faded', !state.texts.includes(line));
+const line=state.texts.find(t=>/shove them/.test(t.text)); console.log('12 at the patches Pip says:', line&&line.text, '| free words (build 76), not waiting', !(line&&line.hold));
+run(60*2); const still=state.texts.includes(line); h.x=q[0]*W+UNIT*9; h.y=q[1]*H; run(60); console.log('   still there after 2 s at the patches', still, '| walked away: faded', !state.texts.includes(line));
 console.log('BUILD', BUILD, '| errs', errs);
 `);

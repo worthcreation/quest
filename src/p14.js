@@ -336,7 +336,7 @@ function flare() {
 // =====================================================================
 const WEAR = {
   cap:     { name: 'Stalker cap', kind: 'armament', line: 'Things falling from above bounce off.' },
-  stonecharm: { name: 'River-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
+  stonecharm: { name: 'Smooth-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
   mitts:   { name: 'Gardener\'s mitts', kind: 'charm', line: 'Food mends a quarter more, and turnips work twice as fast.' },
   embercharm: { name: 'Ember charm', kind: 'charm', line: 'Acorns set things alight. Gives Flare: a ring of sparks for your slots.' },
   feather: { name: 'Pip\'s feather', kind: 'flair', line: 'Pip found it. It does nothing. It looks great.' },

@@ -53,6 +53,15 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B76) {                             // build 76: a waiting line vs a free line
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.garden; enterScene('meadow'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
+  const p=state.pip; state.hero.x=p.x-UNIT*5; state.hero.y=p.y+UNIT*2;
+  say('Stand over here and shove them in the dirt! They love this stuff.', p.x, p.y-UNIT*1.3, {key:'pip', hold:false, color:'#bfe4ff'});
+  say('...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!', state.hero.x, state.hero.y-UNIT*1.3, {key:'npc', color:'#bfe4ff'});
+  run(25); fs.writeFileSync('/tmp/b76-bubbles.png', canvas.toBuffer('image/png'));
+  console.log('b76 shots written');
+}
 if (process.env.B75) {                             // build 75: pack tabs early and later, Gear sections, Status, testing levels
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('riverbank'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
