@@ -218,6 +218,7 @@ function update(dt) {
   state.frameDt = dt;
   readPresses();
   updateQuests();
+  if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
   coachUpdate();                                     // coached steps move on as you do them, menus included
   if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
     state.nightT = state.time + 0.35 + Math.random() * 0.9;

@@ -20,7 +20,6 @@ function startAmbush() {
 // with a line of light running up it, and only then is it yours: a leap, rays, the title.
 function startSwordCut() {
   const h = state.hero, sw = sceneDef().feat.sword || [h.x / W, h.y / H];
-  state.dusk = false;
   state.cut = { type: 'sword', t: 0, step: 0, landed: false, titled: false, sx: sw[0] * W, sy: sw[1] * H };
   h.vx = 0; h.vy = 0;
   sfx.strain(); state.shake = 0.25;
@@ -31,11 +30,14 @@ function startToadCut() {
   state.cut = { type: 'toad', t: 0, n, step: 0 };
   state.cam.focus = { z: 1.25, at: () => npcPos(n) };
 }
+// After the rescue: the spores carry you both home. A whirl of purple spores and puffs from the mushrooms, a flash,
+// and you're at camp by the fire, still twilight. A few words with Pip, then sleep, then morning: the world is open.
 function startRescue() {
   const inv = state.inv;
   inv.pipSaved = true;
   sfx.victory(); zoomPulse(state.hero.x, state.hero.y, 'boss');
-  setTimeout(() => { transitionTo('camp', 0.5, 0.58); setTimeout(() => say('Pip wants a word by the fire.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', life: 4 }), 0); }, 0);
+  state.cut = { type: 'sporehome', t: 0, step: 0 };
+  state.cam.focus = { z: 1.35, at: () => [state.hero.x, state.hero.y] };
 }
 function startEnding() {
   state.won = true;
@@ -50,6 +52,39 @@ function updateCut(dt) {
   if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
   c.t += dt;
   if (false) {
+  } else if (c.type === 'sporehome') {
+    const s = state.pip;
+    const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.4 + Math.random() * 2.2), x = h.x + Math.cos(a) * r, y = h.y + Math.sin(a) * r * 0.7;
+      state.fx.push({ x, y, vx: -Math.sin(a) * UNIT * 2.2 - Math.cos(a) * UNIT * 0.6, vy: Math.cos(a) * UNIT * 1.5 - UNIT * 0.8, t: 0, life: 0.9 + Math.random() * 0.8, color: ['#c9a2ff', '#b48af0', '#e8d0ff', '#8f6ad8'][i % 4], size: UNIT * (0.05 + Math.random() * 0.1) }); } };
+    if (at(0.1)) { sfx.spores(); say('Hold on tight!', s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (c.t < 2.6) swirl(Math.min(5, 1 + Math.floor(c.t * 2)));                             // the spores gather and spin faster
+    if (c.t > 0.8 && c.t < 2.6 && Math.random() < 0.2) { sfx.spores(); state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 3, y: h.y - UNIT * 0.5, vx: 0, vy: -UNIT * 1.2, t: 0, life: 1.2, color: 'smoke', size: UNIT * 0.35 }); }   // little mushroom puffs
+    state.sporeTint = Math.min(0.85, Math.max(0, (c.t - 0.6) / 2));
+    if (at(2.6)) { state.fadeTarget = 1; state.fadeRate = 5; sfx.flash(); }
+    if (at(3.1)) {                                                                          // home, still twilight, by the fire
+      state.dusk = true; enterScene('camp', 0.46, 0.6); state.fadeTarget = 0;
+      const f = WORLD.camp.feat.fire; state.pip = { x: (f[0] + 0.06) * W, y: (f[1] + 0.05) * H, show: true, follow: true, side: -1 };
+      state.hero.x = (f[0] - 0.05) * W; state.hero.y = (f[1] + 0.06) * H; state.hero.side = 1;
+    }
+    if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
+    const q = state.pip;
+    if (at(4.3)) say('Home! I\'ve never been so happy to see that tent.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
+    if (at(6.2)) say('Z z z...', q.x, q.y - UNIT * 1.2, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff', life: 2.2 });
+    if (at(7.4)) {                                                                          // morning
+      state.dusk = false; state.dawn = state.time; state.hero.vig = maxVig(); setMusic('forest'); setAmbience('none');
+      state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
+    }
+    if (at(8.4)) say('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(8.6)) { say('The gremlins! One of them ran off with it. Every map I ever drew is in there!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); q.hop = { t: 0, n: 3 }; }
+    if (at(8.8)) say('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(9.2)) {
+      state.cut = null; state.cam.focus = null; state.sporeTint = 0;
+      const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)
+      showScroll('Morning', 'The world is your oyster. Explore, and keep filling in Pip\'s map.');
+    }
   } else if (c.type === 'dusk') {                       // later that day: twilight in the lean-to, and Pip can't sit still
     const p = state.pip;
     if (at(0.1)) { state.fadeTarget = 1; state.fadeRate = 3; }

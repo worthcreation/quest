@@ -37,6 +37,8 @@ function draw() {
     }
   }
   if (!state.intro) drawQuestHud();                     // the quest HUD is the bottom layer of the screen: hints, bubbles, banners all draw over it
+  if (state.sporeTint > 0.01) { ctx.fillStyle = `rgba(150,100,220,${state.sporeTint * 0.55})`; ctx.fillRect(0, 0, W, H); }   // spore travel: the world goes violet
+  if (state.dawn && state.time - state.dawn < 12) { const k = 1 - (state.time - state.dawn) / 12; ctx.fillStyle = `rgba(255,190,120,${0.22 * k})`; ctx.fillRect(0, 0, W, H); }   // first light
   drawRideVignette();
   if (state.settings.tiles) drawTiles();
   drawActionHint();
@@ -805,7 +807,19 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
   drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
-  else if (bladeKind()) drawSword(h, pw, ph, y, heroic);
+  else if (bladeKind() && !(state.cut && state.cut.type === 'sword' && !state.inv.sword)) drawSword(h, pw, ph, y, heroic);
+}
+// the steel blade on its own (honing level given), so the stump sword and the sword in hand look the same
+function drawSteelBlade(len, w, edge) {
+  ctx.fillStyle = ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, edge)]; ctx.fillRect(0, -w / 2, len, w);
+  ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(len * 0.05, -w * 0.32, len * 0.9, Math.max(1, w * 0.14));
+  if (edge < 3) {
+    const spots = [[0.08, -0.3, 0.12, 0.5], [0.22, 0.05, 0.1, 0.45], [0.33, -0.4, 0.14, 0.4], [0.47, -0.05, 0.09, 0.55], [0.58, -0.35, 0.12, 0.35],
+      [0.68, 0.1, 0.1, 0.4], [0.78, -0.25, 0.08, 0.5], [0.15, 0.2, 0.07, 0.3], [0.4, 0.25, 0.08, 0.25], [0.88, -0.1, 0.06, 0.4]];
+    const n = [10, 6, 3][edge], a = [0.85, 0.65, 0.45][edge];
+    for (let i = 0; i < n; i++) { const [sx, sy, sw, sh] = spots[i]; ctx.fillStyle = i % 3 ? `rgba(150,86,46,${a})` : `rgba(122,66,34,${a})`; ctx.beginPath(); ctx.ellipse(len * (sx + sw / 2), w * (sy + sh / 2), len * sw / 2, w * sh / 2, 0, 0, 6.28); ctx.fill(); }
+  }
 }
 function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
@@ -932,8 +946,7 @@ function drawSwordReveal(x, y, t) {
   if (rise > 0) {
     ctx.save(); ctx.beginPath(); ctx.rect(x - u, top - u * 0.8, u * 2, (y - u * 0.3) - (top - u * 0.8)); ctx.clip();   // what's still in the stump stays hidden
     ctx.translate(x, top);
-    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-u * 0.07, 0, u * 0.14, u * 1.2);                   // the blade, rust and all
-    ctx.fillStyle = '#a4683f'; ctx.fillRect(-u * 0.07, u * 0.25, u * 0.06, u * 0.3);
+    ctx.save(); ctx.rotate(Math.PI / 2); drawSteelBlade(u * 1.2, u * 0.14, 0); ctx.restore();   // the blade, rust and all: the same steel as the sword in hand
     const ln = ((t - R0) * 1.4) % 1;                                                               // a line of light running up it
     ctx.fillStyle = 'rgba(255,250,220,.9)'; ctx.fillRect(-u * 0.02, u * 1.2 * (1 - ln) - u * 0.15, u * 0.04, u * 0.3);
     ctx.fillStyle = '#5b3b22'; ctx.fillRect(-u * 0.26, -u * 0.1, u * 0.52, u * 0.1);
@@ -1111,7 +1124,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 107';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 109';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

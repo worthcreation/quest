@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 107, 27 Sep 2026)
+# Quest: handoff notes (as of build 109, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,29 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 109: R is the only swap; the journal quest starts in the morning
+- R (actions.js): press it and the wheel opens on the key you last used (state.lastSlot: set by A/S/D presses and by F
+  outside menus); while R is held, A/S/D/F switch the key being chosen for (no swing, no use); each wheel lists only
+  what that key can hold (radialOptions(slot) filtered by laneAllows, plus Empty); arrows point; let go of R to set it.
+  Tap-R blade cycling and the hold-A/S lane wheels are gone; A and S are tap-to-use (marsh fire still holds).
+- Morning (end of the sporehome scene): Pip, three lines that wait for F: sleep, then "where's my journal?", the
+  gremlins took it, follow the torn pages; then the journal quest starts (inv.journal = 1, spawnPages; its banner
+  follows) and the Morning scroll shows.
+- Tests: lanes rewritten for R; homecoming checks the journal quest. 53 of 53.
+
+## Build 108: the long twilight, the spore homecoming, morning; the stump sword; marsh fire on S/A
+- Sword reveal: your hand is empty while the old sword comes up (draw.js skips drawSword during the 'sword' cut until
+  it's yours), and the stump blade is drawn with drawSteelBlade (the same grey steel and rust as the sword in hand).
+- Twilight no longer ends at the sword scene: state.dusk stays on through the woods, the cave and the rescue.
+- startRescue is now a scene ('sporehome' in updateCut): "Hold on tight!", purple spores whirl round you (capped at a
+  handful a frame), mushroom puffs, the world goes violet (state.sporeTint), a flash, and you're at camp by the fire,
+  still twilight; three lines from Pip (wait for F); lights out, "Z z z"; morning: dusk off, a warm dawn glow that
+  fades over 12 s (state.dawn), vigor full, forest music; a scroll: "Morning. The world is your oyster. Explore, and
+  keep filling in Pip's map." Pip's spore-travel explanation at camp (talk) is unchanged.
+- Marsh fire on A or S: holding that key breathes (HOLD_ABILITIES in actions.js skips the lane wheel for it). Swap
+  what's on that key with R + the key, or in the pack. Open design question (Ross): a better quick-swap.
+- Test: homecoming (new). 53 of 53.
 
 ## Build 107: the heavy stones wait for twilight
 - pullLocked(pl) (items.js): big buried rocks (kind 'rock', not mud rocks) are scenery until storyAt('adventure'): no

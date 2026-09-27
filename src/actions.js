@@ -40,31 +40,14 @@ function cycleEquip() {
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
   let wantDodge = false;
-  // A and S: a tap uses what's there (on release, so a hold can mean something else); a hold opens that lane's wheel.
-  // D uses on press as before (holding D aims a throw).
-  const LH = state.laneHold || (state.laneHold = {});
-  if (state.swapT == null) for (const k of ['a', 's']) {
-    const act = SLOT_ACTION[k], down = held[act]();
-    if (pressedNow[act] && !state.radial) LH[k] = { t0: state.time, open: false };
-    const L = LH[k]; if (!L) continue;
-    if (down && !L.open && state.time - L.t0 > 0.22 && laneOptions(k).length) {
-      L.open = true; const cur = laneOptions(k).findIndex(e => sameEntry(e, slotsOf()[k]));
-      state.radial = { slot: k, lane: true, opts: laneOptions(k), sel: Math.max(0, cur) }; sfx.tock();
-    }
-    if (!down) {
-      if (L.open && state.radial && state.radial.lane) { applyRadial(state.radial); state.radial = null; }
-      else if (!L.open && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
-      LH[k] = null;
-    }
+  // A and S: tap to use. (Marsh fire and other hold abilities: holding the key uses them.) Swapping is R's job.
+  const HOLD_ABILITIES = new Set(['fire']);
+  if (state.swapT == null && !state.radial) for (const k of ['a', 's']) {
+    const sl = slotsOf()[k];
+    if (sl && sl.kind === 'ability' && HOLD_ABILITIES.has(sl.id)) continue;
+    if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { state.lastSlot = k; const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
   }
-  if (laneOptions('s').length >= 3 && !state.tipsSeen.lanes) {   // once you have a choice, say how to make it
-    state.tipsSeen.lanes = true; sayHero(`Tap ${slotLabel('s')} or ${slotLabel('a')} to use. Hold one to pick what it holds.`, { life: 4.5, color: '#ffe38a' });
-  }
-  if (state.radial && state.radial.lane) {                 // steering the lane wheel
-    let x = 0, y = 0; if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1;
-    const R = state.radial; if (x || y) { const n = R.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); R.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
-  }
-  if (!state.radial && state.swapT == null && pressedNow[SLOT_ACTION.d] && !state.actUsed) { const r = useSlot('d'); if (r === 'dodge') wantDodge = true; }
+  if (!state.radial && state.swapT == null && pressedNow[SLOT_ACTION.d] && !state.actUsed) { state.lastSlot = 'd'; const r = useSlot('d'); if (r === 'dodge') wantDodge = true; }
   if (state.fSlotAbility === 'dodge') wantDodge = true;              // F holding the dodge
   state.fSlotAbility = null;
   if (wantDodge && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
@@ -73,17 +56,16 @@ function updateAbilities(dt) {
     state.dodged = false;
     sfx.dash();
   }
-  // R: tap steps F through your weapons; hold opens the wheel of consumables (the world all but stops);
-  // while holding, A/S/D/F switches the wheel to everything that could go in that slot. Point, then let go of R.
-  if (pressedNow.swap && !state.carry && !(state.radial && state.radial.lane)) state.swapT = state.time;
+  // R is the one place to swap. Press R: the wheel opens on the key you last used (the world all but stops). While R
+  // is held, A / S / D / F switch which key you're choosing for; each wheel lists only what that key can hold. Point
+  // with the arrows, let go of R to put it there.
+  if (pressedNow.swap && !state.carry) { state.swapT = state.time; const k = state.lastSlot || 'f'; state.radial = { slot: k, opts: radialOptions(k), sel: -1 }; const cur = state.radial.opts.findIndex(e => sameEntry(e, slotsOf()[k])); state.radial.sel = cur; sfx.tock(); }
   if (state.swapT != null) {
     if (held.swap()) {
       const pick = ALL_SLOTS.find(k => pressedNow[SLOT_ACTION[k]]);
-      if (pick) state.radial = { slot: pick, opts: radialOptions(pick), sel: -1 };
-      else if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { slot: null, opts: radialOptions(), sel: -1 };
-      if (state.radial) {
-        const R = state.radial, cur = R.slot ? R.opts.findIndex(e => sameEntry(e, slotsOf()[R.slot])) : -1;
-        if (pick && cur >= 0) R.sel = cur;                         // start on what's there now
+      if (pick) { state.lastSlot = pick; const opts = radialOptions(pick); state.radial = { slot: pick, opts, sel: opts.findIndex(e => sameEntry(e, slotsOf()[pick])) }; sfx.tock(); }
+      const R = state.radial;
+      if (R) {
         let x = 0, y = 0;
         if (state.radialPtr) [x, y] = state.radialPtr;
         else { if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1; }
@@ -91,8 +73,7 @@ function updateAbilities(dt) {
       }
     } else {
       const r = state.radial;
-      if (r) { if (r.sel >= 0) applyRadial(r); }
-      else cycleEquip();
+      if (r && r.sel >= 0) applyRadial(r);
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
   }

@@ -453,7 +453,7 @@ function updateChest(m) {
 const BOOK_PAGES = () => [
   { title: 'Pip\'s Rules', bits: [['carrot', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
   { title: 'Getting about', bits: [['arrows', TOUCH ? 'Walk with the pad.' : 'Arrows walk.'], ['jump', `${keyName(K.jump)} jumps.`], ['goldf', `${K.act.toUpperCase()} does what the gold label says.`]] },
-  { title: 'Your keys', bits: [['goldf', `${K.act.toUpperCase()}: do things, swing your blade.`], ['compost', `${slotLabel('d')}: throw acorns.`], ['snack', `${slotLabel('s')}, ${slotLabel('a')}: eat, use. Hold to pick.`], ['seed', `${K.act.toUpperCase()} at a patch: plant or compost.`]] },
+  { title: 'Your keys', bits: [['goldf', `${K.act.toUpperCase()}: do things, swing your blade.`], ['compost', `${slotLabel('d')}: throw acorns.`], ['snack', `${slotLabel('s')}, ${slotLabel('a')}: eat, use. R swaps.`], ['seed', `${K.act.toUpperCase()} at a patch: plant or compost.`]] },
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
