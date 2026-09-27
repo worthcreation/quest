@@ -1441,7 +1441,8 @@ function drawChest(m) {
   ctx.fillText(m.note || `\u2190 \u2192 pick a side \u00b7 ${K.act} moves one across \u00b7 ${K.menu} closes`, W / 2, H - fs);
   ctx.textAlign = 'left';
 }
-// Pip's book: an open book, two pages to a spread, in Pip's hand (Caveat: a quick scrawl, still easy to read)
+// Pip's book: an open book, two pages to a spread. Each page is a title and three short notes, each with a silly
+// pencil drawing beside it. Handwriting is Caveat (a quick scrawl, still easy to read).
 const HAND = (px, bold) => `${bold ? '700' : '500'} ${px}px Caveat, "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive`;
 function drawBook(m) {
   ctx.fillStyle = 'rgba(12,10,16,.88)'; ctx.fillRect(0, 0, W, H);
@@ -1450,30 +1451,79 @@ function drawBook(m) {
   ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x, y, pw, ph);
   const g = ctx.createLinearGradient(x + pw / 2 - 18, 0, x + pw / 2 + 18, 0); g.addColorStop(0, 'rgba(120,90,60,0)'); g.addColorStop(0.5, 'rgba(120,90,60,.35)'); g.addColorStop(1, 'rgba(120,90,60,0)');
   ctx.fillStyle = g; ctx.fillRect(x + pw / 2 - 18, y, 36, ph);                                   // the gutter
-  const hs = Math.round(fs * 1.3), gutter = fs * 1.6, colW = pw / 2 - gutter - fs * 1.2, bottom = y + ph - fs * 2.4;
-  // flow every entry onto as many pages as it needs (a long one carries on overleaf), then show two at a time
-  const pages = [];
-  for (const e of BOOK) {
-    let pg = [], yy = y + fs * 2.4; const newPage = () => { pages.push(pg); pg = []; yy = y + fs * 2.4; };
-    ctx.font = HAND(Math.round(hs * 1.2), true);
-    for (const tl of wrap(e.title, colW)) { pg.push({ t: tl, big: true, y: yy }); yy += hs * 1.1; }
-    yy += fs * 0.5; ctx.font = HAND(hs, false);
-    for (const l of e.lines) { for (const w2 of wrap(l, colW)) { if (yy > bottom) newPage(); pg.push({ t: w2, y: yy }); yy += hs * 1.05; } yy += hs * 0.25; }
-    pages.push(pg);
-  }
+  const pages = BOOK_PAGES(), hs = Math.round(fs * 1.35), gutter = fs * 1.4;
   m.pageCount = pages.length;
   const sp = Math.min(m.page - (m.page % 2), pages.length - 1 - ((pages.length - 1) % 2));
   [sp, sp + 1].forEach((pi, side) => {
     const pg = pages[pi]; if (!pg) return;
-    const cx = x + (side ? pw / 2 + gutter : fs * 1.2);
-    ctx.textAlign = 'left';
-    for (const r of pg) { ctx.font = HAND(r.big ? Math.round(hs * 1.2) : hs, !!r.big); ctx.fillStyle = r.big ? '#3a2616' : '#3e2a1a'; ctx.fillText(r.t, cx, r.y); }
+    const x0 = x + (side ? pw / 2 + gutter : fs * 1.2), colW = pw / 2 - gutter - fs * 1.2;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#3a2616'; ctx.font = HAND(Math.round(hs * 1.35), true);
+    ctx.fillText(pg.title, x0, y + fs * 2.6);
+    ctx.strokeStyle = 'rgba(58,38,22,.5)'; ctx.lineWidth = 1.5; wobbleLine([[x0, y + fs * 3.1], [x0 + ctx.measureText(pg.title).width, y + fs * 3.2]], 11 + pi);
+    const rowH = (ph - fs * 5.2) / pg.bits.length, ds = Math.min(rowH * 0.8, colW * 0.34);
+    pg.bits.forEach(([d, text], i) => {
+      const ry = y + fs * 4 + i * rowH, cx = x0 + ds / 2, cy = ry + rowH / 2;
+      drawDoodle(d, cx, cy, ds, pi * 7 + i);
+      ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(hs, false);
+      const ls = wrap(text, colW - ds - fs); ls.forEach((l, k) => ctx.fillText(l, x0 + ds + fs * 0.8, cy + (k - (ls.length - 1) / 2) * hs * 1.05 + hs * 0.3));
+    });
     ctx.fillStyle = '#9a8a70'; ctx.font = HAND(Math.round(fs * 1.1), false); ctx.textAlign = side ? 'right' : 'left';
-    ctx.fillText(String(pi + 1), side ? x + pw - fs * 1.2 : x + fs * 1.2, y + ph - fs);                  // page numbers in the corners
+    ctx.fillText(String(pi + 1), side ? x + pw - fs * 1.2 : x + fs * 1.2, y + ph - fs);
   });
   ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
   ctx.fillText(`${sp > 0 ? '\u2190 ' : ''}${sp + 2 < pages.length ? '\u2192 turns the page   ' : ''}${K.act} closes`, W / 2, y + ph + fs * 1.6);
   ctx.textAlign = 'left';
+}
+// pencil lines that wobble a little, the same way every frame (seeded)
+function wobbleLine(pts, seed, close) {
+  let s = seed * 9301 + 49297; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280 - 0.5);
+  ctx.beginPath();
+  pts.forEach(([px, py], i) => { const jx = px + rnd() * 2.2, jy = py + rnd() * 2.2; i ? ctx.lineTo(jx, jy) : ctx.moveTo(jx, jy); });
+  if (close) ctx.closePath();
+  ctx.stroke();
+}
+const circlePts = (cx, cy, rx, ry, n = 14, a0 = 0, a1 = 6.28) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]; });
+// Pip's silly drawings: pencil outlines with a little colour, all stick figures and blobs
+function drawDoodle(name, cx, cy, s, seed) {
+  const L = (pts, c) => wobbleLine(pts, seed + (c || 0)), O = (x0, y0, rx, ry, c) => wobbleLine(circlePts(x0, y0, rx, ry), seed + (c || 0), true);
+  const tint = (col, f) => { ctx.fillStyle = col; ctx.globalAlpha = 0.45; f(); ctx.fill(); ctx.globalAlpha = 1; };
+  const r = s / 2;
+  ctx.save(); ctx.strokeStyle = '#4a3420'; ctx.lineWidth = Math.max(1.5, s * 0.03); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const guy = (x0, y0, k = 1) => { O(x0, y0 - r * 0.45 * k, r * 0.14 * k, r * 0.14 * k, 1); L([[x0, y0 - r * 0.31 * k], [x0, y0 + r * 0.05 * k]], 2); L([[x0 - r * 0.15 * k, y0 - r * 0.15 * k], [x0 + r * 0.15 * k, y0 - r * 0.15 * k]], 3); L([[x0 - r * 0.12 * k, y0 + r * 0.3 * k], [x0, y0 + r * 0.05 * k], [x0 + r * 0.12 * k, y0 + r * 0.3 * k]], 4); };
+  switch (name) {
+    case 'snack': tint('#b884d8', () => { ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.4, 0, 6.28); }); O(cx, cy + r * 0.1, r * 0.4, r * 0.4); L([[cx, cy - r * 0.3], [cx - r * 0.2, cy - r * 0.7]], 5); L([[cx, cy - r * 0.3], [cx + r * 0.15, cy - r * 0.75]], 6); L([[cx - r * 0.12, cy + r * 0.1], [cx - r * 0.05, cy + r * 0.2], [cx + r * 0.08, cy + r * 0.1]], 7); break;   // a happy turnip
+    case 'gremlin': tint('#7aa05a', () => { ctx.beginPath(); ctx.arc(cx, cy, r * 0.45, 0, 6.28); }); O(cx, cy, r * 0.45, r * 0.42); L([[cx - r * 0.4, cy - r * 0.25], [cx - r * 0.7, cy - r * 0.6], [cx - r * 0.3, cy - r * 0.4]], 1); L([[cx + r * 0.4, cy - r * 0.25], [cx + r * 0.7, cy - r * 0.6], [cx + r * 0.3, cy - r * 0.4]], 2);
+      L([[cx - r * 0.25, cy + r * 0.1], [cx, cy + r * 0.28], [cx + r * 0.25, cy + r * 0.1]], 3); O(cx - r * 0.15, cy - r * 0.1, r * 0.05, r * 0.05, 4); O(cx + r * 0.15, cy - r * 0.1, r * 0.05, r * 0.05, 5);
+      ctx.strokeStyle = '#c0304a'; L([[cx + r * 0.55, cy - r * 0.05], [cx + r * 0.85, cy + r * 0.25]], 6); L([[cx + r * 0.55, cy + r * 0.25], [cx + r * 0.85, cy - r * 0.05]], 7); break;   // smiling = no
+    case 'poke': tint('#b48af0', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 10, Math.PI, 6.28), 1); L([[cx + r * 0.2, cy - r * 0.2], [cx + r * 0.2, cy + r * 0.5]], 2);
+      L([[cx - r * 0.8, cy + r * 0.5], [cx - r * 0.05, cy - r * 0.05]], 3); for (const [dx, dy] of [[0.35, -0.7], [0.65, -0.55], [0.0, -0.65]]) { L([[cx + dx * r, cy + dy * r - r * 0.08], [cx + dx * r, cy + dy * r + r * 0.08]], 4); L([[cx + dx * r - r * 0.08, cy + dy * r], [cx + dx * r + r * 0.08, cy + dy * r]], 5); } break;
+    case 'arrows': for (const [dx, dy, a] of [[0, -0.5, -1.57], [0, 0.35, 1.57], [-0.45, 0.35, 3.14], [0.45, 0.35, 0]]) { const bx = cx + dx * r, by = cy + dy * r; L([[bx - r * 0.2, by - r * 0.2], [bx + r * 0.2, by - r * 0.2], [bx + r * 0.2, by + r * 0.2], [bx - r * 0.2, by + r * 0.2], [bx - r * 0.2, by - r * 0.2]], 1 + dx * 9 + dy * 7); L([[bx - Math.cos(a) * r * 0.1, by - Math.sin(a) * r * 0.1], [bx + Math.cos(a) * r * 0.1, by + Math.sin(a) * r * 0.1]], 2); } break;
+    case 'jump': ctx.setLineDash([3, 4]); L(circlePts(cx, cy + r * 0.45, r * 0.7, r * 0.9, 12, Math.PI, 6.28), 1); ctx.setLineDash([]); guy(cx, cy - r * 0.2, 0.9); L([[cx - r * 0.9, cy + r * 0.6], [cx + r * 0.9, cy + r * 0.6]], 2); break;
+    case 'goldf': tint('#f2c94c', () => { ctx.beginPath(); ctx.arc(cx, cy, r * 0.42, 0, 6.28); }); O(cx, cy, r * 0.42, r * 0.42); ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.6), true); ctx.textAlign = 'center'; ctx.fillText(K.act.toUpperCase(), cx, cy + r * 0.2); ctx.textAlign = 'left';
+      for (const a of [0.3, 1.2, 2.2, 3.4, 4.6, 5.6]) L([[cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55], [cx + Math.cos(a) * r * 0.75, cy + Math.sin(a) * r * 0.75]], a * 10); break;
+    case 'slash': guy(cx - r * 0.4, cy + r * 0.2); L(circlePts(cx - r * 0.1, cy, r * 0.7, r * 0.6, 8, -1.2, 1.0), 5); L(circlePts(cx - r * 0.1, cy, r * 0.8, r * 0.7, 8, -1.1, 0.9), 6); break;
+    case 'stab': guy(cx - r * 0.55, cy + r * 0.2); L([[cx - r * 0.3, cy], [cx + r * 0.8, cy]], 5); L([[cx + r * 0.6, cy - r * 0.15], [cx + r * 0.85, cy], [cx + r * 0.6, cy + r * 0.15]], 6); L([[cx - r * 0.1, cy - r * 0.3], [cx + r * 0.3, cy - r * 0.3]], 7); L([[cx - r * 0.1, cy + r * 0.3], [cx + r * 0.3, cy + r * 0.3]], 8); break;
+    case 'pound': guy(cx, cy - r * 0.35, 0.8); L([[cx, cy + r * 0.05], [cx, cy + r * 0.35]], 5); L([[cx - r * 0.1, cy + r * 0.25], [cx, cy + r * 0.38], [cx + r * 0.1, cy + r * 0.25]], 6); for (const a of [-2.6, -2.1, -1.0, -0.5]) L([[cx + Math.cos(a) * r * 0.25, cy + r * 0.62 + Math.sin(a) * r * 0.1], [cx + Math.cos(a) * r * 0.7, cy + r * 0.62 + Math.sin(a) * r * 0.35]], a * 10); L([[cx - r * 0.9, cy + r * 0.65], [cx + r * 0.9, cy + r * 0.65]], 7); break;
+    case 'seed': tint('#6a4a2a', () => { ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.45, r * 0.8, r * 0.25, 0, Math.PI, 0); }); L(circlePts(cx, cy + r * 0.45, r * 0.8, r * 0.25, 10, Math.PI, 6.28), 1); O(cx, cy - r * 0.45, r * 0.08, r * 0.1, 2); L([[cx, cy - r * 0.25], [cx, cy + r * 0.1]], 3); L([[cx - r * 0.1, cy], [cx, cy + r * 0.12], [cx + r * 0.1, cy]], 4); break;
+    case 'compost': tint('#a0662a', () => { ctx.beginPath(); ctx.ellipse(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 0, 0, 6.28); }); O(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 1); L([[cx - r * 0.65, cy - r * 0.45], [cx - r * 0.25, cy - r * 0.45]], 2);
+      L([[cx - r * 0.1, cy - r * 0.2], [cx + r * 0.3, cy - r * 0.2]], 3); L([[cx + r * 0.2, cy - r * 0.3], [cx + r * 0.32, cy - r * 0.2], [cx + r * 0.2, cy - r * 0.1]], 4); tint('#4a3018', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 10, Math.PI, 6.28), 5);
+      for (const dx of [-0.1, 0.3, 0.7]) L([[cx + dx * r, cy + r * 0.2], [cx + dx * r + r * 0.04, cy + r * 0.05]], dx * 10 + 6); break;
+    case 'sprout': L(circlePts(cx, cy + r * 0.5, r * 0.8, r * 0.22, 10, Math.PI, 6.28), 1); tint('#b884d8', () => { ctx.beginPath(); ctx.arc(cx, cy + r * 0.3, r * 0.25, Math.PI, 0); }); L(circlePts(cx, cy + r * 0.3, r * 0.25, r * 0.25, 8, Math.PI, 6.28), 2);
+      L([[cx, cy + r * 0.05], [cx - r * 0.2, cy - r * 0.5]], 3); L([[cx, cy + r * 0.05], [cx + r * 0.22, cy - r * 0.55]], 4); L([[cx + r * 0.6, cy - r * 0.6], [cx + r * 0.6, cy - r * 0.1]], 5); L([[cx + r * 0.5, cy - r * 0.25], [cx + r * 0.6, cy - r * 0.1], [cx + r * 0.7, cy - r * 0.25]], 6); break;
+    case 'mat': for (const [dx, ch] of [[-0.7, ''], [-0.05, '']]) { L([[cx + dx * r - r * 0.25, cy - r * 0.25], [cx + dx * r + r * 0.25, cy - r * 0.25], [cx + dx * r + r * 0.25, cy + r * 0.25], [cx + dx * r - r * 0.25, cy + r * 0.25], [cx + dx * r - r * 0.25, cy - r * 0.25]], dx * 10 + 1); }
+      ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.55), true); ctx.textAlign = 'center'; ctx.fillText('+', cx - r * 0.38, cy + r * 0.15); ctx.fillText('=', cx + r * 0.33, cy + r * 0.15); ctx.fillText('?', cx + r * 0.72, cy + r * 0.18); ctx.textAlign = 'left'; break;
+    case 'glue': for (const dx of [-0.6, -0.1]) { tint('#ffffff', () => { ctx.beginPath(); ctx.arc(cx + dx * r, cy, r * 0.2, 0, 6.28); }); O(cx + dx * r, cy, r * 0.2, r * 0.18, dx * 10); }
+      ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.45), true); ctx.textAlign = 'center'; ctx.fillText('=', cx + r * 0.25, cy + r * 0.12); ctx.textAlign = 'left';
+      L([[cx + r * 0.45, cy + r * 0.3], [cx + r * 0.45, cy - r * 0.2], [cx + r * 0.85, cy - r * 0.2], [cx + r * 0.85, cy + r * 0.3], [cx + r * 0.45, cy + r * 0.3]], 3); L([[cx + r * 0.55, cy - r * 0.2], [cx + r * 0.6, cy - r * 0.4], [cx + r * 0.7, cy - r * 0.4], [cx + r * 0.75, cy - r * 0.2]], 4); break;
+    case 'mark': ctx.strokeStyle = '#c0304a'; L([[cx - r * 0.3, cy], [cx + r * 0.3, cy + r * 0.4]], 1); L([[cx + r * 0.3, cy], [cx - r * 0.3, cy + r * 0.4]], 2); ctx.strokeStyle = '#4a3420';
+      for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; O(cx + Math.cos(a) * r * 0.55, cy - r * 0.35 + Math.sin(a) * r * 0.2, r * 0.1, r * 0.08, k + 3); } L([[cx, cy - r * 0.5], [cx, cy - r * 0.2]], 9); L([[cx, cy - r * 0.2], [cx + r * 0.04, cy + r * 0.0]], 10); break;
+    case 'zzz': guy(cx - r * 0.3, cy + r * 0.2, 0.9); ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.45), true); ctx.fillText('z', cx + r * 0.05, cy - r * 0.2); ctx.fillText('Z', cx + r * 0.3, cy - r * 0.45); ctx.fillText('Z', cx + r * 0.6, cy - r * 0.75); break;
+    case 'fire': tint('#ff9a4a', () => { ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.6); ctx.quadraticCurveTo(cx + r * 0.4, cy, cx, cy + r * 0.3); ctx.quadraticCurveTo(cx - r * 0.4, cy, cx, cy - r * 0.6); });
+      L([[cx, cy - r * 0.6], [cx + r * 0.3, cy - r * 0.1], [cx + r * 0.15, cy + r * 0.3], [cx - r * 0.15, cy + r * 0.3], [cx - r * 0.3, cy - r * 0.1], [cx, cy - r * 0.6]], 1); L([[cx - r * 0.5, cy + r * 0.45], [cx + r * 0.5, cy + r * 0.3]], 2); L([[cx - r * 0.5, cy + r * 0.3], [cx + r * 0.5, cy + r * 0.45]], 3); break;
+    case 'carrot': tint('#e8792a', () => { ctx.beginPath(); ctx.moveTo(cx - r * 0.2, cy - r * 0.35); ctx.lineTo(cx + r * 0.2, cy - r * 0.35); ctx.lineTo(cx, cy + r * 0.6); ctx.closePath(); });
+      L([[cx - r * 0.2, cy - r * 0.35], [cx + r * 0.2, cy - r * 0.35], [cx, cy + r * 0.6], [cx - r * 0.2, cy - r * 0.35]], 1); L([[cx, cy - r * 0.35], [cx - r * 0.15, cy - r * 0.7]], 2); L([[cx, cy - r * 0.35], [cx + r * 0.15, cy - r * 0.7]], 3); L([[cx - r * 0.05, cy - r * 0.1], [cx + r * 0.08, cy - r * 0.05]], 4); break;
+  }
+  ctx.restore();
 }
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
 function tipLibrary() {
@@ -1542,7 +1592,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 81';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 82';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

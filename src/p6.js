@@ -1853,9 +1853,14 @@ function updateChest(m) {
   if (pressedNow.act && L[m.sel]) { m.note = ''; moveOne(L[m.sel], m.col === 0); const n = stashList(m.col === 0 ? packAsStash() : state.inv.chest || {}).length; m.sel = Math.min(m.sel, Math.max(0, n - 1)); }
 }
 // Pip's book: rules first, then training notes
-const BOOK = [
-  { title: 'Pip\'s Rules of Adventure', lines: ['1. Always bring snacks.', '2. Never trust a gremlin that smiles.', '3. If it glows, poke it with a stick first.', '4. Rich soil + seeds = more snacks. See rule 1.', '5. No adventure without a camp.', '6. If Old Wick says it, it\'s probably true. Probably.', '7. Rabbits know more than they let on.'] },
-  { title: 'Training: getting about', lines: [TOUCH ? 'Walk with the pad.' : 'Arrow keys walk.', `${K.jump} jumps. More max vigor, longer jumps.`, `${K.act} does whatever the gold label says: talk, plant, enter, build.`, `${K.menu} opens your pack. Craft is the second tab.`, 'The wind can\'t push you on rock or a grassy ledge.'] },
-  { title: 'Training: fighting', lines: [`Tap ${K.act} to slash. Seven slashes in rhythm make a whirlwind.`, `Hold ${K.act} and let go to stab.`, `Jump, then ${K.act} in the air to pound the ground.`, `Tap ${K.swap} to swap weapons, hold it for the quick wheel.`, 'Low vigor makes every swing slow and weak. Rest.'] },
-  { title: 'Training: growing and making', lines: ['Plant seeds in patches of rich soil.', 'Improve a patch and it grows faster, and sometimes gives more.', 'Put things on the Craft mat. If they make something, it shows.', 'Two things at first. Three once you get the hang of it.', 'Camp pieces go on the marks at camp.'] },
+// Pip's notes: one idea per line, a silly drawing beside each (drawn in drawDoodle, p7). Built when opened, so the
+// keys shown are the ones you've set.
+const BOOK_PAGES = () => [
+  { title: 'Pip\'s Rules', bits: [['snack', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
+  { title: 'Getting about', bits: [['arrows', TOUCH ? 'Walk with the pad.' : 'Arrows walk.'], ['jump', `${keyName(K.jump)} jumps.`], ['goldf', `${K.act.toUpperCase()} does what the gold label says.`]] },
+  { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
+  { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
+  { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
+  { title: 'Tired?', bits: [['zzz', 'Low vigor: slow and floppy.'], ['fire', 'Sit by the fire.'], ['carrot', 'Eat something!']] },
 ];
+const BOOK = { get length() { return BOOK_PAGES().length; } };

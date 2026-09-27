@@ -56,7 +56,7 @@ if (process.env.LEAN) {
 if (process.env.B77) {                             // build 77: the book as a two-page spread, and the tiles overlay
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('tentin'); state.cut=null; run(3); state.texts=[]; state.title=null;
-  state.menu={view:'book',page:2}; draw(); fs.writeFileSync('/tmp/b77-book.png', canvas.toBuffer('image/png')); state.menu=null;
+  state.menu={view:'book',page:4}; draw(); fs.writeFileSync('/tmp/b77-book.png', canvas.toBuffer('image/png')); state.menu=null;
   state.settings.tiles=true; enterScene('riverbank'); state.hero.x=W*0.5; state.hero.y=H*0.8; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b77-tiles.png', canvas.toBuffer('image/png')); state.settings.tiles=false;
   console.log('b77 shots written');
 }
@@ -164,7 +164,7 @@ if (process.env.B65) {                             // build 65: the held opening
 if (process.env.OPEN) {
   state.started=true; startIntro(); for (let k=0;k<60*4.5;k++) update(1/60); draw(); fs.writeFileSync('/tmp/open.png', canvas.toBuffer('image/png'));
   state.cut=null; enterScene('tentin'); state.texts=[]; state.title=null; for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/tent.png', canvas.toBuffer('image/png'));
-  state.menu={view:'book',page:0}; draw(); fs.writeFileSync('/tmp/book.png', canvas.toBuffer('image/png')); state.menu=null;
+  state.menu={view:'book',page:4}; draw(); fs.writeFileSync('/tmp/book.png', canvas.toBuffer('image/png')); state.menu=null;
   enterScene('meadow'); const h=state.hero; h.x=W*0.4; h.y=H*0.5; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; state.keys[' ']=true; update(1/60); for (let k=0;k<14;k++) update(1/60); state.texts=[]; draw();
   fs.writeFileSync('/tmp/jumpz.png', canvas.toBuffer('image/png')); console.log('z at shot', (h.z/UNIT).toFixed(2), 'scale', heightScale(h.z).toFixed(2));
 }

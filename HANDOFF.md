@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 81, 27 Sep 2026)
+# Quest: handoff notes (as of build 82, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,15 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 82 in short
+- Pip's book (tent) is now six short pages, three to a spread (BOOK_PAGES in p6, built on open so keys are current):
+  Pip's Rules, Getting about, Fighting, Growing, Making, Tired?. Each page is a title and three one-line notes, each with
+  a silly pencil drawing beside it (drawDoodle in p7: a happy turnip, a smiling gremlin crossed out, a stick poking a
+  glowing mushroom, the arrow keys, a jump arc, the gold F, slash / stab / pound stick figures, seed into dirt, acorn to
+  compost, a sprouting turnip, the craft mat sum, fluff + fluff = glue, the X mark, a sleepy zzz, a campfire, a carrot).
+  Lines wobble like pencil (wobbleLine, seeded so they hold still). BOOK is now just a length for the page turner.
+- tools/shot.js: B77 renders the book (page index set in the B77 block).
 
 ## Build 81 in short
 - Camp, while gathering (p6 updatePip, sc.id === 'camp'): Pip walks to the next mark still to build (fire ring, then
