@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 82, 27 Sep 2026)
+# Quest: handoff notes (as of build 84, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 84 in short
+- Far fewer patches, mostly by the travel mushrooms (p1). plotPattern(c, n, kind) lays patches a tile apart: for two,
+  either diagonal neighbours ('diag') or one empty tile between ('gap'); larger sets are a grid with a tile between.
+  Pip's garden (meadow): 2. Camp: 4, beside its mushroom. Each wild mushroom (addShroom): 2 nearby. The old farm (foot):
+  6. The glade, far bank, w1, f1 and f2 no longer have patches. tools/shot.js B84=1 (with the tile overlay).
+
+## Build 83 in short
+- Action chips stack vertically above the gold ring (F on top, then the others), with the key badges lined up in one
+  column (drawActionHint). tools/shot.js B83=1.
 
 ## Build 82 in short
 - Pip's book (tent) is now six short pages, three to a spread (BOOK_PAGES in p6, built on open so keys are current):

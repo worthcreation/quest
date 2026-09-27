@@ -53,6 +53,18 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B84) {                             // build 84: Pip's two garden patches, and the camp's four by its mushroom
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.tocamp; state.settings.tiles=true;
+  for (const id of ['meadow','camp']) { enterScene(id); state.cut=null; if (state.pip) state.pip.show=false; state.hero.x=W*0.1; state.hero.y=H*0.2; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b84-'+id+'.png', canvas.toBuffer('image/png')); }
+  state.settings.tiles=false; console.log('b84 shots written');
+}
+if (process.env.B83) {                             // build 83: stacked action chips at a patch
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.tocamp; enterScene('meadow'); state.cut=null; run(3); state.texts=[]; state.title=null;
+  state.inv.bag.turnipseed=2; state.inv.acorns=3; run(30); const q=WORLD.meadow.feat.plots[2]; state.hero.x=q[0]*W; state.hero.y=q[1]*H; state.pip.show=false; run(5); state.texts=[]; draw();
+  fs.writeFileSync('/tmp/b83.png', canvas.toBuffer('image/png')); console.log('b83', (state.hintActs||[]).map(a=>a.key+' '+a.verb).join(' | '));
+}
 if (process.env.B77) {                             // build 77: the book as a two-page spread, and the tiles overlay
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('tentin'); state.cut=null; run(3); state.texts=[]; state.title=null;

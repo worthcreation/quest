@@ -1386,7 +1386,7 @@ function actionList(it) {
   if (it.verb === 'Shake' || /tree/i.test(it.verb)) out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound' });
   const plotHere = sc.feat.plots && sc.feat.plots.some(([fx, fy]) => near(fx * W, fy * H, 1.3));
   const res = out.filter((o, i) => out.findIndex(q => q.key === o.key && q.verb === o.verb) === i && !(plotHere && (o.verb === 'Compost' || o.verb === 'Improve' || o.verb === 'Plant') && o.key === K.act && out.some(q => q !== o && q.verb.startsWith(o.verb))));
-  return res.slice(0, 3);
+  return res.sort((a, b) => (b.key === K.act) - (a.key === K.act)).slice(0, 3);   // F first, then the others
 }
 function drawActionHint() {
   const it = findInteractable();
@@ -1404,20 +1404,20 @@ function drawActionHint() {
   const acts = actionList(it), hgt = fs + 10;
   if (!acts.length) return;                     // one chip per thing you can do here: key, then what it does
   const parts = acts.map(a => { const kw = ctx.measureText(a.key).width + 12, lw = ctx.measureText(a.verb).width; return { ...a, kw, w: kw + lw + 14 }; });
-  const w = parts.reduce((s, q) => s + q.w, 0) + (parts.length - 1) * 6;
-  const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
-  let cx = bx;
+  // stacked one above the other, key column lined up, F on top
+  const w = Math.max(...parts.map(q => q.w)), gap = 5, tot = parts.length * hgt + (parts.length - 1) * gap, kwMax = Math.max(...parts.map(q => q.kw));
+  const bx = Math.max(6, Math.min(W - w - (kwMax - Math.min(...parts.map(q => q.kw))) - 6, sx - w / 2)), by0 = Math.max(6, sy - u * 1.6 - tot);
   ctx.textBaseline = 'middle';
   parts.forEach((q, i) => {
+    const by = by0 + i * (hgt + gap), cw = kwMax + (q.w - q.kw);
     ctx.globalAlpha = i === 0 ? 1 : 0.85;
-    ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx, by, q.w, hgt, hgt / 2) : ctx.rect(cx, by, q.w, hgt); ctx.fill();
-    ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx + 3, by + 3, q.kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(cx + 3, by + 3, q.kw, hgt - 6); ctx.fill();
-    ctx.textAlign = 'center'; ctx.fillStyle = '#1a1420'; ctx.fillText(q.key, cx + 3 + q.kw / 2, by + hgt / 2 + 1);
-    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(q.verb, cx + q.kw + 9, by + hgt / 2 + 1);
-    cx += q.w + 6;
+    ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, hgt, hgt / 2) : ctx.rect(bx, by, cw, hgt); ctx.fill();
+    ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kwMax, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kwMax, hgt - 6); ctx.fill();
+    ctx.textAlign = 'center'; ctx.fillStyle = '#1a1420'; ctx.fillText(q.key, bx + 3 + kwMax / 2, by + hgt / 2 + 1);
+    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(q.verb, bx + kwMax + 9, by + hgt / 2 + 1);
   });
   ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
-  state.hintRect = { x: bx, y: by, w, h: hgt }; state.hintActs = acts;
+  state.hintRect = { x: bx, y: by0, w: w + kwMax, h: tot }; state.hintActs = acts;
 }
 function drawChest(m) {
   ctx.fillStyle = 'rgba(12,10,16,.9)'; ctx.fillRect(0, 0, W, H);
@@ -1592,7 +1592,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 82';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 84';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

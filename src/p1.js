@@ -158,6 +158,15 @@ function decoFlowers(sc, n) {
 // farm patches: a few patches of rich soil near the path; what grows depends on the region
 // spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
 const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
+// Patches are never packed side by side: two of them sit either diagonally touching or with one empty tile between.
+// plotPattern gives n spots around a centre in tiles (converted to fractions of this screen).
+function plotPattern(c, n, kind) {
+  const tx = UNIT / W, ty = UNIT / H;
+  if (n === 2) return kind === 'diag' ? [[c[0] - tx * 0.5, c[1] - ty * 0.5], [c[0] + tx * 0.5, c[1] + ty * 0.5]] : [[c[0] - tx, c[1]], [c[0] + tx, c[1]]];
+  const cols = Math.ceil(Math.sqrt(n)), out = [];
+  for (let i = 0; i < n; i++) out.push([c[0] + ((i % cols) - (cols - 1) / 2) * 2 * tx, c[1] + (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * 2 * ty]);
+  return out;
+}
 function addPlots(sc, n, box) {
   sc.feat.plots = sc.feat.plots || [];
   // try a few spots and keep the one with room for the most plots; test the whole row against what
@@ -165,14 +174,14 @@ function addPlots(sc, n, box) {
   let row = [];
   for (let t = 0; t < 8 && row.length < n; t++) {
     const c = freeSpot(sc, t < 4 ? box : [0.12, 0.88, 0.15, 0.85], 2.2, claimed(sc));
-    const r2 = Array.from({ length: n }, (_, i) => [c[0] + (i % 3) * 0.035 - 0.035, c[1] + Math.floor(i / 3) * 0.06])
+    const r2 = plotPattern(c, n, rng() < 0.5 ? 'diag' : 'gap')
       .filter(q => !onClaim(sc, q[0], q[1], 0.6) && !sc.pools.some(o => Math.hypot((q[0] - o.fx) * W, (q[1] - o.fy) * H) < (o.r + 0.9) * UNIT) && sc.solids.every(s => Math.hypot((q[0] - s.fx) * W, (q[1] - s.fy) * H) > (s.r * 0.6 + 0.6) * UNIT));
     if (r2.length > row.length) row = r2;
   }
   row.forEach(q => { sc.feat.plots.push(q); claim(sc, q[0], q[1], 0.7); });
 }
 // a traveler's mushroom, with a little farm beside it
-function addShroom(sc, spot, plots = 3) {
+function addShroom(sc, spot, plots = 2) {                 // travel mushrooms are where patches are found: two nearby
   const p = spot || freeSpot(sc, [0.2, 0.8, 0.2, 0.8], 2.6, claimed(sc));
   sc.feat.shroom = p;
   sc.solids.push(solid(p[0], p[1], 0.7, 'shroom'));
@@ -183,7 +192,7 @@ function addShroom(sc, spot, plots = 3) {
     for (let t = 0; t < 8 && row.length < plots; t++) {
       const spread = 0.2 + t * 0.05;
       const c = freeSpot(sc, [Math.max(0.12, p[0] - spread), Math.min(0.88, p[0] + spread), Math.max(0.15, p[1] - spread), Math.min(0.85, p[1] + spread)], 1.8, [[...p, 2], ...claimed(sc)]);
-      const r2 = Array.from({ length: plots }, (_, i) => [c[0] + (i - 1) * 0.035, c[1]])
+      const r2 = plotPattern(c, plots, rng() < 0.5 ? 'diag' : 'gap')
         .filter(q => !sc.pools.some(o => Math.hypot((q[0] - o.fx) * W, (q[1] - o.fy) * H) < (o.r + 0.9) * UNIT) && !onClaim(sc, q[0], q[1], 0.6) && sc.solids.every(s => Math.hypot((q[0] - s.fx) * W, (q[1] - s.fy) * H) > (s.r * 0.6 + 0.6) * UNIT));   // never in the water, under anything, or in a trunk
       if (r2.length > row.length) row = r2;
     }
@@ -230,7 +239,7 @@ function genWorld() {
   const camp = add(newScene({ id: 'camp', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4a8f4c', heroStart: [0.44, 0.5] }));
   camp.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'start' }];
   camp.feat.fire = [0.5, 0.45];
-  camp.feat.plots = [[0.2, 0.68], [0.28, 0.68], [0.36, 0.68], [0.2, 0.8], [0.28, 0.8], [0.36, 0.8]];
+  camp.feat.plots = plotPattern([0.66, 0.78], 4);          // four, a tile apart, by the camp's travel mushroom
   camp.feat.pip = [0.58, 0.44];
   npc(camp, { kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
@@ -272,7 +281,6 @@ function genWorld() {
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
   for (const t of ['stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
-  addPlots(start, 2, [0.15, 0.4, 0.6, 0.85]);
   decoFlowers(start, 26);
 
   // ---------------- Meadow (west): the robin's dead tree ----------------
@@ -286,7 +294,7 @@ function genWorld() {
     meadow.feat.perches.push(p);
   }
   scatter(meadow, 7, 'tree', 0.9, 1.3, 1.4, meadow.feat.perches.map(p => [...p, 2.2]), undefined, 'green');
-  addPlots(meadow, 3, [0.5, 0.85, 0.2, 0.8]);             // Pip's little garden
+  addPlots(meadow, 2, [0.5, 0.85, 0.2, 0.8]);             // Pip's little garden: two patches, diagonal or a tile apart
   decoFlowers(meadow, 60);
 
   // ---------------- The river: it rises beyond the north edge of the riverbank, cuts across that screen's
@@ -338,7 +346,6 @@ function genWorld() {
   edgeWall(farbank, 'n', 'tree', 1.1, [], 1.4, 'green'); edgeWall(farbank, 'w', 'tree', 1.1, [], 1.5, 'green'); edgeWall(farbank, 'e', 'tree', 1.1, [], 1.5, 'green');
   farbank.paths = [makePath([0.5, 0.97], [0.5, 0.3], 1)];
   item(farbank, { type: 'starseed', fx: 0.5, fy: 0.3 }, { type: 'thornseed', fx: 0.36, fy: 0.42 }, { type: 'driftwood', fx: 0.66, fy: 0.62 });
-  addPlots(farbank, 3, [0.2, 0.8, 0.4, 0.75]);
   scatter(farbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.1, 0.9, 0.15, 0.85], 'green');
   decoFlowers(farbank, 40);
 
@@ -444,7 +451,6 @@ function genWorld() {
     }
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
     sc.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.85], 0.8); claim(sc, q[0], q[1], 0.6); return q; });
-    if (i === 1) addPlots(sc, 2, [0.3, 0.7, 0.3, 0.7]);
     if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
@@ -494,7 +500,6 @@ function genWorld() {
     const top = F.chasms.length ? F.chasms[0][1] - 0.06 : 0.88;
     scatter(sc, 3 + i, 'boulder', 0.7, 1.3, 1.8, keep, [0.1, 0.9, 0.12, Math.max(0.2, top)]);
     if (F.end) { npc(sc, { kind: 'tortoise', fx: 0.5, fy: 0.87 }); }
-    if (i <= 2) addPlots(sc, 3, [0.2, 0.8, 0.3, 0.8]);
     for (let r = 0; r < F.rabbits; r++) {
       const box = F.end ? [0.2, 0.8, 0.76, 0.9] : F.chasms.length ? [0.15, 0.85, F.chasms[F.chasms.length - 1][3] + 0.04, 0.9] : [0.15, 0.85, 0.3, 0.85];
       const p = freeSpot(sc, box, 1.0);
@@ -543,7 +548,7 @@ function genWorld() {
   foot.feat.crops = [];
   const CROPS = ['squash', 'carrot', 'berries', 'turnip', 'pepper', 'squash'];
   foot.feat.plotLv = 1;                              // someone farmed here before you: the rich soil is already turned
-  for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { foot.feat.plots.push([0.22 + c * 0.06, 0.45 + r * 0.12]); foot.feat.crops.push(CROPS[c]); claim(foot, 0.22 + c * 0.06, 0.45 + r * 0.12, 0.7); }
+  plotPattern([0.37, 0.51], 6).forEach((q, i) => { foot.feat.plots.push(q); foot.feat.crops.push(CROPS[i]); claim(foot, q[0], q[1], 0.7); });   // an old farm: six patches, a tile apart
   addShroom(foot, [0.82, 0.28], 0);
   scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6], [0.82, 0.28, 2.5]], [0.1, 0.9, 0.12, 0.88]);
   for (let t = 0; t < 60; t++) foot.deco.push({ kind: 'tuft', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
