@@ -77,8 +77,8 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
-  if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); }]);
+  if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
   const gl = state.glimpse;
@@ -241,6 +241,7 @@ function drawGround(sc) {
       ctx.fillStyle = '#5a3a22'; ctx.fillRect(x + sw - 2, y - s - 4, 4, 8);
     }
   }
+  drawMud(sc);
 }
 function drawPools(sc) {
   if (sc.area === 'river') {                           // still, gleaming water you can wade into
@@ -628,7 +629,7 @@ function drawSolid(s) {
       break;
     }
     case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.12 + 0.05 * Math.sin(state.time * 0.8);
+      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
       drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
@@ -636,8 +637,8 @@ function drawSolid(s) {
       g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)');
       ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, y - u * 4, u * 5.6, u * 5.6);
       ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
-      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 1.3) : 0.3; ctx.fillStyle = `rgba(245,232,255,${0.45 + 0.55 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
-      if (found && Math.random() < 0.02) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
+      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15; ctx.fillStyle = `rgba(245,232,255,${0.3 + 0.6 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
+      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
       break;
     }
     case 'stone':
@@ -645,6 +646,13 @@ function drawSolid(s) {
       ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
       break;
+    case 'wedge': {                                // boulders heaped and wedged against each other, moss in the cracks
+      const k = Math.abs(Math.sin(x * 7.1 + y * 3.3));
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.15, r * 0.42, 0, 0, 6.28); ctx.fill();
+      drawRock(x - r * 0.25, y + r * 0.1, r * (0.95 + k * 0.2)); drawRock(x + r * 0.35, y - r * 0.15, r * (0.8 + k * 0.15));
+      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y - r * 0.05, r * 0.28, r * 0.12, 0.4, 0, 6.28); ctx.fill();
+      break;
+    }
     case 'log':                                    // a heavy log braced across the way
       ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
@@ -895,23 +903,55 @@ function drawPullable(sc, pl) {
     const p = state.pull.id === pl.id ? state.pull : null;
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
     if (pl.kind === 'rock') {
-      ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
+      const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
+      ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
       if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
       const rise = p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0;
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
       ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt); drawRock(0, 0, UNIT * 0.72); ctx.restore();
-      ctx.fillStyle = '#5a4128'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil lip in front
-      ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14);   // a few grass blades at the rim
+      ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
+      if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
+      else { ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14); }   // a few grass blades at the rim
     } else {
+      const c = state.cut && state.cut.type === 'sword' ? state.cut : null;
+      if (done && c && !state.inv.sword) { drawSwordReveal(x, y, c.t); return; }
       if (done) { ctx.fillStyle = '#2a1a0c'; ctx.fillRect(x - UNIT * 0.08, y - UNIT * 0.14, UNIT * 0.16, UNIT * 0.06); return; }
-      ctx.save(); ctx.translate(x, y - UNIT * 0.1); ctx.rotate(tilt);
-      ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.9, UNIT * 0.14, UNIT * 0.9);
-      ctx.fillStyle = '#a4683f'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.6, UNIT * 0.06, UNIT * 0.2);
-      ctx.fillStyle = '#5b3b22'; ctx.fillRect(-UNIT * 0.26, -UNIT * 1.0, UNIT * 0.52, UNIT * 0.1);
-      ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-UNIT * 0.06, -UNIT * 1.35, UNIT * 0.12, UNIT * 0.35);
-      ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.arc(0, -UNIT * 1.38, UNIT * 0.09, 0, 6.28); ctx.fill();
+      // hidden: sunk to the hilt in the old stump, moss grown over the guard. Just a dark knob, easy to take for a snag.
+      const d = Math.hypot(state.hero.x - x, state.hero.y - y) / UNIT, seen = Math.max(0.35, Math.min(1, 1.4 - d * 0.15));
+      ctx.save(); ctx.globalAlpha = seen; ctx.translate(x, y - UNIT * 0.1); ctx.rotate(tilt * 0.5 - 0.12);
+      ctx.fillStyle = '#3e2a18'; ctx.fillRect(-UNIT * 0.05, -UNIT * 0.62, UNIT * 0.1, UNIT * 0.3);
+      ctx.fillStyle = '#4a6a34'; ctx.beginPath(); ctx.ellipse(0, -UNIT * 0.33, UNIT * 0.2, UNIT * 0.08, 0, 0, 6.28); ctx.fill();   // moss over the guard
+      ctx.fillStyle = '#3a2a1a'; ctx.beginPath(); ctx.arc(0, -UNIT * 0.64, UNIT * 0.07, 0, 6.28); ctx.fill();
+      ctx.fillStyle = 'rgba(90,130,70,.8)'; ctx.fillRect(-UNIT * 0.06, -UNIT * 0.52, UNIT * 0.05, UNIT * 0.08);
       ctx.restore();
     }
+  }
+}
+// the blade coming out of the stump: light first, through the cracks, then the blade itself, rising, rust and all,
+// with a bright line running up it. Drawn at the stump until the hero takes it.
+function drawSwordReveal(x, y, t) {
+  const R0 = 1.5, TAKE = 3.1, u = UNIT, glow = Math.min(1, t / R0), rise = Math.max(0, Math.min(1, (t - R0) / (TAKE - R0)));
+  const e = 1 - Math.pow(1 - rise, 3), top = y - u * 0.3 - e * u * 1.6;
+  ctx.save();
+  ctx.globalAlpha = 0.25 + 0.55 * glow;                                   // rays of light fanning up out of the stump
+  ctx.translate(x, y - u * 0.3); ctx.rotate(Math.sin(t * 0.7) * 0.1);
+  for (let i = 0; i < 9; i++) { const an = -Math.PI / 2 + (i - 4) * 0.2, L0 = u * (1.2 + glow * 2.8) * (0.7 + 0.3 * Math.sin(t * 3 + i * 1.7));
+    const g = ctx.createLinearGradient(0, 0, Math.cos(an) * L0, Math.sin(an) * L0); g.addColorStop(0, 'rgba(255,244,190,.85)'); g.addColorStop(1, 'rgba(255,244,190,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(an - 0.05) * L0, Math.sin(an - 0.05) * L0); ctx.lineTo(Math.cos(an + 0.05) * L0, Math.sin(an + 0.05) * L0); ctx.fill(); }
+  ctx.restore();
+  const hg = ctx.createRadialGradient(x, y - u * 0.3, 0, x, y - u * 0.3, u * (0.6 + glow * 1.4)); hg.addColorStop(0, `rgba(255,236,170,${0.7 * glow})`); hg.addColorStop(1, 'rgba(255,236,170,0)');
+  ctx.fillStyle = hg; ctx.fillRect(x - u * 2.2, y - u * 2.4, u * 4.4, u * 4.4);
+  if (rise > 0) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x - u, top - u * 0.8, u * 2, (y - u * 0.3) - (top - u * 0.8)); ctx.clip();   // what's still in the stump stays hidden
+    ctx.translate(x, top);
+    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-u * 0.07, 0, u * 0.14, u * 1.2);                   // the blade, rust and all
+    ctx.fillStyle = '#a4683f'; ctx.fillRect(-u * 0.07, u * 0.25, u * 0.06, u * 0.3);
+    const ln = ((t - R0) * 1.4) % 1;                                                               // a line of light running up it
+    ctx.fillStyle = 'rgba(255,250,220,.9)'; ctx.fillRect(-u * 0.02, u * 1.2 * (1 - ln) - u * 0.15, u * 0.04, u * 0.3);
+    ctx.fillStyle = '#5b3b22'; ctx.fillRect(-u * 0.26, -u * 0.1, u * 0.52, u * 0.1);
+    ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-u * 0.06, -u * 0.45, u * 0.12, u * 0.35);
+    ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.arc(0, -u * 0.48, u * 0.09, 0, 6.28); ctx.fill();
+    ctx.restore();
   }
 }
 function drawShots() {
@@ -1380,7 +1420,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 67';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 68';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

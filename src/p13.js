@@ -244,7 +244,7 @@ function updateQuests(force) {
   for (const q of QUESTS) {
     let s = qs[q.id];
     const pulse = state.qPulse || (state.qPulse = {});
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle('New quest', q.name, 'area', 2.6, true); pulse[q.id] = state.time; } }
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle(q.name, 'a new quest', 'herald', 3.6); pulse[q.id] = state.time; } }   // a new quest: grand, and gone again on its own
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;

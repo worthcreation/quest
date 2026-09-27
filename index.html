@@ -247,7 +247,7 @@ function addShroom(sc, spot, plots = 3) {
 }
 // ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
-// a cracked stone: a thrown rock knocks it apart. Some hold something; some prop or tie a log wall (rope to [fx, fy])
+// a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -437,7 +437,7 @@ function genWorld() {
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({
-      id: 'w' + i, area: 'woods', depth: i, msg: ['Drag marks lead deeper', 'Cackling, somewhere ahead', 'Something glints in the shadows'][i - 1],
+      id: 'w' + i, area: 'woods', depth: i, msg: ['Drag marks lead deeper', 'Cackling, somewhere ahead', 'The woods hold their breath here'][i - 1],
       music: 'woods', amb: 'none', floor: ['#35743e', '#2d6436', '#26552f'][i - 1], shade: [0.3, 0.5, 0.68][i - 1], speed: 0.48,
     }));
     const east = last ? null : gapAt(rr(0.25, 0.75), 0.1);
@@ -459,18 +459,20 @@ function genWorld() {
       keep.push([...sword, 2.2], [...sc.feat.stone, 2.5]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
     // rock puzzles on the way to the sword, one more idea each screen
-    if (i === 1) {                                   // a log wall propped on a cracked stone: knock the stone out with a thrown rock
-      barrier(sc, 'crack1', 'log', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.55);
+    if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
+                                                     // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
+      barrier(sc, 'crack1', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
       const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
+      (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.42, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
       sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
       keep.push([...k, 3], [...r, 2.5]);
     }
-    if (i === 2) {                                   // the logs are tied to a cracked stone inside a ring of rocks: throw over the ring
-      barrier(sc, 'crack2', 'log', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.55);
-      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, [0.955, (east[0] + east[1]) / 2]); stoneRing(sc, p, 1.4);
+    if (i === 2) {                                   // the boulder pile's keystone sits in the middle of a mud wallow: hit it square, or dig your rock out
+      barrier(sc, 'crack2', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null); (sc.mud = sc.mud || []).push([p[0], p[1], 2.3]);
       const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
       sc.feat.hole = [0.9, (east[0] + east[1]) / 2];
@@ -487,9 +489,9 @@ function genWorld() {
       const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
       stoneRing(sc, pen, 1.5, gapAng, 0.75);
       const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
-      barrier(sc, 'crack3', 'log', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
+      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
       pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
-      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, [pen[0] + Math.cos(gapAng) * R / W, pen[1] + Math.sin(gapAng) * R / H]);
+      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null); (sc.mud = sc.mud || []).push([p[0] - 1.6 * UNIT / W, p[1], 1.1]);
       const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
       pullable(sc, { id: 'rock3b', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, [pen[0] + Math.cos(gapAng) * 0.08, pen[1] + Math.sin(gapAng) * 0.1], 0), makePath(pen, sw, 1));
@@ -1297,6 +1299,7 @@ function enterScene(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
+  syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
   state.atk = null; state.hold = { on: false, t: 0, charged: false }; state.aim.on = false;
   state.npcTalk = null;
@@ -1531,7 +1534,7 @@ function update(dt) {
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
-    let spd = sc.speed * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
+    let spd = sc.speed * (inMud(h.x, h.y + UNIT * 0.2) ? 0.55 : 1) * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
     if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
@@ -1954,8 +1957,27 @@ function updatePull(dt) {
   }
   if (pressedNow.down) tell('You brace your feet.');
 }
+// ---------------- mud: slows you down, and swallows any rock that lands in it ----------------
+// sc.mud = [[fx, fy, radius in tiles]]. A sunk rock becomes a buried rock right there (the same pound, rock and heave
+// as any other: knockRocks / updatePull / freePullable), listed in rt.flags.mudRocks so it survives leaving and saving.
+function inMud(x, y, sc = sceneDef()) { return (sc.mud || []).some(([fx, fy, r]) => { const dx = (x - fx * W) / (r * UNIT), dy = (y - fy * H) / (r * UNIT * 0.62); return dx * dx + dy * dy < 1; }); }
+function syncMudRocks(sc) {
+  const rt = rtFor(sc.id);
+  sc.pullables = sc.pullables.filter(p => !p.mud);
+  for (const m of rt.flags.mudRocks || []) sc.pullables.push({ id: m.id, kind: 'rock', fx: m.fx, fy: m.fy, need: 2, mud: true });
+}
+function sinkRock(x, y) {
+  const sc = sceneDef(), rt = rtFor(sc.id), id = 'mud' + (rt.flags.mudN = (rt.flags.mudN || 0) + 1);
+  (rt.flags.mudRocks = rt.flags.mudRocks || []).push({ id, fx: x / W, fy: y / H });
+  syncMudRocks(sc);
+  sfx.splash(); state.shake = 0.12;
+  for (let d = 0; d < 14; d++) state.fx.push({ x: x + (Math.random() - 0.5) * UNIT * 0.8, y, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#3e2c18' : '#5a4128', size: UNIT * 0.1 });
+  say('Glorp. Stuck in the mud.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
+  say(`A rock in the mud is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
+}
 function freePullable(pl, x, y) {
-  rtFor(state.scene).pulled.add(pl.id);
+  if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }
+  else rtFor(state.scene).pulled.add(pl.id);
   state.pull = newPull(null);
   unsay('pull');
   if (pl.kind === 'rock') {
@@ -3117,7 +3139,8 @@ const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * pat
 function dropRock() {                               // set down a step ahead, the way you face
   const h = state.hero;
   state.carry = null;
-  state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.15 });
+  const x = h.x + h.fx * UNIT * 0.9, y = h.y + h.fy * UNIT * 0.9 + UNIT * 0.15;
+  if (inMud(x, y)) sinkRock(x, y); else state.items.push({ type: 'bigrock', x, y });
   sfx.land(); refreshButtons();
 }
 // The wheel (hold R): every consumable you carry, for use right now. Hold R and press A, S, D or F: everything
@@ -3183,7 +3206,7 @@ function findInteractable() {
   for (const q of f.portals || []) add(q.fx * W, q.fy * H, 'Enter', 1.6);
   if (f.mirror) add(f.mirror[0] * W, f.mirror[1] * H, 'Poses', 1.8);
   if (!state.carry) {
-    for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', 1.8);
+    for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', p.kind === 'sword' ? 0.9 : 1.8);   // the hidden hilt only shows it's a handle when you're right on it
     for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
   }
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
@@ -3607,7 +3630,7 @@ function updateShots(dt) {
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
     }
-    if (!done) for (const o of state.solids) {        // high throws sail over low stones; thickets and logs stand tall
+    if (!done) for (const o of state.solids) {        // high throws sail over low stones; thickets and boulder piles stand tall
       if (s.z > UNIT * (o.bar ? 3 : ['tree', 'deadtree'].includes(o.kind) ? 2.6 : o.kind === 'stone' ? 0.45 : 0.7)) continue;   // trees and thickets stand tall; ring stones are low
       if (Math.hypot(o.x - s.x, o.y - s.y) > o.r + UNIT * 0.2) continue;
       if (rock && o.bar && o.kind === 'bramble') breakBarrier(o.bar, 'rock');
@@ -3620,7 +3643,8 @@ function updateShots(dt) {
     if (state.bird && Math.hypot(state.bird.x - s.x, state.bird.y - s.y) < UNIT * 2) scareBird(s.x, s.y, 3);
     if (done) {
       state.shots.splice(i, 1);
-      if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
+      if (rock && inMud(s.x, s.y)) sinkRock(s.x, s.y);     // short of the mark and into the mud: stuck
+      else if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
       if (state.scene === 'w3' && rock && !broken('w3', 'swordthorns')) say('Thorns. A thrown rock broke the last lot.', s.x, s.y - UNIT, { key: 'rockhint3', life: 2.5, tip: 'rockhint3' });
@@ -3897,16 +3921,16 @@ function updatePip(dt) {
     const ks = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'), kA = sc.solids.find(s => s.bar === 'knockA');
     if (!broken('w1', 'crack1')) {
       if (kA && !broken('w1', 'knockA') && !broken('w1', 'knockB')) pipSay('practice', 'See the cracked stones? Practise on those. Heave a rock and let it fly!', [kA.fx * W, kA.fy * H]);
-      if (ks) pipSay('gate', 'Those logs are propped on a cracked stone. Throw a rock at it. A stomp won\'t do it.', [ks.fx * W, ks.fy * H], 12);
+      if (ks) pipSay('gate', 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.', [ks.fx * W, ks.fy * H], 12);
     } else pipSay('opened', 'CRASH! Onward!');
-    pipSay('map-w1', 'Drawing the woods in... logs, stones, a very suspicious tree.');
+    pipSay('map-w1', 'Drawing the woods in... boulders, mud, a very suspicious tree.');
   }
   if (sc.id === 'start' && storyAt('adventure')) pipSay('map-start', 'Glade: big rock, brambles. On the map!');
   if (sc.id === 'w2') {
     const ks = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked');
-    pipSay('map-w2', 'Last blank corner of the map! Past these logs, and it\'s done.');
-    if (!broken('w2', 'crack2')) pipSay('ring', 'The logs are tied to that cracked stone. Throw a rock over the ring!', ks ? [ks.fx * W, ks.fy * H] : null);
-    else if (!state.cut) startAbduct();              // the logs fall, and they were waiting
+    pipSay('map-w2', 'Last blank corner of the map! Past these boulders, and it\'s done.');
+    if (!broken('w2', 'crack2')) pipSay('ring', 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!', ks ? [ks.fx * W, ks.fy * H] : null);
+    else if (!state.cut) startAbduct();              // the boulders tumble, and they were waiting
   }
 }
 // in the woods, right before the sword: the gremlins take Pip, and the journal with them
@@ -3917,7 +3941,7 @@ function startAbduct() {
   p.bound = 0;
   const hole = sceneDef().feat.hole || [1.02, p.y / H];
   state.gremlins = [0, 1, 2].map(i => ({ x: hole[0] * W, y: hole[1] * H + (i - 1) * UNIT * 0.3, show: true }));
-  state.cam.focus = { z: 1.15, at: () => [p.x, p.y] };
+  state.cam.focus = null;                              // no close-up: you're free to run at them
 }
 function startAmbush() {
   const f = WORLD.start.feat.pip;
@@ -3926,14 +3950,15 @@ function startAmbush() {
   state.gremlins = [0, 1, 2].map(i => ({ x: W + UNIT * (1 + i), y: f[1] * H + (i - 1) * UNIT * 1.4, show: true }));
   state.cam.focus = { z: 1.2, at: () => [W * 0.75, f[1] * H] };
 }
+// The blade comes out slowly: the old stump rumbles and cracks, light leaks out of it, the blade rises rust and all
+// with a line of light running up it, and only then is it yours: a leap, rays, the title.
 function startSwordCut() {
-  const h = state.hero;
-  state.inv.sword = true; state.dusk = false;
-  state.cut = { type: 'sword', t: 0, landed: false, titled: false };
+  const h = state.hero, sw = sceneDef().feat.sword || [h.x / W, h.y / H];
+  state.dusk = false;
+  state.cut = { type: 'sword', t: 0, step: 0, landed: false, titled: false, sx: sw[0] * W, sy: sw[1] * H };
   h.vx = 0; h.vy = 0;
-  sfx.shing(); sfx.fanfare();
-  state.cam.focus = { z: 1.55, at: () => [state.hero.x, state.hero.y - UNIT] };
-  state.shake = 0.2;
+  sfx.strain(); state.shake = 0.25;
+  state.cam.focus = { z: 1.7, at: () => [state.cut && state.cut.type === 'sword' && !state.inv.sword ? state.cut.sx : state.hero.x, (state.cut && state.cut.type === 'sword' && !state.inv.sword ? state.cut.sy : state.hero.y) - UNIT] };
 }
 function startToadCut() {
   const n = sceneDef().npcs.find(o => o.kind === 'toad');
@@ -3973,21 +3998,39 @@ function updateCut(dt) {
     if (at(8.4)) say('Grab the lantern. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; state.inv.lantern = true; q.show = false; }
-  } else if (c.type === 'abduct') {
+  } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;
-    if (at(0.3)) say('The map\'s nearly... hey. What\'s that weird little hole?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
-    if (at(1.2)) setMusic('sinister');
-    if (c.t > 1.4 && c.t < 2.4) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
-    if (at(1.6)) { sfx.cackle(); state.shake = 0.3; }
-    if (at(2.3)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP! That\'s my journal!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 }); zoomPulse(p.x, p.y, 'parry'); gs[1].book = true; }
-    if (c.t > 3.2 && c.t < 5.2) {                      // dragged to the hole, and down it
-      const dx = hx - p.x, dy = hy - p.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(d, UNIT * 6 * dt);
-      p.x += dx / d * sp; p.y += dy / d * sp; gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.5 - g.x) * 0.2; g.y += (p.y + (i - 1) * UNIT * 0.4 - g.y) * 0.2; });
-      if (d < UNIT * 0.4) { p.show = false; gs.forEach(g => { g.show = false; }); }
+    { const v = inputVector(), sp = L() * sceneDef().speed * dt;           // your legs still work
+      if (v.x || v.y) { h.x += v.x * sp; h.y += v.y * sp; h.fx = v.x; h.fy = v.y; h.side = v.x ? Math.sign(v.x) : h.side; }
+      h.vx = v.x * sp / Math.max(dt, 1e-6); h.vy = v.y * sp / Math.max(dt, 1e-6); collideSolids(h, UNIT * 0.38); clampTo(h, UNIT * 0.5); }
+    const hop = c.hop;
+    if (hop) {                                                             // mid-hop: an arc to the new spot
+      const k = Math.min(1, (c.t - hop.t0) / 0.3), lift = Math.sin(k * Math.PI) * UNIT * 1.1;
+      const mv = o => { o.x = o.hx0 + (o.hx1 - o.hx0) * k; o.y = o.hy0 + (o.hy1 - o.hy0) * k; o.hz = lift; };
+      mv(p); gs.forEach(mv);
+      if (k >= 1) { c.hop = null; p.hz = 0; gs.forEach(g => { g.hz = 0; }); }
+    } else if (!c.gone && c.t > 0.3 && Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 1.6) {   // too close: away they spring
+      const ax = p.x - h.x, ay = p.y - h.y, al = Math.hypot(ax, ay) || 1, tx = hx - p.x, ty = hy - p.y, tl = Math.hypot(tx, ty) || 1;
+      let dx = ax / al * 0.7 + tx / tl * 0.5, dy = ay / al * 0.7 + ty / tl * 0.5; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+      const jump = UNIT * (3.2 + Math.random() * 0.8), nx = Math.max(UNIT, Math.min(W - UNIT * 0.6, p.x + dx * jump)), ny = Math.max(UNIT, Math.min(H - UNIT, p.y + dy * jump));
+      c.hop = { t0: c.t }; p.hx0 = p.x; p.hy0 = p.y; p.hx1 = nx; p.hy1 = ny;
+      gs.forEach(g => { g.hx0 = g.x; g.hy0 = g.y; g.hx1 = nx + (g.x - p.x); g.hy1 = ny + (g.y - p.y); });
+      sfx.cackle(); spark(p.x, p.y + UNIT * 0.3, '#8a7a5a', 6, 2);
+      if (!c.jeer) { c.jeer = true; say(c.t < 2.3 ? 'Hee hee! Too slow!' : 'Nyah! Can\'t catch us!', p.x, p.y - UNIT * 1.6, { key: 'npc', hold: false, life: 1.6, color: '#b8e08a' }); }
     }
-    if (at(5.4)) {
-      p.show = false; p.follow = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
+    if (at(0.3)) say('The map\'s nearly... hey. What\'s that weird little hole?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4, hold: false });
+    if (at(1.2)) setMusic('sinister');
+    if (!c.hop && c.t > 1.4 && c.t < 2.4) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
+    if (at(1.6)) { sfx.cackle(); state.shake = 0.3; }
+    if (at(2.3)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP! That\'s my journal!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2, hold: false }); zoomPulse(p.x, p.y, 'parry'); gs[1].book = true; }
+    if (!c.hop && !c.gone && c.t > 3.2) {                // dragged to the hole, and down it (however many hops it takes)
+      const dx = hx - p.x, dy = hy - p.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(d, UNIT * 5 * dt);
+      p.x += dx / d * sp; p.y += dy / d * sp; gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.5 - g.x) * 0.2; g.y += (p.y + (i - 1) * UNIT * 0.4 - g.y) * 0.2; });
+      if (d < UNIT * 0.4) { c.gone = c.t; p.show = false; gs.forEach(g => { g.show = false; }); sfx.cackle(); }
+    }
+    if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
+      p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
       showTitle('Find Pip', 'the gremlins dragged Pip down a hole. Smash it open!', 'area', 3.5);
       say('Down the hole! It\'s too small to follow. Smash it open with a rock!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
@@ -4009,13 +4052,22 @@ function updateCut(dt) {
       say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
-    const a = 0.3, b = 1.35;
-    h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.4 : 0;
-    if (c.t > a && c.t < b && Math.random() < 0.5) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
-    if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.3; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 14, 3.5); }
-    if (!c.titled && c.t >= 1.5) { c.titled = true; sfx.flash(); showTitle('QUEST', 'an epic adventure unfolds', 'quest', 2.6); }
-    if (c.t >= 2.9) state.cam.focus = null;
-    if (c.t >= 3.3) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
+    const R0 = 1.5, TAKE = 3.1, a = TAKE + 0.1, b = TAKE + 1.2;
+    if (c.t < TAKE) {                                   // the stump gives it up: rumble, moss and bark, light through the cracks
+      if (Math.random() < 0.35) state.shake = Math.max(state.shake, 0.06 + 0.08 * c.t / TAKE);
+      if (Math.random() < 0.4) state.fx.push({ x: c.sx + (Math.random() - 0.5) * UNIT, y: c.sy - UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random() * 1.5), t: 0, life: 0.8, color: Math.random() < 0.5 ? '#5a7a3a' : '#5a4128', size: UNIT * 0.08 });
+      if (c.t > R0 && Math.random() < 0.3) state.fx.push({ x: c.sx + (Math.random() - 0.5) * UNIT * 0.2, y: c.sy - UNIT * (0.4 + (c.t - R0) / (TAKE - R0) * 1.3), vx: (Math.random() - 0.5) * UNIT * 0.6, vy: UNIT * 0.8, t: 0, life: 0.9, color: '#8a4a2a', size: UNIT * 0.05 });   // rust flakes
+    }
+    if (at(0.6)) sfx.crash();
+    if (at(1.5)) sfx.hum && sfx.hum();
+    if (at(2.4)) { sfx.shing(); state.flash = 0.25; }
+    if (at(TAKE)) { state.inv.sword = true; sfx.fanfare(); zoomPulse(h.x, h.y, 'boss'); state.flash = 0.5; }
+    h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
+    if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
+    if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
+    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('THE BLADE', 'rusted, waiting, and yours', 'quest', 3); }
+    if (c.t >= b + 2.2) state.cam.focus = null;
+    if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {
     const [tx, ty] = npcPos(c.n);
     if (at(0.2)) sfx.munch();
@@ -4703,8 +4755,8 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { drawPerson(state.pip.x, state.pip.y, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, state.pip.y); }]);
-  if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); }]);
+  if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
   const gl = state.glimpse;
@@ -4867,6 +4919,7 @@ function drawGround(sc) {
       ctx.fillStyle = '#5a3a22'; ctx.fillRect(x + sw - 2, y - s - 4, 4, 8);
     }
   }
+  drawMud(sc);
 }
 function drawPools(sc) {
   if (sc.area === 'river') {                           // still, gleaming water you can wade into
@@ -5254,7 +5307,7 @@ function drawSolid(s) {
       break;
     }
     case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.12 + 0.05 * Math.sin(state.time * 0.8);
+      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
       drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
@@ -5262,8 +5315,8 @@ function drawSolid(s) {
       g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)');
       ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, y - u * 4, u * 5.6, u * 5.6);
       ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
-      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 1.3) : 0.3; ctx.fillStyle = `rgba(245,232,255,${0.45 + 0.55 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
-      if (found && Math.random() < 0.02) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.4, t: 0, life: 2, color: '#e8d8ff' });
+      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15; ctx.fillStyle = `rgba(245,232,255,${0.3 + 0.6 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
+      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
       break;
     }
     case 'stone':
@@ -5271,6 +5324,13 @@ function drawSolid(s) {
       ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
       break;
+    case 'wedge': {                                // boulders heaped and wedged against each other, moss in the cracks
+      const k = Math.abs(Math.sin(x * 7.1 + y * 3.3));
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.15, r * 0.42, 0, 0, 6.28); ctx.fill();
+      drawRock(x - r * 0.25, y + r * 0.1, r * (0.95 + k * 0.2)); drawRock(x + r * 0.35, y - r * 0.15, r * (0.8 + k * 0.15));
+      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y - r * 0.05, r * 0.28, r * 0.12, 0.4, 0, 6.28); ctx.fill();
+      break;
+    }
     case 'log':                                    // a heavy log braced across the way
       ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
@@ -5521,23 +5581,55 @@ function drawPullable(sc, pl) {
     const p = state.pull.id === pl.id ? state.pull : null;
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
     if (pl.kind === 'rock') {
-      ctx.fillStyle = '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
+      const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
+      ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
       if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
       const rise = p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0;
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
       ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt); drawRock(0, 0, UNIT * 0.72); ctx.restore();
-      ctx.fillStyle = '#5a4128'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil lip in front
-      ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14);   // a few grass blades at the rim
+      ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
+      if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
+      else { ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14); }   // a few grass blades at the rim
     } else {
+      const c = state.cut && state.cut.type === 'sword' ? state.cut : null;
+      if (done && c && !state.inv.sword) { drawSwordReveal(x, y, c.t); return; }
       if (done) { ctx.fillStyle = '#2a1a0c'; ctx.fillRect(x - UNIT * 0.08, y - UNIT * 0.14, UNIT * 0.16, UNIT * 0.06); return; }
-      ctx.save(); ctx.translate(x, y - UNIT * 0.1); ctx.rotate(tilt);
-      ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.9, UNIT * 0.14, UNIT * 0.9);
-      ctx.fillStyle = '#a4683f'; ctx.fillRect(-UNIT * 0.07, -UNIT * 0.6, UNIT * 0.06, UNIT * 0.2);
-      ctx.fillStyle = '#5b3b22'; ctx.fillRect(-UNIT * 0.26, -UNIT * 1.0, UNIT * 0.52, UNIT * 0.1);
-      ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-UNIT * 0.06, -UNIT * 1.35, UNIT * 0.12, UNIT * 0.35);
-      ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.arc(0, -UNIT * 1.38, UNIT * 0.09, 0, 6.28); ctx.fill();
+      // hidden: sunk to the hilt in the old stump, moss grown over the guard. Just a dark knob, easy to take for a snag.
+      const d = Math.hypot(state.hero.x - x, state.hero.y - y) / UNIT, seen = Math.max(0.35, Math.min(1, 1.4 - d * 0.15));
+      ctx.save(); ctx.globalAlpha = seen; ctx.translate(x, y - UNIT * 0.1); ctx.rotate(tilt * 0.5 - 0.12);
+      ctx.fillStyle = '#3e2a18'; ctx.fillRect(-UNIT * 0.05, -UNIT * 0.62, UNIT * 0.1, UNIT * 0.3);
+      ctx.fillStyle = '#4a6a34'; ctx.beginPath(); ctx.ellipse(0, -UNIT * 0.33, UNIT * 0.2, UNIT * 0.08, 0, 0, 6.28); ctx.fill();   // moss over the guard
+      ctx.fillStyle = '#3a2a1a'; ctx.beginPath(); ctx.arc(0, -UNIT * 0.64, UNIT * 0.07, 0, 6.28); ctx.fill();
+      ctx.fillStyle = 'rgba(90,130,70,.8)'; ctx.fillRect(-UNIT * 0.06, -UNIT * 0.52, UNIT * 0.05, UNIT * 0.08);
       ctx.restore();
     }
+  }
+}
+// the blade coming out of the stump: light first, through the cracks, then the blade itself, rising, rust and all,
+// with a bright line running up it. Drawn at the stump until the hero takes it.
+function drawSwordReveal(x, y, t) {
+  const R0 = 1.5, TAKE = 3.1, u = UNIT, glow = Math.min(1, t / R0), rise = Math.max(0, Math.min(1, (t - R0) / (TAKE - R0)));
+  const e = 1 - Math.pow(1 - rise, 3), top = y - u * 0.3 - e * u * 1.6;
+  ctx.save();
+  ctx.globalAlpha = 0.25 + 0.55 * glow;                                   // rays of light fanning up out of the stump
+  ctx.translate(x, y - u * 0.3); ctx.rotate(Math.sin(t * 0.7) * 0.1);
+  for (let i = 0; i < 9; i++) { const an = -Math.PI / 2 + (i - 4) * 0.2, L0 = u * (1.2 + glow * 2.8) * (0.7 + 0.3 * Math.sin(t * 3 + i * 1.7));
+    const g = ctx.createLinearGradient(0, 0, Math.cos(an) * L0, Math.sin(an) * L0); g.addColorStop(0, 'rgba(255,244,190,.85)'); g.addColorStop(1, 'rgba(255,244,190,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(an - 0.05) * L0, Math.sin(an - 0.05) * L0); ctx.lineTo(Math.cos(an + 0.05) * L0, Math.sin(an + 0.05) * L0); ctx.fill(); }
+  ctx.restore();
+  const hg = ctx.createRadialGradient(x, y - u * 0.3, 0, x, y - u * 0.3, u * (0.6 + glow * 1.4)); hg.addColorStop(0, `rgba(255,236,170,${0.7 * glow})`); hg.addColorStop(1, 'rgba(255,236,170,0)');
+  ctx.fillStyle = hg; ctx.fillRect(x - u * 2.2, y - u * 2.4, u * 4.4, u * 4.4);
+  if (rise > 0) {
+    ctx.save(); ctx.beginPath(); ctx.rect(x - u, top - u * 0.8, u * 2, (y - u * 0.3) - (top - u * 0.8)); ctx.clip();   // what's still in the stump stays hidden
+    ctx.translate(x, top);
+    ctx.fillStyle = '#8a5a3a'; ctx.fillRect(-u * 0.07, 0, u * 0.14, u * 1.2);                   // the blade, rust and all
+    ctx.fillStyle = '#a4683f'; ctx.fillRect(-u * 0.07, u * 0.25, u * 0.06, u * 0.3);
+    const ln = ((t - R0) * 1.4) % 1;                                                               // a line of light running up it
+    ctx.fillStyle = 'rgba(255,250,220,.9)'; ctx.fillRect(-u * 0.02, u * 1.2 * (1 - ln) - u * 0.15, u * 0.04, u * 0.3);
+    ctx.fillStyle = '#5b3b22'; ctx.fillRect(-u * 0.26, -u * 0.1, u * 0.52, u * 0.1);
+    ctx.fillStyle = '#4a2f1a'; ctx.fillRect(-u * 0.06, -u * 0.45, u * 0.12, u * 0.35);
+    ctx.fillStyle = '#6b4a2b'; ctx.beginPath(); ctx.arc(0, -u * 0.48, u * 0.09, 0, 6.28); ctx.fill();
+    ctx.restore();
   }
 }
 function drawShots() {
@@ -6006,7 +6098,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 67';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 68';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6283,7 +6375,7 @@ var PUZZLE = typeof location !== 'undefined' && /(^|[?&])puzzle(=|&|$)/.test(loc
 const PUZZLES = [
   { id: 'thicket', name: 'Glade brambles', scene: 'start', at: [0.2, 0.5], solved: () => broken('start', 'thicket') },
   { id: 'gate', name: 'Knock the prop', scene: 'w1', at: [0.06, 0.5], solved: () => broken('w1', 'crack1') },
-  { id: 'ring', name: 'Stone ring', scene: 'w2', at: [0.06, 0.5], solved: () => broken('w2', 'crack2') },
+  { id: 'ring', name: 'Mud wallow', scene: 'w2', at: [0.06, 0.5], solved: () => broken('w2', 'crack2') },
   { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
   { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
   { id: 'strong', name: 'Chained rides', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
@@ -6760,6 +6852,24 @@ function drawRideVignette() {
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
 
+// mud wallows: dark, wet, a slow shine on top; bubbles now and then
+function drawMud(sc) {
+  for (const [fx, fy, r] of sc.mud || []) {
+    const x = fx * W, y = fy * H, rx = r * UNIT, ry = r * UNIT * 0.62;
+    ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.06, ry * 1.08, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#34240f'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = 'rgba(20,12,4,.45)'; ctx.beginPath(); ctx.ellipse(x + rx * 0.1, y + ry * 0.12, rx * 0.7, ry * 0.6, 0, 0, 6.28); ctx.fill();
+    const s = 0.5 + 0.5 * Math.sin(state.time * 0.6 + fx * 9);
+    ctx.fillStyle = `rgba(255,236,200,${0.06 + 0.06 * s})`; ctx.beginPath(); ctx.ellipse(x - rx * 0.3, y - ry * 0.35, rx * 0.35, ry * 0.12, -0.15, 0, 6.28); ctx.fill();
+    for (let k = 0; k < 3; k++) {                                   // a bubble swells and pops
+      const per = 3.2 + k * 1.3, ph = ((state.time + k * 1.7 + fx * 5) % per) / per;
+      if (ph > 0.25) continue;
+      const bx = x + Math.cos(k * 2.3 + fy * 11) * rx * 0.55, by = y + Math.sin(k * 2.3 + fy * 11) * ry * 0.5, br = UNIT * 0.1 * Math.sin(ph / 0.25 * Math.PI);
+      ctx.strokeStyle = 'rgba(120,90,60,.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bx, by, Math.max(0.5, br), Math.PI, 0); ctx.stroke();
+    }
+  }
+}
+
 // =====================================================================
 // Setting up camp: the game opens with nothing built. Gather sticks, stones and grass, combine them
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
@@ -7005,7 +7115,7 @@ function updateQuests(force) {
   for (const q of QUESTS) {
     let s = qs[q.id];
     const pulse = state.qPulse || (state.qPulse = {});
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle('New quest', q.name, 'area', 2.6, true); pulse[q.id] = state.time; } }
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle(q.name, 'a new quest', 'herald', 3.6); pulse[q.id] = state.time; } }   // a new quest: grand, and gone again on its own
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
@@ -7127,20 +7237,45 @@ function gainCropXp(k) {
   if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
   if (farmLevel() > fBefore) say(`Farming level ${farmLevel()}: seeds come back more often`, h.x, h.y - UNIT * 2.4, { key: 'farmlvl', life: 3.5, color: '#ffe38a' });
 }
-// the mushroom's light: a slow, lilting glow that drifts between barely-there and shining, never quite the same twice
+// The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
+// curve so that the light spends most of its time low and only now and then swells up to its full brightness.
+// Full brightness (1) is the ceiling; most moments sit well under half of it.
 function shroomGlow(seed, t) {
-  const a = Math.sin(t * 0.7 + seed) * 0.5 + 0.5, b = Math.sin(t * 1.13 + seed * 2.1) * 0.5 + 0.5, c = Math.sin(t * 0.29 + seed * 0.7) * 0.5 + 0.5;
-  return 0.12 + 0.88 * Math.pow(a * 0.45 + b * 0.3 + c * 0.25, 2.2);   // mostly dim, now and then it blooms
+  const a = Math.sin(t * 0.21 + seed), b = Math.sin(t * 0.34 + seed * 2.1 + 1.8 * Math.sin(t * 0.09 + seed * 1.3)), c = Math.sin(t * 0.067 + seed * 0.7);
+  const m = (a * 0.38 + b * 0.42 + c * 0.2) * 0.5 + 0.5;
+  return 0.05 + 0.95 * Math.pow(m, 4.2);
 }
+// Ripples across the ground, each its own: when it comes, how fast it spreads, how far, how round, thin or thick,
+// a single ring, a double, a broken dashed one, or a wavering one. The old ripple brightness is the ceiling; each ripple
+// draws its own strength from a steep curve, so most are faint and many barely there. Right after a mushroom wakes they
+// come more often and brighter, still under that ceiling.
+const SHROOM_RIP_MAX = 0.35, SHROOM_RIP_CALM = 0.14;
 function drawShroomRipples(x, y, u, found, key) {
-  const t = state.time, woke = (state.shroomWoke || {})[key];
-  const since = woke != null ? t - woke : 99;
-  for (let k = 0; k < 3; k++) {                        // soft rings drifting out across the ground; many at first, then an occasional one
-    const period = since < 8 ? 2.2 : 6.5, p = ((t + k * period / 3) % period) / period;
-    if (!found && since > 8) continue;
-    const a = (1 - p) * (since < 8 ? 0.35 : 0.14);
-    ctx.strokeStyle = `rgba(210,180,255,${a})`; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * (0.6 + p * 3.2), u * (0.22 + p * 1.1), 0, 0, 6.28); ctx.stroke();
+  const t = state.time, woke = (state.shroomWoke || {})[key], since = woke != null ? t - woke : 99, fresh = since < 8;
+  const R = state.shroomRip || (state.shroomRip = {}), st = R[key] || (R[key] = { next: t + Math.random() * 2, list: [] });
+  if (t < st.last) { st.next = t + Math.random() * 2; st.list = []; }     // time ran backwards (a new game): start over
+  st.last = t;
+  if ((found || fresh) && t >= st.next && st.list.length < 6) {
+    const ceil = fresh ? SHROOM_RIP_MAX : SHROOM_RIP_CALM, r = Math.random();
+    st.list.push({ t0: t, life: 3 + Math.random() * 5, reach: 2.2 + Math.random() * 2.6, flat: 0.28 + Math.random() * 0.14, lw: 0.8 + Math.random() * 1.6,
+      a: ceil * Math.pow(Math.random(), 2.6), pat: r < 0.5 ? 'one' : r < 0.7 ? 'two' : r < 0.87 ? 'dash' : 'waver', ph: Math.random() * 6.28 });
+    st.next = t + (fresh ? 0.5 + Math.random() * 1.2 : 1.8 + Math.random() * 5.5);
+  }
+  for (let i = st.list.length - 1; i >= 0; i--) {
+    const g = st.list[i], p = (t - g.t0) / g.life;
+    if (p >= 1) { st.list.splice(i, 1); continue; }
+    const rad = u * (0.6 + p * g.reach), al = g.a * Math.sin(Math.min(1, p * 6) * Math.PI / 2) * (1 - p);
+    ctx.strokeStyle = `rgba(210,180,255,${al})`; ctx.lineWidth = g.lw;
+    const ring = (rr, dash) => {
+      ctx.setLineDash && ctx.setLineDash(dash ? [u * 0.3, u * 0.25] : []);
+      ctx.beginPath();
+      if (g.pat === 'waver') for (let k = 0; k <= 40; k++) { const an = k / 40 * 6.28, w = 1 + 0.06 * Math.sin(an * 5 + g.ph + t * 0.8); ctx.lineTo(x + Math.cos(an) * rr * w, y + u * 0.15 + Math.sin(an) * rr * g.flat * 2.6 * w); }
+      else ctx.ellipse(x, y + u * 0.15, rr, rr * g.flat * 2.6, 0, 0, 6.28);
+      ctx.stroke();
+    };
+    ring(rad, g.pat === 'dash');
+    if (g.pat === 'two' && rad > u * 0.9) { ctx.strokeStyle = `rgba(210,180,255,${al * 0.6})`; ring(rad - u * 0.35, false); }
+    ctx.setLineDash && ctx.setLineDash([]);
   }
 }
 
@@ -7904,7 +8039,7 @@ const TEXT = { min: 14, max: 19, pad: 8, gap: 6, readChars: 110, maxShown: 4 };
 function reservedRects() {
   const r = [];
   if (state.hudRect) r.push(state.hudRect);
-  if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
+  if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
   if (state.questHudRect) r.push(state.questHudRect);
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
@@ -7997,7 +8132,20 @@ function drawTitle() {
   if (!T) return;
   const k = T.t, fadeOut = Math.min(1, (T.life - k) / 0.6);
   ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (T.style === 'quest') {
+  if (T.style === 'herald') {                        // a new quest: rises into view in gold, lingers, and melts away. No key needed.
+    const fin = Math.min(1, k / 0.8), fout = Math.min(1, (T.life - k) / 1.1), a = Math.min(fin, fout), e = 1 - Math.pow(1 - fin, 3);
+    const size = Math.min(W / 10, UNIT * 1.7) * (0.94 + 0.08 * (k / T.life)), y = H * 0.3 + (1 - e) * UNIT * 0.6;
+    ctx.globalAlpha = a * 0.5;                                            // a soft band of light behind it
+    const band = ctx.createLinearGradient(0, y - size * 1.6, 0, y + size * 1.2);
+    band.addColorStop(0, 'rgba(255,220,120,0)'); band.addColorStop(0.5, 'rgba(255,220,120,.28)'); band.addColorStop(1, 'rgba(255,220,120,0)');
+    ctx.fillStyle = band; ctx.fillRect(0, y - size * 1.6, W, size * 2.8);
+    ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#fdf6e3'; ctx.font = `italic ${Math.round(size * 0.36)}px Georgia, serif`; ctx.fillText(T.sub, W / 2, y - size * 0.85);
+    ctx.globalAlpha = a; ctx.font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`;
+    ctx.shadowColor = '#ffcf5a'; ctx.shadowBlur = size * 0.35 * a; ctx.lineWidth = Math.max(2, size * 0.05); ctx.strokeStyle = '#3a2410'; ctx.strokeText(T.text, W / 2, y);
+    const gr = ctx.createLinearGradient(0, y - size / 2, 0, y + size / 2); gr.addColorStop(0, '#fff6c8'); gr.addColorStop(0.55, '#f2c94c'); gr.addColorStop(1, '#b8792a');
+    ctx.fillStyle = gr; ctx.fillText(T.text, W / 2, y); ctx.shadowBlur = 0;
+    const lw = Math.min(W * 0.5, size * 5) * e; ctx.strokeStyle = `rgba(255,227,138,${0.7 * a})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(W / 2 - lw / 2, y + size * 0.7); ctx.lineTo(W / 2 + lw / 2, y + size * 0.7); ctx.stroke();
+  } else if (T.style === 'quest') {
     const pop = k < 0.35 ? 2.2 - 1.2 * (k / 0.35) : 1 + 0.04 * Math.sin(k * 6) * Math.max(0, 1 - k);
     const size = Math.min(W / 4.2, UNIT * 3.4) * pop;
     ctx.globalAlpha = Math.min(1, k / 0.1) * fadeOut;

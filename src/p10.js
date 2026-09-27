@@ -7,7 +7,7 @@ var PUZZLE = typeof location !== 'undefined' && /(^|[?&])puzzle(=|&|$)/.test(loc
 const PUZZLES = [
   { id: 'thicket', name: 'Glade brambles', scene: 'start', at: [0.2, 0.5], solved: () => broken('start', 'thicket') },
   { id: 'gate', name: 'Knock the prop', scene: 'w1', at: [0.06, 0.5], solved: () => broken('w1', 'crack1') },
-  { id: 'ring', name: 'Stone ring', scene: 'w2', at: [0.06, 0.5], solved: () => broken('w2', 'crack2') },
+  { id: 'ring', name: 'Mud wallow', scene: 'w2', at: [0.06, 0.5], solved: () => broken('w2', 'crack2') },
   { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
   { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
   { id: 'strong', name: 'Chained rides', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },

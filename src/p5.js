@@ -496,7 +496,7 @@ const TEXT = { min: 14, max: 19, pad: 8, gap: 6, readChars: 110, maxShown: 4 };
 function reservedRects() {
   const r = [];
   if (state.hudRect) r.push(state.hudRect);
-  if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' ? 5.5 : 3.8) });
+  if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
   if (state.questHudRect) r.push(state.questHudRect);
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
@@ -589,7 +589,20 @@ function drawTitle() {
   if (!T) return;
   const k = T.t, fadeOut = Math.min(1, (T.life - k) / 0.6);
   ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (T.style === 'quest') {
+  if (T.style === 'herald') {                        // a new quest: rises into view in gold, lingers, and melts away. No key needed.
+    const fin = Math.min(1, k / 0.8), fout = Math.min(1, (T.life - k) / 1.1), a = Math.min(fin, fout), e = 1 - Math.pow(1 - fin, 3);
+    const size = Math.min(W / 10, UNIT * 1.7) * (0.94 + 0.08 * (k / T.life)), y = H * 0.3 + (1 - e) * UNIT * 0.6;
+    ctx.globalAlpha = a * 0.5;                                            // a soft band of light behind it
+    const band = ctx.createLinearGradient(0, y - size * 1.6, 0, y + size * 1.2);
+    band.addColorStop(0, 'rgba(255,220,120,0)'); band.addColorStop(0.5, 'rgba(255,220,120,.28)'); band.addColorStop(1, 'rgba(255,220,120,0)');
+    ctx.fillStyle = band; ctx.fillRect(0, y - size * 1.6, W, size * 2.8);
+    ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#fdf6e3'; ctx.font = `italic ${Math.round(size * 0.36)}px Georgia, serif`; ctx.fillText(T.sub, W / 2, y - size * 0.85);
+    ctx.globalAlpha = a; ctx.font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`;
+    ctx.shadowColor = '#ffcf5a'; ctx.shadowBlur = size * 0.35 * a; ctx.lineWidth = Math.max(2, size * 0.05); ctx.strokeStyle = '#3a2410'; ctx.strokeText(T.text, W / 2, y);
+    const gr = ctx.createLinearGradient(0, y - size / 2, 0, y + size / 2); gr.addColorStop(0, '#fff6c8'); gr.addColorStop(0.55, '#f2c94c'); gr.addColorStop(1, '#b8792a');
+    ctx.fillStyle = gr; ctx.fillText(T.text, W / 2, y); ctx.shadowBlur = 0;
+    const lw = Math.min(W * 0.5, size * 5) * e; ctx.strokeStyle = `rgba(255,227,138,${0.7 * a})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(W / 2 - lw / 2, y + size * 0.7); ctx.lineTo(W / 2 + lw / 2, y + size * 0.7); ctx.stroke();
+  } else if (T.style === 'quest') {
     const pop = k < 0.35 ? 2.2 - 1.2 * (k / 0.35) : 1 + 0.04 * Math.sin(k * 6) * Math.max(0, 1 - k);
     const size = Math.min(W / 4.2, UNIT * 3.4) * pop;
     ctx.globalAlpha = Math.min(1, k / 0.1) * fadeOut;

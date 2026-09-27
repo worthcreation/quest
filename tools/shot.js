@@ -53,6 +53,17 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B68) {                             // build 68: mud wallow + boulder wedge, hidden sword, the reveal, the new-quest herald
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.sword=true;
+  enterScene('w2'); state.cut=null; state.enemies=[]; run(3); const m=WORLD.w2.mud[0]; state.hero.x=m[0]*W-UNIT*3.5; state.hero.y=m[1]*H;
+  sinkRock(m[0]*W-UNIT*1.2, m[1]*H+UNIT*0.4); run(40); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b68-mud.png', canvas.toBuffer('image/png'));
+  state.inv.sword=false; enterScene('w3'); state.cut=null; state.enemies=[]; const sw=WORLD.w3.feat.sword; rtFor('w3').flags.swordthorns=true; refreshSceneGeometry();
+  state.hero.x=sw[0]*W-UNIT*1.2; state.hero.y=sw[1]*H+UNIT*0.3; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b68-hidden.png', canvas.toBuffer('image/png'));
+  rtFor('w3').pulled.add('sword'); startSwordCut(); run(Math.round(60*2.6)); state.texts=[]; draw(); fs.writeFileSync('/tmp/b68-reveal.png', canvas.toBuffer('image/png'));
+  state.cut=null; state.cam.focus=null; state.title=null; showTitle('Set up camp', 'a new quest', 'herald', 3.6); run(70); draw(); fs.writeFileSync('/tmp/b68-herald.png', canvas.toBuffer('image/png'));
+  console.log('b68 shots written');
+}
 if (process.env.B67) {                             // build 67: sparkles far / near / in reach, quest HUD bright then light
   const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
   state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('start'); state.cut=null; state.enemies=[]; run(5); updateQuests(true); state.texts=[]; state.title=null;

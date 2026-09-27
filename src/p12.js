@@ -202,3 +202,21 @@ function drawRideVignette() {
   g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(10,12,20,${k})`);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 }
+
+// mud wallows: dark, wet, a slow shine on top; bubbles now and then
+function drawMud(sc) {
+  for (const [fx, fy, r] of sc.mud || []) {
+    const x = fx * W, y = fy * H, rx = r * UNIT, ry = r * UNIT * 0.62;
+    ctx.fillStyle = '#4a3420'; ctx.beginPath(); ctx.ellipse(x, y, rx * 1.06, ry * 1.08, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#34240f'; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = 'rgba(20,12,4,.45)'; ctx.beginPath(); ctx.ellipse(x + rx * 0.1, y + ry * 0.12, rx * 0.7, ry * 0.6, 0, 0, 6.28); ctx.fill();
+    const s = 0.5 + 0.5 * Math.sin(state.time * 0.6 + fx * 9);
+    ctx.fillStyle = `rgba(255,236,200,${0.06 + 0.06 * s})`; ctx.beginPath(); ctx.ellipse(x - rx * 0.3, y - ry * 0.35, rx * 0.35, ry * 0.12, -0.15, 0, 6.28); ctx.fill();
+    for (let k = 0; k < 3; k++) {                                   // a bubble swells and pops
+      const per = 3.2 + k * 1.3, ph = ((state.time + k * 1.7 + fx * 5) % per) / per;
+      if (ph > 0.25) continue;
+      const bx = x + Math.cos(k * 2.3 + fy * 11) * rx * 0.55, by = y + Math.sin(k * 2.3 + fy * 11) * ry * 0.5, br = UNIT * 0.1 * Math.sin(ph / 0.25 * Math.PI);
+      ctx.strokeStyle = 'rgba(120,90,60,.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bx, by, Math.max(0.5, br), Math.PI, 0); ctx.stroke();
+    }
+  }
+}

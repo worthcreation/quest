@@ -38,8 +38,8 @@ press('f'); run(30); console.log('7 no line held, Pip heading south:', spoken().
 let py0=state.pip.y; run(120); console.log('8 Pip moved south:', state.pip.y>py0+UNIT);
 for(let k=0;k<60*14 && state.intro;k++) run(1);
 console.log('9 intro over:', !state.intro, '| story', state.inv.story, '| pip hidden', !(state.pip&&state.pip.show));
-console.log('10 quest alert held:', !!(state.title&&state.title.hold), '|', state.title&&state.title.text, state.title&&state.title.sub);
-const hudAlert=state.questHudRect; press('f'); run(10); console.log('11 F clears the alert:', !state.title || !state.title.hold);
+console.log('10 new quest alert (build 68: fleeting, not held):', state.title&&state.title.style, '| held', !!(state.title&&state.title.hold), '|', state.title&&state.title.text);
+const hudAlert=state.questHudRect; press('f'); run(10); console.log('11 nothing waiting on F:', !state.title || !state.title.hold);
 // --- into the meadow: Pip waits by the garden ---
 walkTo(W*0.5, H-UNIT*0.6); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(60);
 console.log('12 in the meadow:', state.scene, '| Pip at the garden', state.pip&&state.pip.atGarden, 'dist to spot', state.pip? (Math.hypot(state.pip.x-gardenSpot()[0], state.pip.y-gardenSpot()[1])/UNIT).toFixed(2):'-');

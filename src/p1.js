@@ -192,7 +192,7 @@ function addShroom(sc, spot, plots = 3) {
 }
 // ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
-// a cracked stone: a thrown rock knocks it apart. Some hold something; some prop or tie a log wall (rope to [fx, fy])
+// a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -382,7 +382,7 @@ function genWorld() {
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({
-      id: 'w' + i, area: 'woods', depth: i, msg: ['Drag marks lead deeper', 'Cackling, somewhere ahead', 'Something glints in the shadows'][i - 1],
+      id: 'w' + i, area: 'woods', depth: i, msg: ['Drag marks lead deeper', 'Cackling, somewhere ahead', 'The woods hold their breath here'][i - 1],
       music: 'woods', amb: 'none', floor: ['#35743e', '#2d6436', '#26552f'][i - 1], shade: [0.3, 0.5, 0.68][i - 1], speed: 0.48,
     }));
     const east = last ? null : gapAt(rr(0.25, 0.75), 0.1);
@@ -404,18 +404,20 @@ function genWorld() {
       keep.push([...sword, 2.2], [...sc.feat.stone, 2.5]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
     // rock puzzles on the way to the sword, one more idea each screen
-    if (i === 1) {                                   // a log wall propped on a cracked stone: knock the stone out with a thrown rock
-      barrier(sc, 'crack1', 'log', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.55);
+    if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
+                                                     // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
+      barrier(sc, 'crack1', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
       const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
+      (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.42, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
       sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
       keep.push([...k, 3], [...r, 2.5]);
     }
-    if (i === 2) {                                   // the logs are tied to a cracked stone inside a ring of rocks: throw over the ring
-      barrier(sc, 'crack2', 'log', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.55);
-      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, [0.955, (east[0] + east[1]) / 2]); stoneRing(sc, p, 1.4);
+    if (i === 2) {                                   // the boulder pile's keystone sits in the middle of a mud wallow: hit it square, or dig your rock out
+      barrier(sc, 'crack2', 'wedge', 0.955, east[0] - 0.03, 0.955, east[1] + 0.03, 0.6);
+      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null); (sc.mud = sc.mud || []).push([p[0], p[1], 2.3]);
       const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
       sc.feat.hole = [0.9, (east[0] + east[1]) / 2];
@@ -432,9 +434,9 @@ function genWorld() {
       const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
       stoneRing(sc, pen, 1.5, gapAng, 0.75);
       const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
-      barrier(sc, 'crack3', 'log', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
+      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.55);
       pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
-      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, [pen[0] + Math.cos(gapAng) * R / W, pen[1] + Math.sin(gapAng) * R / H]);
+      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null); (sc.mud = sc.mud || []).push([p[0] - 1.6 * UNIT / W, p[1], 1.1]);
       const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
       pullable(sc, { id: 'rock3b', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, [pen[0] + Math.cos(gapAng) * 0.08, pen[1] + Math.sin(gapAng) * 0.1], 0), makePath(pen, sw, 1));

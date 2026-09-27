@@ -56,20 +56,45 @@ function gainCropXp(k) {
   if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
   if (farmLevel() > fBefore) say(`Farming level ${farmLevel()}: seeds come back more often`, h.x, h.y - UNIT * 2.4, { key: 'farmlvl', life: 3.5, color: '#ffe38a' });
 }
-// the mushroom's light: a slow, lilting glow that drifts between barely-there and shining, never quite the same twice
+// The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
+// curve so that the light spends most of its time low and only now and then swells up to its full brightness.
+// Full brightness (1) is the ceiling; most moments sit well under half of it.
 function shroomGlow(seed, t) {
-  const a = Math.sin(t * 0.7 + seed) * 0.5 + 0.5, b = Math.sin(t * 1.13 + seed * 2.1) * 0.5 + 0.5, c = Math.sin(t * 0.29 + seed * 0.7) * 0.5 + 0.5;
-  return 0.12 + 0.88 * Math.pow(a * 0.45 + b * 0.3 + c * 0.25, 2.2);   // mostly dim, now and then it blooms
+  const a = Math.sin(t * 0.21 + seed), b = Math.sin(t * 0.34 + seed * 2.1 + 1.8 * Math.sin(t * 0.09 + seed * 1.3)), c = Math.sin(t * 0.067 + seed * 0.7);
+  const m = (a * 0.38 + b * 0.42 + c * 0.2) * 0.5 + 0.5;
+  return 0.05 + 0.95 * Math.pow(m, 4.2);
 }
+// Ripples across the ground, each its own: when it comes, how fast it spreads, how far, how round, thin or thick,
+// a single ring, a double, a broken dashed one, or a wavering one. The old ripple brightness is the ceiling; each ripple
+// draws its own strength from a steep curve, so most are faint and many barely there. Right after a mushroom wakes they
+// come more often and brighter, still under that ceiling.
+const SHROOM_RIP_MAX = 0.35, SHROOM_RIP_CALM = 0.14;
 function drawShroomRipples(x, y, u, found, key) {
-  const t = state.time, woke = (state.shroomWoke || {})[key];
-  const since = woke != null ? t - woke : 99;
-  for (let k = 0; k < 3; k++) {                        // soft rings drifting out across the ground; many at first, then an occasional one
-    const period = since < 8 ? 2.2 : 6.5, p = ((t + k * period / 3) % period) / period;
-    if (!found && since > 8) continue;
-    const a = (1 - p) * (since < 8 ? 0.35 : 0.14);
-    ctx.strokeStyle = `rgba(210,180,255,${a})`; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * (0.6 + p * 3.2), u * (0.22 + p * 1.1), 0, 0, 6.28); ctx.stroke();
+  const t = state.time, woke = (state.shroomWoke || {})[key], since = woke != null ? t - woke : 99, fresh = since < 8;
+  const R = state.shroomRip || (state.shroomRip = {}), st = R[key] || (R[key] = { next: t + Math.random() * 2, list: [] });
+  if (t < st.last) { st.next = t + Math.random() * 2; st.list = []; }     // time ran backwards (a new game): start over
+  st.last = t;
+  if ((found || fresh) && t >= st.next && st.list.length < 6) {
+    const ceil = fresh ? SHROOM_RIP_MAX : SHROOM_RIP_CALM, r = Math.random();
+    st.list.push({ t0: t, life: 3 + Math.random() * 5, reach: 2.2 + Math.random() * 2.6, flat: 0.28 + Math.random() * 0.14, lw: 0.8 + Math.random() * 1.6,
+      a: ceil * Math.pow(Math.random(), 2.6), pat: r < 0.5 ? 'one' : r < 0.7 ? 'two' : r < 0.87 ? 'dash' : 'waver', ph: Math.random() * 6.28 });
+    st.next = t + (fresh ? 0.5 + Math.random() * 1.2 : 1.8 + Math.random() * 5.5);
+  }
+  for (let i = st.list.length - 1; i >= 0; i--) {
+    const g = st.list[i], p = (t - g.t0) / g.life;
+    if (p >= 1) { st.list.splice(i, 1); continue; }
+    const rad = u * (0.6 + p * g.reach), al = g.a * Math.sin(Math.min(1, p * 6) * Math.PI / 2) * (1 - p);
+    ctx.strokeStyle = `rgba(210,180,255,${al})`; ctx.lineWidth = g.lw;
+    const ring = (rr, dash) => {
+      ctx.setLineDash && ctx.setLineDash(dash ? [u * 0.3, u * 0.25] : []);
+      ctx.beginPath();
+      if (g.pat === 'waver') for (let k = 0; k <= 40; k++) { const an = k / 40 * 6.28, w = 1 + 0.06 * Math.sin(an * 5 + g.ph + t * 0.8); ctx.lineTo(x + Math.cos(an) * rr * w, y + u * 0.15 + Math.sin(an) * rr * g.flat * 2.6 * w); }
+      else ctx.ellipse(x, y + u * 0.15, rr, rr * g.flat * 2.6, 0, 0, 6.28);
+      ctx.stroke();
+    };
+    ring(rad, g.pat === 'dash');
+    if (g.pat === 'two' && rad > u * 0.9) { ctx.strokeStyle = `rgba(210,180,255,${al * 0.6})`; ring(rad - u * 0.35, false); }
+    ctx.setLineDash && ctx.setLineDash([]);
   }
 }
 

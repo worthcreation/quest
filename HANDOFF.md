@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 67, 27 Sep 2026)
+# Quest: handoff notes (as of build 68, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,30 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 68 in short
+- Mushrooms, mellower (p14). shroomGlow: three slow waves (one wobbling its own speed) through pow 4.2: mean 0.17, above 0.6
+  about 4% of the time, below 0.3 about 84%, still reaching ~1 now and then. Ripples are now individual (state.shroomRip[key]):
+  random timing, speed, reach, flatness, line width, pattern (one, two, dash, waver) and strength = ceiling * rnd^2.6, so the
+  old strength (SHROOM_RIP_CALM 0.14, SHROOM_RIP_MAX 0.35 just after waking) is the top and most sit far under it
+  (median ~0.016, p90 ~0.08). Cap sparkle and motes slowed to match (p7 'shroom').
+- No logs or ropes anywhere in the woods. Barrier kind 'wedge' = a heap of boulders wedged on a cracked keystone (p1 w1/w2/w3,
+  drawn in p7 drawSolid). keystone() rope is always null now. Pip's lines say boulders and mud.
+- Mud: sc.mud = [[fx, fy, radius tiles]] (w1 in front of the keystone, w2 all around it, w3 in front of its keystone),
+  drawn by drawMud in p12, slows you (x0.55, p3 movement). A thrown rock that lands in mud, or one set down in it, sinks:
+  sinkRock() adds a runtime buried rock (rt.flags.mudRocks, synced into sc.pullables by syncMudRocks on enterScene). It is
+  a normal buried rock: pound beside it (knockRocks), rock it and heave (updatePull/freePullable), which removes it again.
+- Abduction (p6 'abduct'): no camera lock, you steer the whole time (movement done inside the cut). Get within 1.6 tiles
+  and Pip and the gremlins spring 3.2 to 4 tiles away in a 0.3 s arc (p.hz / g.hz lift, drawn in p7), biased toward the
+  hole, with a jeer the first time. They're dragged on to the hole between hops; c.gone ends it (forced by 11 s).
+  Its lines pass hold:false.
+- The sword is hidden: a dark, moss-covered knob sunk in the stump, faint from afar; the Pull label only shows within
+  0.9 tiles; w3's area line no longer mentions a glint. Pulling it runs a longer reveal (startSwordCut / 'sword' cut /
+  drawSwordReveal in p7): rumble and moss, light fanning out of the stump (0 to 1.5 s), the blade rising rust and all with a
+  line of light running up it (1.5 to 3.1 s), then it's yours (inv.sword set at 3.1 s), the leap, rays, "THE BLADE".
+- New quest alert: showTitle(name, 'a new quest', 'herald', 3.6), never held: fades up in gold over a soft band of
+  light, lingers, melts away (p5 drawTitle 'herald'). Quest complete is still held for F.
+- Tests: t68 (12 checks). t65 steps 10/11 updated for the fleeting alert. tools/shot.js B68=1.
 
 ## Build 67 in short
 - F picks things up. Walking over an item no longer takes it (p3 update loop), except TOUCH_PICKUP (spore, spores7, wisp).
@@ -142,8 +166,9 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
   exist with lines but nothing calls them yet. Acorns: spread ACORN_SPREAD[lvl] degrees, homing ACORN_HOME[lvl] rad/s
   toward the nearest hittable enemy inside a 36 degree cone within 4+lvl tiles. Arena System item "Acorn practice" cycles
   the level for testing (setSkillLevel). Old saves get inv.skill lazily; save format still v16.
-- Never use pressure plates language: woods puzzles are cracked keystones (throw a rock), buried rocks (stomp to knock loose,
-  then rock and heave), brambles (thrown rock), the gremlin burrow (thrown rock).
+- Never use pressure plates language: woods puzzles are cracked keystones under wedged boulders (throw a rock), buried rocks
+  (stomp to knock loose, then rock and heave), mud (rocks sink; pound and pull them out), brambles (thrown rock), the
+  gremlin burrow (thrown rock). No logs, ropes or tied gates.
 
 ## Testing (headless, node)
 `tests/*.js` eval index.html with a fake canvas/audio (see the top of t21.js). Run from /tmp with index.html at

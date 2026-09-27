@@ -46,6 +46,7 @@ function enterScene(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
+  syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
   state.atk = null; state.hold = { on: false, t: 0, charged: false }; state.aim.on = false;
   state.npcTalk = null;
@@ -280,7 +281,7 @@ function update(dt) {
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
-    let spd = sc.speed * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
+    let spd = sc.speed * (inMud(h.x, h.y + UNIT * 0.2) ? 0.55 : 1) * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
     if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
@@ -703,8 +704,27 @@ function updatePull(dt) {
   }
   if (pressedNow.down) tell('You brace your feet.');
 }
+// ---------------- mud: slows you down, and swallows any rock that lands in it ----------------
+// sc.mud = [[fx, fy, radius in tiles]]. A sunk rock becomes a buried rock right there (the same pound, rock and heave
+// as any other: knockRocks / updatePull / freePullable), listed in rt.flags.mudRocks so it survives leaving and saving.
+function inMud(x, y, sc = sceneDef()) { return (sc.mud || []).some(([fx, fy, r]) => { const dx = (x - fx * W) / (r * UNIT), dy = (y - fy * H) / (r * UNIT * 0.62); return dx * dx + dy * dy < 1; }); }
+function syncMudRocks(sc) {
+  const rt = rtFor(sc.id);
+  sc.pullables = sc.pullables.filter(p => !p.mud);
+  for (const m of rt.flags.mudRocks || []) sc.pullables.push({ id: m.id, kind: 'rock', fx: m.fx, fy: m.fy, need: 2, mud: true });
+}
+function sinkRock(x, y) {
+  const sc = sceneDef(), rt = rtFor(sc.id), id = 'mud' + (rt.flags.mudN = (rt.flags.mudN || 0) + 1);
+  (rt.flags.mudRocks = rt.flags.mudRocks || []).push({ id, fx: x / W, fy: y / H });
+  syncMudRocks(sc);
+  sfx.splash(); state.shake = 0.12;
+  for (let d = 0; d < 14; d++) state.fx.push({ x: x + (Math.random() - 0.5) * UNIT * 0.8, y, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#3e2c18' : '#5a4128', size: UNIT * 0.1 });
+  say('Glorp. Stuck in the mud.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
+  say(`A rock in the mud is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
+}
 function freePullable(pl, x, y) {
-  rtFor(state.scene).pulled.add(pl.id);
+  if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }
+  else rtFor(state.scene).pulled.add(pl.id);
   state.pull = newPull(null);
   unsay('pull');
   if (pl.kind === 'rock') {
