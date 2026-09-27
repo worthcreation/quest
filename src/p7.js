@@ -1372,10 +1372,21 @@ function actionList(it) {
   const jk = keyName(K.jump === ' ' ? ' ' : K.jump);
   if (itemAtFeet() && it.verb !== 'Pick up') out.push({ key: K.act, verb: 'Pick up' });
   out.push({ key: it.key || K.act, verb: it.verb });
-  if (sc.feat.plots) { const sk = seedSlotKey(), rt = rtFor(sc.id); sc.feat.plots.forEach(([fx, fy], i) => { if (sk && sk !== 'f' && near(fx * W, fy * H, 1.3) && !((rt.flags.plots || [])[i] || {}).s && !out.some(o => o.verb === 'Plant')) out.push({ key: slotLabel(sk), verb: 'Plant' }); }); }
-  for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) { out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound it loose' }); break; }
+  if (sc.feat.plots) {                                   // at a patch: plant (on the seed key) and compost (F), each only if you have what it takes
+    const sk = seedSlotKey(), rt = rtFor(sc.id);
+    sc.feat.plots.forEach(([fx, fy], i) => {
+      const pp = (rt.flags.plots || [])[i] || {}; if (pp.s || !near(fx * W, fy * H, 1.3)) return;
+      if (sk && !out.some(o => o.verb === 'Plant')) out.push({ key: slotLabel(sk), verb: 'Plant' });
+      const nx = PATCH[(pp.lv || 0) + 1]; if (nx && canAfford(nx.cost) && !out.some(o => /^(Compost|Improve) \(/.test(o.verb))) out.push({ key: K.act, verb: `${nx.cost.acorn ? 'Compost' : 'Improve'} (${patchCost(nx.cost)})` });
+    });
+  }
+  for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
+    const i = out.findIndex(o => o.verb === 'Pull'); if (i >= 0) out.splice(i, 1);
+    out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound it loose' }); break; }
   if (it.verb === 'Shake' || /tree/i.test(it.verb)) out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound' });
-  return out.filter((o, i) => out.findIndex(q => q.key === o.key && q.verb === o.verb) === i).slice(0, 3);
+  const plotHere = sc.feat.plots && sc.feat.plots.some(([fx, fy]) => near(fx * W, fy * H, 1.3));
+  const res = out.filter((o, i) => out.findIndex(q => q.key === o.key && q.verb === o.verb) === i && !(plotHere && (o.verb === 'Compost' || o.verb === 'Improve' || o.verb === 'Plant') && o.key === K.act && out.some(q => q !== o && q.verb.startsWith(o.verb))));
+  return res.slice(0, 3);
 }
 function drawActionHint() {
   const it = findInteractable();
@@ -1390,7 +1401,8 @@ function drawActionHint() {
   if (state.settings.labels === false) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const acts = actionList(it), hgt = fs + 10;                     // one chip per thing you can do here: key, then what it does
+  const acts = actionList(it), hgt = fs + 10;
+  if (!acts.length) return;                     // one chip per thing you can do here: key, then what it does
   const parts = acts.map(a => { const kw = ctx.measureText(a.key).width + 12, lw = ctx.measureText(a.verb).width; return { ...a, kw, w: kw + lw + 14 }; });
   const w = parts.reduce((s, q) => s + q.w, 0) + (parts.length - 1) * 6;
   const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
@@ -1530,7 +1542,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 77';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 78';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

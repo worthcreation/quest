@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 77, 27 Sep 2026)
+# Quest: handoff notes (as of build 78, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 78 in short
+- Pip in the garden opens with the quest's first step ('garden-open': seeds from the robin). The robin line and the
+  patch line follow in order (patch talk only once you have seeds). Compost talk waits until Pip's garden quest is done.
+- Pip is calmer: he waits while he's anywhere from ~3 to 9 tiles ahead on the way (and up to 4 tiles off your line),
+  walks rather than dashes (1.0x, 1.35x when far, 1.2x on a visit), and is only re-placed if truly stuck (1.5 s not
+  moving) or more than 14 tiles away. t78: 40 s of wandering, no pop-ins on the same screen, largest step 0.25 tiles.
+- Patch tips: the seed key's Plant (if you carry seeds) and F Compost with its cost (if you can pay), each only when you
+  have what it takes; nothing at all otherwise. With seeds on A/S/D and acorns in hand, F composts straight away.
+- A buried rock that isn't loosened yet shows only "Space F Pound it loose" (no Pull).
+- Tests: t78.
 
 ## Build 77 in short
 - inView(x, y, tiles) (p3): near enough and nothing impassable on the straight line between (river, chasm, deep water,
