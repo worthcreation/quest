@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 63, 26 Sep 2026)
+# Quest: handoff notes (as of build 64, 26 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -9,12 +9,11 @@ Repo: https://github.com/worthcreation/quest (personal account `worthcreation`).
 
     cd src && cat head.html p1.js p2.js p3.js p4.js p6.js p7.js p8.js p9.js p10.js p11.js p12.js p13.js p14.js p5.js > ../index.html
 
-Note the order: p5.js goes LAST (it has drawItemIcon, resize, startup). If the split parts are ever lost,
-the game can be re-split from index.html (each part starts with a comment banner); but better: commit `src/`,
-`tests/` and `tools/` to the repo so the next chat can pick them up.
+Note the order: p5.js goes LAST (it has drawItemIcon, resize, startup). src/, tests/ and tools/ live in the repo from build 64 on.
 
-Ship step (every build): download index.html, then
-    mv ~/Downloads/index.html ~/quest/index.html && cd ~/quest && git add . && git commit -m "Build N: ..." && git push
+Ship step (every build): one download, quest-bNN.zip, laid out like the repo root. Then
+    cd ~/quest && unzip -o ~/Downloads/quest-bNN.zip && rm ~/Downloads/quest-bNN.zip && git add . && git commit -m "Build N: ..." && git push
+Next chat: git clone https://github.com/worthcreation/quest.git (github.com is reachable from the container) and work in src/.
 
 ## File map
 - head.html   HTML, CSS, touch buttons (#pad, #act, #jump, #dash(A), #eat(S), #slotd(D), #throw(swap), #fire, #menubtn)
@@ -56,6 +55,12 @@ Ship step (every build): download index.html, then
   is a list: CURRENT (newest quest first, step name, progress line, "step n of m"), then a folded "Log (n)" row,
   F toggles it, entries newest first with quest and play time. Arena keeps its zone grid in that tab.
 - Keys: arrows move, Space jump, F act/weapon, R swap (hold = wheel), A/S/D quick slots, E fire, M menu.
+- Planting (build 64): the quick slot holding seeds is the plant button. seedSlotKey()/seedKeyLabel() in p14; the
+  patch prompt shows that key, F on an empty patch only improves it (or says "D plants."). With no seed slot, F plants.
+- Pip while gathering (build 64): pipGatherTalk in p6 replaces "The woods are the other way" until the camp is built.
+  On screens with camp materials (initItems, or rabbits for fluff) or off the home paths: "Let's keep looking around.
+  Still need ..." or "We have what we need from here. Still need ...", repeated only when the answer changes;
+  "That's everything! Back to camp." once. The woods line remains for the adventure phase.
 - Skills (build 62): inv.skill[id] = {n (uses), hits, lvl}; progress = n + 2*hits crosses SKILLS[id].steps (4 levels);
   each step says SKILLS[id].lines[lvl-1] once, in SKILL_COLOR '#c9a2ff', key 'skill'. Never show numbers. Only 'acorn' is
   wired: skillUse('acorn') in launch(), skillUse('acorn', true) on an enemy hit in updateShots(). sword/dodge/farm tables
@@ -70,8 +75,8 @@ Ship step (every build): download index.html, then
 /mnt/user-data/outputs/index.html (or edit the path). Useful ones:
 - t21 full game tour to the rescue  - t57 garden/robin lesson  - t56 opening + camp build  - t59 twilight/forest/hole
 - t42 stepping stones (12 crossings) - t44 rock columns + crags - t51/t52 wind sets & rides - t60 food levels/gusts/HUD
-- t61 quick slots + fixed text - t62 acorn skill (hit rates by level, level-up once, save round trip) - t63 quest chain, log order, fold, old-save backfill - t43 puzzle mode (11 stones) - t47 arena (4 zones) - t33 text overlap - t41 legibility
-- t33 frames-with-overlap baseline: 104 at build 61, 122 at build 63 (quest titles); worst pair/res/off still 0.
+- t61 quick slots + fixed text - t62 acorn skill (hit rates by level, level-up once, save round trip) - t63 quest chain, log order, fold, old-save backfill - t64 seed-slot planting, Pip gather lines - t43 puzzle mode (11 stones) - t47 arena (4 zones) - t33 text overlap - t41 legibility
+- t33 frames-with-overlap baseline: 104 at build 61, 122 at build 63 (quest titles), 95 at build 64; worst pair/res/off still 0.
 - tools/overlap.js: 300 worlds, expects "overlaps 0". tools/shot.js renders PNGs with @napi-rs/canvas (npm i in tools/); SKILL=1 renders the level-up line, QUESTLOG=1 the Quests tab folded/open.
 Some older tests (t15, t32, t38, t27) are stale after redesigns.
 

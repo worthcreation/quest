@@ -2961,9 +2961,11 @@ function interact() {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
       const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
-      const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
+      const slotSeeds = p.s === 0 && !!seedSlotKey();
+      const have = slotSeeds ? [] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
-      if (p.s === 0 && !have.length && !improve) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
+      if (slotSeeds && !improve) { if (pressedNow.act) say(`${seedKeyLabel()} plants.`, px * W, py * H - UNIT, { key: 'plot', life: 1.6 }); if (!pressedNow.act) return false; return true; }
+      if (p.s === 0 && !have.length && !improve && !slotSeeds) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
       if (!pressedNow.act) return false;
       const doImprove = () => {
         payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
@@ -3073,7 +3075,7 @@ function sporeJump(id, cost) {
 function findInteractable() {
   const h = state.hero, sc = sceneDef(), rt = rtFor(sc.id), inv = state.inv, f = sc.feat, c = [];
   if (state.menu || state.cut || state.busy || h.z > 0 || state.fish || state.npcTalk || state.choice || state.rapids) return null;
-  const add = (x, y, verb, range) => { const d = Math.hypot(h.x - x, h.y - y); if (d < range * UNIT) c.push({ x, y, verb, d }); };
+  const add = (x, y, verb, range, key) => { const d = Math.hypot(h.x - x, h.y - y); if (d < range * UNIT) c.push({ x, y, verb, d, key }); };
   for (const n of sc.npcs) if (npcHere(n)) { const [x, y] = npcPos(n); add(x, y, 'Talk', 2); }
   for (const q of f.portals || []) add(q.fx * W, q.fy * H, 'Enter', 1.6);
   if (f.mirror) add(f.mirror[0] * W, f.mirror[1] * H, 'Poses', 1.8);
@@ -3094,7 +3096,8 @@ function findInteractable() {
     f.plots.forEach((q, i) => {
       const p = plots[i] || { s: 0 }, st = plotStage(p);
       const nx = PATCH[(p.lv || 0) + 1];
-      if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
+      if (p.s === 0 && seedSlotKey()) add(q[0] * W, q[1] * H, 'Plant', 0.8, seedKeyLabel());
+      else if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
       else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, 'Improve', 0.8);
       if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Harvest', 0.8);
     });
@@ -3619,6 +3622,30 @@ function pipSay(key, text, at, sight = 7) {
   say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
   return true;
 }
+// out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
+// place has given what it can, or what's still missing. Said again only when the answer changes.
+const CAMP_NEED = { stone: 2, stick: 3, fluff: 2 };
+function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
+function needWords(miss) {
+  const w = { stone: n => `${n} river stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
+  const parts = Object.entries(miss).map(([k, n]) => w[k](n));
+  return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
+}
+function pipGatherTalk(sc, p) {
+  if (sc.id === 'camp' || p.visit) return;
+  const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
+  if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
+  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
+  const miss = campMissing(), left = Object.keys(miss), here = left.filter(k => local.has(k));
+  if (left.length && !local.size && home.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
+  const text = !left.length ? 'That\'s everything! Back to camp.'
+    : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
+    : `Let's keep looking around. Still need ${needWords(miss)}.`;
+  const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
+  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2) return;
+  state.pipGatherKey = key; state.pipTalkT = state.time;
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
+}
 // Pip's spot beside something: on the side facing you, a step away from it
 function pipBeside(v) {
   const h = state.hero, dx = h.x - v.x, dy = h.y - v.y, d = Math.hypot(dx, dy) || 1;
@@ -3658,7 +3685,9 @@ function updatePip(dt) {
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
   if (!p.visit && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
   const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
-  if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
+  const gathering = storyAt('gather') && !campDone();
+  if (gathering) pipGatherTalk(sc, p);
+  else if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
@@ -3668,7 +3697,7 @@ function updatePip(dt) {
     if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
     if (!seeds && b && b.mode === 'perch') pipSay('robin-lesson', 'But first, seeds. Over here! Run at the robin and it drops one. Go on!', [b.x, b.y + UNIT], 12);
     if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`, [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.5], 12); } else if (b) p.robinHide = 0;
-    if (seeds && inv.firstBirdSeed) pipSay('firstseed', 'See? A seed! Now pop it in the rich soil.', plot ? P(plot) : null);
+    if (seeds && inv.firstBirdSeed) pipSay('firstseed', `See? A seed! Stand on the rich soil and press ${seedKeyLabel()}.`, plot ? P(plot) : null);
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.', b ? [b.x, b.y + UNIT] : null, 12);
     const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
@@ -5687,7 +5716,7 @@ function drawActionHint() {
   if (state.settings.labels === false) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const key = K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
+  const key = it.key || K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
   const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
   ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, hgt, hgt / 2) : ctx.rect(bx, by, w, hgt); ctx.fill();
   ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kw, hgt - 6); ctx.fill();
@@ -5796,7 +5825,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 63';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 64';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6747,7 +6776,7 @@ function campHave() {                                    // raw counted with wha
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
-    { id: 'plant', name: 'Plant seeds', line: () => `Plant them in Pip's rich soil. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
     { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ] },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
@@ -7016,6 +7045,14 @@ function steerAcorn(s, dt) {
   const a = have + Math.max(-ACORN_HOME[lvl] * dt, Math.min(ACORN_HOME[lvl] * dt, da));
   s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
 }
+
+// the quick slot that holds seeds (and has one to plant): planting is that button, not F
+function seedSlotKey() {
+  const slots = slotsOf(), inv = state.inv;
+  for (const k of SLOT_KEYS) { const sl = slots[k]; if (!sl || sl.kind !== 'seed') continue; const kind = sl.id === 'auto' ? autoSeed() : sl.id; if (kind && inv.bag[kind] > 0) return k; }
+  return null;
+}
+const seedKeyLabel = () => { const k = seedSlotKey(); return k ? (K[SLOT_ACTION[k]] || k).toUpperCase() : K.act; };
 
 // =====================================================================
 // Drawing

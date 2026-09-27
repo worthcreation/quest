@@ -211,3 +211,11 @@ function steerAcorn(s, dt) {
   const a = have + Math.max(-ACORN_HOME[lvl] * dt, Math.min(ACORN_HOME[lvl] * dt, da));
   s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
 }
+
+// the quick slot that holds seeds (and has one to plant): planting is that button, not F
+function seedSlotKey() {
+  const slots = slotsOf(), inv = state.inv;
+  for (const k of SLOT_KEYS) { const sl = slots[k]; if (!sl || sl.kind !== 'seed') continue; const kind = sl.id === 'auto' ? autoSeed() : sl.id; if (kind && inv.bag[kind] > 0) return k; }
+  return null;
+}
+const seedKeyLabel = () => { const k = seedSlotKey(); return k ? (K[SLOT_ACTION[k]] || k).toUpperCase() : K.act; };

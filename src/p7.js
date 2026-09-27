@@ -1261,7 +1261,7 @@ function drawActionHint() {
   if (state.settings.labels === false) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const key = K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
+  const key = it.key || K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
   const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
   ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, hgt, hgt / 2) : ctx.rect(bx, by, w, hgt); ctx.fill();
   ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kw, hgt - 6); ctx.fill();
@@ -1370,7 +1370,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 63';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 64';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

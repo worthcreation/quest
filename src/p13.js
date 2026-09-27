@@ -196,7 +196,7 @@ function campHave() {                                    // raw counted with wha
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'seed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops a seed.', done: () => (state.inv.bag.seed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
-    { id: 'plant', name: 'Plant seeds', line: () => `Plant them in Pip's rich soil. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
     { id: 'later', name: 'Come back later', line: () => 'They grow while you are out. Come back to the meadow and harvest.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ] },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
