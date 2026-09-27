@@ -1,6 +1,6 @@
 // generate many worlds and check that no two interactables share ground
 const fs = require('fs');
-const src = fs.readFileSync('/mnt/user-data/outputs/index.html', 'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
+const src = fs.readFileSync(require('path').join(__dirname,'..','index.html'),'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
 const noop = () => {}; const grad = { addColorStop: noop };
 const mkctx = () => new Proxy({}, { get: (t, k) => k in t ? t[k] : (k === 'measureText' ? s => ({ width: s.length * 8 }) : k.startsWith('create') ? () => grad : noop), set: (t, k, v) => (t[k] = v, true) });
 const el = () => ({ appendChild: noop, click: noop, addEventListener: noop, getContext: mkctx, remove: noop, style: {}, classList: { toggle: noop, add: noop, remove: noop }, dataset: {} });

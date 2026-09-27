@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 92, 27 Sep 2026)
+# Quest: handoff notes (as of build 93, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,24 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## How the code is laid out (build 93 reorganization)
+- `src/` is split by topic; `src/ORDER` lists the load order; `sh build.sh` concatenates head.html plus those files into
+  index.html (no bundler, same single-file deploy). Each file opens with a one-line header saying what's in it:
+  world, input, text, engine, items, combat, critters, interact, actions, pip, cutscenes, menu, save, craft, quests,
+  gear, skills, draw, draw-ui, draw-hero, arena, puzzles, boot. Functions are hoisted, so only top-level statements
+  care about order (world runs at load, boot runs last; a const's own loops sit in its file).
+- Older notes below refer to p1..p14. Roughly: p1 -> world, p2 -> input + text, p3 -> engine + items, p4 -> combat +
+  critters (+ items for trees/loose spots), p5 -> draw-ui + boot, p6 -> interact / actions / pip / cutscenes / menu /
+  save / critters(flocks, webs), p7 -> draw + draw-ui, p8 -> world, p9 -> arena, p10 -> puzzles, p11 -> draw-hero,
+  p12 -> draw, p13 -> craft + quests, p14 -> gear + skills.
+- Tests are named by scenario in `tests/` (opening, garden, camp-talk, gathering, fluff, lesson, tour, woods, slots,
+  lanes, combat-crops, quests, pack, hud-banners, puzzles, arena, ...). `node tests/run.js` runs them all (or
+  `node tests/run.js garden lanes` for some) and prints ok/FAIL per test plus a tally; every test reads ../index.html
+  relative to itself, so they run from a clone. t40 and t61 were dropped (stale). tools/shot.js and overlap.js read
+  ../index.html the same way.
+- Still to do from the plan: pull Pip's lines, quests, recipes and the tutorial order into data tables (pip.js is the
+  place to start), and replace the scattered early-game gates with one ordered tutorial list.
 
 ## Build 92 in short
 - No crafting talk before the lesson: Pip's earlier craft lines (sword-first, woodsword, craft2, craft3) are off, and

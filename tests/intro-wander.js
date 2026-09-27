@@ -1,0 +1,30 @@
+const src=require('fs').readFileSync(require('path').join(__dirname,'..','index.html'),'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
+const noop=()=>{}; const grad={addColorStop:(o,c)=>{ if(!(o>=0&&o<=1)) throw new Error('colorstop offset '+o); if(/NaN|undefined|Infinity/.test(String(c))) throw new Error('bad color '+c); }};
+const chk=(name,vals)=>{ for(const v of vals) if(!(isFinite(v))) throw new Error(name+' non-finite '+vals.join(',')); };
+const mkctx=()=>new Proxy({},{get:(t,k)=>{ if(k in t) return t[k];
+ if(k==='measureText') return (s)=>({width:s.length*8});
+ if(k==='arc') return (x,y,r)=>{ chk('arc',[x,y,r]); if(r<0) throw new Error('arc negative radius '+r); };
+ if(k==='ellipse') return (x,y,rx,ry)=>{ chk('ellipse',[x,y,rx,ry]); if(rx<0||ry<0) throw new Error('ellipse negative radius '+rx+','+ry); };
+ if(k==='createRadialGradient') return (x0,y0,r0,x1,y1,r1)=>{ chk('radial',[x0,y0,r0,x1,y1,r1]); if(r0<0||r1<0) throw new Error('radial negative '+r0+','+r1); return grad; };
+ if(k==='createLinearGradient') return (a,b,c,d)=>{ chk('linear',[a,b,c,d]); return grad; };
+ if(k==='addColorStop') return noop;
+ if(k.startsWith('create')) return ()=>grad; return noop; },set:(t,k,v)=>(t[k]=v,true)});
+const el=()=>({addEventListener:noop,getContext:mkctx,remove:noop,style:{},classList:{toggle:noop},dataset:{}});
+const P=()=>{const param={value:0,setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){},setTargetAtTime(){},cancelScheduledValues(){}};
+ return new Proxy({},{get:(t,k)=>{ if(k in t) return t[k]; if(['gain','frequency','Q','pan'].includes(k)) return t[k]=param; if(k==='connect') return (n)=>n||P(); if(k==='getChannelData') return ()=>new Float32Array(10); return ()=>P(); }, set:(t,k,v)=>(t[k]=v,true)});};
+class AC{constructor(){this.currentTime=0;this.sampleRate=100;this.state='running';this.destination=P();} createGain(){return P()} createOscillator(){return P()} createBufferSource(){return P()} createBiquadFilter(){return P()} createStereoPanner(){return P()} createBuffer(){return P()} resume(){}}
+global.document={getElementById:el,querySelectorAll:()=>[],createElement:el,documentElement:{},addEventListener:noop};
+global.window={AudioContext:AC,innerWidth:1280,innerHeight:800,devicePixelRatio:1,addEventListener:noop,matchMedia:()=>({matches:false})};
+const store={}; global.localStorage={getItem:k=>store[k]??null,setItem:(k,v)=>{store[k]=String(v)}};
+global.setTimeout=(f)=>{f()}; global.setInterval=noop; global.requestAnimationFrame=noop; global.performance={now:()=>0};
+eval(src+`;
+begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }}; const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
+run(5); const p=state.pip, pts=[]; let moved=0, lp=[p.x,p.y], inRiver=0;
+for(let k=0;k<60*12;k++){ run(1); moved+=Math.hypot(p.x-lp[0],p.y-lp[1])/UNIT; lp=[p.x,p.y]; if(isChasm(p.x,p.y)) inRiver++; if(k%60===0) pts.push((p.x/UNIT).toFixed(1)+','+(p.y/UNIT).toFixed(1)); }
+const b=(state.textBoxes||[]).find(q=>q.t.key==='npc'), [px]=toScreen(p.x,p.y);
+console.log('1 12 s of the opening, still on line 1:', !!state.texts.find(t=>t.hold), '| Pip walked', moved.toFixed(1), 'tiles | spots:', pts.slice(0,8).join(' '), '| in the river', inRiver, 'frames');
+console.log('   his words ride with him:', b? Math.abs(b.x+b.w/2-px)<b.w/2+2 : 'n/a');
+for(let i=0;i<2;i++){ press('f'); run(40); } press('f'); const t0=state.time; for(let k=0;k<60*12 && state.intro;k++) run(1);
+console.log('2 after the last line Pip ran off south in', (state.time-t0).toFixed(1), 's');
+console.log('BUILD', BUILD, '| errs', errs);
+`);

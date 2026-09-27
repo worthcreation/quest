@@ -1,7 +1,7 @@
 // render single scenes at full size for a visual check
 const { createCanvas } = require('@napi-rs/canvas');
 const fs = require('fs');
-let src = fs.readFileSync('/mnt/user-data/outputs/index.html', 'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
+let src = fs.readFileSync(require('path').join(__dirname,'..','index.html'),'utf8').match(/<script>([\s\S]*)<\/script>/)[1];
 const noop = () => {}; const game = createCanvas(+process.env.SW||1280, +process.env.SH||800);
 const stubEl = () => ({ appendChild: noop, click: noop, addEventListener: noop, remove: noop, style: {}, classList: { toggle: noop, add: noop, remove: noop }, dataset: {} });
 global.document = { getElementById: id => id === 'game' ? Object.assign(game, { addEventListener: noop, style: {} }) : stubEl(), querySelectorAll: () => [], querySelector: () => null, createElement: t => t === 'canvas' ? createCanvas(10, 10) : stubEl(), documentElement: { style: {} }, body: { style: {}, appendChild: noop }, addEventListener: noop };
