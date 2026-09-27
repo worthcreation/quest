@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 86, 27 Sep 2026)
+# Quest: handoff notes (as of build 87, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 87 in short
+- Trees drop sticks as well as acorns when shaken or pounded (dropAcorn, p4: 40% stick).
+- Craft mat: craftSlots() (p13) is always at least 3, and 4 once the workbench stands (more can be added later); all
+  places always show. The "now you can combine three" step is gone.
+- Craft tab in sections: The mat, Recipes, Made (glue, camp pieces: things you crafted), Materials (things you found).
+  Section-heavy grids shrink their cells to clear the detail panel (drawPack). The duplicate recipe sums under the mat
+  are gone (Recipes lists them). Tests: t87. tools/shot.js B87=1.
 
 ## Build 86 in short
 - Fluff: only the first field (f1) has any lying about, two tufts mid-screen, and loose fluff blows with the gusts (p3,

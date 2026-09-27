@@ -37,14 +37,16 @@ function stockOf(k) { const inv = state.inv; return MATS[k] ? inv.mats[k] || 0 :
 function takeStock(k) { const inv = state.inv; if (MATS[k]) inv.mats[k]--; else if (k === 'acorn') inv.acorns--; else if (FOOD[k]) inv.food.splice(inv.food.indexOf(k), 1); else rawOf()[k]--; }
 function matAvailable(k) { return stockOf(k) - (state.mat || []).filter(m => m === k).length; }
 const sortedKey = a => a.slice().sort().join('+');
-function recipeOK(r) { return r.in.length <= (state.inv.craftSlots || 2) && !(r.kind === 'wear' && gearOwned().includes(r.out)) && (!r.needs || r.needs()); }
+// the craft mat always has three places; a fourth opens once the workbench stands at camp, more later
+function craftSlots() { return Math.max(3, state.inv.craftSlots || 0, campBuilt('bench') ? 4 : 0); }
+function recipeOK(r) { return r.in.length <= craftSlots() && !(r.kind === 'wear' && gearOwned().includes(r.out)) && (!r.needs || r.needs()); }
 function matMatch() { const m = sortedKey(state.mat || []); return RECIPES.find(r => sortedKey(r.in) === m && recipeOK(r)) || null; }
 // is `a` what `b` would be with one thing taken away?
 function oneShort(a, b) { if (b.length !== a.length + 1) return false; const rest = b.slice(); for (const k of a) { const i = rest.indexOf(k); if (i < 0) return false; rest.splice(i, 1); } return true; }
 // what the mat says about what's on it: a match, "one more thing", or nothing
 function matHint() {
   const mat = state.mat || [], r = matMatch(), inv = state.inv;
-  if (r) { const more = RECIPES.find(x => x !== r && oneShort(r.in, x.in) && !(inv.known || {})[recipeKey(x)] && (inv.craftSlots || 2) >= x.in.length); return r.line + (more ? ' ...and there\'s room for one more thing.' : ''); }
+  if (r) { const more = RECIPES.find(x => x !== r && oneShort(r.in, x.in) && !(inv.known || {})[recipeKey(x)] && craftSlots() >= x.in.length); return r.line + (more ? ' ...and there\'s room for one more thing.' : ''); }
   if (!mat.length) return 'pick things below to put on the mat, or lay out a recipe you know';
   if (RECIPES.some(x => oneShort(mat, x.in))) return 'Almost. It feels like it wants one more thing.';
   return 'Nothing comes of that. Try something else.';
@@ -63,7 +65,6 @@ function craftNow() {
   else if (r.kind === 'aug') { inv.aug = { id: r.out, n: AUG[r.out].n }; note(`${OUT_NAME[r.out]} on your blade: ${AUG[r.out].what}`); }
   else if (r.kind === 'food') { inv.food.push(r.out); tidySlots(); note(`Made: ${OUT_NAME[r.out]}.`); }
   else { raw[r.out] = (raw[r.out] || 0) + 1; note(`Made: ${RAW[r.out]}`); }
-  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; if (m) m.note += ' Now you can combine three things.'; }
   refreshButtons();
 }
 // recipes you can lay out: ones you've made, heard about from Pip, or read in the journal
@@ -72,7 +73,7 @@ function hearRecipe(out) { const inv = state.inv, h = inv.heard || (inv.heard = 
 // lay a known recipe on the mat and jump straight to Combine
 function layOut(r) {
   const m = state.menu, missing = r.in.filter((k, i) => stockOf(k) < r.in.filter(x => x === k).length);
-  if ((state.inv.craftSlots || 2) < r.in.length) { m.note = 'You can only combine two things so far. Make something first.'; return; }
+  if (craftSlots() < r.in.length) { m.note = `That takes ${r.in.length} things; the mat holds ${craftSlots()} for now.`; return; }
   if (missing.length) { m.note = `Missing: ${[...new Set(missing)].map(ING_NAME).join(', ')}.`; return; }
   state.mat = r.in.slice(); m.sel = 0; m.focus = 'grid'; sfx.tock();
   m.note = recipeOK(r) ? `${outName(r)}: ready. ${K.act} to combine.` : 'It won\'t take right now.';
@@ -81,10 +82,13 @@ function layOut(r) {
 function craftCells() {
   const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
   const cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'The mat', line: matHint(), mat: true }];
-  for (const x of recipeBook()) cells.push({ icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
+  cells[0].sec = 'The mat';
+  for (const x of recipeBook()) cells.push({ sec: 'Recipes', icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
   const ings = [...new Set(RECIPES.flatMap(x => x.in))];
-  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
-  for (const k of ings) if (stockOf(k) > 0) cells.push({ icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  const MADE = new Set(RECIPES.map(x => x.out));                // things you made (glue, camp pieces) apart from things you found
+  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ sec: 'Made', icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
+  for (const k of ings) if (MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Made', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'made by you; tap to put it on the mat', raw: k });
+  for (const k of ings) if (!MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Materials', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   return cells;
 }
 function craftCellAct(c) {
@@ -92,14 +96,14 @@ function craftCellAct(c) {
   if (c.mat) { craftNow(); return; }
   if (c.recipe) { layOut(c.recipe); return; }
   if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
-  const slots = state.inv.craftSlots || 2;
+  const slots = craftSlots();
   if ((state.mat || []).length >= slots) { state.menu.note = 'The mat is full. Combine or clear it.'; return; }
   if (matAvailable(c.raw) <= 0) return;
   (state.mat = state.mat || []).push(c.raw); sfx.tock();
   if (state.menu) state.menu.note = '';
 }
 function drawCraftMat(px, y, pwide, fs) {
-  const slots = state.inv.craftSlots || 2, s = Math.max(48, Math.min(64, UNIT * 1.5)), gap = 12, r = matMatch();
+  const slots = craftSlots(), s = Math.max(48, Math.min(64, UNIT * 1.5)), gap = 12, r = matMatch();
   const total = slots * (s + gap) + fs * 2 + s, x0 = (W - total) / 2;
   ctx.textAlign = 'center';
   for (let i = 0; i < slots; i++) {
@@ -115,19 +119,10 @@ function drawCraftMat(px, y, pwide, fs) {
   ctx.fillStyle = r ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.04)'; ctx.fillRect(rx, y, s, s);
   ctx.strokeStyle = r ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.lineWidth = 2; ctx.strokeRect(rx, y, s, s);
   if (r) drawItemIcon(r.out, rx + s / 2, y + s / 2, s * 0.62); else { ctx.fillStyle = 'rgba(253,246,227,.35)'; ctx.fillText('?', rx + s / 2, y + s / 2 + fs * 0.35); }
-  // recipes you've made, as little sums
-  const known = RECIPES.filter(x => (state.inv.known || {})[recipeKey(x)]);
-  let kx = px, ky = y + s + fs * 1.2; const ks = fs * 1.3;
-  ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.7)}px "Courier New", monospace`;
-  for (const k of known) {
-    let x = kx;
-    k.in.forEach((it, j) => { drawItemIcon(it, x + ks / 2, ky, ks * 0.8); x += ks; if (j < k.in.length - 1) { ctx.fillStyle = '#b0a898'; ctx.fillText('+', x, ky + 4); x += fs * 0.6; } });
-    ctx.fillStyle = '#b0a898'; ctx.fillText('=', x + 2, ky + 4); x += fs * 0.8; drawItemIcon(k.out, x + ks / 2, ky, ks * 0.8); x += ks + fs;
-    kx = x; if (kx > px + pwide - ks * 5) { kx = px; ky += ks * 1.1; }
-  }
+  let ky = y + s + fs * 0.4;                          // (known recipes are listed in the Recipes section below)
   if (state.menu && state.menu.note) { ctx.textAlign = 'center'; ctx.fillStyle = '#b8f28a'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText(state.menu.note, W / 2, y - fs * 0.5); }
   ctx.textAlign = 'center';
-  return ky + ks * 0.8 - y;                            // height used
+  return ky - y;                            // height used
 }
 // camp marks: a dashed outline where each piece goes, until it's built
 function drawBuildSpots(sc) {

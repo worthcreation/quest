@@ -1298,11 +1298,16 @@ function drawPack(m, x, y, pw, fs) {
   }
   if (tab === 'Craft') y += drawCraftMat(px, y + fs * 0.6, pwide, fs) + fs * 1.2;
   const cells = packCells(tab);
-  const cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
+  let cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
   m.cols = cols;
-  const gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
+  let gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
   if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
-  const LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
+  let LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
+  {                                                    // sections take room: shrink the cells until everything clears the detail panel
+    const limit = H - fs * 8.6, fit = () => { const rows = LAY.length ? LAY[LAY.length - 1].r + 1 : 0, heads = new Set(LAY.filter(q => q.head).map(q => q.r)).size; return y + rows * (cs + gap) + heads * headH <= limit; };
+    while (!fit() && cs > 40) { cs -= 4; cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap))); LAY = packLayout(cells, cols); }
+    m.cols = cols; gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
+  }
   const rowY = r => { let yy = y; for (let k = 0; k <= r; k++) { if (LAY.some(q => q.r === k && q.head)) yy += headH; if (k < r) yy += cs + gap; } return yy; };
   LAY.forEach((q, i) => { if (q.head) { ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,227,138,.75)'; ctx.font = `bold ${Math.round(fs * 0.7)}px Georgia, serif`; ctx.fillText(q.head, gx, rowY(q.r) - fs * 0.3); ctx.textAlign = 'center'; } });
   cells.forEach((c, i) => {
@@ -1593,7 +1598,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 86';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 87';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

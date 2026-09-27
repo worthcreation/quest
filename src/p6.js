@@ -1051,10 +1051,10 @@ function updatePip(dt) {
     if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
     if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
-    if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
+    if ((raw.stick || 0) >= 3 && craftSlots() >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
     if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
-    if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
+    if (known.glue && craftSlots() >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Two stones and a stick make a fire ring!');
   }
   if (sc.id === 'start' && storyAt('adventure')) {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);

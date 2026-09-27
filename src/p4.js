@@ -274,7 +274,8 @@ function dropAcorn(s) {
   if ((state.treeCool[s.key] || 0) >= state.playTime || rng() >= 0.7) return;
   state.treeCool[s.key] = state.playTime + 10;
   const a = Math.random() * 6.28;
-  state.items.push({ type: 'acorn', x: s.x + Math.cos(a) * (s.r + UNIT * 0.6), y: s.y + UNIT * 0.4 + Math.abs(Math.sin(a)) * UNIT * 0.4 });
+  const type = Math.random() < 0.4 ? 'stick' : 'acorn';            // a dry stick comes down about as often as an acorn
+  state.items.push({ type, x: s.x + Math.cos(a) * (s.r + UNIT * 0.6), y: s.y + UNIT * 0.4 + Math.abs(Math.sin(a)) * UNIT * 0.4 });
   spark(s.x, s.y - UNIT, '#3c7a3a', 6, 2);
 }
 // slashing a tree shakes it; sometimes an acorn falls
