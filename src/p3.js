@@ -212,6 +212,7 @@ function update(dt) {
   updateCam(dt);
   updateTexts(dt);
   if (!state.started) return;
+  state.frameDt = dt;
   readPresses();
   updateQuests();
   if (state.time - (state.slotT || -9) > 0.25) { state.slotT = state.time; tidySlots(); }

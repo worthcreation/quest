@@ -65,7 +65,7 @@ while(spoken().length){ press('f'); run(5); }
 if (state.title&&state.title.hold) { console.log('   alert:', state.title.text, state.title.sub); press('f'); run(5); }
 // grow and harvest: multiple turnips per seed
 const rt=rtFor('meadow'); rt.flags.plots.forEach(p=>{ if(p.s) p.t=state.playTime-100; });
-const food0=state.inv.food.length; const q=WORLD.meadow.feat.plots[rt.flags.plots.findIndex(p=>p.s)]; walkTo(q[0]*W,q[1]*H); run(3); press('f'); run(10);
+const food0=state.inv.food.length; const q=WORLD.meadow.feat.plots[rt.flags.plots.findIndex(p=>p.s)]; walkTo(q[0]*W,q[1]*H); run(3); press('f', 80); run(10);   /* build 85: hold F to pull it up */
 console.log('21 harvested', state.inv.food.filter(f=>f==='turnip').length, 'turnip(s) from one seed; harvests', state.inv.harvests, '| garden quest done', !!(state.inv.quests.garden&&state.inv.quests.garden.done!=null));
 console.log('22 reward: carrot', state.inv.food.includes('carrot'), 'carrot seeds', state.inv.bag.carrotseed, '| complete alert held', !!(state.title&&state.title.hold), state.title&&state.title.sub);
 press('f'); run(5);

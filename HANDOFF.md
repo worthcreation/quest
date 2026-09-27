@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 84, 27 Sep 2026)
+# Quest: handoff notes (as of build 85, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 85 in short
+- Crops are pulled up: at a ripe patch you hold F (interact, state.cropPull) and the crop rises and shakes out of the
+  dirt; it comes up after CROP_PULL[farm level] seconds (1.1, 0.8, 0.55, 0.35, 0.15). A tap does nothing. The hint reads
+  "Hold: pull up". state.frameDt is set each update for this.
+- Pip never stands still in the early game: waiting ahead (p.waitAt) or at his garden post he potters about the spot.
+  Heading for camp or gathering, if you don't get closer to where he's leading for 9 s, he says he'll go on ahead and
+  walks off the screen past the exit (p.lead phases going / away), then 6 s later pops back in from that side, bouncing,
+  to hurry you up ("Hurry up, slowpoke!" and others, in turn), walks in a little and carries on leading.
+- Pip's book: rule 1 (snacks) is a carrot; "Eat something!" got the turnip.
+- Tests: t85; t65 now holds F to harvest.
 
 ## Build 84 in short
 - Far fewer patches, mostly by the travel mushrooms (p1). plotPattern(c, n, kind) lays patches a tile apart: for two,

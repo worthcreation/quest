@@ -510,7 +510,8 @@ function drawPlots(sc) {
           for (let b = -1; b <= 1; b++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(b * UNIT * 0.2, -UNIT * 0.3 * st, b * UNIT * 0.25, -UNIT * 0.25 * st); ctx.stroke(); }
           if (st >= 3) { drawItemIcon(S.yields[0], 0, -UNIT * 0.8, UNIT * 0.7); if (Math.sin(state.time * 3 + i) > 0.9) spark(x, y - UNIT * 0.8, S.color, 1, 1); }
           ctx.restore();
-        } else if (p.s) { ctx.save(); ctx.translate(x, y); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
+        } else if (p.s) { const cp = state.cropPull && state.cropPull.i === i && state.cropPull.sc === sc.id ? state.cropPull : null, lift = cp ? Math.min(1, cp.t / cp.need) : 0;
+          ctx.save(); ctx.translate(x + (cp ? Math.sin(state.time * 40) * UNIT * 0.03 : 0), y - lift * UNIT * 0.45); ctx.scale(0.4 + st * 0.25, 0.4 + st * 0.25); if (st >= 3) drawItemIcon(crop, 0, 0, UNIT); else { ctx.fillStyle = '#5aa04a'; ctx.fillRect(-2, -UNIT * 0.3, 4, UNIT * 0.3); if (st) { ctx.beginPath(); ctx.ellipse(-5, -UNIT * 0.3, 6, 3, -0.5, 0, 6.28); ctx.ellipse(5, -UNIT * 0.3, 6, 3, 0.5, 0, 6.28); ctx.fill(); } } ctx.restore(); }
       });
     }
 
@@ -1592,7 +1593,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 84';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 85';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

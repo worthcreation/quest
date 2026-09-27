@@ -93,11 +93,22 @@ function interact() {
       const sk = seedSlotKey(), slotSeeds = p.s === 0 && !!sk && sk !== 'f';   // seeds on A/S/D: that key plants. Seeds on F: F plants them
       const have = slotSeeds ? [] : sk === 'f' ? [slotsOf().f.id] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
+      // a ripe crop has to be pulled up: hold F and it works loose, quicker the better you are at farming
+      if (p.s === 1 && stage >= 3) {
+        const cp = state.cropPull;
+        if (!held.act()) { if (cp) state.cropPull = null; return false; }
+        const c2 = cp && cp.i === i && cp.sc === sc.id ? cp : (state.cropPull = { i, sc: sc.id, t: 0, need: CROP_PULL[Math.min(CROP_PULL.length - 1, farmLevel())] });
+        c2.t += state.frameDt || 1 / 60;
+        if (Math.random() < 0.3) state.fx.push({ x: px * W + (Math.random() - 0.5) * UNIT * 0.6, y: py * H + UNIT * 0.1, vx: (Math.random() - 0.5) * UNIT * 2, vy: -UNIT * (0.5 + Math.random()), t: 0, life: 0.5, color: '#5a4128', size: UNIT * 0.06 });
+        if (!c2.tugged) { c2.tugged = true; sfx.strain(); }
+        if (c2.t < c2.need) return true;
+        state.cropPull = null;
+      }
       if (slotSeeds && !improve) { if (pressedNow.act) say(`${seedKeyLabel()} plants.`, px * W, py * H - UNIT, { key: 'plot', life: 1.6 }); if (!pressedNow.act) return false; return true; }
       if (improve && (slotSeeds || !have.length)) { if (!pressedNow.act) return false; payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5);   // seeds are on their own key: F composts
         say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' }); return true; }
       if (p.s === 0 && !have.length && !improve && !slotSeeds) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
-      if (!pressedNow.act) return false;
+      if (!pressedNow.act && !(p.s === 1 && stage >= 3)) return false;
       const doImprove = () => {
         payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
         say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' });
@@ -112,7 +123,7 @@ function interact() {
       else if (p.s === 0 && !improve && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
       else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
-      else if (p.s === 1 && stage >= 3) {
+      else if (p.s === 1 && stage >= 3) {                 // pulled all the way up
         const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
         p.s = 0; state.inv.harvests = (state.inv.harvests || 0) + 1; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
         if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
@@ -241,7 +252,7 @@ function findInteractable() {
       if (p.s === 0 && seedSlotKey()) add(q[0] * W, q[1] * H, 'Plant', 0.8, seedKeyLabel());
       else if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
       else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, nx.cost.acorn ? 'Compost' : 'Improve', 0.8);
-      if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Harvest', 0.8);
+      if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Hold: pull up', 0.8);
     });
   }
   if (f.dock && inv.raft) {
@@ -814,6 +825,7 @@ function placePipNearHero() {
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
 const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 const PIP_GAP = 8;
+const CROP_PULL = [1.1, 0.8, 0.55, 0.35, 0.15];         // seconds of holding F to pull a crop, by farming level
 // Reminders during the early game. If what Pip last suggested hasn't happened after a while, Pip walks to something
 // that helps (the robin, a patch, the next exit, a stick you still need) and says it a new way. Each situation has a
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
@@ -921,8 +933,29 @@ function updatePip(dt) {
   const ppx = p.x - h.x, ppy = p.y - h.y, along = ppx * ux + ppy * uy, side = -ppx * uy + ppy * ux;
   if (p.lane == null || Math.abs(side) > UNIT * 0.6) p.lane = side >= 0 ? 1 : -1;
   const waiting = along > Math.min(lead, UNIT * 3.4) - UNIT * 0.3 && along < UNIT * 9 && Math.abs(side) < UNIT * 4;   // up ahead and roughly on the way: he waits, even if you wander a bit
-  let tx = waiting ? p.x : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.y : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
-  if (garden && !p.visit) [tx, ty] = gardenSpot();        // Pip's post is the garden; a reminder can take him off it for a moment
+  if (waiting && !p.waitAt) p.waitAt = [p.x, p.y]; else if (!waiting) p.waitAt = null;
+  // never standing still: waiting up ahead (or at his garden post) he paces and potters about the spot
+  const pot = k => [Math.cos(state.time * 0.8 + k) * UNIT * 0.7 + Math.cos(state.time * 1.9 + k * 2) * UNIT * 0.2, Math.sin(state.time * 1.1 + k) * UNIT * 0.4];
+  let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
+  if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }   // Pip's post is the garden (a reminder can take him off it)
+  // Early on, if you don't follow, Pip goes on ahead: after a while he walks right off the screen, then pops back in
+  // from that side to hurry you up, and heads off again. Only when there's somewhere to lead you (the way to camp,
+  // or the way on while gathering).
+  const early = state.inv.story === STORY.tocamp || (storyAt('gather') && !campDone());
+  const L0 = p.lead || (p.lead = { best: dl, idle: 0, n: 0 });
+  if (!early || !ex || p.visit || garden) { L0.idle = 0; L0.best = dl; }
+  else if (dl < L0.best - UNIT) { L0.best = dl; L0.idle = 0; L0.phase = null; }
+  else if (!speakingNow()) L0.idle += dt;
+  if (early && ex && !p.visit && !garden) {
+    const [ox, oy] = [gx + ux * UNIT * 3, gy + uy * UNIT * 3];                         // just past the exit, off the screen
+    if (!L0.phase && L0.idle > 9) { L0.phase = 'going'; say(['I\'ll go on ahead!', 'This way! Come on!', 'Follow me!'][L0.n % 3], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (L0.phase === 'going') { tx = ox; ty = oy; if (p.x < -UNIT || p.x > W + UNIT || p.y < -UNIT || p.y > H + UNIT) { L0.phase = 'away'; L0.t = state.time; } }
+    if (L0.phase === 'away') { tx = ox; ty = oy; if (state.time - L0.t > 6) {                      // back in to hurry you along
+      L0.phase = 'back'; L0.n++; p.x = gx + ux * UNIT * 0.8; p.y = gy + uy * UNIT * 0.8; p.waitAt = null;
+      say(['Hurry up, slowpoke!', 'Come ON! It\'s this way!', 'Are you coming or not?', 'I\'m not getting any younger!'][(L0.n - 1) % 4], p.x - ux * UNIT * 2, p.y - uy * UNIT * 2 - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' });
+      p.hop = { t: 0, n: 3 }; } }
+    if (L0.phase === 'back') { tx = gx - ux * UNIT * 2.5; ty = gy - uy * UNIT * 2.5; if (Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.6) { L0.phase = null; L0.idle = 0; } }
+  }
   const v = p.visit;
   if (v) {                                            // walking over to point something out, then waiting there for you
     [tx, ty] = v.spot || pipBeside(v);
@@ -943,15 +976,16 @@ function updatePip(dt) {
     }
   }
   const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
-  if (md > UNIT * 0.3) {
+  if (md > UNIT * ((waiting || garden) && !p.visit ? 0.04 : 0.3)) {   // pottering: small steps count too
     const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
   }
-  collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
+  const offRoad = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'away');
+  if (!offRoad) { collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5); }   // (heading off the screen: no clamping)
   if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   p.stuck = md > UNIT * 0.5 && Math.hypot(p.x - (p.lx ?? p.x), p.y - (p.ly ?? p.y)) < 0.5 ? (p.stuck || 0) + dt : 0; p.lx = p.x; p.ly = p.y;
-  if (!p.visit && !garden && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
+  if (!p.visit && !garden && !offRoad && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
   const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
@@ -1856,11 +1890,11 @@ function updateChest(m) {
 // Pip's notes: one idea per line, a silly drawing beside each (drawn in drawDoodle, p7). Built when opened, so the
 // keys shown are the ones you've set.
 const BOOK_PAGES = () => [
-  { title: 'Pip\'s Rules', bits: [['snack', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
+  { title: 'Pip\'s Rules', bits: [['carrot', 'Always bring snacks.'], ['gremlin', 'Never trust a smiling gremlin.'], ['poke', 'If it glows, poke it first.']] },
   { title: 'Getting about', bits: [['arrows', TOUCH ? 'Walk with the pad.' : 'Arrows walk.'], ['jump', `${keyName(K.jump)} jumps.`], ['goldf', `${K.act.toUpperCase()} does what the gold label says.`]] },
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
-  { title: 'Tired?', bits: [['zzz', 'Low vigor: slow and floppy.'], ['fire', 'Sit by the fire.'], ['carrot', 'Eat something!']] },
+  { title: 'Tired?', bits: [['zzz', 'Low vigor: slow and floppy.'], ['fire', 'Sit by the fire.'], ['snack', 'Eat something!']] },
 ];
 const BOOK = { get length() { return BOOK_PAGES().length; } };
