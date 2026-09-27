@@ -5415,7 +5415,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 50';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 51';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -5990,13 +5990,14 @@ function dockLanding() {
 // a jetty: two rows of posts, straight planks with a little wear, one board replaced; the raft ties up at the end
 function drawJetty(sc) {
   const [fx, fy] = sc.feat.dock, [dx, dy] = sc.feat.dockDir || [0.5, 0.85], x = fx * W, y = fy * H, u = UNIT;
-  const len = u * 2.6, wid = u * 1.0, ang = Math.atan2(dy, dx);
+  // reaches a little under halfway across the water: 0.45 tiles of it over the bank, then 45% of the river's width
+  const len = u * (0.45 + sc.river.w * 0.45), wid = u * 1.0, ang = Math.atan2(dy, dx), boards = Math.round(len / (u * 0.29));
   ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
   ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.fillRect(-u * 0.1, -wid / 2 + 4, len + u * 0.2, wid);          // shadow on the water
-  for (let i = 0; i < 9; i++) {                                                                        // deck boards across the jetty
-    const bx = i * len / 9, j = Math.sin(i * 12.9898) * 0.5, w0 = len / 9 - 2;
-    ctx.fillStyle = i === 5 ? '#9a7a4e' : i % 2 ? '#7a5a34' : '#83623a';                               // board six is newer wood
-    ctx.fillRect(bx, -wid / 2 + j * 2, w0, wid + (i === 7 ? -u * 0.08 : 0));
+  for (let i = 0; i < boards; i++) {                                                                   // deck boards across the jetty
+    const bx = i * len / boards, j = Math.sin(i * 12.9898) * 0.5, w0 = len / boards - 2;
+    ctx.fillStyle = i === 3 ? '#9a7a4e' : i % 2 ? '#7a5a34' : '#83623a';                               // one board is newer wood
+    ctx.fillRect(bx, -wid / 2 + j * 2, w0, wid + (i === boards - 2 ? -u * 0.08 : 0));
     ctx.fillStyle = 'rgba(40,26,14,.5)'; ctx.fillRect(bx + w0 * 0.5, -wid / 2 + u * 0.12, 2, 2); ctx.fillRect(bx + w0 * 0.5, wid / 2 - u * 0.16, 2, 2);   // nail heads
   }
   ctx.fillStyle = '#5a3f24'; ctx.fillRect(0, -wid / 2 - 2, len, 3); ctx.fillRect(0, wid / 2 - 1, len, 3);   // stringers
@@ -6004,7 +6005,7 @@ function drawJetty(sc) {
   for (const px of [u * 0.15, len * 0.5, len - u * 0.12]) for (const py of [-wid / 2 - 3, wid / 2 - 3]) { ctx.fillRect(px - 3, py, 7, 7); }   // posts
   ctx.fillStyle = '#4a3420'; ctx.fillRect(len - u * 0.12 - 3, -wid / 2 - u * 0.45, 6, u * 0.45);        // a tall mooring post at the end
   if (state.inv.raft === 2) {                                                                          // the new raft, tied alongside the end
-    ctx.save(); ctx.translate(len - u * 0.9, wid / 2 + u * 0.75); ctx.rotate(0.06);
+    ctx.save(); ctx.translate(len - u * 0.6, wid / 2 + u * 0.75); ctx.rotate(0.06);
     ctx.fillStyle = '#9a7a4a'; for (let i = 0; i < 4; i++) ctx.fillRect(-u * 0.75 + i * u * 0.38, -u * 0.5, u * 0.34, u * 1.0);
     ctx.strokeStyle = '#6b3a5a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-u * 0.75, -u * 0.25); ctx.lineTo(u * 0.75, -u * 0.25); ctx.moveTo(-u * 0.75, u * 0.25); ctx.lineTo(u * 0.75, u * 0.25); ctx.stroke();
     ctx.strokeStyle = '#c9b890'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(u * 0.7, -u * 0.4); ctx.quadraticCurveTo(u * 0.9, -u * 0.8, u * 0.8, -u * 1.2); ctx.stroke();   // the line to the post
