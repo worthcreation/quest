@@ -107,7 +107,7 @@ function gainCropXp(k) {
   xp[k] = (xp[k] || 0) + 1;
   const h = state.hero;
   if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
-  if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.');
+  if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.', true);
 }
 // The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
 // curve so that the light spends most of its time low and only now and then swells up to its full brightness.

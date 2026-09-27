@@ -689,13 +689,13 @@ function drawScroll() {
   ctx.save(); ctx.globalAlpha = a;
   ctx.font = HAND(Math.round(fs * 1.35), true); const tw = ctx.measureText(S.title).width;
   ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.6, 420)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
-  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + 1.3), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
+  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
   ctx.fillStyle = '#e8d8b0'; ctx.fillRect(x, y, w, h);                                                  // the paper
   ctx.fillStyle = '#c9b48a'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
   ctx.textAlign = 'center'; ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9);
   ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * (3.2 + i * 1.25)));
-  ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7);
+  if (S.status) { ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7); }
   ctx.restore(); ctx.textAlign = 'left';
 }
 function drawTitle() {

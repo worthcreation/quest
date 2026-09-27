@@ -14,3 +14,8 @@ Pip is company and a guide, never a wall of text.
 - The wind pushes Pip just like you, and he says so.
 
 Code: pip.js (behaviour), tutorial.js (every early-game line, in order, plus PIP_LINES for the rest).
+
+## Alerts
+
+- The big banner is for quests only: when one starts and when it's done.
+- Everything else worth a moment (a level, a recipe, an item, a relic) is a small scroll in the lower half for a few seconds. Level-up scrolls point to Status for the details.

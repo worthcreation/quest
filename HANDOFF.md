@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 102, 27 Sep 2026)
+# Quest: handoff notes (as of build 103, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 103: banners are for quests only
+- Only a quest's start and its end use the big banner (quests.js calls showTitle with 'herald'). showTitle with 'relic' or
+  'quest' (items, recipes, relics, charms, the lantern, the rod, the journal, the mushroom, The Blade, arena and puzzle
+  results) now becomes a small scroll in the lower half (showScroll, text.js). Level-ups pass status=true to add
+  "Status (M) has more"; other scrolls leave it off. Place names on entering a screen and the ending are unchanged.
+- Test: rocks-banners checks an item alert is a scroll and a quest start is still a banner. 51 of 51.
 
 ## Build 102: two rabbits, the rage tell, combat talk, the quest HUD as background, rusty steel
 - f2 has two rabbits (the world field table's second entry; the ravine field is back to one).

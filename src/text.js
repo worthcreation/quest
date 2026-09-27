@@ -40,7 +40,7 @@ function say(text, x, y, opts = {}) {
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
-function showScroll(title, text) { (state.scrolls = state.scrolls || []).push({ title, text, t: 0, life: 4.8 }); sfx.heart(); }
+function showScroll(title, text, status) { (state.scrolls = state.scrolls || []).push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
@@ -71,7 +71,9 @@ function dismissHeld() {
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
 function showTitle(text, sub, style = 'area', life = 3, hold = false) {
-  if (style === 'relic' || style === 'quest') { style = 'herald'; life = Math.max(life, 3.6); }   // one kind of banner for everything notable: the region's ribbon
+  // Only quests get the big banner (their start and their end, from quests.js). Everything else notable (items,
+  // recipes, relics, level-ups) is a small scroll in the lower half: unobtrusive, a few seconds.
+  if (style === 'relic' || style === 'quest') { showScroll(text, sub ? sub[0].toUpperCase() + sub.slice(1) : ''); return; }
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;

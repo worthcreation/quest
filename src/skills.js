@@ -53,7 +53,7 @@ function skillUse(id, hit = false) {
   const prog = s.n + s.hits * 2;
   while (s.lvl < def.steps.length && prog >= def.steps[s.lvl]) {
     s.lvl++;
-    showScroll(`${SKILL_NAME[id] || id} ${roman(s.lvl)}`, def.lines[s.lvl - 1]);   // a small scroll low on the screen; Status has the details
+    showScroll(`${SKILL_NAME[id] || id} ${roman(s.lvl)}`, def.lines[s.lvl - 1], true);   // a small scroll low on the screen; Status has the details
     sfx.heart();
   }
 }

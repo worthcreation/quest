@@ -1364,7 +1364,7 @@ function say(text, x, y, opts = {}) {
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
-function showScroll(title, text) { (state.scrolls = state.scrolls || []).push({ title, text, t: 0, life: 4.8 }); sfx.heart(); }
+function showScroll(title, text, status) { (state.scrolls = state.scrolls || []).push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
@@ -1395,7 +1395,9 @@ function dismissHeld() {
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
 function showTitle(text, sub, style = 'area', life = 3, hold = false) {
-  if (style === 'relic' || style === 'quest') { style = 'herald'; life = Math.max(life, 3.6); }   // one kind of banner for everything notable: the region's ribbon
+  // Only quests get the big banner (their start and their end, from quests.js). Everything else notable (items,
+  // recipes, relics, level-ups) is a small scroll in the lower half: unobtrusive, a few seconds.
+  if (style === 'relic' || style === 'quest') { showScroll(text, sub ? sub[0].toUpperCase() + sub.slice(1) : ''); return; }
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
@@ -4795,7 +4797,7 @@ function updateCut(dt) {
     h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
     if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
-    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'herald', 3.6); }
+    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'relic', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
     if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {
@@ -5898,7 +5900,7 @@ function gainCropXp(k) {
   xp[k] = (xp[k] || 0) + 1;
   const h = state.hero;
   if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
-  if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.');
+  if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.', true);
 }
 // The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
 // curve so that the light spends most of its time low and only now and then swells up to its full brightness.
@@ -6229,7 +6231,7 @@ function skillUse(id, hit = false) {
   const prog = s.n + s.hits * 2;
   while (s.lvl < def.steps.length && prog >= def.steps[s.lvl]) {
     s.lvl++;
-    showScroll(`${SKILL_NAME[id] || id} ${roman(s.lvl)}`, def.lines[s.lvl - 1]);   // a small scroll low on the screen; Status has the details
+    showScroll(`${SKILL_NAME[id] || id} ${roman(s.lvl)}`, def.lines[s.lvl - 1], true);   // a small scroll low on the screen; Status has the details
     sfx.heart();
   }
 }
@@ -7371,7 +7373,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 102';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 103';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8285,13 +8287,13 @@ function drawScroll() {
   ctx.save(); ctx.globalAlpha = a;
   ctx.font = HAND(Math.round(fs * 1.35), true); const tw = ctx.measureText(S.title).width;
   ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.6, 420)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
-  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + 1.3), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
+  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
   ctx.fillStyle = '#e8d8b0'; ctx.fillRect(x, y, w, h);                                                  // the paper
   ctx.fillStyle = '#c9b48a'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
   ctx.textAlign = 'center'; ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9);
   ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * (3.2 + i * 1.25)));
-  ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7);
+  if (S.status) { ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7); }
   ctx.restore(); ctx.textAlign = 'left';
 }
 function drawTitle() {
