@@ -313,11 +313,19 @@ function update(dt) {
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
   if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
 
-  // things on the ground wait for F (see pickUpHere); only what drifts or heals is taken just by touching it
+  // things on the ground wait for F (see pickUpHere), unless your gathering skill brings them to you: within their
+  // auto range they drift over and are taken. Only what drifts or heals by nature is taken just by touching it.
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
-    if (!TOUCH_PICKUP.has(it.type)) continue;
-    if (!h.ride && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 0.9) { state.items.splice(i, 1); collect(it); }
+    if (it.type === 'bigrock') continue;
+    const d = Math.hypot(h.x - it.x, h.y - it.y);
+    if (TOUCH_PICKUP.has(it.type)) { if (!h.ride && d < UNIT * 0.9) { state.items.splice(i, 1); collect(it); } continue; }
+    if (!it.magnet && !h.ride && !state.carry && d < UNIT * autoRange(it.type)) it.magnet = true;
+    if (it.magnet) {
+      const sp = Math.min(d, UNIT * (6 + 10 * Math.min(1, (it.mt = (it.mt || 0) + dt)))  * dt);
+      it.x += (h.x - it.x) / (d || 1) * sp; it.y += (h.y - it.y) / (d || 1) * sp;
+      if (d < UNIT * 0.5) { state.items.splice(i, 1); collect(it); gatherGain(it.type); }
+    }
   }
 }
 // tired heroes are slow heroes
@@ -849,14 +857,15 @@ const PICK_R = 1.15;                                     // tiles: how close F r
 function itemAtFeet() {
   const h = state.hero;
   if (h.z > 0 || state.carry) return null;
-  let best = null, bd = UNIT * PICK_R;
-  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type)) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
+  let best = null, bd;
+  bd = UNIT * gatherReach();
+  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type) || it.magnet) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
   return best;
 }
 function pickUpHere() {
   const it = itemAtFeet();
   if (!it) return false;
-  state.items.splice(state.items.indexOf(it), 1); collect(it);
+  state.items.splice(state.items.indexOf(it), 1); collect(it); gatherGain(it.type);
   tidySlots();                                           // straight into an empty slot, so what's said next knows the key
   return true;
 }

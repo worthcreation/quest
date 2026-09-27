@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 71, 27 Sep 2026)
+# Quest: handoff notes (as of build 72, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 72 in short
+- Gathering skill (p14 SKILLS.gather, 12 quiet levels; gatherGain on every pickup, rare and secret things count triple).
+  gatherReach() = 1.15 + 0.3 per level: how far F reaches, and where the faint selection ring shows under items (p5).
+  Items have a tier (GATHER_TIER: common, uncommon, rare, secret; unknown types count as uncommon). autoRange(type):
+  from AUTO_NEED [3, 6, 9, 12] a thing drifts to you on its own (it.magnet, p3 item loop) from 0.8 tiles, +1.2 per
+  level, and at 12 from anywhere on screen. GLOW_NEED [0, 0, 5, 11]: rare things only show their ring from level 5,
+  secret ones from 11. Level 0 is contact only: stand on it and press F. ~40 pickups to reach level 3.
+- Hidden loose-ground spots (the pound finds) show as a faint scuff from gathering level 5, plainer with each level,
+  with an occasional glint from 9 (drawLooseHints, p4, drawn in drawGround).
+- Tests: t72. tools/shot.js B72=1.
 
 ## Build 71 in short
 - Slot labels: an old save could bring back two actions on one key (dash on D from before slotd existed), which made

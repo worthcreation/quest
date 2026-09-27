@@ -53,6 +53,14 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B72) {                             // build 72: gathering rings at level 0 and level 8, loose-ground hints
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; enterScene('start'); state.cut=null; state.enemies=[]; state.items=[]; run(5); state.texts=[]; state.title=null;
+  const h=state.hero; h.x=W*0.5; h.y=H*0.6; const put=()=>{ state.items=[{type:'stick',x:h.x+UNIT*0.9,y:h.y},{type:'stone',x:h.x-UNIT*2.5,y:h.y+UNIT*0.4},{type:'thorn',x:h.x+UNIT*3,y:h.y-UNIT*0.8},{type:'starpetal',x:h.x-UNIT*1.2,y:h.y-UNIT*1.8}]; };
+  setSkillLevel('gather',0); put(); for (let k=0;k<5;k++) draw(); fs.writeFileSync('/tmp/b72-l0.png', canvas.toBuffer('image/png'));
+  setSkillLevel('gather',7); put(); state.items.forEach(i=>i.magnet=false); rtFor('start').flags.loose=[{fx:0.42,fy:0.75,found:false}]; for (let k=0;k<5;k++) draw(); fs.writeFileSync('/tmp/b72-l7.png', canvas.toBuffer('image/png'));
+  console.log('b72 shots written');
+}
 if (process.env.B71) {                             // build 71: Pip's words in a bubble over Pip, and the quest-complete banner
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('camp'); state.cut=null; state.enemies=[]; run(10); state.texts=[]; state.title=null;

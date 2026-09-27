@@ -376,7 +376,33 @@ const SKILLS = {
   sword: { steps: [20, 60, 130, 240], lines: ['The sword sits better in your hand.', 'Your swings are finding their rhythm.', 'The blade goes where you look.', 'The rust is the only thing slow about this sword now.'] },
   dodge: { steps: [10, 30, 70, 130], lines: ['Your feet are a little quicker.', 'You slip aside without thinking about it.', 'Trouble has to guess where you went.', 'Nothing much lands on you these days.'] },
   farm:  { steps: [8, 24, 56, 110], lines: ['The soil feels friendlier.', 'You have a sense for what a patch wants.', 'Things come up a little sooner for you.', 'Pip would say you have the knack.'] },
+  gather: { steps: [8, 20, 40, 70, 110, 165, 240, 340, 470, 640, 860, 1150],
+    lines: ['Your hands are quicker at picking things up.', 'Little things seem to find their way to you.', 'Things come to you when you pass close by.',
+      'You reach a little farther without thinking.', 'Odd bits of ground catch your eye now.', 'Thorns and blooms come to you too.',
+      'You gather as you walk, a few steps either side.', 'Rare things glint at you from farther off.', 'Rare things come to your hand now.',
+      'You barely stop to pick anything up anymore.', 'Even strange things show themselves to you.', 'Whatever is lying about, you have it.'] },
 };
+// ---------------- gathering: a skill that grows with every pickup ----------------
+// At first you take what's on the ground by pressing F within touch reach. As the skill grows, that reach grows,
+// and things start coming to you on their own, from farther and farther away, until almost anything on screen does.
+// Rarer things need more skill both to come on their own and to show their faint selection ring. Hidden spots (the
+// loose ground a pound can shake open) start to show at higher levels.
+const GATHER_TIER = {};
+for (const t of ['stick', 'stone', 'fluff', 'acorn', 'berries', 'turnip', 'carrot', 'pepper', 'squash', 'fish', 'bean', 'turnipseed', 'carrotseed', 'glue']) GATHER_TIER[t] = 0;
+for (const t of ['thorn', 'ember', 'ironwood', 'driftwood', 'ear', 'hide', 'thornseed', 'pepperseed', 'squashseed', 'shard']) GATHER_TIER[t] = 1;
+for (const t of ['starpetal', 'emberseed', 'ironseed', 'silk', 'horn', 'step', 'lumin', 'page']) GATHER_TIER[t] = 2;
+for (const t of ['starseed', 'scalp', 'journal', 'letter', 'relic']) GATHER_TIER[t] = 3;
+const tierOf = t => GATHER_TIER[t] ?? 1;
+const AUTO_NEED = [3, 6, 9, 12], GLOW_NEED = [0, 0, 5, 11];         // level to come on its own / to show its ring, by tier
+const gatherLevel = () => skillLevel('gather');
+const gatherReach = () => PICK_R + gatherLevel() * 0.3;                // tiles: F reaches this far (and the faint ring shows)
+function autoRange(t) {                                                // tiles: this comes to you on its own from here (0: never)
+  const L = gatherLevel(), need = AUTO_NEED[tierOf(t)];
+  if (L < need) return 0;
+  return L >= 12 ? 99 : 0.8 + (L - need) * 1.2 + (need === 3 ? 0 : 0.5);
+}
+const glowShows = t => gatherLevel() >= GLOW_NEED[tierOf(t)];
+function gatherGain(t) { skillUse('gather'); if (tierOf(t) >= 2) { skillUse('gather'); skillUse('gather'); } }
 function skillOf(id) { const inv = state.inv, sk = inv.skill || (inv.skill = {}); return sk[id] || (sk[id] = { n: 0, hits: 0, lvl: 0 }); }
 function skillLevel(id) { return skillOf(id).lvl; }
 function skillUse(id, hit = false) {

@@ -1583,11 +1583,19 @@ function update(dt) {
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
   if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
 
-  // things on the ground wait for F (see pickUpHere); only what drifts or heals is taken just by touching it
+  // things on the ground wait for F (see pickUpHere), unless your gathering skill brings them to you: within their
+  // auto range they drift over and are taken. Only what drifts or heals by nature is taken just by touching it.
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
-    if (!TOUCH_PICKUP.has(it.type)) continue;
-    if (!h.ride && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 0.9) { state.items.splice(i, 1); collect(it); }
+    if (it.type === 'bigrock') continue;
+    const d = Math.hypot(h.x - it.x, h.y - it.y);
+    if (TOUCH_PICKUP.has(it.type)) { if (!h.ride && d < UNIT * 0.9) { state.items.splice(i, 1); collect(it); } continue; }
+    if (!it.magnet && !h.ride && !state.carry && d < UNIT * autoRange(it.type)) it.magnet = true;
+    if (it.magnet) {
+      const sp = Math.min(d, UNIT * (6 + 10 * Math.min(1, (it.mt = (it.mt || 0) + dt)))  * dt);
+      it.x += (h.x - it.x) / (d || 1) * sp; it.y += (h.y - it.y) / (d || 1) * sp;
+      if (d < UNIT * 0.5) { state.items.splice(i, 1); collect(it); gatherGain(it.type); }
+    }
   }
 }
 // tired heroes are slow heroes
@@ -2119,14 +2127,15 @@ const PICK_R = 1.15;                                     // tiles: how close F r
 function itemAtFeet() {
   const h = state.hero;
   if (h.z > 0 || state.carry) return null;
-  let best = null, bd = UNIT * PICK_R;
-  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type)) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
+  let best = null, bd;
+  bd = UNIT * gatherReach();
+  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type) || it.magnet) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
   return best;
 }
 function pickUpHere() {
   const it = itemAtFeet();
   if (!it) return false;
-  state.items.splice(state.items.indexOf(it), 1); collect(it);
+  state.items.splice(state.items.indexOf(it), 1); collect(it); gatherGain(it.type);
   tidySlots();                                           // straight into an empty slot, so what's said next knows the key
   return true;
 }
@@ -2438,6 +2447,18 @@ function looseSpots() {
     out.push({ fx: x / W, fy: y / H, found: false });
   }
   return (rt.flags.loose = out);
+}
+// with a good gathering eye, the loose ground starts to show: a faint scuff at level 5, plainer as you go on
+function drawLooseHints(sc) {
+  const L = gatherLevel(); if (L < 5 || state.scene !== sc.id) return;
+  const a = Math.min(0.4, 0.06 + (L - 5) * 0.05);
+  for (const s of looseSpots()) {
+    if (s.found) continue;
+    const x = s.fx * W, y = s.fy * H;
+    ctx.fillStyle = `rgba(90,62,34,${a})`; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.42, UNIT * 0.16, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = `rgba(60,40,20,${a})`; for (const [dx, dy] of [[-0.18, 0.05], [0.12, 0.12], [0.2, 0.0]]) { ctx.beginPath(); ctx.arc(x + dx * UNIT, y + dy * UNIT, UNIT * 0.04, 0, 6.28); ctx.fill(); }
+    if (L >= 9 && Math.sin(state.time * 1.3 + s.fx * 20) > 0.97) { ctx.fillStyle = 'rgba(255,240,200,.35)'; ctx.beginPath(); ctx.arc(x, y, UNIT * 0.06, 0, 6.28); ctx.fill(); }
+  }
 }
 function poundLoose(x, y) {
   for (const s of looseSpots()) {
@@ -4972,6 +4993,7 @@ function drawGround(sc) {
     }
   }
   drawMud(sc);
+  drawLooseHints(sc);
 }
 function drawPools(sc) {
   if (sc.area === 'river') {                           // still, gleaming water you can wade into
@@ -6174,7 +6196,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 71';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 72';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7692,7 +7714,33 @@ const SKILLS = {
   sword: { steps: [20, 60, 130, 240], lines: ['The sword sits better in your hand.', 'Your swings are finding their rhythm.', 'The blade goes where you look.', 'The rust is the only thing slow about this sword now.'] },
   dodge: { steps: [10, 30, 70, 130], lines: ['Your feet are a little quicker.', 'You slip aside without thinking about it.', 'Trouble has to guess where you went.', 'Nothing much lands on you these days.'] },
   farm:  { steps: [8, 24, 56, 110], lines: ['The soil feels friendlier.', 'You have a sense for what a patch wants.', 'Things come up a little sooner for you.', 'Pip would say you have the knack.'] },
+  gather: { steps: [8, 20, 40, 70, 110, 165, 240, 340, 470, 640, 860, 1150],
+    lines: ['Your hands are quicker at picking things up.', 'Little things seem to find their way to you.', 'Things come to you when you pass close by.',
+      'You reach a little farther without thinking.', 'Odd bits of ground catch your eye now.', 'Thorns and blooms come to you too.',
+      'You gather as you walk, a few steps either side.', 'Rare things glint at you from farther off.', 'Rare things come to your hand now.',
+      'You barely stop to pick anything up anymore.', 'Even strange things show themselves to you.', 'Whatever is lying about, you have it.'] },
 };
+// ---------------- gathering: a skill that grows with every pickup ----------------
+// At first you take what's on the ground by pressing F within touch reach. As the skill grows, that reach grows,
+// and things start coming to you on their own, from farther and farther away, until almost anything on screen does.
+// Rarer things need more skill both to come on their own and to show their faint selection ring. Hidden spots (the
+// loose ground a pound can shake open) start to show at higher levels.
+const GATHER_TIER = {};
+for (const t of ['stick', 'stone', 'fluff', 'acorn', 'berries', 'turnip', 'carrot', 'pepper', 'squash', 'fish', 'bean', 'turnipseed', 'carrotseed', 'glue']) GATHER_TIER[t] = 0;
+for (const t of ['thorn', 'ember', 'ironwood', 'driftwood', 'ear', 'hide', 'thornseed', 'pepperseed', 'squashseed', 'shard']) GATHER_TIER[t] = 1;
+for (const t of ['starpetal', 'emberseed', 'ironseed', 'silk', 'horn', 'step', 'lumin', 'page']) GATHER_TIER[t] = 2;
+for (const t of ['starseed', 'scalp', 'journal', 'letter', 'relic']) GATHER_TIER[t] = 3;
+const tierOf = t => GATHER_TIER[t] ?? 1;
+const AUTO_NEED = [3, 6, 9, 12], GLOW_NEED = [0, 0, 5, 11];         // level to come on its own / to show its ring, by tier
+const gatherLevel = () => skillLevel('gather');
+const gatherReach = () => PICK_R + gatherLevel() * 0.3;                // tiles: F reaches this far (and the faint ring shows)
+function autoRange(t) {                                                // tiles: this comes to you on its own from here (0: never)
+  const L = gatherLevel(), need = AUTO_NEED[tierOf(t)];
+  if (L < need) return 0;
+  return L >= 12 ? 99 : 0.8 + (L - need) * 1.2 + (need === 3 ? 0 : 0.5);
+}
+const glowShows = t => gatherLevel() >= GLOW_NEED[tierOf(t)];
+function gatherGain(t) { skillUse('gather'); if (tierOf(t) >= 2) { skillUse('gather'); skillUse('gather'); } }
 function skillOf(id) { const inv = state.inv, sk = inv.skill || (inv.skill = {}); return sk[id] || (sk[id] = { n: 0, hits: 0, lvl: 0 }); }
 function skillLevel(id) { return skillOf(id).lvl; }
 function skillUse(id, hit = false) {
@@ -7962,6 +8010,11 @@ function drawItems() {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(it.x + 1, it.y + UNIT * 0.2, UNIT * 0.28, UNIT * 0.07, 0, 0, 6.28); ctx.fill();
     ctx.save(); ctx.translate(it.x, it.y + UNIT * 0.08); ctx.rotate(lean); drawItemIcon(it.type, 0, 0, UNIT * 0.72); ctx.restore();
+    if (it.type !== 'bigrock' && !TOUCH_PICKUP.has(it.type) && glowShows(it.type)) {     // the faint selection ring, inside gathering reach
+      const dd = Math.hypot(state.hero.x - it.x, state.hero.y - it.y) / UNIT, R = gatherReach();
+      if (dd < R) { const a = (0.07 + 0.06 * Math.min(1, gatherLevel() / 8)) * Math.min(1, (R - dd) / 0.6) * (0.85 + 0.15 * Math.sin(state.time * 2 + it.x));
+        ctx.strokeStyle = `rgba(255,244,200,${a})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(it.x, it.y + UNIT * 0.22, UNIT * 0.36, UNIT * 0.12, 0, 0, 6.28); ctx.stroke(); }
+    }
     drawGlints(it, hsh);
   }
 }
@@ -7970,8 +8023,8 @@ function drawItems() {
 // little more often as you get close, and a touch warmer within reach of F; that's the only cue, no button drawn.
 const GLINTS = new WeakMap();
 function drawGlints(it, hsh) {
-  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < PICK_R && h.z <= 0 && !state.carry;
-  const near = Math.max(0, Math.min(1, 1 - (d - PICK_R) / 5));
+  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < gatherReach() && h.z <= 0 && !state.carry;
+  const near = Math.max(0, Math.min(1, 1 - (d - gatherReach()) / 5));
   const G = GLINTS.get(it) || { t: state.time, gl: [], lx: 0, ly: 0 }; GLINTS.set(it, G);
   const now = state.time, dt = Math.min(0.1, Math.max(0, now - G.t)); G.t = now;
   const gl = G.gl, rate = 0.12 + near * 0.5 + (reach ? 0.9 : 0), cap = reach ? 2 : 1;

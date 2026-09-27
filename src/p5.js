@@ -229,6 +229,11 @@ function drawItems() {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(it.x + 1, it.y + UNIT * 0.2, UNIT * 0.28, UNIT * 0.07, 0, 0, 6.28); ctx.fill();
     ctx.save(); ctx.translate(it.x, it.y + UNIT * 0.08); ctx.rotate(lean); drawItemIcon(it.type, 0, 0, UNIT * 0.72); ctx.restore();
+    if (it.type !== 'bigrock' && !TOUCH_PICKUP.has(it.type) && glowShows(it.type)) {     // the faint selection ring, inside gathering reach
+      const dd = Math.hypot(state.hero.x - it.x, state.hero.y - it.y) / UNIT, R = gatherReach();
+      if (dd < R) { const a = (0.07 + 0.06 * Math.min(1, gatherLevel() / 8)) * Math.min(1, (R - dd) / 0.6) * (0.85 + 0.15 * Math.sin(state.time * 2 + it.x));
+        ctx.strokeStyle = `rgba(255,244,200,${a})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(it.x, it.y + UNIT * 0.22, UNIT * 0.36, UNIT * 0.12, 0, 0, 6.28); ctx.stroke(); }
+    }
     drawGlints(it, hsh);
   }
 }
@@ -237,8 +242,8 @@ function drawItems() {
 // little more often as you get close, and a touch warmer within reach of F; that's the only cue, no button drawn.
 const GLINTS = new WeakMap();
 function drawGlints(it, hsh) {
-  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < PICK_R && h.z <= 0 && !state.carry;
-  const near = Math.max(0, Math.min(1, 1 - (d - PICK_R) / 5));
+  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < gatherReach() && h.z <= 0 && !state.carry;
+  const near = Math.max(0, Math.min(1, 1 - (d - gatherReach()) / 5));
   const G = GLINTS.get(it) || { t: state.time, gl: [], lx: 0, ly: 0 }; GLINTS.set(it, G);
   const now = state.time, dt = Math.min(0.1, Math.max(0, now - G.t)); G.t = now;
   const gl = G.gl, rate = 0.12 + near * 0.5 + (reach ? 0.9 : 0), cap = reach ? 2 : 1;

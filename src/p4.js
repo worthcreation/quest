@@ -219,6 +219,18 @@ function looseSpots() {
   }
   return (rt.flags.loose = out);
 }
+// with a good gathering eye, the loose ground starts to show: a faint scuff at level 5, plainer as you go on
+function drawLooseHints(sc) {
+  const L = gatherLevel(); if (L < 5 || state.scene !== sc.id) return;
+  const a = Math.min(0.4, 0.06 + (L - 5) * 0.05);
+  for (const s of looseSpots()) {
+    if (s.found) continue;
+    const x = s.fx * W, y = s.fy * H;
+    ctx.fillStyle = `rgba(90,62,34,${a})`; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.42, UNIT * 0.16, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = `rgba(60,40,20,${a})`; for (const [dx, dy] of [[-0.18, 0.05], [0.12, 0.12], [0.2, 0.0]]) { ctx.beginPath(); ctx.arc(x + dx * UNIT, y + dy * UNIT, UNIT * 0.04, 0, 6.28); ctx.fill(); }
+    if (L >= 9 && Math.sin(state.time * 1.3 + s.fx * 20) > 0.97) { ctx.fillStyle = 'rgba(255,240,200,.35)'; ctx.beginPath(); ctx.arc(x, y, UNIT * 0.06, 0, 6.28); ctx.fill(); }
+  }
+}
 function poundLoose(x, y) {
   for (const s of looseSpots()) {
     if (s.found) continue;
