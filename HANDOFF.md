@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 106, 27 Sep 2026)
+# Quest: handoff notes (as of build 107, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,11 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 107: the heavy stones wait for twilight
+- pullLocked(pl) (items.js): big buried rocks (kind 'rock', not mud rocks) are scenery until storyAt('adventure'): no
+  pounding loose (knockRocks), no grip (updatePull), no hint chips, no 'Pull' interactable, and they don't block your
+  sword or the patch code. The rocks are still drawn and still solid. Test: heavy-stone. 52 of 52.
 
 ## Build 106: combat guidance you can't miss
 - It wasn't showing because Pip's gathering small talk ("Let's keep looking around...") filled the air on arrival, and

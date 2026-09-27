@@ -1,0 +1,11 @@
+const src = require('./harness.js').src;
+eval(src+`;
+begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }}; const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
+run(5); state.intro=null; state.texts=[]; const inv=state.inv, h=state.hero; inv.story=STORY.gather; inv.sword=true;
+enterScene('start'); state.enemies=[]; run(5); const rock=sceneDef().pullables.find(p=>p.id==='rock'), rt=rtFor('start');
+const tryIt=()=>{ h.x=rock.fx*W-UNIT*1.2; h.y=rock.fy*H; h.fx=1; h.fy=0; run(5); draw(); const hint=(state.hintActs||[]).map(a=>a.key+' '+a.verb).join(' | ')||'(none)';
+  h.z=UNIT*1.5; h.vz=0; press('f'); run(40); const knocked=!!rt.flags.knocked_rock; state.keys.f=true; run(10); const grip=state.pull.grip; state.keys.f=false; run(3); return {hint, knocked, grip}; };
+const before=tryIt(); console.log('1 before twilight: hint', before.hint, '| pound knocks it loose', before.knocked, '| can grab it', before.grip, '| still there', !!rock);
+delete rt.flags.knocked_rock; inv.story=STORY.adventure; const after=tryIt(); console.log('2 after twilight:  hint', after.hint, '| pound knocks it loose', after.knocked, '| can grab it', after.grip);
+console.log('BUILD', BUILD, '| errs', errs);
+`);

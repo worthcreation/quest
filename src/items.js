@@ -13,9 +13,13 @@ function hitStone(o, force) {
   else { sfx.crash(); state.shake = 0.15; spark(o.x, o.y, S ? S.tint : '#8f887c', 8, 2); say(`${S.name}: cracking. ${dur - rt.flags[key]} more.`, o.x, o.y - UNIT, { key: 'stonehit', life: 1.6 }); }
 }
 // buried rocks have to be knocked loose before you can rock them out
+// the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
+// no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
+function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
+    if (pullLocked(pl)) continue;
     if (pl.kind !== 'rock' || rt.pulled.has(pl.id) || rt.flags['knocked_' + pl.id]) continue;
     const px = pl.fx * W, py = pl.fy * H;
     if (Math.hypot(px - x, py - y) > reach) continue;
@@ -57,7 +61,7 @@ function updatePull(dt) {
   if (sc.feat.plots) syncCropPulls(sc);
   let near = null, nd = UNIT * 1.7;                  // the nearest one in reach (two ripe patches side by side: the one you're on)
   if (!state.carry) for (const pl of sc.pullables) {
-    if (rt.pulled.has(pl.id)) continue;
+    if (rt.pulled.has(pl.id) || pullLocked(pl)) continue;
     const d = Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H);
     if (d < nd) { nd = d; near = pl; }
   }

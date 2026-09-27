@@ -21,7 +21,7 @@ function updateCombat(dt) {
   if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
-  const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
+  const nearPullable = sceneDef().pullables.some(p => !pullLocked(p) && !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
   if (nearPullable) return;
   if (state.slam) return;
   if (state.whirl) { updateWhirl(dt); return; }

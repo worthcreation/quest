@@ -2133,9 +2133,13 @@ function hitStone(o, force) {
   else { sfx.crash(); state.shake = 0.15; spark(o.x, o.y, S ? S.tint : '#8f887c', 8, 2); say(`${S.name}: cracking. ${dur - rt.flags[key]} more.`, o.x, o.y - UNIT, { key: 'stonehit', life: 1.6 }); }
 }
 // buried rocks have to be knocked loose before you can rock them out
+// the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
+// no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
+function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
+    if (pullLocked(pl)) continue;
     if (pl.kind !== 'rock' || rt.pulled.has(pl.id) || rt.flags['knocked_' + pl.id]) continue;
     const px = pl.fx * W, py = pl.fy * H;
     if (Math.hypot(px - x, py - y) > reach) continue;
@@ -2177,7 +2181,7 @@ function updatePull(dt) {
   if (sc.feat.plots) syncCropPulls(sc);
   let near = null, nd = UNIT * 1.7;                  // the nearest one in reach (two ripe patches side by side: the one you're on)
   if (!state.carry) for (const pl of sc.pullables) {
-    if (rt.pulled.has(pl.id)) continue;
+    if (rt.pulled.has(pl.id) || pullLocked(pl)) continue;
     const d = Math.hypot(h.x - pl.fx * W, h.y - pl.fy * H);
     if (d < nd) { nd = d; near = pl; }
   }
@@ -2555,7 +2559,7 @@ function updateCombat(dt) {
   if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
-  const nearPullable = sceneDef().pullables.some(p => !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
+  const nearPullable = sceneDef().pullables.some(p => !pullLocked(p) && !rtFor(state.scene).pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.7);
   if (nearPullable) return;
   if (state.slam) return;
   if (state.whirl) { updateWhirl(dt); return; }
@@ -3374,7 +3378,7 @@ function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : 
 const INTERACTIONS = [interactTalk, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
-  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   for (const f of INTERACTIONS) { const r = f(sc, h, rt, nearPull); if (r === true || r === false) return r; }
   return false;
 }
@@ -3595,7 +3599,7 @@ function findInteractable() {
   for (const q of f.portals || []) add(q.fx * W, q.fy * H, 'Enter', 1.6);
   if (f.mirror) add(f.mirror[0] * W, f.mirror[1] * H, 'Poses', 1.8);
   if (!state.carry) {
-    for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', p.kind === 'sword' ? 0.9 : 1.8);   // the hidden hilt only shows it's a handle when you're right on it
+    for (const p of sc.pullables) if (!rt.pulled.has(p.id) && !pullLocked(p)) add(p.fx * W, p.fy * H, 'Pull', p.kind === 'sword' ? 0.9 : 1.8);   // the hidden hilt only shows it's a handle when you're right on it
     for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
   }
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
@@ -7399,7 +7403,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 106';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 107';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8777,7 +8781,7 @@ function actionList(it) {
       if (seeds || comp) out.unshift({ key: K.act, verb: [seeds ? 'Plant' : '', comp ? (nx.cost.acorn ? 'Compost' : 'Improve') : ''].filter(Boolean).join(' / ') });
     });
   }
-  for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
+  for (const pl of sc.pullables) if (pl.kind === 'rock' && !pullLocked(pl) && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
     const i = out.findIndex(o => o.verb === 'Pull'); if (i >= 0) out.splice(i, 1);
     out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound it loose' }); break; }
   if (it.verb === 'Shake' || /tree/i.test(it.verb)) out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound' });

@@ -1153,7 +1153,7 @@ function actionList(it) {
       if (seeds || comp) out.unshift({ key: K.act, verb: [seeds ? 'Plant' : '', comp ? (nx.cost.acorn ? 'Compost' : 'Improve') : ''].filter(Boolean).join(' / ') });
     });
   }
-  for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
+  for (const pl of sc.pullables) if (pl.kind === 'rock' && !pullLocked(pl) && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) {   // stuck fast: pounding is the only thing to do yet
     const i = out.findIndex(o => o.verb === 'Pull'); if (i >= 0) out.splice(i, 1);
     out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound it loose' }); break; }
   if (it.verb === 'Shake' || /tree/i.test(it.verb)) out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound' });

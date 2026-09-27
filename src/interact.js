@@ -10,7 +10,7 @@ function npcHere(n) { return n.kind !== 'pip' || (n.home ? state.inv.pipSaved : 
 const INTERACTIONS = [interactTalk, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
-  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
+  const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
   for (const f of INTERACTIONS) { const r = f(sc, h, rt, nearPull); if (r === true || r === false) return r; }
   return false;
 }
@@ -231,7 +231,7 @@ function findInteractable() {
   for (const q of f.portals || []) add(q.fx * W, q.fy * H, 'Enter', 1.6);
   if (f.mirror) add(f.mirror[0] * W, f.mirror[1] * H, 'Poses', 1.8);
   if (!state.carry) {
-    for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', p.kind === 'sword' ? 0.9 : 1.8);   // the hidden hilt only shows it's a handle when you're right on it
+    for (const p of sc.pullables) if (!rt.pulled.has(p.id) && !pullLocked(p)) add(p.fx * W, p.fy * H, 'Pull', p.kind === 'sword' ? 0.9 : 1.8);   // the hidden hilt only shows it's a handle when you're right on it
     for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
   }
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
