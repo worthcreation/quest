@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quest">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Quest</title>
+<style>
+  :root { --ink: #fdf6e3; }
+  html, body { margin: 0; width: 100%; height: 100%; height: 100dvh; overflow: hidden; overscroll-behavior: none; background: #000; color: var(--ink); font-family: "Courier New", monospace; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
+  #fsTip { position: fixed; left: 50%; top: calc(56px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: 86vw; background: rgba(10,8,14,.85); color: var(--ink); padding: 10px 14px; border-radius: 8px; font-size: .85rem; text-align: center; line-height: 1.35; }
+  #pad { position: fixed; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 58px); gap: 4px; opacity: .85; }
+  #pad button, .abtn { background: rgba(0,0,0,.38); color: var(--ink); border: 0; touch-action: none; font: inherit; }
+  #pad button { font-size: 1.3rem; border-radius: 8px; }
+  #pad button:active, .abtn:active { background: rgba(0,0,0,.65); }
+  .abtn { position: fixed; border-radius: 50%; font-weight: bold; opacity: .85; }
+  #act  { right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; font-size: 1.5rem; }
+  #dash { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
+  #slotd { right: calc(190px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; font-size: .8rem; }
+  #eat  { right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
+  #jump { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; font-size: .85rem; }
+  #throw { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .75rem; }
+  #fire { right: calc(104px + env(safe-area-inset-right, 0px)); bottom: calc(164px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
+  #menubtn { left: calc(12px + env(safe-area-inset-left, 0px)); top: auto; bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: 46px; height: 46px; border-radius: 10px; font-size: 1.2rem; }
+  .hidden { display: none; }
+  @media (pointer: fine) and (min-width: 900px) { #pad, .abtn { display: none !important; } }
+  #start { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; background: #3f8f4c; font-size: 1.4rem; letter-spacing: 2px; cursor: pointer; text-align: center; padding: 20px; }
+  #start small { font-size: .9rem; letter-spacing: 1px; opacity: .85; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="fsTip" class="hidden"></div>
+<div id="pad">
+  <span></span><button data-dir="up">&#9650;</button><span></span>
+  <button data-dir="left">&#9664;</button><span></span><button data-dir="right">&#9654;</button>
+  <span></span><button data-dir="down">&#9660;</button><span></span>
+</div>
+<button id="act" class="abtn">A</button>
+<button id="jump" class="abtn">jump</button>
+<button id="throw" class="abtn hidden">throw</button>
+<button id="dash" class="abtn hidden">dash</button>
+<button id="eat" class="abtn hidden">eat</button>
+<button id="slotd" class="abtn hidden">D</button>
+<button id="fire" class="abtn hidden">fire</button>
+<button id="menubtn" class="abtn">&#9776;</button>
+<div id="start"><div>tap to begin</div><small id="startHint"></small></div>
+<script>

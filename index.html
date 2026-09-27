@@ -777,7 +777,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {} }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -3466,7 +3466,9 @@ function launch(kind, k = 1) {
   const h = state.hero, rock = kind === 'rock';
   const silk = rock ? 0 : state.inv.silk, T = throwParams(kind, k);
   const sp = UNIT * T.sp;
-  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: h.fx * sp, vy: h.fy * sp, z: UNIT * T.z, vz: UNIT * T.vz, g: UNIT * T.g, spin: 0, silk, hit: new Set(), force: 0.6 + 0.8 * k });
+  let dx = h.fx, dy = h.fy;
+  if (!rock) { const a = Math.atan2(h.fy, h.fx) + acornSpread(); dx = Math.cos(a); dy = Math.sin(a); skillUse('acorn'); }
+  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: dx * sp, vy: dy * sp, z: UNIT * T.z, vz: UNIT * T.vz, g: UNIT * T.g, spin: 0, silk, hit: new Set(), force: 0.6 + 0.8 * k });
   sfx.throw();
   if (rock) state.shake = 0.1;
   if (state.bird) scareBird(h.x, h.y, 6);
@@ -3474,6 +3476,7 @@ function launch(kind, k = 1) {
 function updateShots(dt) {
   for (let i = state.shots.length - 1; i >= 0; i--) {
     const s = state.shots[i], rock = s.kind === 'rock';
+    if (!rock) steerAcorn(s, dt);
     s.x += s.vx * dt; s.y += s.vy * dt; s.vz -= s.g * dt; s.z += s.vz * dt; s.spin += dt * 12;
     let done = s.z <= 0 || s.x < -UNIT || s.x > W + UNIT || s.y < -UNIT || s.y > H + UNIT;
     if (rock && s.z <= 0) {                             // a rock that comes down on a stone, brambles, a burrow or a buried rock
@@ -3484,6 +3487,7 @@ function updateShots(dt) {
       if (done || s.hit.has(e) || !hittable(e) || Math.hypot(e.x - s.x, e.y - s.y) > e.r + UNIT * 0.3) continue;
       const d = Math.hypot(s.vx, s.vy) || 1;
       s.hit.add(e);
+      if (!rock) skillUse('acorn', true);
       damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
@@ -4012,6 +4016,7 @@ const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
   ...(ARENA && state.arena ? [['rezone', `Restart: ${state.arena.zone.name}`], ['glade', 'Back to the arena glade']] : []),
+  ...(ARENA ? [['acornskill', `Acorn practice: level ${skillLevel('acorn')}`]] : []),
   ...(state.inv.pipSaved && !ARENA ? [['spores', `Spore travel (${state.inv.spores} spores)`]] : []),
   ['save', 'Save game'],
   ['load', 'Load game'],
@@ -4034,6 +4039,7 @@ function systemSelect(i) {
   if (key === 'hub') { state.menu = null; state.puzzle = null; transitionTo('puzzlehub', 0.5, 0.88, true); }
   if (key === 'rezone') { state.menu = null; enterZone(state.arena.key); }
   if (key === 'glade') { state.menu = null; state.arena = null; transitionTo('arena', 0.5, 0.55, true); }
+  if (key === 'acornskill') setSkillLevel('acorn', (skillLevel('acorn') + 1) % (SKILLS.acorn.steps.length + 1));
   if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
   if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
   if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
@@ -5728,7 +5734,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 61';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 62';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6828,6 +6834,54 @@ function drawSlotBar(x0, y0, len, s) {
     x += s * 1.2 + gap;
   }
   return x;
+}
+
+// ---------------- skills: quiet levels that grow with use ----------------
+// No numbers on screen. Each skill counts uses (a hit counts double) and crosses a few steps; each step says one
+// line in the skill colour, once. Acorns are the first; the sword, the dodge and farming take the same table later.
+const SKILL_COLOR = '#c9a2ff';
+const SKILLS = {
+  acorn: { steps: [12, 36, 80, 150], lines: ['You feel slightly nimbler.', 'Probably easier to hit varmints with acorns now.', 'The acorn leaves your hand like it knows the way.', 'You could knock a gnat off a fencepost from here.'] },
+  sword: { steps: [20, 60, 130, 240], lines: ['The sword sits better in your hand.', 'Your swings are finding their rhythm.', 'The blade goes where you look.', 'The rust is the only thing slow about this sword now.'] },
+  dodge: { steps: [10, 30, 70, 130], lines: ['Your feet are a little quicker.', 'You slip aside without thinking about it.', 'Trouble has to guess where you went.', 'Nothing much lands on you these days.'] },
+  farm:  { steps: [8, 24, 56, 110], lines: ['The soil feels friendlier.', 'You have a sense for what a patch wants.', 'Things come up a little sooner for you.', 'Pip would say you have the knack.'] },
+};
+function skillOf(id) { const inv = state.inv, sk = inv.skill || (inv.skill = {}); return sk[id] || (sk[id] = { n: 0, hits: 0, lvl: 0 }); }
+function skillLevel(id) { return skillOf(id).lvl; }
+function skillUse(id, hit = false) {
+  const s = skillOf(id), def = SKILLS[id];
+  if (hit) s.hits++; else s.n++;
+  const prog = s.n + s.hits * 2;
+  while (s.lvl < def.steps.length && prog >= def.steps[s.lvl]) {
+    s.lvl++;
+    sayHero(def.lines[s.lvl - 1], { key: 'skill', life: 3.8, color: SKILL_COLOR });
+    sfx.heart();
+  }
+}
+// testing only (arena System item): jump a skill straight to a level without the practice
+function setSkillLevel(id, lvl) { const s = skillOf(id), def = SKILLS[id]; s.lvl = Math.max(0, Math.min(def.steps.length, lvl)); s.hits = 0; s.n = s.lvl ? def.steps[s.lvl - 1] : 0; }
+// acorns: a thrown acorn leaves the hand a little off line (less with practice) and bends toward the nearest
+// varmint inside a cone ahead of it (more with practice). Level 0 is barely there.
+const ACORN_SPREAD = [7, 5, 3.5, 2, 1];                        // degrees either side, by level
+const ACORN_HOME = [0.3, 0.8, 1.15, 1.5, 1.9];                    // radians per second of turn, by level
+const ACORN_CONE = Math.cos(Math.PI / 5);                       // 36 degrees either side of the flight line
+function acornSpread() { return (Math.random() * 2 - 1) * ACORN_SPREAD[skillLevel('acorn')] * Math.PI / 180; }
+function steerAcorn(s, dt) {
+  const lvl = skillLevel('acorn'), sp = Math.hypot(s.vx, s.vy);
+  if (!sp) return;
+  let best = null, bd = UNIT * (4 + lvl);
+  for (const e of state.enemies) {
+    if (!hittable(e) || s.hit.has(e)) continue;
+    const dx = e.x - s.x, dy = e.y - s.y, d = Math.hypot(dx, dy);
+    if (d >= bd || d < 1) continue;
+    if ((dx * s.vx + dy * s.vy) / (d * sp) < ACORN_CONE) continue;
+    bd = d; best = e;
+  }
+  if (!best) return;
+  const have = Math.atan2(s.vy, s.vx), want = Math.atan2(best.y - s.y, best.x - s.x);
+  let da = want - have; da = Math.atan2(Math.sin(da), Math.cos(da));
+  const a = have + Math.max(-ACORN_HOME[lvl] * dt, Math.min(ACORN_HOME[lvl] * dt, da));
+  s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
 }
 
 // =====================================================================
