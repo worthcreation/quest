@@ -24,14 +24,14 @@ const pipLines=[]; const _say=say; say=function(t,x,y,o){ if(o&&o.key==='pip') p
 begin(); state.cut=null; const inv=state.inv; inv.story=STORY.garden; enterScene('meadow'); state.cut=null; run(3);
 const h=state.hero, q=WORLD.meadow.feat.plots[0];
 const atPlot=()=>{ h.x=q[0]*W; h.y=q[1]*H; h.vx=h.vy=0; state.pip.visit=null; run(3); };
-inv.bag.seed=2; atPlot(); drawActionHint(); console.log('hint on the patch:', state.actionHint && state.actionHint.verb, state.actionHint && state.actionHint.key);
-press('f'); console.log('F: seeds left', inv.bag.seed, '(still 2)');
-press('d'); console.log('D: seeds left', inv.bag.seed, '| patch planted', rtFor('meadow').flags.plots[0].s===1);
+inv.bag.turnipseed=2; run(20); atPlot(); drawActionHint(); console.log('hint on the patch:', state.actionHint && state.actionHint.verb, state.actionHint && state.actionHint.key);
+press('f'); console.log('F: seeds left', inv.bag.turnipseed, '(still 2)');
+press(seedSlotKey()); console.log('seed key ('+'slot'+'): seeds left', inv.bag.turnipseed, '| patch planted', rtFor('meadow').flags.plots[0].s===1);
 // seeds moved to slot A: the hint follows
 rtFor('meadow').flags.plots[0].s=0; slotsOf().a={kind:'seed',id:'auto'}; slotsOf().d=null; atPlot(); drawActionHint(); console.log('seeds in A: hint key', state.actionHint.key);
-press('a'); console.log('A plants: seeds left', inv.bag.seed);
+press('a'); console.log('A plants: seeds left', inv.bag.turnipseed);
 // no slot holds seeds: F plants as before
-rtFor('meadow').flags.plots[0].s=0; slotsOf().a=null; inv.bag.seed=1; atPlot(); drawActionHint(); console.log('no seed slot: hint key', state.actionHint.key||'F (default)'); press('f'); if(state.choice) press('f'); console.log('F plants: seeds left', inv.bag.seed);
+rtFor('meadow').flags.plots[0].s=0; slotsOf().a=null; inv.bag.turnipseed=1; atPlot(); drawActionHint(); console.log('no seed slot: hint key', state.actionHint.key||'F (default)'); press('f'); if(state.choice) press('f'); console.log('F plants: seeds left', inv.bag.turnipseed);
 slotsOf().d={kind:'seed',id:'auto'};
 // Pip while gathering
 inv.story=STORY.gather; state.pip.show=true; state.pip.follow=true; state.pip.visit=null; inv.pipTips={}; const raw=rawOf();

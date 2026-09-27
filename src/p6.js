@@ -11,6 +11,7 @@ function interact() {
     return true;
   }
   if (state.carry) return false;                    // hands full: F belongs to the rock
+  if (pressedNow.act && pickUpHere()) return true;  // something at your feet: F picks it up (it sparkles harder as you near it)
   if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { state.menu = { view: 'poses', sel: 0, note: '' }; sfx.tock(); return true; }
   for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
     if (q.pid.startsWith('zone:')) enterZone(q.pid.slice(5)); else enterPuzzle(PUZZLES.find(p => p.id === q.pid));
@@ -104,7 +105,7 @@ function interact() {
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
         say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
-      const imp = improve ? [`Improve to ${next.name} (${patchCost(next.cost)})`] : [];
+      const imp = improve ? [`${next.cost.acorn ? 'Compost it' : 'Improve'}: ${next.name} (${patchCost(next.cost)})`] : [];
       if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
       else if (p.s === 0 && !improve && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
@@ -135,7 +136,7 @@ function interact() {
 // faster growth, a chance of an extra harvest, a chance to get a seed back.
 const PATCH = [
   { name: 'Tuft of rich soil', speed: 1, bonus: 0, seedBack: 0 },
-  { name: 'Turned rich soil', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work acorns in as mulch' },
+  { name: 'Turned rich soil', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work in acorn compost' },
   { name: 'Framed rich-soil bed', speed: 1.45, bonus: 0.35, seedBack: 0.25, cost: { thorn: 3 }, how: 'frame it with thorn-wood' },
   { name: 'Raised rich-soil bed', speed: 1.8, bonus: 0.7, seedBack: 0.35, cost: { ironwood: 1, ember: 1 }, how: 'raise it with ironwood and warm ember soil' },
 ];
@@ -902,12 +903,14 @@ function updatePip(dt) {
     } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
+  if (inv.acorns > 0 && !storyAt('adventure')) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
     const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
     if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
+    if (sc.id !== 'camp' && (inv.pipTips || {}).shopping) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
     if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
     if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
   }

@@ -222,14 +222,38 @@ function drawItems() {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(it.x + 1, it.y + UNIT * 0.2, UNIT * 0.28, UNIT * 0.07, 0, 0, 6.28); ctx.fill();
     ctx.save(); ctx.translate(it.x, it.y + UNIT * 0.08); ctx.rotate(lean); drawItemIcon(it.type, 0, 0, UNIT * 0.72); ctx.restore();
-    // now and then, at its own random moments, a small glimmer catches your eye
-    const period = 3.5 + hsh * 4, ph = ((state.time + hsh * 17) % period) / period;
-    if (ph < 0.07) {
-      const k = Math.sin(ph / 0.07 * Math.PI), gx = it.x + (hsh - 0.5) * UNIT * 0.4, gy = it.y - UNIT * 0.15, r = UNIT * 0.2 * k;
-      ctx.fillStyle = `rgba(255,250,220,${0.9 * k})`;
-      ctx.beginPath(); ctx.moveTo(gx, gy - r); ctx.lineTo(gx + r * 0.22, gy); ctx.lineTo(gx, gy + r); ctx.lineTo(gx - r * 0.22, gy); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(gx - r, gy); ctx.lineTo(gx, gy + r * 0.22); ctx.lineTo(gx + r, gy); ctx.lineTo(gx, gy - r * 0.22); ctx.closePath(); ctx.fill();
-    }
+    drawGlints(it, hsh);
+  }
+}
+// Sparkles on things lying about. Far off, one small glint now and then. The closer you come the more often they
+// flash, the brighter and bigger, and the fancier (eight points, a turning star, a ring, a puff of motes). Within
+// reach of F they come thick and warm: that's the only cue; there's no button drawn. Each one lives a random while.
+const GLINTS = new WeakMap();
+function drawGlints(it, hsh) {
+  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < PICK_R && h.z <= 0 && !state.carry;
+  const near = Math.max(0, Math.min(1, 1 - (d - PICK_R) / 5));
+  const G = GLINTS.get(it) || { t: state.time, gl: [] }; GLINTS.set(it, G);           // kept off the item itself, so saves stay clean
+  const now = state.time, dt = Math.min(0.1, Math.max(0, now - G.t)); G.t = now;
+  const gl = G.gl;
+  const rate = 0.3 + near * near * 2.6 + (reach ? 6 : 0);
+  if (Math.random() < rate * dt && gl.length < 14) {
+    const c = Math.random() * (0.35 + near * 0.75 + (reach ? 0.4 : 0));      // how fancy this one gets
+    const kind = c < 0.45 ? 'star4' : c < 0.7 ? 'star8' : c < 0.9 ? 'spin' : c < 1.1 ? 'motes' : 'ring';
+    gl.push({ t0: now, dur: 0.22 + Math.random() * (0.5 + near * 0.9), kind, dx: (Math.random() - 0.5) * UNIT * (0.35 + near * 0.35), dy: -UNIT * (0.05 + Math.random() * 0.3),
+      r: UNIT * (0.12 + Math.random() * 0.1 + near * 0.12 + (reach ? 0.06 : 0)), rot: Math.random() * 6.28, warm: reach });
+  }
+  for (let i = gl.length - 1; i >= 0; i--) {
+    const g = gl[i], p = (now - g.t0) / g.dur;
+    if (p >= 1 || p < 0) { gl.splice(i, 1); continue; }
+    const k = Math.sin(p * Math.PI), x = it.x + g.dx, y = it.y + g.dy, r = g.r * k, a = (0.55 + 0.45 * near) * k;
+    const col = g.warm ? `rgba(255,236,150,${a})` : `rgba(255,250,225,${a})`;
+    ctx.fillStyle = col; ctx.strokeStyle = col;
+    const star = (rr, rot, pts = 4) => { ctx.beginPath(); for (let j = 0; j < pts * 2; j++) { const an = rot + j * Math.PI / pts, q = j % 2 ? rr * 0.22 : rr; ctx.lineTo(x + Math.cos(an) * q, y + Math.sin(an) * q); } ctx.closePath(); ctx.fill(); };
+    if (g.kind === 'star4') star(r, 0);
+    else if (g.kind === 'star8') { star(r, 0); star(r * 0.6, Math.PI / 4); }
+    else if (g.kind === 'spin') { star(r * 1.1, g.rot + p * 3); ctx.beginPath(); ctx.arc(x, y, r * 0.18, 0, 6.28); ctx.fill(); }
+    else if (g.kind === 'motes') { for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.arc(x + Math.cos(g.rot + j * 2.1) * r * 0.8, y - p * UNIT * 0.35 + Math.sin(g.rot + j * 2.1) * r * 0.4, Math.max(0.8, r * 0.14), 0, 6.28); ctx.fill(); } }
+    else { ctx.lineWidth = Math.max(1, r * 0.12); ctx.beginPath(); ctx.arc(x, y, r * (0.4 + p), 0, 6.28); ctx.stroke(); star(r * 0.7, g.rot); }
   }
 }
 // ---------- enemies ----------

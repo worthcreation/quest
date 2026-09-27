@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 66, 27 Sep 2026)
+# Quest: handoff notes (as of build 67, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,25 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 67 in short
+- F picks things up. Walking over an item no longer takes it (p3 update loop), except TOUCH_PICKUP (spore, spores7, wisp).
+  itemAtFeet()/pickUpHere() in p3 (reach PICK_R = 1.15 tiles, grounded, not carrying); interact() calls it right after the
+  carry check, so held text is cleared first, then pickup, then everything else. pickUpHere runs tidySlots at once.
+- No button or label for items. The cue is sparkle: drawGlints() in p5 (state kept in the GLINTS WeakMap, never on the item,
+  so saves stay clean). Rate 0.3/s far, rising with nearness, +6/s within reach; each glint has a random life and a kind
+  that gets fancier the closer you are (star4, star8, spin, motes, ring); in reach they turn warm gold. t67: 4 s counts
+  far/near/reach, all five kinds only in reach.
+- Pounding: every outdoor screen gets 2 or 3 hidden loose spots (rt.flags.loose, made on first pound there). slamDown ->
+  poundLoose(): within 1.7 tiles a spot gives one find from LOOSE_FINDS (local seed, acorn, stone, stick, berries, thornseed,
+  carrotseed, emberseed) and is spent; within 3.5 tiles the ground rattles (dirt motes). Nothing marks them.
+- Pip, once each: "Try pounding around in different places..." (out gathering, after the camp shopping list) and "Get enough
+  of those acorns, and you can make some awesome compost!" (first acorns, before the adventure). The first patch step is
+  now "work in acorn compost" and the choice reads "Compost it: ...".
+- Quest HUD: light and see-through by default (row alpha 0.38, faint box). A milestone (new quest, step done) sets
+  state.qPulse[id]; that row is bold, gold-edged and glowing for Q_BRIGHT 3.5 s, then fades back over Q_FADE 2.5 s.
+  A finished tracked quest shows ticked in green (state.qDone) for Q_DONE 6 s, then goes. questGlow(t) in p13.
+- Tests: t67 (11 checks). t56/t57/t64/t65 now press F on items and use the seed slot's key.
 
 ## Build 66 in short (slots, wheel, wearables; all in p14 unless noted)
 - One slot model. inv.slots = {a, s, d, f}, each {kind: weapon|food|seed|ability, id} or null; inv.slotV = 2 (older saves'

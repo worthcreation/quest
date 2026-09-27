@@ -197,6 +197,40 @@ function slamDown() {
   if (ks) say('It won\'t budge for a stomp. It needs a thrown rock.', ks.x, ks.y - UNIT, { key: 'stonehit', life: 2 });
   scareFlock(h.x, h.y, 6);
   shakeTreesAround(h, UNIT * 2.6);                                               // the thump knocks acorns loose
+  poundLoose(h.x, h.y);
+}
+// Every outdoor screen hides a couple of spots where a good pound shakes something loose: a seed, an acorn, a
+// stone, now and then something better. Nothing marks them. Close but not quite, the ground just rattles a little.
+const LOOSE_FINDS = [['seed', 34], ['acorn', 22], ['stone', 14], ['stick', 10], ['berries', 8], ['thornseed', 6], ['carrotseed', 4], ['emberseed', 2]];
+function looseSpots() {
+  const sc = sceneDef(), rt = rtFor(sc.id);
+  if (rt.flags.loose) return rt.flags.loose;
+  const out = [];
+  if (sc.area === 'indoor' || sc.id === 'puzzlehub' || sc.id === 'arena') return (rt.flags.loose = out);
+  const n = 2 + (Math.random() < 0.4 ? 1 : 0);
+  for (let tries = 0; out.length < n && tries < 60; tries++) {
+    const x = UNIT * 1.5 + Math.random() * (W - UNIT * 3), y = UNIT * 1.5 + Math.random() * (H - UNIT * 3);
+    if (isChasm(x, y, UNIT) || state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 0.8)) continue;
+    out.push({ fx: x / W, fy: y / H, found: false });
+  }
+  return (rt.flags.loose = out);
+}
+function poundLoose(x, y) {
+  for (const s of looseSpots()) {
+    if (s.found) continue;
+    const sx = s.fx * W, sy = s.fy * H, d = Math.hypot(sx - x, sy - y);
+    if (d < UNIT * 1.7) {
+      s.found = true;
+      let r = Math.random() * LOOSE_FINDS.reduce((a, f) => a + f[1], 0), type = 'acorn';
+      for (const [t, w] of LOOSE_FINDS) { r -= w; if (r < 0) { type = t; break; } }
+      if (type === 'seed') type = localSeed();
+      state.items.push({ type, x: sx, y: sy + UNIT * 0.2 });
+      spark(sx, sy, '#c9a86a', 10, 3); sfx.pickup(); zoomPulse(sx, sy, 'pickup');
+      say('Something shook loose!', sx, sy - UNIT, { key: 'loose', life: 2, color: '#ffe38a' });
+      return;
+    }
+    if (d < UNIT * 3.5) for (let i = 0; i < 5; i++) state.fx.push({ x: sx + (Math.random() - 0.5) * UNIT * 0.6, y: sy, vx: (Math.random() - 0.5) * UNIT, vy: -UNIT * (1 + Math.random() * 1.5), t: 0, life: 0.5, color: '#6a4a2a', size: UNIT * 0.07 });
+  }
 }
 // vines give way to a few good cuts
 function cutVines(h) {

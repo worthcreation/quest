@@ -243,11 +243,13 @@ function updateQuests(force) {
   const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
   for (const q of QUESTS) {
     let s = qs[q.id];
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) showTitle('New quest', q.name, 'area', 2.6, true); }
+    const pulse = state.qPulse || (state.qPulse = {});
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle('New quest', q.name, 'area', 2.6, true); pulse[q.id] = state.time; } }
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); } }
+      if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }
@@ -256,38 +258,45 @@ function tracked(id) { const t = state.inv.qtrack; return t ? !!t[id] : true; }
 function trackQuest(id, on) { const t = state.inv.qtrack || (state.inv.qtrack = {}); if (on) t[id] = true; else delete t[id]; }
 // what the HUD shows: tracked quests still under way, newest first
 function trackedView() { return questView().cur.filter(c => tracked(c.q.id)); }
-// the quest HUD: top right, small, out of the way. Step name, one line of progress, an icon. Text keeps clear of it.
+// the quest HUD: top right, small, out of the way. Mostly a light, see-through note; when a quest starts, moves on
+// a step or finishes, its row flares bold and bright for a few seconds, then fades back to that light note.
+// A finished quest stays a moment, ticked, then goes. Text keeps clear of it.
+const Q_BRIGHT = 3.5, Q_FADE = 2.5, Q_DONE = 6;
+function questGlow(t) { const a = state.time - t; return t == null || a < 0 ? 0 : a < Q_BRIGHT ? 1 : Math.max(0, 1 - (a - Q_BRIGHT) / Q_FADE); }
 function drawQuestHud() {
   state.questHudRect = null;
   if (ARENA || PUZZLE || !state.started || state.menu || state.won || (state.intro && !state.intro.gone)) return;
-  const v = trackedView().slice(0, 3);
-  if (!v.length) return;
+  const pulse = state.qPulse || {}, done = (state.qDone = (state.qDone || []).filter(d => state.time - d.t < Q_DONE));
+  const rows = trackedView().slice(0, 3).map(c => ({ icon: c.q.icon, name: c.step.name, line: c.step.line(), glow: questGlow(pulse[c.q.id]), done: false, t: pulse[c.q.id] }));
+  for (const d of done) rows.unshift({ icon: d.q.icon, name: `${d.q.name} complete`, line: '', glow: questGlow(d.t), done: true, fade: Math.min(1, (Q_DONE - (state.time - d.t)) / 1.5), t: d.t });
+  if (!rows.length) return;
   const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
   const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-  let y = top, ymax = top, wmin = 0;
-  const rows = v.map(c => {
-    ctx.font = `bold ${fs}px Georgia, serif`;
-    const name = ctx.measureText(c.step.name).width;
-    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
-    const lines = wrap(c.step.line(), wmax - icon - pad * 2);
-    const w = Math.max(name, ...lines.map(l => ctx.measureText(l).width)) + icon + pad * 3;
-    wmin = Math.max(wmin, Math.min(wmax + pad, w));
-    return { c, lines };
-  });
-  const bw = wmin, bx = right - bw;
+  let wmin = 0;
   for (const r of rows) {
-    const bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
-    ctx.fillStyle = 'rgba(10,8,14,.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,227,138,.25)'; ctx.lineWidth = 1; ctx.stroke();
-    drawItemIcon(r.c.q.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
-    ctx.fillStyle = QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.c.step.name, right - pad, y + pad * 0.6 + fs);
-    ctx.fillStyle = 'rgba(253,246,227,.8)'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    ctx.font = `bold ${fs}px Georgia, serif`; const nw = ctx.measureText(r.name).width;
+    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; r.lines = r.line ? wrap(r.line, wmax - icon - pad * 2) : [];
+    wmin = Math.max(wmin, Math.min(wmax + pad, Math.max(nw, ...r.lines.map(l => ctx.measureText(l).width), 0) + icon + pad * 3));
+  }
+  const bw = wmin, bx = right - bw;
+  let y = top;
+  for (const r of rows) {
+    const g = r.glow, base = r.done ? r.fade : 1, bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
+    const pop = g > 0 && state.time - r.t < 0.35 ? 1 + 0.06 * Math.sin((state.time - r.t) / 0.35 * Math.PI) : 1;
+    ctx.save(); ctx.globalAlpha = base; ctx.translate(right, y + bh / 2); ctx.scale(pop, pop); ctx.translate(-right, -(y + bh / 2));
+    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    if (g > 0) { ctx.shadowColor = r.done ? '#b8f28a' : '#ffcf5a'; ctx.shadowBlur = 14 * g; ctx.strokeStyle = r.done ? `rgba(184,242,138,${0.9 * g})` : `rgba(255,207,90,${0.9 * g})`; ctx.lineWidth = 1 + 1.5 * g; ctx.stroke(); ctx.shadowBlur = 0; }
+    ctx.globalAlpha = base * (0.38 + 0.62 * g);                        // light and see-through, unless it just happened
+    drawItemIcon(r.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
+    ctx.fillStyle = r.done ? '#b8f28a' : QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.name, right - pad, y + pad * 0.6 + fs);
+    ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
     r.lines.forEach((l, i) => ctx.fillText(l, right - pad, y + pad * 0.6 + fs + lh * 0.9 * (i + 1)));
-    y += bh + 4; ymax = y;
+    ctx.restore();
+    y += bh + 4;
   }
   ctx.restore(); ctx.textAlign = 'left';
-  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: ymax - top + 4 };
+  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: y - top + 4 };
 }
 // what the tab shows: current objectives (newest quest first) and the log (newest first)
 function questView() {

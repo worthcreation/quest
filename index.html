@@ -1563,9 +1563,10 @@ function update(dt) {
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
   if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
 
+  // things on the ground wait for F (see pickUpHere); only what drifts or heals is taken just by touching it
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
-    if (it.type === 'bigrock') continue;
+    if (!TOUCH_PICKUP.has(it.type)) continue;
     if (!h.ride && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 0.9) { state.items.splice(i, 1); collect(it); }
   }
 }
@@ -2072,6 +2073,23 @@ function deepen(msg) {
   state.hero.vig = maxVig();
   say(msg + ` Vigor ${maxVig()}.`, state.hero.x, state.hero.y - UNIT * 1.1, { key: 'item', life: 5 });
 }
+const TOUCH_PICKUP = new Set(['spore', 'spores7', 'wisp']);
+const PICK_R = 1.15;                                     // tiles: how close F reaches for something on the ground
+// the thing on the ground F would pick up right now (nearest, within reach), or null
+function itemAtFeet() {
+  const h = state.hero;
+  if (h.z > 0 || state.carry) return null;
+  let best = null, bd = UNIT * PICK_R;
+  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type)) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
+  return best;
+}
+function pickUpHere() {
+  const it = itemAtFeet();
+  if (!it) return false;
+  state.items.splice(state.items.indexOf(it), 1); collect(it);
+  tidySlots();                                           // straight into an empty slot, so what's said next knows the key
+  return true;
+}
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
@@ -2350,6 +2368,40 @@ function slamDown() {
   if (ks) say('It won\'t budge for a stomp. It needs a thrown rock.', ks.x, ks.y - UNIT, { key: 'stonehit', life: 2 });
   scareFlock(h.x, h.y, 6);
   shakeTreesAround(h, UNIT * 2.6);                                               // the thump knocks acorns loose
+  poundLoose(h.x, h.y);
+}
+// Every outdoor screen hides a couple of spots where a good pound shakes something loose: a seed, an acorn, a
+// stone, now and then something better. Nothing marks them. Close but not quite, the ground just rattles a little.
+const LOOSE_FINDS = [['seed', 34], ['acorn', 22], ['stone', 14], ['stick', 10], ['berries', 8], ['thornseed', 6], ['carrotseed', 4], ['emberseed', 2]];
+function looseSpots() {
+  const sc = sceneDef(), rt = rtFor(sc.id);
+  if (rt.flags.loose) return rt.flags.loose;
+  const out = [];
+  if (sc.area === 'indoor' || sc.id === 'puzzlehub' || sc.id === 'arena') return (rt.flags.loose = out);
+  const n = 2 + (Math.random() < 0.4 ? 1 : 0);
+  for (let tries = 0; out.length < n && tries < 60; tries++) {
+    const x = UNIT * 1.5 + Math.random() * (W - UNIT * 3), y = UNIT * 1.5 + Math.random() * (H - UNIT * 3);
+    if (isChasm(x, y, UNIT) || state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 0.8)) continue;
+    out.push({ fx: x / W, fy: y / H, found: false });
+  }
+  return (rt.flags.loose = out);
+}
+function poundLoose(x, y) {
+  for (const s of looseSpots()) {
+    if (s.found) continue;
+    const sx = s.fx * W, sy = s.fy * H, d = Math.hypot(sx - x, sy - y);
+    if (d < UNIT * 1.7) {
+      s.found = true;
+      let r = Math.random() * LOOSE_FINDS.reduce((a, f) => a + f[1], 0), type = 'acorn';
+      for (const [t, w] of LOOSE_FINDS) { r -= w; if (r < 0) { type = t; break; } }
+      if (type === 'seed') type = localSeed();
+      state.items.push({ type, x: sx, y: sy + UNIT * 0.2 });
+      spark(sx, sy, '#c9a86a', 10, 3); sfx.pickup(); zoomPulse(sx, sy, 'pickup');
+      say('Something shook loose!', sx, sy - UNIT, { key: 'loose', life: 2, color: '#ffe38a' });
+      return;
+    }
+    if (d < UNIT * 3.5) for (let i = 0; i < 5; i++) state.fx.push({ x: sx + (Math.random() - 0.5) * UNIT * 0.6, y: sy, vx: (Math.random() - 0.5) * UNIT, vy: -UNIT * (1 + Math.random() * 1.5), t: 0, life: 0.5, color: '#6a4a2a', size: UNIT * 0.07 });
+  }
 }
 // vines give way to a few good cuts
 function cutVines(h) {
@@ -2923,6 +2975,7 @@ function interact() {
     return true;
   }
   if (state.carry) return false;                    // hands full: F belongs to the rock
+  if (pressedNow.act && pickUpHere()) return true;  // something at your feet: F picks it up (it sparkles harder as you near it)
   if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { state.menu = { view: 'poses', sel: 0, note: '' }; sfx.tock(); return true; }
   for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
     if (q.pid.startsWith('zone:')) enterZone(q.pid.slice(5)); else enterPuzzle(PUZZLES.find(p => p.id === q.pid));
@@ -3016,7 +3069,7 @@ function interact() {
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
         say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
-      const imp = improve ? [`Improve to ${next.name} (${patchCost(next.cost)})`] : [];
+      const imp = improve ? [`${next.cost.acorn ? 'Compost it' : 'Improve'}: ${next.name} (${patchCost(next.cost)})`] : [];
       if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
       else if (p.s === 0 && !improve && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
       else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
@@ -3047,7 +3100,7 @@ function interact() {
 // faster growth, a chance of an extra harvest, a chance to get a seed back.
 const PATCH = [
   { name: 'Tuft of rich soil', speed: 1, bonus: 0, seedBack: 0 },
-  { name: 'Turned rich soil', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work acorns in as mulch' },
+  { name: 'Turned rich soil', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work in acorn compost' },
   { name: 'Framed rich-soil bed', speed: 1.45, bonus: 0.35, seedBack: 0.25, cost: { thorn: 3 }, how: 'frame it with thorn-wood' },
   { name: 'Raised rich-soil bed', speed: 1.8, bonus: 0.7, seedBack: 0.35, cost: { ironwood: 1, ember: 1 }, how: 'raise it with ironwood and warm ember soil' },
 ];
@@ -3814,12 +3867,14 @@ function updatePip(dt) {
     } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
+  if (inv.acorns > 0 && !storyAt('adventure')) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
     const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
     if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
+    if (sc.id !== 'camp' && (inv.pipTips || {}).shopping) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
     if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
     if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
   }
@@ -5951,7 +6006,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 66';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 67';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6949,11 +7004,13 @@ function updateQuests(force) {
   const t = quiet && !log.length ? null : Math.floor(state.playTime || 0);
   for (const q of QUESTS) {
     let s = qs[q.id];
-    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) showTitle('New quest', q.name, 'area', 2.6, true); }
+    const pulse = state.qPulse || (state.qPulse = {});
+    if (!s) { if (!q.start()) continue; s = qs[q.id] = { at: t, step: 0 }; trackQuest(q.id, true); if (!quiet) { showTitle('New quest', q.name, 'area', 2.6, true); pulse[q.id] = state.time; } }
     while (s.step < q.steps.length && q.steps[s.step].done()) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); } }
+      if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }
@@ -6962,38 +7019,45 @@ function tracked(id) { const t = state.inv.qtrack; return t ? !!t[id] : true; }
 function trackQuest(id, on) { const t = state.inv.qtrack || (state.inv.qtrack = {}); if (on) t[id] = true; else delete t[id]; }
 // what the HUD shows: tracked quests still under way, newest first
 function trackedView() { return questView().cur.filter(c => tracked(c.q.id)); }
-// the quest HUD: top right, small, out of the way. Step name, one line of progress, an icon. Text keeps clear of it.
+// the quest HUD: top right, small, out of the way. Mostly a light, see-through note; when a quest starts, moves on
+// a step or finishes, its row flares bold and bright for a few seconds, then fades back to that light note.
+// A finished quest stays a moment, ticked, then goes. Text keeps clear of it.
+const Q_BRIGHT = 3.5, Q_FADE = 2.5, Q_DONE = 6;
+function questGlow(t) { const a = state.time - t; return t == null || a < 0 ? 0 : a < Q_BRIGHT ? 1 : Math.max(0, 1 - (a - Q_BRIGHT) / Q_FADE); }
 function drawQuestHud() {
   state.questHudRect = null;
   if (ARENA || PUZZLE || !state.started || state.menu || state.won || (state.intro && !state.intro.gone)) return;
-  const v = trackedView().slice(0, 3);
-  if (!v.length) return;
+  const pulse = state.qPulse || {}, done = (state.qDone = (state.qDone || []).filter(d => state.time - d.t < Q_DONE));
+  const rows = trackedView().slice(0, 3).map(c => ({ icon: c.q.icon, name: c.step.name, line: c.step.line(), glow: questGlow(pulse[c.q.id]), done: false, t: pulse[c.q.id] }));
+  for (const d of done) rows.unshift({ icon: d.q.icon, name: `${d.q.name} complete`, line: '', glow: questGlow(d.t), done: true, fade: Math.min(1, (Q_DONE - (state.time - d.t)) / 1.5), t: d.t });
+  if (!rows.length) return;
   const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
   const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
-  let y = top, ymax = top, wmin = 0;
-  const rows = v.map(c => {
-    ctx.font = `bold ${fs}px Georgia, serif`;
-    const name = ctx.measureText(c.step.name).width;
-    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
-    const lines = wrap(c.step.line(), wmax - icon - pad * 2);
-    const w = Math.max(name, ...lines.map(l => ctx.measureText(l).width)) + icon + pad * 3;
-    wmin = Math.max(wmin, Math.min(wmax + pad, w));
-    return { c, lines };
-  });
-  const bw = wmin, bx = right - bw;
+  let wmin = 0;
   for (const r of rows) {
-    const bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
-    ctx.fillStyle = 'rgba(10,8,14,.55)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,227,138,.25)'; ctx.lineWidth = 1; ctx.stroke();
-    drawItemIcon(r.c.q.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
-    ctx.fillStyle = QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.c.step.name, right - pad, y + pad * 0.6 + fs);
-    ctx.fillStyle = 'rgba(253,246,227,.8)'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
+    ctx.font = `bold ${fs}px Georgia, serif`; const nw = ctx.measureText(r.name).width;
+    ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; r.lines = r.line ? wrap(r.line, wmax - icon - pad * 2) : [];
+    wmin = Math.max(wmin, Math.min(wmax + pad, Math.max(nw, ...r.lines.map(l => ctx.measureText(l).width), 0) + icon + pad * 3));
+  }
+  const bw = wmin, bx = right - bw;
+  let y = top;
+  for (const r of rows) {
+    const g = r.glow, base = r.done ? r.fade : 1, bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
+    const pop = g > 0 && state.time - r.t < 0.35 ? 1 + 0.06 * Math.sin((state.time - r.t) / 0.35 * Math.PI) : 1;
+    ctx.save(); ctx.globalAlpha = base; ctx.translate(right, y + bh / 2); ctx.scale(pop, pop); ctx.translate(-right, -(y + bh / 2));
+    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    if (g > 0) { ctx.shadowColor = r.done ? '#b8f28a' : '#ffcf5a'; ctx.shadowBlur = 14 * g; ctx.strokeStyle = r.done ? `rgba(184,242,138,${0.9 * g})` : `rgba(255,207,90,${0.9 * g})`; ctx.lineWidth = 1 + 1.5 * g; ctx.stroke(); ctx.shadowBlur = 0; }
+    ctx.globalAlpha = base * (0.38 + 0.62 * g);                        // light and see-through, unless it just happened
+    drawItemIcon(r.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
+    ctx.fillStyle = r.done ? '#b8f28a' : QUEST_COLOR; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(r.name, right - pad, y + pad * 0.6 + fs);
+    ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`;
     r.lines.forEach((l, i) => ctx.fillText(l, right - pad, y + pad * 0.6 + fs + lh * 0.9 * (i + 1)));
-    y += bh + 4; ymax = y;
+    ctx.restore();
+    y += bh + 4;
   }
   ctx.restore(); ctx.textAlign = 'left';
-  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: ymax - top + 4 };
+  state.questHudRect = { x: bx - 4, y: top - 4, w: bw + 16, h: y - top + 4 };
 }
 // what the tab shows: current objectives (newest quest first) and the log (newest first)
 function questView() {
@@ -7566,14 +7630,38 @@ function drawItems() {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.ellipse(it.x + 1, it.y + UNIT * 0.2, UNIT * 0.28, UNIT * 0.07, 0, 0, 6.28); ctx.fill();
     ctx.save(); ctx.translate(it.x, it.y + UNIT * 0.08); ctx.rotate(lean); drawItemIcon(it.type, 0, 0, UNIT * 0.72); ctx.restore();
-    // now and then, at its own random moments, a small glimmer catches your eye
-    const period = 3.5 + hsh * 4, ph = ((state.time + hsh * 17) % period) / period;
-    if (ph < 0.07) {
-      const k = Math.sin(ph / 0.07 * Math.PI), gx = it.x + (hsh - 0.5) * UNIT * 0.4, gy = it.y - UNIT * 0.15, r = UNIT * 0.2 * k;
-      ctx.fillStyle = `rgba(255,250,220,${0.9 * k})`;
-      ctx.beginPath(); ctx.moveTo(gx, gy - r); ctx.lineTo(gx + r * 0.22, gy); ctx.lineTo(gx, gy + r); ctx.lineTo(gx - r * 0.22, gy); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(gx - r, gy); ctx.lineTo(gx, gy + r * 0.22); ctx.lineTo(gx + r, gy); ctx.lineTo(gx, gy - r * 0.22); ctx.closePath(); ctx.fill();
-    }
+    drawGlints(it, hsh);
+  }
+}
+// Sparkles on things lying about. Far off, one small glint now and then. The closer you come the more often they
+// flash, the brighter and bigger, and the fancier (eight points, a turning star, a ring, a puff of motes). Within
+// reach of F they come thick and warm: that's the only cue; there's no button drawn. Each one lives a random while.
+const GLINTS = new WeakMap();
+function drawGlints(it, hsh) {
+  const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < PICK_R && h.z <= 0 && !state.carry;
+  const near = Math.max(0, Math.min(1, 1 - (d - PICK_R) / 5));
+  const G = GLINTS.get(it) || { t: state.time, gl: [] }; GLINTS.set(it, G);           // kept off the item itself, so saves stay clean
+  const now = state.time, dt = Math.min(0.1, Math.max(0, now - G.t)); G.t = now;
+  const gl = G.gl;
+  const rate = 0.3 + near * near * 2.6 + (reach ? 6 : 0);
+  if (Math.random() < rate * dt && gl.length < 14) {
+    const c = Math.random() * (0.35 + near * 0.75 + (reach ? 0.4 : 0));      // how fancy this one gets
+    const kind = c < 0.45 ? 'star4' : c < 0.7 ? 'star8' : c < 0.9 ? 'spin' : c < 1.1 ? 'motes' : 'ring';
+    gl.push({ t0: now, dur: 0.22 + Math.random() * (0.5 + near * 0.9), kind, dx: (Math.random() - 0.5) * UNIT * (0.35 + near * 0.35), dy: -UNIT * (0.05 + Math.random() * 0.3),
+      r: UNIT * (0.12 + Math.random() * 0.1 + near * 0.12 + (reach ? 0.06 : 0)), rot: Math.random() * 6.28, warm: reach });
+  }
+  for (let i = gl.length - 1; i >= 0; i--) {
+    const g = gl[i], p = (now - g.t0) / g.dur;
+    if (p >= 1 || p < 0) { gl.splice(i, 1); continue; }
+    const k = Math.sin(p * Math.PI), x = it.x + g.dx, y = it.y + g.dy, r = g.r * k, a = (0.55 + 0.45 * near) * k;
+    const col = g.warm ? `rgba(255,236,150,${a})` : `rgba(255,250,225,${a})`;
+    ctx.fillStyle = col; ctx.strokeStyle = col;
+    const star = (rr, rot, pts = 4) => { ctx.beginPath(); for (let j = 0; j < pts * 2; j++) { const an = rot + j * Math.PI / pts, q = j % 2 ? rr * 0.22 : rr; ctx.lineTo(x + Math.cos(an) * q, y + Math.sin(an) * q); } ctx.closePath(); ctx.fill(); };
+    if (g.kind === 'star4') star(r, 0);
+    else if (g.kind === 'star8') { star(r, 0); star(r * 0.6, Math.PI / 4); }
+    else if (g.kind === 'spin') { star(r * 1.1, g.rot + p * 3); ctx.beginPath(); ctx.arc(x, y, r * 0.18, 0, 6.28); ctx.fill(); }
+    else if (g.kind === 'motes') { for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.arc(x + Math.cos(g.rot + j * 2.1) * r * 0.8, y - p * UNIT * 0.35 + Math.sin(g.rot + j * 2.1) * r * 0.4, Math.max(0.8, r * 0.14), 0, 6.28); ctx.fill(); } }
+    else { ctx.lineWidth = Math.max(1, r * 0.12); ctx.beginPath(); ctx.arc(x, y, r * (0.4 + p), 0, 6.28); ctx.stroke(); star(r * 0.7, g.rot); }
   }
 }
 // ---------- enemies ----------

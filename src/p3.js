@@ -312,9 +312,10 @@ function update(dt) {
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
   if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
 
+  // things on the ground wait for F (see pickUpHere); only what drifts or heals is taken just by touching it
   for (let i = state.items.length - 1; i >= 0; i--) {
     const it = state.items[i];
-    if (it.type === 'bigrock') continue;
+    if (!TOUCH_PICKUP.has(it.type)) continue;
     if (!h.ride && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 0.9) { state.items.splice(i, 1); collect(it); }
   }
 }
@@ -820,6 +821,23 @@ function deepen(msg) {
   state.inv.depth++;
   state.hero.vig = maxVig();
   say(msg + ` Vigor ${maxVig()}.`, state.hero.x, state.hero.y - UNIT * 1.1, { key: 'item', life: 5 });
+}
+const TOUCH_PICKUP = new Set(['spore', 'spores7', 'wisp']);
+const PICK_R = 1.15;                                     // tiles: how close F reaches for something on the ground
+// the thing on the ground F would pick up right now (nearest, within reach), or null
+function itemAtFeet() {
+  const h = state.hero;
+  if (h.z > 0 || state.carry) return null;
+  let best = null, bd = UNIT * PICK_R;
+  for (const it of state.items) { if (it.type === 'bigrock' || TOUCH_PICKUP.has(it.type)) continue; const d = Math.hypot(h.x - it.x, h.y - it.y); if (d < bd) { bd = d; best = it; } }
+  return best;
+}
+function pickUpHere() {
+  const it = itemAtFeet();
+  if (!it) return false;
+  state.items.splice(state.items.indexOf(it), 1); collect(it);
+  tidySlots();                                           // straight into an empty slot, so what's said next knows the key
+  return true;
 }
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word

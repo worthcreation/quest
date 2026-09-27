@@ -53,6 +53,16 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B67) {                             // build 67: sparkles far / near / in reach, quest HUD bright then light
+  const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
+  state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('start'); state.cut=null; state.enemies=[]; run(5); updateQuests(true); state.texts=[]; state.title=null;
+  const items=[{type:'acorn',x:W*0.2,y:H*0.7},{type:'turnipseed',x:W*0.45,y:H*0.7},{type:'stick',x:W*0.52,y:H*0.7}]; state.items.push(...items);
+  state.hero.x=W*0.5; state.hero.y=H*0.66; state.qPulse={camp: state.time}; for (let k=0;k<40;k++){ update(1/60); draw(); } state.texts=[]; state.title=null; draw();
+  const cx=W*0.5, cy=H*0.68; const crop=(nm)=>{ const c=createCanvas(W*0.5,H*0.3); c.getContext('2d').drawImage(canvas, -W*0.1, -H*0.55); fs.writeFileSync(nm, c.toBuffer('image/png')); };
+  fs.writeFileSync('/tmp/b67-bright.png', canvas.toBuffer('image/png')); crop('/tmp/b67-glints.png');
+  state.qPulse={camp: state.time-9}; run(2); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b67-light.png', canvas.toBuffer('image/png'));
+  console.log('b67 shots written');
+}
 if (process.env.B66) {                             // build 66: slot bar, the wheel (use / set a slot), the Wear tab, worn things on the hero
   const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
   state.started=true; state.inv.story=STORY.gather; enterScene('camp'); state.cut=null; state.intro=null; run(5);
