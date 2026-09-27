@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 80, 27 Sep 2026)
+# Quest: handoff notes (as of build 81, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 81 in short
+- Camp, while gathering (p6 updatePip, sc.id === 'camp'): Pip walks to the next mark still to build (fire ring, then
+  workbench) and says one short line about it, keyed on your state so it changes as you gather and craft: what's
+  still needed there; "Glue first: two fluff on the Craft mat (M)"; "You've got it! Craft: two stones and a stick (M)";
+  "Set the fire ring down right here!". Lines stay tied to the mark (site r 7). The old long shopping line is gone;
+  "My book in the tent explains stuff." follows the first camp line. Test: t81 (every stage, longest line 62 chars).
 
 ## Build 80 in short
 - pipBounce (p6, called from updatePip every frame, opening included): Pip hops 1 to 3 times now and then while he's
