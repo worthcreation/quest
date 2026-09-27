@@ -2,7 +2,7 @@
 
 One job per key. Slots A S D F sit under the vigor bar; empty slots draw nothing.
 
-- F: the dynamic action. Whatever is in front of you comes first (talk, plant, pick up, build, pull). With nothing to do, F swings your blade. Hold F, let go: lunge. F only ever holds a blade (sword, wooden sword); tap R to switch between blades.
+- F: the dynamic action. Whatever is in front of you comes first (talk, plant, pick up, build, pull). With nothing to do, F swings your blade. Hold F, let go: lunge. (With the wooden sword the slash comes when you let go, so a hold is a clean lunge.) F only ever holds a blade (sword, wooden sword); tap R to switch between blades.
 - D: throw. Acorns live here. Tap to throw, hold to wind up. Winding up and swinging F work at the same time.
 - S and A: things you use or call on (food, dodge, marsh fire, flare). New ones fill S, then A. Tap to use. Hold either to open its wheel (the world slows) and let go to switch.
 - R: hold for the wheel of everything you can use now; R plus a key sets that key from everything that fits it.

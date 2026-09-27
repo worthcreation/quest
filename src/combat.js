@@ -25,7 +25,7 @@ function updateCombat(dt) {
   if (nearPullable) return;
   if (state.slam) return;
   if (state.whirl) { updateWhirl(dt); return; }
-  if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
+  if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; if (bladeKind() !== 'wood') state.slashBuf = state.time; }   // a wooden sword slashes on release, so a hold can be a clean lunge
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
     if (false && state.time < (state.poundChain || 0)) {    // (a strike right after a pound no longer turns into a whirlwind)
@@ -41,6 +41,7 @@ function updateCombat(dt) {
       const ch = state.chain, gap = state.time - ch.t;
       ch.n = gap >= WHIRL.min && gap <= WHIRL.max ? ch.n + 1 : 1;
       ch.t = state.time;
+      if (ch.n >= WHIRL.chain && bladeKind() === 'wood') ch.n = 0;   // three sticks can't spin: the rhythm just starts over
       if (ch.n >= WHIRL.chain) {
         ch.n = 0;
         if (h.vig >= 3) { startWhirl(); return; }
@@ -68,6 +69,7 @@ function updateCombat(dt) {
       const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * (1.2 - 0.1 * swordLv()) * sluggish();
       if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
+      if (bladeKind() === 'wood' && !hold.charged) state.slashBuf = state.time;   // let go before the lunge charged: a plain slash
       if (hold.charged && spend(0.6)) {
         const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
@@ -109,11 +111,12 @@ function updateCombat(dt) {
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
+      if (a.type === 'stab' && a.woodBreak) dmg = Math.max(dmg, 2.2 * Math.max(0.5, power()));   // a wooden lunge is all or nothing: enough to fell a rabbit (it splits when the lunge ends)
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
       bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) { if (a.woodBreak && bladeKind() === 'wood') bladeWear(999); state.atk = null; }
+  if (a.t >= a.dur) { if (a.woodBreak && a.hit.size && bladeKind() === 'wood') bladeWear(999); state.atk = null; }   // it splits only if it struck something
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
 // sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits

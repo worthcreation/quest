@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 100, 27 Sep 2026)
+# Quest: handoff notes (as of build 101, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 101: the wooden lunge, no wooden whirlwind, level-up scrolls, Status now/next
+- Wooden sword: slashes on release (combat.js: a press doesn't start the slash when the blade is wood; letting go before
+  the lunge charges does), so holding F gives a clean lunge. A wooden lunge deals at least 2.2 x power (a rabbit is 2 hp),
+  runs through everything in its line (two rabbits side by side), and the sword splits at the end of the lunge only if
+  it struck something. The seven-slash rhythm never spins with wood (ch.n resets).
+- Level-ups: showScroll(title, text) (text.js) puts a small parchment scroll in the lower half for ~5 s, with "Status (M)
+  has more"; skills and farming use it (skillUse, gainCropXp). drawScroll runs under the banner layer, outside menus.
+- Status: each skill (acorns, sword, gathering) shows level and progress, then "now" and "next" lines from SKILL_INFO
+  (skills.js); farming shows its level (from harvests) with now / next. Dodge and the unused farm skill are hidden.
+- Test: wood-sword extended (lunge fells two, splits; air lunge doesn't; no wooden spin; scroll; Status rows). 50 of 50.
 
 ## Build 100: wooden sword wears only on hits; no whirlwind from a pound; lantern opposite the blade
 - bladeWear(1) now only on hits (slash, stab, whirl hits); swinging or lunging at air costs nothing (the lunge and a

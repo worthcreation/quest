@@ -53,6 +53,13 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B101) {                            // build 101: a level-up scroll, and Status with now / next
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; enterScene('start'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
+  setSkillLevel('gather',3); setSkillLevel('sword',1); showScroll('Gathering III', 'Things come to you when you pass close by.'); run(40); draw(); fs.writeFileSync('/tmp/b101-scroll.png', canvas.toBuffer('image/png'));
+  state.scrolls=[]; state.menu={view:'pack',tab:PACK_TABS.indexOf('Status'),sel:0,focus:'tabs',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b101-status.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b101 written');
+}
 if (process.env.B99) {                             // build 99: a quest banner with the quest HUD and the pinned step under it
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; enterScene('camp'); state.cut=null; run(5); state.texts=[]; state.title=null;

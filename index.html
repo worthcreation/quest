@@ -1363,6 +1363,8 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
+function showScroll(title, text) { (state.scrolls = state.scrolls || []).push({ title, text, t: 0, life: 4.8 }); sfx.heart(); }
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
@@ -2551,7 +2553,7 @@ function updateCombat(dt) {
   if (nearPullable) return;
   if (state.slam) return;
   if (state.whirl) { updateWhirl(dt); return; }
-  if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; state.slashBuf = state.time; }
+  if (pressedNow.act) { hold.on = true; hold.t = 0; hold.charged = false; if (bladeKind() !== 'wood') state.slashBuf = state.time; }   // a wooden sword slashes on release, so a hold can be a clean lunge
   // presses a hair early (mid-stab) are buffered, so you can slash right out of a lunge
   if (state.time - (state.slashBuf ?? -9) < 0.25) {
     if (false && state.time < (state.poundChain || 0)) {    // (a strike right after a pound no longer turns into a whirlwind)
@@ -2567,6 +2569,7 @@ function updateCombat(dt) {
       const ch = state.chain, gap = state.time - ch.t;
       ch.n = gap >= WHIRL.min && gap <= WHIRL.max ? ch.n + 1 : 1;
       ch.t = state.time;
+      if (ch.n >= WHIRL.chain && bladeKind() === 'wood') ch.n = 0;   // three sticks can't spin: the rhythm just starts over
       if (ch.n >= WHIRL.chain) {
         ch.n = 0;
         if (h.vig >= 3) { startWhirl(); return; }
@@ -2594,6 +2597,7 @@ function updateCombat(dt) {
       const need = (cb.step === 'slash' ? STAB.chainCharge : STAB.charge) * (1.2 - 0.1 * swordLv()) * sluggish();
       if (!hold.charged && hold.t > need) { hold.charged = true; sfx.charge(); }
     } else {
+      if (bladeKind() === 'wood' && !hold.charged) state.slashBuf = state.time;   // let go before the lunge charged: a plain slash
       if (hold.charged && spend(0.6)) {
         const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
@@ -2635,11 +2639,12 @@ function updateCombat(dt) {
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
+      if (a.type === 'stab' && a.woodBreak) dmg = Math.max(dmg, 2.2 * Math.max(0.5, power()));   // a wooden lunge is all or nothing: enough to fell a rabbit (it splits when the lunge ends)
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
       bladeWear(1); skillUse('sword', true);
     }
   }
-  if (a.t >= a.dur) { if (a.woodBreak && bladeKind() === 'wood') bladeWear(999); state.atk = null; }
+  if (a.t >= a.dur) { if (a.woodBreak && a.hit.size && bladeKind() === 'wood') bladeWear(999); state.atk = null; }   // it splits only if it struck something
 }
 // ---------------- whirlwind: keep it spinning by striking on the beat ----------------
 // sword practice (the 'sword' skill, 4 steps) makes the big moves bigger: the whirlwind lasts longer and hits
@@ -5005,11 +5010,17 @@ function statusRows() {
   rows.push(['head', 'You']);
   rows.push(['row', 'Vigor', `${Math.ceil(h.vig)} of ${maxVig()}  \u00b7  depth ${inv.depth}${inv.vigBonus ? `  \u00b7  +${inv.vigBonus} from turnips` : ''}`]);
   rows.push(['head', 'Skills']);
-  const SK = { acorn: 'Acorns', sword: 'Sword', dodge: 'Dodging', farm: 'Farming', gather: 'Gathering' };
-  for (const [id, name] of Object.entries(SK)) { const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prog = s.n + s.hits * 2; rows.push(['skill', name, s.lvl, max, need ? Math.min(1, (prog - (SKILLS[id].steps[s.lvl - 1] || 0)) / (need - (SKILLS[id].steps[s.lvl - 1] || 0))) : 1]); }
-  rows.push(['row', 'Gathering reach', `${gatherReach().toFixed(1)} tiles${autoRange('stick') ? `  \u00b7  common things come to you from ${autoRange('stick') >= 99 ? 'anywhere' : autoRange('stick').toFixed(1) + ' tiles'}` : ''}`]);
+  // each skill: its level and progress, what it does now, and what the next level brings
+  const SK = { acorn: 'Acorns', sword: 'Sword', gather: 'Gathering' };
+  for (const [id, name] of Object.entries(SK)) {
+    const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prog = s.n + s.hits * 2;
+    rows.push(['skill', name, s.lvl, max, need ? Math.min(1, (prog - (SKILLS[id].steps[s.lvl - 1] || 0)) / (need - (SKILLS[id].steps[s.lvl - 1] || 0))) : 1]);
+    rows.push(['row', '  now', SKILL_INFO[id](s.lvl)]);
+    if (s.lvl < max) rows.push(['row', '  next', SKILL_INFO[id](s.lvl + 1)]);
+  }
+  { const f = farmLevel(); rows.push(['row', 'Farming ' + roman(f), SKILL_INFO.farm(f)]); rows.push(['row', '  next', SKILL_INFO.farm(f + 1)]); }
   const crops = Object.keys(inv.cropXp || {});
-  if (crops.length || farmLevel()) { rows.push(['head', 'Garden']); rows.push(['row', 'Farming level', `${farmLevel()}  \u00b7  seeds come back ${Math.round(farmLevel() * 6)}% more often`]); for (const c of crops) rows.push(['row', c[0].toUpperCase() + c.slice(1), `level ${cropLevel(c)}`]); }
+  if (crops.length) { rows.push(['head', 'Garden']); for (const c of crops) rows.push(['row', c[0].toUpperCase() + c.slice(1), `level ${cropLevel(c)}`]); }
   const ups = FORGE.filter(f => f.relic ? inv[f.k] : inv.up[f.k]);
   if (ups.length || inv.step) { rows.push(['head', 'Upgrades']); for (const f of ups) rows.push(['row', f.name, 'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])]); if (inv.step) rows.push(['row', RELICS.step.name, 'I'.repeat(inv.step)]); }
   return rows;
@@ -5881,7 +5892,7 @@ function gainCropXp(k) {
   xp[k] = (xp[k] || 0) + 1;
   const h = state.hero;
   if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
-  if (farmLevel() > fBefore) say(`Farming level ${farmLevel()}: seeds come back more often`, h.x, h.y - UNIT * 2.4, { key: 'farmlvl', life: 3.5, color: '#ffe38a' });
+  if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.');
 }
 // The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
 // curve so that the light spends most of its time low and only now and then swells up to its full brightness.
@@ -6194,6 +6205,16 @@ function autoRange(t) {                                                // tiles:
 }
 const glowShows = t => gatherLevel() >= GLOW_NEED[tierOf(t)];
 function gatherGain(t) { skillUse('gather'); if (tierOf(t) >= 2) { skillUse('gather'); skillUse('gather'); } }
+// what each level of a skill does, for the Status tab ("now" and "next") and the level-up scroll
+const roman = n => ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][n] || String(n);
+const SKILL_NAME = { acorn: 'Acorns', sword: 'Sword', gather: 'Gathering', dodge: 'Dodging', farm: 'Farming' };
+const SKILL_INFO = {
+  acorn: L => `acorns stray up to ${ACORN_SPREAD[Math.min(L, 4)]}\u00b0; they curve toward varmints ${['barely', 'a little', 'fairly well', 'well', 'sharply'][Math.min(L, 4)]}`,
+  sword: L => `(steel sword) whirlwind ${(1.2 + 0.45 * L).toFixed(1)} s, hits x${(0.7 + 0.1 * L).toFixed(1)}, rest ${8 - 1.5 * L} s; lunge x${(0.8 + 0.1 * L).toFixed(1)}`,
+  gather: L => { const at = (need, base) => L < need ? 'not yet' : L >= 12 ? 'anywhere' : `${(0.8 + (L - need) * 1.2 + base).toFixed(1)} tiles`; return `reach ${(PICK_R + L * 0.3).toFixed(1)} tiles; things come to you: common ${at(3, 0)}, uncommon ${at(6, 0.5)}, rare ${at(9, 0.5)}`; },
+  dodge: L => `quicker on your feet (level ${L})`,
+  farm: L => `crops come up after ${CROP_ROCKS[Math.min(L, CROP_ROCKS.length - 1)] || 'just'} ${CROP_ROCKS[Math.min(L, CROP_ROCKS.length - 1)] ? 'rocks' : 'F'}; seeds come back ${L * 6}% more often`,
+};
 function skillOf(id) { const inv = state.inv, sk = inv.skill || (inv.skill = {}); return sk[id] || (sk[id] = { n: 0, hits: 0, lvl: 0 }); }
 function skillLevel(id) { return skillOf(id).lvl; }
 function skillUse(id, hit = false) {
@@ -6202,7 +6223,7 @@ function skillUse(id, hit = false) {
   const prog = s.n + s.hits * 2;
   while (s.lvl < def.steps.length && prog >= def.steps[s.lvl]) {
     s.lvl++;
-    sayHero(def.lines[s.lvl - 1], { key: 'skill', life: 3.8, color: SKILL_COLOR });
+    showScroll(`${SKILL_NAME[id] || id} ${roman(s.lvl)}`, def.lines[s.lvl - 1]);   // a small scroll low on the screen; Status has the details
     sfx.heart();
   }
 }
@@ -6279,6 +6300,7 @@ function draw() {
   drawTexts();
   drawChoice();
   drawCoach();                                          // quest info first, so a banner always sits on top of it
+  if (!state.menu) drawScroll();
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
 }
@@ -7337,7 +7359,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 100';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 101';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8241,6 +8263,22 @@ function drawCoach() {
   ctx.fillStyle = '#fdf6e3'; ctx.fillText(s.text, x + fs + ctx.measureText(label).width, y + h / 2 + 1);
   for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
   ctx.restore();
+}
+function drawScroll() {
+  const q = state.scrolls; if (!q || !q.length) return;
+  const S = q[0]; S.t += 1 / 60; if (S.t > S.life) { q.shift(); return; }
+  const a = Math.min(1, S.t / 0.35, (S.life - S.t) / 0.6), fs = Math.round(Math.max(13, Math.min(16, UNIT * 0.42)));
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.font = HAND(Math.round(fs * 1.35), true); const tw = ctx.measureText(S.title).width;
+  ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.6, 420)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
+  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + 1.3), x = (W - w) / 2, y = H * 0.66 - h / 2 + (1 - Math.min(1, S.t / 0.35)) * 12;
+  ctx.fillStyle = '#e8d8b0'; ctx.fillRect(x, y, w, h);                                                  // the paper
+  ctx.fillStyle = '#c9b48a'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
+  ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9);
+  ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * (3.2 + i * 1.25)));
+  ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7);
+  ctx.restore(); ctx.textAlign = 'left';
 }
 function drawTitle() {
   const T = state.title;

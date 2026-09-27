@@ -139,11 +139,17 @@ function statusRows() {
   rows.push(['head', 'You']);
   rows.push(['row', 'Vigor', `${Math.ceil(h.vig)} of ${maxVig()}  \u00b7  depth ${inv.depth}${inv.vigBonus ? `  \u00b7  +${inv.vigBonus} from turnips` : ''}`]);
   rows.push(['head', 'Skills']);
-  const SK = { acorn: 'Acorns', sword: 'Sword', dodge: 'Dodging', farm: 'Farming', gather: 'Gathering' };
-  for (const [id, name] of Object.entries(SK)) { const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prog = s.n + s.hits * 2; rows.push(['skill', name, s.lvl, max, need ? Math.min(1, (prog - (SKILLS[id].steps[s.lvl - 1] || 0)) / (need - (SKILLS[id].steps[s.lvl - 1] || 0))) : 1]); }
-  rows.push(['row', 'Gathering reach', `${gatherReach().toFixed(1)} tiles${autoRange('stick') ? `  \u00b7  common things come to you from ${autoRange('stick') >= 99 ? 'anywhere' : autoRange('stick').toFixed(1) + ' tiles'}` : ''}`]);
+  // each skill: its level and progress, what it does now, and what the next level brings
+  const SK = { acorn: 'Acorns', sword: 'Sword', gather: 'Gathering' };
+  for (const [id, name] of Object.entries(SK)) {
+    const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prog = s.n + s.hits * 2;
+    rows.push(['skill', name, s.lvl, max, need ? Math.min(1, (prog - (SKILLS[id].steps[s.lvl - 1] || 0)) / (need - (SKILLS[id].steps[s.lvl - 1] || 0))) : 1]);
+    rows.push(['row', '  now', SKILL_INFO[id](s.lvl)]);
+    if (s.lvl < max) rows.push(['row', '  next', SKILL_INFO[id](s.lvl + 1)]);
+  }
+  { const f = farmLevel(); rows.push(['row', 'Farming ' + roman(f), SKILL_INFO.farm(f)]); rows.push(['row', '  next', SKILL_INFO.farm(f + 1)]); }
   const crops = Object.keys(inv.cropXp || {});
-  if (crops.length || farmLevel()) { rows.push(['head', 'Garden']); rows.push(['row', 'Farming level', `${farmLevel()}  \u00b7  seeds come back ${Math.round(farmLevel() * 6)}% more often`]); for (const c of crops) rows.push(['row', c[0].toUpperCase() + c.slice(1), `level ${cropLevel(c)}`]); }
+  if (crops.length) { rows.push(['head', 'Garden']); for (const c of crops) rows.push(['row', c[0].toUpperCase() + c.slice(1), `level ${cropLevel(c)}`]); }
   const ups = FORGE.filter(f => f.relic ? inv[f.k] : inv.up[f.k]);
   if (ups.length || inv.step) { rows.push(['head', 'Upgrades']); for (const f of ups) rows.push(['row', f.name, 'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])]); if (inv.step) rows.push(['row', RELICS.step.name, 'I'.repeat(inv.step)]); }
   return rows;

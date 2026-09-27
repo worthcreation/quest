@@ -39,6 +39,8 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
+function showScroll(title, text) { (state.scrolls = state.scrolls || []).push({ title, text, t: 0, life: 4.8 }); sfx.heart(); }
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
