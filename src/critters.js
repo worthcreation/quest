@@ -256,8 +256,9 @@ const AI = {
       case 'idle':
         ease(0, 0, 4);
         if (e.t <= 0) { e.t = rr(0.5, 1.2); const a = Math.random() * 6.28; e.vx = Math.cos(a) * 0.3 * L(); e.vy = Math.sin(a) * 0.3 * L(); }
-        if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'dart'; e.t = 1.1; }
+        if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'rage'; e.t = 0.55; }   // the tell: it freezes and its eyes flash, then it comes
         break;
+      case 'rage': ease(0, 0, 12); if (e.t <= 0) { e.mode = 'dart'; e.t = 1.1; } break;
       case 'dart': {
         const zig = Math.sin(state.time * 14) * 0.7, px = -dy / dist, py = dx / dist;
         ease((dx / dist + px * zig) * 0.6 * fast * L(), (dy / dist + py * zig) * 0.6 * fast * L(), 8);

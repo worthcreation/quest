@@ -329,8 +329,10 @@ function drawEnemy(e) {
       ctx.fillStyle = C('#8a6e48');
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(e.x + s * e.r * 0.3, y - e.r * 1.1, e.r * 0.18, e.r * 0.55, s * 0.2, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = C('#f2eee4'); ctx.beginPath(); ctx.arc(e.x - Math.sign(e.vx || 1) * e.r * 0.9, y, e.r * 0.25, 0, 6.28); ctx.fill();
-      ctx.fillStyle = e.mode === 'dart' ? '#ff5a3a' : '#1a1410';
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.06, 0, 6.28); ctx.fill(); }
+      const rage = e.mode === 'rage', flash = rage && Math.sin(state.time * 30) > 0;
+      ctx.fillStyle = e.mode === 'dart' || flash ? '#ff3a2a' : '#1a1410';
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * (rage ? 0.09 : 0.06), 0, 6.28); ctx.fill(); }
+      if (flash) { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.2, 0, 6.28); ctx.fill(); } }
       break;
     }
     case 'diver': {
@@ -515,7 +517,7 @@ function reservedRects() {
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
-  if (state.questHudRect) r.push(state.questHudRect);
+  // (the quest HUD is background: text is drawn over it rather than steering round it)
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
     const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
@@ -898,7 +900,6 @@ function drawHUD() {
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
   state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
-  drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
 }

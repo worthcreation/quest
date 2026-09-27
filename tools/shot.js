@@ -53,6 +53,13 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B102) {                            // build 102: the rusty sword, a raging rabbit, the quest HUD under a bubble
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; inv.sword=true; enterScene('f2'); state.cut=null; run(5); state.texts=[]; state.title=null; updateQuests(true);
+  const h=state.hero; h.x=W*0.5; h.y=H*0.5; h.side=1; h.fx=1; const e=state.enemies.find(q=>q.type==='rabbit') || makeEnemy('rabbit', h.x+UNIT*2.2, h.y, 0); if(!state.enemies.includes(e)) state.enemies.push(e); e.x=h.x+UNIT*2.2; e.y=h.y; e.mode='rage'; e.t=9;
+  state.time=Math.PI/60*1.01; run(1); say('Watch their eyes! When they flash red, get out of the way.', W*0.8, UNIT*1.2, {key:'pip', hold:false, color:'#bfe4ff'}); run(6);
+  console.log('rabbits on f2:', state.enemies.filter(q=>q.type==='rabbit').length); draw(); fs.writeFileSync('/tmp/b102.png', canvas.toBuffer('image/png'));
+}
 if (process.env.B101) {                            // build 101: a level-up scroll, and Status with now / next
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('start'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;

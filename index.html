@@ -529,8 +529,8 @@ function genWorld() {
   const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 1 };
   const FIELD = [
     { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
-    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 2, south: [0.2, 0.8] },
+    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 2 },   // two: two tufts of fluff
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
     { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
     { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
@@ -3004,8 +3004,9 @@ const AI = {
       case 'idle':
         ease(0, 0, 4);
         if (e.t <= 0) { e.t = rr(0.5, 1.2); const a = Math.random() * 6.28; e.vx = Math.cos(a) * 0.3 * L(); e.vy = Math.sin(a) * 0.3 * L(); }
-        if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'dart'; e.t = 1.1; }
+        if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'rage'; e.t = 0.55; }   // the tell: it freezes and its eyes flash, then it comes
         break;
+      case 'rage': ease(0, 0, 12); if (e.t <= 0) { e.mode = 'dart'; e.t = 1.1; } break;
       case 'dart': {
         const zig = Math.sin(state.time * 14) * 0.7, px = -dy / dist, py = dx / dist;
         ease((dx / dist + px * zig) * 0.6 * fast * L(), (dy / dist + py * zig) * 0.6 * fast * L(), 8);
@@ -4589,6 +4590,11 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the rabbits' field: combat basics, in two lines
+  { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
+    text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
+  { key: 'combat-swing', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
+    text: () => `Then swing (${K.act.toUpperCase()}) while it\'s close. A couple of hits and it\'s done. Or hold ${K.act.toUpperCase()} and let go: one big lunge.` },
   // the glade, once the adventure is on: the brambles, the buried rock, the throw
   { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
     text: 'The blank part of the map is past these brambles. We need something heavy.' },
@@ -5746,7 +5752,7 @@ function drawQuestHud() {
   for (const d of done) rows.unshift({ icon: d.q.icon, name: `${d.q.name} complete`, line: '', glow: questGlow(d.t), done: true, fade: Math.min(1, (Q_DONE - (state.time - d.t)) / 1.5), t: d.t });
   if (!rows.length) return;
   const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
-  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = Math.max(12, bannerBelow() || 0);   // pushed under a quest banner while one is up
+  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;   // fixed in the corner; it's the background layer, everything else draws over it
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
   let wmin = 0;
   for (const r of rows) {
@@ -6290,6 +6296,7 @@ function draw() {
       ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, ly, UNIT * 4, 0, 6.28); ctx.fill();
     }
   }
+  if (!state.intro) drawQuestHud();                     // the quest HUD is the bottom layer of the screen: hints, bubbles, banners all draw over it
   drawRideVignette();
   if (state.settings.tiles) drawTiles();
   drawActionHint();
@@ -7060,7 +7067,7 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
   else if (bladeKind()) drawSword(h, pw, ph, y, heroic);
 }
-function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
+function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
   ctx.fillStyle = bladeColor(); ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
@@ -7073,9 +7080,14 @@ function drawBlade(len, w) {
     return;
   }
   if (state.inv.aug) augGlint(len, w);
-  if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // rust blooms, fading with each honing
-    ctx.fillStyle = `rgba(164,104,63,${0.8 - state.inv.up.edge * 0.25})`;
-    ctx.fillRect(len * 0.25, -w / 2, len * 0.14, w * 0.6); ctx.fillRect(len * 0.6, -w * 0.1, len * 0.1, w * 0.6);
+  if (!(state.inv.slime > 0)) {                                   // a thin shine along the steel
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(len * 0.05, -w * 0.32, len * 0.9, Math.max(1, w * 0.14));
+  }
+  if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // mottled with rust: many blooms at first, fewer and fainter with each honing
+    const spots = [[0.08, -0.3, 0.12, 0.5], [0.22, 0.05, 0.1, 0.45], [0.33, -0.4, 0.14, 0.4], [0.47, -0.05, 0.09, 0.55], [0.58, -0.35, 0.12, 0.35],
+      [0.68, 0.1, 0.1, 0.4], [0.78, -0.25, 0.08, 0.5], [0.15, 0.2, 0.07, 0.3], [0.4, 0.25, 0.08, 0.25], [0.88, -0.1, 0.06, 0.4]];
+    const n = [10, 6, 3][state.inv.up.edge], a = [0.85, 0.65, 0.45][state.inv.up.edge];
+    for (let i = 0; i < n; i++) { const [sx, sy, sw, sh] = spots[i]; ctx.fillStyle = i % 3 ? `rgba(150,86,46,${a})` : `rgba(122,66,34,${a})`; ctx.beginPath(); ctx.ellipse(len * (sx + sw / 2), w * (sy + sh / 2), len * sw / 2, w * sh / 2, 0, 0, 6.28); ctx.fill(); }
   }
   if (state.inv.horn) { ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(len - UNIT * 0.1, -w * 1.1); ctx.quadraticCurveTo(len + UNIT * 0.35, -w * 0.6, len + UNIT * 0.3, w * 0.2); ctx.lineTo(len - UNIT * 0.1, w * 0.8); ctx.fill(); }
 }
@@ -7359,7 +7371,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 101';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 102';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -7913,8 +7925,10 @@ function drawEnemy(e) {
       ctx.fillStyle = C('#8a6e48');
       for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(e.x + s * e.r * 0.3, y - e.r * 1.1, e.r * 0.18, e.r * 0.55, s * 0.2, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = C('#f2eee4'); ctx.beginPath(); ctx.arc(e.x - Math.sign(e.vx || 1) * e.r * 0.9, y, e.r * 0.25, 0, 6.28); ctx.fill();
-      ctx.fillStyle = e.mode === 'dart' ? '#ff5a3a' : '#1a1410';
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.06, 0, 6.28); ctx.fill(); }
+      const rage = e.mode === 'rage', flash = rage && Math.sin(state.time * 30) > 0;
+      ctx.fillStyle = e.mode === 'dart' || flash ? '#ff3a2a' : '#1a1410';
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * (rage ? 0.09 : 0.06), 0, 6.28); ctx.fill(); }
+      if (flash) { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.2, 0, 6.28); ctx.fill(); } }
       break;
     }
     case 'diver': {
@@ -8099,7 +8113,7 @@ function reservedRects() {
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
   if (state.arenaBanner) r.push(state.arenaBanner);
-  if (state.questHudRect) r.push(state.questHudRect);
+  // (the quest HUD is background: text is drawn over it rather than steering round it)
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
     const h = state.hero, [hx, hy] = toScreen(h.x, h.y - h.z), u = UNIT * state.cam.ez;
@@ -8482,7 +8496,6 @@ function drawHUD() {
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
   state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
-  drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
 }

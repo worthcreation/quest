@@ -88,7 +88,7 @@ function drawQuestHud() {
   for (const d of done) rows.unshift({ icon: d.q.icon, name: `${d.q.name} complete`, line: '', glow: questGlow(d.t), done: true, fade: Math.min(1, (Q_DONE - (state.time - d.t)) / 1.5), t: d.t });
   if (!rows.length) return;
   const fs = Math.round(Math.max(11, Math.min(15, UNIT * 0.4))), lh = fs * 1.25, pad = 8, icon = fs * 1.5;
-  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = Math.max(12, bannerBelow() || 0);   // pushed under a quest banner while one is up
+  const wmax = Math.min(W * 0.34, 300), right = W - 12, top = 12;   // fixed in the corner; it's the background layer, everything else draws over it
   ctx.save(); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
   let wmin = 0;
   for (const r of rows) {

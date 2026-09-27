@@ -36,6 +36,7 @@ function draw() {
       ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx, ly, UNIT * 4, 0, 6.28); ctx.fill();
     }
   }
+  if (!state.intro) drawQuestHud();                     // the quest HUD is the bottom layer of the screen: hints, bubbles, banners all draw over it
   drawRideVignette();
   if (state.settings.tiles) drawTiles();
   drawActionHint();
@@ -806,7 +807,7 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
   else if (bladeKind()) drawSword(h, pw, ph, y, heroic);
 }
-function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
+function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
   ctx.fillStyle = bladeColor(); ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
@@ -819,9 +820,14 @@ function drawBlade(len, w) {
     return;
   }
   if (state.inv.aug) augGlint(len, w);
-  if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // rust blooms, fading with each honing
-    ctx.fillStyle = `rgba(164,104,63,${0.8 - state.inv.up.edge * 0.25})`;
-    ctx.fillRect(len * 0.25, -w / 2, len * 0.14, w * 0.6); ctx.fillRect(len * 0.6, -w * 0.1, len * 0.1, w * 0.6);
+  if (!(state.inv.slime > 0)) {                                   // a thin shine along the steel
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(len * 0.05, -w * 0.32, len * 0.9, Math.max(1, w * 0.14));
+  }
+  if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // mottled with rust: many blooms at first, fewer and fainter with each honing
+    const spots = [[0.08, -0.3, 0.12, 0.5], [0.22, 0.05, 0.1, 0.45], [0.33, -0.4, 0.14, 0.4], [0.47, -0.05, 0.09, 0.55], [0.58, -0.35, 0.12, 0.35],
+      [0.68, 0.1, 0.1, 0.4], [0.78, -0.25, 0.08, 0.5], [0.15, 0.2, 0.07, 0.3], [0.4, 0.25, 0.08, 0.25], [0.88, -0.1, 0.06, 0.4]];
+    const n = [10, 6, 3][state.inv.up.edge], a = [0.85, 0.65, 0.45][state.inv.up.edge];
+    for (let i = 0; i < n; i++) { const [sx, sy, sw, sh] = spots[i]; ctx.fillStyle = i % 3 ? `rgba(150,86,46,${a})` : `rgba(122,66,34,${a})`; ctx.beginPath(); ctx.ellipse(len * (sx + sw / 2), w * (sy + sh / 2), len * sw / 2, w * sh / 2, 0, 0, 6.28); ctx.fill(); }
   }
   if (state.inv.horn) { ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(len - UNIT * 0.1, -w * 1.1); ctx.quadraticCurveTo(len + UNIT * 0.35, -w * 0.6, len + UNIT * 0.3, w * 0.2); ctx.lineTo(len - UNIT * 0.1, w * 0.8); ctx.fill(); }
 }
@@ -1105,7 +1111,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 101';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 102';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

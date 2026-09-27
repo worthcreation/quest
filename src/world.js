@@ -472,8 +472,8 @@ function genWorld() {
   const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 1 };
   const FIELD = [
     { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
-    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 2, south: [0.2, 0.8] },
+    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 2 },   // two: two tufts of fluff
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
     { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
     { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },

@@ -121,6 +121,11 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the rabbits' field: combat basics, in two lines
+  { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
+    text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
+  { key: 'combat-swing', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
+    text: () => `Then swing (${K.act.toUpperCase()}) while it\'s close. A couple of hits and it\'s done. Or hold ${K.act.toUpperCase()} and let go: one big lunge.` },
   // the glade, once the adventure is on: the brambles, the buried rock, the throw
   { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
     text: 'The blank part of the map is past these brambles. We need something heavy.' },

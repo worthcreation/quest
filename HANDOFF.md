@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 101, 27 Sep 2026)
+# Quest: handoff notes (as of build 102, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 102: two rabbits, the rage tell, combat talk, the quest HUD as background, rusty steel
+- f2 has two rabbits (the world field table's second entry; the ravine field is back to one).
+- Rabbits (and gremlins, which share the AI) have a tell: 'rage', 0.55 s stock-still with eyes flashing red, before
+  they dart (critters.js AI.rabbit, drawn in draw-ui.js).
+- Pip on f2 with a blade and fluff still needed (PIP_LINES combat-eyes, combat-swing): watch the eyes, get out of the
+  way; then swing while it's close, or hold and let go for a lunge. Said where he stands.
+- The quest HUD is the bottom screen layer: drawn right after the world (draw.js), before hints, bubbles, the coach,
+  scrolls and banners; always in its corner (no longer pushed under banners); text no longer steers round it
+  (reservedRects drops questHudRect).
+- The steel blade: grey with a thin shine, mottled with rust (10 blooms unhoned, 6, then 3, fading), clean at edge 3.
+- Test: rabbits (new). 51 of 51.
 
 ## Build 101: the wooden lunge, no wooden whirlwind, level-up scrolls, Status now/next
 - Wooden sword: slashes on release (combat.js: a press doesn't start the slash when the blade is wood; letting go before
