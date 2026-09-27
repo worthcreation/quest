@@ -5,50 +5,98 @@
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
 const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+// Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
+// (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
+// sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
+// acorns and food. You learn recipes by trying things (the mat tells you when you're one ingredient short, or when
+// a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
-  { out: 'glue', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
-  { out: 'stonecharm', wear: true, in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
-  { out: 'mitts', wear: true, in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
-  { out: 'embercharm', wear: true, in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
+  { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
+  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'benchkit', kind: 'piece', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
+  { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
+  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
+  { out: 'embercharm', kind: 'wear', in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
+  { out: 'thornwrap', kind: 'aug', in: ['thorn', 'fluff'], line: 'thorns wound in fluff around your blade: the next strikes bite deeper.', needs: () => !!bladeKind() },
+  { out: 'emberoil', kind: 'aug', in: ['ember', 'glue'], line: 'ember bloom stirred into glue and smeared on the blade: the next strikes burn.', needs: () => !!bladeKind() },
+  { out: 'mash', kind: 'food', in: ['turnip', 'carrot'], line: 'turnip and carrot, mashed. Filling.' },
+  { out: 'salad', kind: 'food', in: ['turnip', 'carrot', 'berries'], line: 'the mash, with berries on top. Pip would call it heaven.' },
+  { out: 'trailmix', kind: 'food', in: ['acorn', 'berries'], line: 'acorns cracked into berries. Light, and it puts a spring in your step.' },
 ];
+const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
+const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
+const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
 const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
-function matAvailable(k) { return (MATS[k] ? state.inv.mats[k] || 0 : rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
-function matMatch() {
-  const m = (state.mat || []).slice().sort().join('+');
-  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m && !(r.wear && gearOwned().includes(r.out)) && (!r.needs || r.needs())) || null;
+// one pool of what can go on the mat: camp things, materials, acorns, food
+const ING_NAME = k => RAW[k] || MATS[k] || (k === 'acorn' ? 'Acorns' : k[0].toUpperCase() + k.slice(1));
+function stockOf(k) { const inv = state.inv; return MATS[k] ? inv.mats[k] || 0 : k === 'acorn' ? inv.acorns || 0 : FOOD[k] ? inv.food.filter(f => f === k).length : rawOf()[k] || 0; }
+function takeStock(k) { const inv = state.inv; if (MATS[k]) inv.mats[k]--; else if (k === 'acorn') inv.acorns--; else if (FOOD[k]) inv.food.splice(inv.food.indexOf(k), 1); else rawOf()[k]--; }
+function matAvailable(k) { return stockOf(k) - (state.mat || []).filter(m => m === k).length; }
+const sortedKey = a => a.slice().sort().join('+');
+function recipeOK(r) { return r.in.length <= (state.inv.craftSlots || 2) && !(r.kind === 'wear' && gearOwned().includes(r.out)) && (!r.needs || r.needs()); }
+function matMatch() { const m = sortedKey(state.mat || []); return RECIPES.find(r => sortedKey(r.in) === m && recipeOK(r)) || null; }
+// is `a` what `b` would be with one thing taken away?
+function oneShort(a, b) { if (b.length !== a.length + 1) return false; const rest = b.slice(); for (const k of a) { const i = rest.indexOf(k); if (i < 0) return false; rest.splice(i, 1); } return true; }
+// what the mat says about what's on it: a match, "one more thing", or nothing
+function matHint() {
+  const mat = state.mat || [], r = matMatch(), inv = state.inv;
+  if (r) { const more = RECIPES.find(x => x !== r && oneShort(r.in, x.in) && !(inv.known || {})[recipeKey(x)] && (inv.craftSlots || 2) >= x.in.length); return r.line + (more ? ' ...and there\'s room for one more thing.' : ''); }
+  if (!mat.length) return 'pick things below to put on the mat, or lay out a recipe you know';
+  if (RECIPES.some(x => oneShort(mat, x.in))) return 'Almost. It feels like it wants one more thing.';
+  return 'Nothing comes of that. Try something else.';
 }
 function craftNow() {
-  const r = matMatch(), inv = state.inv, raw = rawOf();
+  const r = matMatch(), inv = state.inv, raw = rawOf(), m = state.menu;
   if (!r) { state.mat = []; sfx.tock(); return; }
-  for (const k of r.in) { if (MATS[k]) inv.mats[k]--; else raw[k]--; }
-  const first = !(inv.known || {})[r.out + (r.wear ? '_w' : '')];
-  (inv.known = inv.known || {})[r.out + (r.wear ? '_w' : '')] = true;
+  for (const k of r.in) takeStock(k);
+  const key = recipeKey(r), first = !(inv.known || {})[key];
+  (inv.known = inv.known || {})[key] = true;
   state.mat = [];
-  if (r.wear) { gainGear(r.out, true); sfx.forge(); state.menu && (state.menu.note = `Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); return; }
-  raw[r.out] = (raw[r.out] || 0) + 1;
-  sfx.forge(); state.menu && (state.menu.note = `Made: ${RAW[r.out]}${first ? ' (new!)' : ''}`);
-  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; state.menu && (state.menu.note += '. Now you can combine three things.'); }
+  sfx.forge();
+  const note = s => { if (m) m.note = s + (first ? ' (new!)' : ''); };
+  if (r.kind === 'wear') { gainGear(r.out, true); note(`Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); }
+  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
+  else if (r.kind === 'aug') { inv.aug = { id: r.out, n: AUG[r.out].n }; note(`${OUT_NAME[r.out]} on your blade: ${AUG[r.out].what}`); }
+  else if (r.kind === 'food') { inv.food.push(r.out); tidySlots(); note(`Made: ${OUT_NAME[r.out]}.`); }
+  else { raw[r.out] = (raw[r.out] || 0) + 1; note(`Made: ${RAW[r.out]}`); }
+  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; if (m) m.note += ' Now you can combine three things.'; }
+  refreshButtons();
 }
-// the Craft tab: the mat, what it makes, and the things you can put on it
+// recipes you can lay out: ones you've made, heard about from Pip, or read in the journal
+function recipeBook() { const inv = state.inv, known = inv.known || {}, heard = inv.heard || {}; return RECIPES.filter(r => known[recipeKey(r)] || heard[r.out]); }
+function hearRecipe(out) { const inv = state.inv, h = inv.heard || (inv.heard = {}); if (h[out]) return false; h[out] = true; return true; }
+// lay a known recipe on the mat and jump straight to Combine
+function layOut(r) {
+  const m = state.menu, missing = r.in.filter((k, i) => stockOf(k) < r.in.filter(x => x === k).length);
+  if ((state.inv.craftSlots || 2) < r.in.length) { m.note = 'You can only combine two things so far. Make something first.'; return; }
+  if (missing.length) { m.note = `Missing: ${[...new Set(missing)].map(ING_NAME).join(', ')}.`; return; }
+  state.mat = r.in.slice(); m.sel = 0; m.focus = 'grid'; sfx.tock();
+  m.note = recipeOK(r) ? `${outName(r)}: ready. ${K.act} to combine.` : 'It won\'t take right now.';
+}
+// the Craft tab: the Combine cell, then your recipes, then everything you could put on the mat
 function craftCells() {
-  const r = matMatch(), cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${RAW[r.out]}` : (state.mat || []).length ? 'Clear the mat' : 'The mat', line: r ? r.line : (state.mat || []).length ? 'that doesn\'t make anything yet' : 'pick things below to put them on the mat', mat: true }];
-  for (const k of Object.keys(RAW)) if ((rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: matAvailable(k), line: RECIPES.find(x => x.out === k && x.piece) ? 'set it down on its mark at camp' : 'tap to put it on the mat', raw: k });
-  for (const k of [...new Set(RECIPES.flatMap(r => r.in))]) if (MATS[k] && (state.inv.mats[k] || 0) > 0) cells.push({ icon: k, name: MATS[k], count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
+  const cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'The mat', line: matHint(), mat: true }];
+  for (const x of recipeBook()) cells.push({ icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
+  const ings = [...new Set(RECIPES.flatMap(x => x.in))];
+  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
+  for (const k of ings) if (stockOf(k) > 0) cells.push({ icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   return cells;
 }
 function craftCellAct(c) {
   if (!c) return;
   if (c.mat) { craftNow(); return; }
+  if (c.recipe) { layOut(c.recipe); return; }
   if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
   const slots = state.inv.craftSlots || 2;
   if ((state.mat || []).length >= slots) { state.menu.note = 'The mat is full. Combine or clear it.'; return; }
   if (matAvailable(c.raw) <= 0) return;
   (state.mat = state.mat || []).push(c.raw); sfx.tock();
+  if (state.menu) state.menu.note = '';
 }
 function drawCraftMat(px, y, pwide, fs) {
   const slots = state.inv.craftSlots || 2, s = Math.max(48, Math.min(64, UNIT * 1.5)), gap = 12, r = matMatch();
@@ -68,7 +116,7 @@ function drawCraftMat(px, y, pwide, fs) {
   ctx.strokeStyle = r ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.lineWidth = 2; ctx.strokeRect(rx, y, s, s);
   if (r) drawItemIcon(r.out, rx + s / 2, y + s / 2, s * 0.62); else { ctx.fillStyle = 'rgba(253,246,227,.35)'; ctx.fillText('?', rx + s / 2, y + s / 2 + fs * 0.35); }
   // recipes you've made, as little sums
-  const known = RECIPES.filter(x => (state.inv.known || {})[x.out]);
+  const known = RECIPES.filter(x => (state.inv.known || {})[recipeKey(x)]);
   let kx = px, ky = y + s + fs * 1.2; const ks = fs * 1.3;
   ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.7)}px "Courier New", monospace`;
   for (const k of known) {
@@ -205,7 +253,8 @@ const QUESTS = [
     { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
     const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;
-    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away.', { key: 'reward', life: 6, color: '#b8f28a' });
+    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away. Mash the two together sometime!', { key: 'reward', life: 6, color: '#b8f28a' });
+    hearRecipe('mash');
     refreshButtons();
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [

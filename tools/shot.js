@@ -53,6 +53,15 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B69) {                             // build 69: fixed vigor bar over the slots, wooden sword in hand, the Craft tab with recipes
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; enterScene('start'); state.cut=null; state.enemies=[]; run(3);
+  const inv=state.inv; inv.woodsword=6; inv.acorns=4; inv.food.push('turnip','carrot'); inv.bag.turnipseed=2; inv.aug={id:'thornwrap',n:5}; run(30);
+  state.hero.x=W*0.5; state.hero.y=H*0.62; state.texts=[]; state.title=null; run(2); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b69-hud.png', canvas.toBuffer('image/png'));
+  Object.assign(rawOf(),{stick:3,fluff:2,stone:1}); inv.craftSlots=3; inv.known={glue:true}; inv.heard={woodsword:true, mash:true}; state.mat=['fluff','fluff'];
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Craft'),sel:0,focus:'grid',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b69-craft.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b69 shots written');
+}
 if (process.env.B68) {                             // build 68: mud wallow + boulder wedge, hidden sword, the reveal, the new-quest herald
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.sword=true;

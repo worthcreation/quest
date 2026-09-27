@@ -830,12 +830,21 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
   drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
-  else if (state.inv.sword) drawSword(h, pw, ph, y, heroic);
+  else if (bladeKind()) drawSword(h, pw, ph, y, heroic);
 }
-function bladeColor() { return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
+function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
   ctx.fillStyle = bladeColor(); ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
+  if (bladeKind() === 'wood') {                                  // grain, and cracks that open as it wears down
+    const wear = 1 - state.inv.woodsword / WOOD_SWORD;
+    ctx.strokeStyle = 'rgba(90,60,30,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke();
+    ctx.strokeStyle = `rgba(40,24,10,${0.3 + 0.6 * wear})`;
+    for (let k = 0; k < Math.floor(wear * 5); k++) { const cx = len * (0.2 + k * 0.17); ctx.beginPath(); ctx.moveTo(cx, -w / 2); ctx.lineTo(cx + w * 0.4, 0); ctx.lineTo(cx - w * 0.2, w / 2); ctx.stroke(); }
+    if (state.inv.aug) augGlint(len, w);
+    return;
+  }
+  if (state.inv.aug) augGlint(len, w);
   if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // rust blooms, fading with each honing
     ctx.fillStyle = `rgba(164,104,63,${0.8 - state.inv.up.edge * 0.25})`;
     ctx.fillRect(len * 0.25, -w / 2, len * 0.14, w * 0.6); ctx.fillRect(len * 0.6, -w * 0.1, len * 0.1, w * 0.6);
@@ -1089,7 +1098,7 @@ function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
   const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
-  const len = Math.min(W * 0.55, 110 + inv.depth * 34), hgt = Math.max(10, s * 0.55);
+  const len = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35), hgt = Math.max(10, s * 0.55);   // fixed: exactly as wide as the A S D F row under it
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x0 - 3, y0 - 3, len + 6, hgt + 6);
   const col = r > 0.6 ? '#9ee06a' : r > 0.35 ? '#e8c84a' : `rgba(230,90,60,${0.7 + 0.3 * Math.sin(state.time * 8)})`;
   ctx.fillStyle = col; ctx.fillRect(x0, y0, len * r, hgt);
@@ -1420,7 +1429,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 68';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 69';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

@@ -803,12 +803,13 @@ const PAGE_NOTES = [
   'The big mushrooms hum at night. I swear they\'re talking to each other.',
   'Fish in the gleaming pool bite if you wait for the ripple, then strike FAST.',
   'Rabbits on the mountain are guarding something. Something slow.',
-  'Gremlins hate fire. Note to self: learn fire.',
+  'Gremlins hate fire. Ember bloom stirred into glue, smeared on a blade: it burns what it cuts!',
   'The swamp stones hum like the mushrooms do. Lower, though. Older.',
   'If a gust is too strong, don\'t jump. You end up at the bottom. Ask me how I know.',
-  'Thorns + a stump + patience = a sharper blade?',
+  'Thorns wound in rabbit fluff grip a blade and bite. Works anywhere, no bench needed.',
 ];
-const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood' };
+const PAGE_LORE = { 4: 'emberoil', 7: 'thornwrap' };            // pages that give you an idea for the mat
+const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood', silkpart: 'diver silk', hornpart: 'charger horn' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
   silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
@@ -821,7 +822,7 @@ function itemExists(type) {
 function dropFor(e) {
   for (const [t, p] of DROPS[e.type] || []) {
     if (rng() >= p) continue;
-    if (RELICS[t] && (state.inv[t] >= 3 || itemExists(t))) return 'wisp';
+    if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
     if (t === 'scalp' && (state.inv.scalp || itemExists('scalp'))) return 'wisp';
     return t;
   }
@@ -869,10 +870,17 @@ function collect(it) {
   else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || CROP_SEEDS.includes(it.type) || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
     case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
-    case 'step': case 'silk': case 'horn': {
-      inv[it.type] = Math.min(3, inv[it.type] + 1);
-      const R = RELICS[it.type];
-      showTitle(`${R.name}${inv[it.type] > 1 ? ' ' + 'I'.repeat(inv[it.type]) : ''}`, R.levels[inv[it.type] - 1], 'relic', 4);
+    case 'step': {
+      inv.step = Math.min(3, inv.step + 1);
+      const R = RELICS.step;
+      showTitle(`${R.name}${inv.step > 1 ? ' ' + 'I'.repeat(inv.step) : ''}`, R.levels[inv.step - 1], 'relic', 4);
+      break;
+    }
+    case 'silk': case 'horn': {                       // weapon parts: worked into your gear at the bench, not on their own
+      const part = it.type + 'part';
+      inv.mats[part] = (inv.mats[part] || 0) + 1;
+      (inv.recipes = inv.recipes || {})[it.type] = true;
+      showTitle(RELICS[it.type].name, `work it into your gear at the camp bench (${inv.mats[part]} in your pack)`, 'relic', 4);
       break;
     }
     case 'lumin': inv.lumin = Math.min(90, inv.lumin + 45); tell('Luminescence. Your light burns brighter, and their flashes can\'t blind you.', 4, 'lumin'); break;
@@ -904,6 +912,8 @@ function collect(it) {
       inv.pages++;
       const note = PAGE_NOTES[(inv.pages - 1) % PAGE_NOTES.length];
       say(`A page of Pip's journal: "${note}"`, h.x, h.y - UNIT * 1.3, { key: 'page', life: 6, color: '#fff3c8' });
+      const lore = PAGE_LORE[(inv.pages - 1) % PAGE_NOTES.length];
+      if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
     }
     case 'journal':

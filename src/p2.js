@@ -424,7 +424,7 @@ function say(text, x, y, opts = {}) {
   }
   // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
   const hold = SPEECH.has(opts.key) && opts.hold !== false;
-  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one

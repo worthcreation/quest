@@ -1224,7 +1224,7 @@ function say(text, x, y, opts = {}) {
   }
   // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
   const hold = SPEECH.has(opts.key) && opts.hold !== false;
-  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
@@ -2056,12 +2056,13 @@ const PAGE_NOTES = [
   'The big mushrooms hum at night. I swear they\'re talking to each other.',
   'Fish in the gleaming pool bite if you wait for the ripple, then strike FAST.',
   'Rabbits on the mountain are guarding something. Something slow.',
-  'Gremlins hate fire. Note to self: learn fire.',
+  'Gremlins hate fire. Ember bloom stirred into glue, smeared on a blade: it burns what it cuts!',
   'The swamp stones hum like the mushrooms do. Lower, though. Older.',
   'If a gust is too strong, don\'t jump. You end up at the bottom. Ask me how I know.',
-  'Thorns + a stump + patience = a sharper blade?',
+  'Thorns wound in rabbit fluff grip a blade and bite. Works anywhere, no bench needed.',
 ];
-const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood' };
+const PAGE_LORE = { 4: 'emberoil', 7: 'thornwrap' };            // pages that give you an idea for the mat
+const MATS = { thorn: 'thorn', ember: 'ember bloom', ironwood: 'ironwood', starpetal: 'star petal', ear: 'stalker ear', hide: 'stalker hide', driftwood: 'driftwood', silkpart: 'diver silk', hornpart: 'charger horn' };
 const RELICS = {
   step: { name: 'Stalker\'s Step', levels: [`${K.dash}: dodge, untouchable for a blink. Dodge a lunge at the last moment and time slows.`, 'Recovers faster between dodges.', 'Dodges cost half the vigor and last longer.'] },
   silk: { name: 'Diver Silk', levels: ['Strung into a sling: acorns fly faster and hit harder.', 'Acorns punch through and keep flying.', 'Acorns tangle what they hit, holding it still.'] },
@@ -2074,7 +2075,7 @@ function itemExists(type) {
 function dropFor(e) {
   for (const [t, p] of DROPS[e.type] || []) {
     if (rng() >= p) continue;
-    if (RELICS[t] && (state.inv[t] >= 3 || itemExists(t))) return 'wisp';
+    if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
     if (t === 'scalp' && (state.inv.scalp || itemExists('scalp'))) return 'wisp';
     return t;
   }
@@ -2122,10 +2123,17 @@ function collect(it) {
   else if (it.type === 'wisp' || it.type === 'warden') sfx.heart(); else if (it.type === 'acorn' || CROP_SEEDS.includes(it.type) || it.type === 'bean') sfx.tock(); else sfx.pickup();
   switch (it.type) {
     case 'scalp': inv.scalp = true; showTitle('Stalker Scalp', 'ears and all. what falls on your head bounces off', 'relic', 3.5); break;
-    case 'step': case 'silk': case 'horn': {
-      inv[it.type] = Math.min(3, inv[it.type] + 1);
-      const R = RELICS[it.type];
-      showTitle(`${R.name}${inv[it.type] > 1 ? ' ' + 'I'.repeat(inv[it.type]) : ''}`, R.levels[inv[it.type] - 1], 'relic', 4);
+    case 'step': {
+      inv.step = Math.min(3, inv.step + 1);
+      const R = RELICS.step;
+      showTitle(`${R.name}${inv.step > 1 ? ' ' + 'I'.repeat(inv.step) : ''}`, R.levels[inv.step - 1], 'relic', 4);
+      break;
+    }
+    case 'silk': case 'horn': {                       // weapon parts: worked into your gear at the bench, not on their own
+      const part = it.type + 'part';
+      inv.mats[part] = (inv.mats[part] || 0) + 1;
+      (inv.recipes = inv.recipes || {})[it.type] = true;
+      showTitle(RELICS[it.type].name, `work it into your gear at the camp bench (${inv.mats[part]} in your pack)`, 'relic', 4);
       break;
     }
     case 'lumin': inv.lumin = Math.min(90, inv.lumin + 45); tell('Luminescence. Your light burns brighter, and their flashes can\'t blind you.', 4, 'lumin'); break;
@@ -2157,6 +2165,8 @@ function collect(it) {
       inv.pages++;
       const note = PAGE_NOTES[(inv.pages - 1) % PAGE_NOTES.length];
       say(`A page of Pip's journal: "${note}"`, h.x, h.y - UNIT * 1.3, { key: 'page', life: 6, color: '#fff3c8' });
+      const lore = PAGE_LORE[(inv.pages - 1) % PAGE_NOTES.length];
+      if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
     }
     case 'journal':
@@ -2210,7 +2220,7 @@ function updateCombat(dt) {
     if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
     sfx.swoosh(); return;
   }
-  if (!inv.sword || state.pull.grip || h.ride || state.carry) return;
+  if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
   if (state.equip === 'acorn' && inv.acorns > 0) return;          // acorns in hand: F throws instead
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
@@ -2245,6 +2255,7 @@ function updateCombat(dt) {
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
+      bladeWear(1);                                          // a wooden blade gives a little with every swing
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
@@ -2266,6 +2277,7 @@ function updateCombat(dt) {
         cb.step = 'stab'; cb.t = state.time;
         state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
+        bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
@@ -2298,8 +2310,9 @@ function updateCombat(dt) {
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
-      dmg *= power();
+      dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
+      bladeWear(1);
     }
   }
   if (a.t >= a.dur) state.atk = null;
@@ -2347,7 +2360,8 @@ function updateWhirl(dt) {
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, ((1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    bladeWear(1);
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
   if (state.bird) scareBird(h.x, h.y, 5);
@@ -2361,7 +2375,7 @@ function bumpCrazy(label) {
 }
 const crazyMult = () => { const c = state.crazy; return c && state.time - c.t < 2.5 ? 1 + Math.min(1, c.n * 0.12) : 1; };
 function slamDown() {
-  const h = state.hero, inv = state.inv, armed = inv.sword;
+  const h = state.hero, inv = state.inv, armed = !!bladeKind();
   state.slam = false;
   sfx.slam(); state.shake = 0.45; zoomPulse(h.x, h.y, 'kill');
   spark(h.x, h.y + UNIT * 0.3, '#9a8a6a', 16, 4);
@@ -2980,6 +2994,13 @@ function updateTexts(dt) {
   if (!state.title && state.titleQ && state.titleQ.length && !speakingNow()) {
     const t = state.titleQ.shift();
     if (t.style !== 'area' || state.time - t.at < 8) { t.t = 0; state.title = t; }   // stale place names are dropped
+  }
+  // held words stay while they're about what's in front of you. Walk away from the place they're about (or, for
+  // anything someone said, far from where they said it) and they let go and fade.
+  const h = state.hero;
+  for (const t of state.texts) if (t.hold && h && !t.follow) {
+    const s = t.site, far = s ? Math.hypot(h.x - s.x, h.y - s.y) > UNIT * s.r : t.x != null && Math.hypot(h.x - t.x, h.y - t.y) > UNIT * 11;
+    if (far) { t.hold = false; t.life = t.t + 0.8; }
   }
   for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life) state.texts.splice(i, 1); }
   if (state.title) { state.title.t += dt; if (state.title.t > state.title.life) state.title = null; }
@@ -3777,13 +3798,13 @@ function placePipNearHero() {
   const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
-function pipSay(key, text, at, sight = 7) {
+function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
   if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
-  if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
+  if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff', site });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -3834,7 +3855,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff' });
+      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff', site: v.site });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -3866,10 +3887,11 @@ function updatePip(dt) {
   if (sc.id === 'meadow' && inv.story === STORY.garden) {
     const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
     const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
-    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!');
+    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 9 });
     if (!seeds && b && b.mode === 'perch' && nearPip) pipSay('robin-lesson', 'But first, seeds. See the robin? Run at it and it drops one. Go on!');
     if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`); } else if (b) p.robinHide = 0;
-    if (seeds && inv.firstBirdSeed && nearPip) pipSay('firstseed', `See? Turnip seeds! Stand on the rich soil and press ${seedKeyLabel()}.`);
+    const atPlots = plot && Math.hypot(h.x - plot[0] * W, h.y - plot[1] * H) < UNIT * 4;          // said at the site, and only while it's the thing in front of you
+    if (seeds && inv.firstBirdSeed && atPlots) pipSay('firstseed', 'Stand over here and shove them in the dirt! They love this stuff.', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 6 });
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.');
     const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
@@ -3898,6 +3920,7 @@ function updatePip(dt) {
     if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
+    if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && (inv.pipTips || {}).shopping) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
     if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
     if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
@@ -4172,6 +4195,8 @@ const FORGE = [
   { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', how: 'Wrap the blade in ironwood and quench it with thorn sap. Finish with an ember bloom.', from: 'a smith\'s scrap somewhere in the Dank Cave', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
   { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', how: 'Shape ironwood into a guard, layered like a shell. A star petal seals the last layer.', from: 'taught by someone slow and patient', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
   { k: 'pouch', name: 'Ember pouch', what: 'Marsh fire spreads wider and burns longer.', how: 'Dry ember blooms in a pouch at your belt. They feed the spark.', from: 'taught by someone who knows a thing about gas', cost: [{ ember: 2 }, { ember: 3 }, { ember: 4, starpetal: 1 }] },
+  { k: 'silk', relic: true, name: 'Silk sling', what: 'Acorns fly faster and hit harder; at II they punch through; at III they tangle.', how: 'String diver silk into a sling for your acorns.', from: 'the silk of a diver', cost: [{ silkpart: 1 }, { silkpart: 1 }, { silkpart: 1 }] },
+  { k: 'horn', relic: true, name: 'Horn-lashed blade', what: 'Stabs hit harder and knock back; at II chained stabs hit harder still; at III they reach farther.', how: 'Lash a charger horn along the blade.', from: 'the horn of a charger', cost: [{ hornpart: 1 }, { hornpart: 1 }, { hornpart: 1 }] },
   { k: 'star', name: 'Star-petal hilt', what: 'Deeper vigor and a more forgiving whirlwind.', how: 'Bind two star petals into the grip.', from: 'an offering at a sunken shrine', cost: [{ starpetal: 2 }], max: 1 },
 ];
 function learnRecipe(k, source) {
@@ -4188,22 +4213,22 @@ function forgeItems() {
   const up = state.inv.up;
   return FORGE.map(f => {
     if (!state.inv.recipes[f.k]) return '??? (recipe not yet found)';
-    const lv = up[f.k], max = f.max || 3;
+    const lv = f.relic ? state.inv[f.k] || 0 : up[f.k], max = f.max || 3;
     return lv >= max ? `${f.name} ${'I'.repeat(lv)}: done` : `${f.name} ${'I'.repeat(lv + 1)}: ${costText(f.cost[lv])}`;
   }).concat('Back');
 }
 function forgeSelect(i) {
   const m = state.menu;
   if (i >= FORGE.length) { state.menu = null; return; }
-  const f = FORGE[i], inv = state.inv, lv = inv.up[f.k];
+  const f = FORGE[i], inv = state.inv, lv = f.relic ? inv[f.k] || 0 : inv.up[f.k];
   if (!inv.recipes[f.k]) { m.note = `You don't know how to make this yet. Hint: ${f.from}.`; return; }
   if (lv >= (f.max || 3)) { m.note = 'Already as good as it gets.'; return; }
   const c = f.cost[lv];
   if (!Object.entries(c).every(([k, n]) => inv.mats[k] >= n)) { m.note = `Need ${costText(c)}. ${f.what}`; return; }
   for (const [k, n] of Object.entries(c)) inv.mats[k] -= n;
-  inv.up[f.k]++;
+  if (f.relic) inv[f.k] = (inv[f.k] || 0) + 1; else inv.up[f.k]++;
   sfx.forge();
-  m.note = `${f.name} ${'I'.repeat(inv.up[f.k])}. ${f.what}`;
+  m.note = `${f.name} ${'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])}. ${f.relic ? RELICS[f.k].levels[inv[f.k] - 1] : f.what}`;
   if (f.k === 'star') state.hero.vig = maxVig();
   if (f.k === 'cap') { inv.scalp = true; showTitle('Stalker Cap', 'ears and all. what falls on your head bounces off', 'relic', 3.5); }
 }
@@ -4278,6 +4303,8 @@ function packCells(tab) {
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
     if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: slotActs({ kind: 'weapon', id: 'sword' }) });
+    if (inv.woodsword > 0) cells.push({ icon: 'woodsword', name: 'Wooden sword', line: `three sticks, lashed. ${Math.round(inv.woodsword / WOOD_SWORD * 100)}% left before it splinters apart`, mark: state.equip === 'woodsword', acts: slotActs({ kind: 'weapon', id: 'woodsword' }) });
+    if (inv.aug) cells.push({ icon: inv.aug.id, name: OUT_NAME[inv.aug.id], line: `on your blade: ${inv.aug.n} more hits` });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with their key; hold to throw harder', mark: state.equip === 'acorn', acts: slotActs({ kind: 'weapon', id: 'acorn' }) });
     cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
@@ -4298,7 +4325,7 @@ function packCells(tab) {
   }
   if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
     const fav = inv.favFood === f;
-    cells.push({ icon: f, name: f[0].toUpperCase() + f.slice(1), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
+    cells.push({ icon: f, name: foodName(f), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
       acts: [{ label: 'Eat', fn: () => { state.menu = null; eatFood(f); } }, { label: fav ? 'Stop eating first' : 'Eat first', fn: () => { inv.favFood = fav ? null : f; } }, ...slotActs({ kind: 'food', id: f }), drop(f, () => inv.food.splice(inv.food.indexOf(f), 1))] });
   }
   if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
@@ -5508,12 +5535,21 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
   drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
-  else if (state.inv.sword) drawSword(h, pw, ph, y, heroic);
+  else if (bladeKind()) drawSword(h, pw, ph, y, heroic);
 }
-function bladeColor() { return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
+function bladeColor() { if (bladeKind() === 'wood') return '#b08a5a'; return state.inv.slime > 0 ? '#9fcf5a' : ['#8a5a3a', '#9a7358', '#ad9a84', '#c9c2b6'][Math.min(3, state.inv.up.edge)]; }
 function drawBlade(len, w) {
   ctx.fillStyle = bladeColor(); ctx.fillRect(0, -w / 2, len, w);
   ctx.beginPath(); ctx.moveTo(len, -w / 2); ctx.lineTo(len + w * 1.2, 0); ctx.lineTo(len, w / 2); ctx.fill();
+  if (bladeKind() === 'wood') {                                  // grain, and cracks that open as it wears down
+    const wear = 1 - state.inv.woodsword / WOOD_SWORD;
+    ctx.strokeStyle = 'rgba(90,60,30,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke();
+    ctx.strokeStyle = `rgba(40,24,10,${0.3 + 0.6 * wear})`;
+    for (let k = 0; k < Math.floor(wear * 5); k++) { const cx = len * (0.2 + k * 0.17); ctx.beginPath(); ctx.moveTo(cx, -w / 2); ctx.lineTo(cx + w * 0.4, 0); ctx.lineTo(cx - w * 0.2, w / 2); ctx.stroke(); }
+    if (state.inv.aug) augGlint(len, w);
+    return;
+  }
+  if (state.inv.aug) augGlint(len, w);
   if (state.inv.up.edge < 3 && !(state.inv.slime > 0)) {        // rust blooms, fading with each honing
     ctx.fillStyle = `rgba(164,104,63,${0.8 - state.inv.up.edge * 0.25})`;
     ctx.fillRect(len * 0.25, -w / 2, len * 0.14, w * 0.6); ctx.fillRect(len * 0.6, -w * 0.1, len * 0.1, w * 0.6);
@@ -5767,7 +5803,7 @@ function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
   const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
-  const len = Math.min(W * 0.55, 110 + inv.depth * 34), hgt = Math.max(10, s * 0.55);
+  const len = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35), hgt = Math.max(10, s * 0.55);   // fixed: exactly as wide as the A S D F row under it
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x0 - 3, y0 - 3, len + 6, hgt + 6);
   const col = r > 0.6 ? '#9ee06a' : r > 0.35 ? '#e8c84a' : `rgba(230,90,60,${0.7 + 0.3 * Math.sin(state.time * 8)})`;
   ctx.fillStyle = col; ctx.fillRect(x0, y0, len * r, hgt);
@@ -6098,7 +6134,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 68';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 69';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6876,50 +6912,98 @@ function drawMud(sc) {
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
 const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+// Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
+// (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
+// sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
+// acorns and food. You learn recipes by trying things (the mat tells you when you're one ingredient short, or when
+// a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
-  { out: 'glue', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
-  { out: 'stonecharm', wear: true, in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
-  { out: 'mitts', wear: true, in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
-  { out: 'embercharm', wear: true, in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
+  { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
+  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'benchkit', kind: 'piece', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
+  { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
+  { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
+  { out: 'embercharm', kind: 'wear', in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
+  { out: 'thornwrap', kind: 'aug', in: ['thorn', 'fluff'], line: 'thorns wound in fluff around your blade: the next strikes bite deeper.', needs: () => !!bladeKind() },
+  { out: 'emberoil', kind: 'aug', in: ['ember', 'glue'], line: 'ember bloom stirred into glue and smeared on the blade: the next strikes burn.', needs: () => !!bladeKind() },
+  { out: 'mash', kind: 'food', in: ['turnip', 'carrot'], line: 'turnip and carrot, mashed. Filling.' },
+  { out: 'salad', kind: 'food', in: ['turnip', 'carrot', 'berries'], line: 'the mash, with berries on top. Pip would call it heaven.' },
+  { out: 'trailmix', kind: 'food', in: ['acorn', 'berries'], line: 'acorns cracked into berries. Light, and it puts a spring in your step.' },
 ];
+const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
+const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
+const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
 const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
-function matAvailable(k) { return (MATS[k] ? state.inv.mats[k] || 0 : rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
-function matMatch() {
-  const m = (state.mat || []).slice().sort().join('+');
-  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m && !(r.wear && gearOwned().includes(r.out)) && (!r.needs || r.needs())) || null;
+// one pool of what can go on the mat: camp things, materials, acorns, food
+const ING_NAME = k => RAW[k] || MATS[k] || (k === 'acorn' ? 'Acorns' : k[0].toUpperCase() + k.slice(1));
+function stockOf(k) { const inv = state.inv; return MATS[k] ? inv.mats[k] || 0 : k === 'acorn' ? inv.acorns || 0 : FOOD[k] ? inv.food.filter(f => f === k).length : rawOf()[k] || 0; }
+function takeStock(k) { const inv = state.inv; if (MATS[k]) inv.mats[k]--; else if (k === 'acorn') inv.acorns--; else if (FOOD[k]) inv.food.splice(inv.food.indexOf(k), 1); else rawOf()[k]--; }
+function matAvailable(k) { return stockOf(k) - (state.mat || []).filter(m => m === k).length; }
+const sortedKey = a => a.slice().sort().join('+');
+function recipeOK(r) { return r.in.length <= (state.inv.craftSlots || 2) && !(r.kind === 'wear' && gearOwned().includes(r.out)) && (!r.needs || r.needs()); }
+function matMatch() { const m = sortedKey(state.mat || []); return RECIPES.find(r => sortedKey(r.in) === m && recipeOK(r)) || null; }
+// is `a` what `b` would be with one thing taken away?
+function oneShort(a, b) { if (b.length !== a.length + 1) return false; const rest = b.slice(); for (const k of a) { const i = rest.indexOf(k); if (i < 0) return false; rest.splice(i, 1); } return true; }
+// what the mat says about what's on it: a match, "one more thing", or nothing
+function matHint() {
+  const mat = state.mat || [], r = matMatch(), inv = state.inv;
+  if (r) { const more = RECIPES.find(x => x !== r && oneShort(r.in, x.in) && !(inv.known || {})[recipeKey(x)] && (inv.craftSlots || 2) >= x.in.length); return r.line + (more ? ' ...and there\'s room for one more thing.' : ''); }
+  if (!mat.length) return 'pick things below to put on the mat, or lay out a recipe you know';
+  if (RECIPES.some(x => oneShort(mat, x.in))) return 'Almost. It feels like it wants one more thing.';
+  return 'Nothing comes of that. Try something else.';
 }
 function craftNow() {
-  const r = matMatch(), inv = state.inv, raw = rawOf();
+  const r = matMatch(), inv = state.inv, raw = rawOf(), m = state.menu;
   if (!r) { state.mat = []; sfx.tock(); return; }
-  for (const k of r.in) { if (MATS[k]) inv.mats[k]--; else raw[k]--; }
-  const first = !(inv.known || {})[r.out + (r.wear ? '_w' : '')];
-  (inv.known = inv.known || {})[r.out + (r.wear ? '_w' : '')] = true;
+  for (const k of r.in) takeStock(k);
+  const key = recipeKey(r), first = !(inv.known || {})[key];
+  (inv.known = inv.known || {})[key] = true;
   state.mat = [];
-  if (r.wear) { gainGear(r.out, true); sfx.forge(); state.menu && (state.menu.note = `Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); return; }
-  raw[r.out] = (raw[r.out] || 0) + 1;
-  sfx.forge(); state.menu && (state.menu.note = `Made: ${RAW[r.out]}${first ? ' (new!)' : ''}`);
-  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; state.menu && (state.menu.note += '. Now you can combine three things.'); }
+  sfx.forge();
+  const note = s => { if (m) m.note = s + (first ? ' (new!)' : ''); };
+  if (r.kind === 'wear') { gainGear(r.out, true); note(`Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); }
+  else if (r.kind === 'weapon') { inv.woodsword = WOOD_SWORD; tidySlots(); note('Made: a wooden sword. It won\'t last, but it\'s a sword.'); }
+  else if (r.kind === 'aug') { inv.aug = { id: r.out, n: AUG[r.out].n }; note(`${OUT_NAME[r.out]} on your blade: ${AUG[r.out].what}`); }
+  else if (r.kind === 'food') { inv.food.push(r.out); tidySlots(); note(`Made: ${OUT_NAME[r.out]}.`); }
+  else { raw[r.out] = (raw[r.out] || 0) + 1; note(`Made: ${RAW[r.out]}`); }
+  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; if (m) m.note += ' Now you can combine three things.'; }
+  refreshButtons();
 }
-// the Craft tab: the mat, what it makes, and the things you can put on it
+// recipes you can lay out: ones you've made, heard about from Pip, or read in the journal
+function recipeBook() { const inv = state.inv, known = inv.known || {}, heard = inv.heard || {}; return RECIPES.filter(r => known[recipeKey(r)] || heard[r.out]); }
+function hearRecipe(out) { const inv = state.inv, h = inv.heard || (inv.heard = {}); if (h[out]) return false; h[out] = true; return true; }
+// lay a known recipe on the mat and jump straight to Combine
+function layOut(r) {
+  const m = state.menu, missing = r.in.filter((k, i) => stockOf(k) < r.in.filter(x => x === k).length);
+  if ((state.inv.craftSlots || 2) < r.in.length) { m.note = 'You can only combine two things so far. Make something first.'; return; }
+  if (missing.length) { m.note = `Missing: ${[...new Set(missing)].map(ING_NAME).join(', ')}.`; return; }
+  state.mat = r.in.slice(); m.sel = 0; m.focus = 'grid'; sfx.tock();
+  m.note = recipeOK(r) ? `${outName(r)}: ready. ${K.act} to combine.` : 'It won\'t take right now.';
+}
+// the Craft tab: the Combine cell, then your recipes, then everything you could put on the mat
 function craftCells() {
-  const r = matMatch(), cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${RAW[r.out]}` : (state.mat || []).length ? 'Clear the mat' : 'The mat', line: r ? r.line : (state.mat || []).length ? 'that doesn\'t make anything yet' : 'pick things below to put them on the mat', mat: true }];
-  for (const k of Object.keys(RAW)) if ((rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: matAvailable(k), line: RECIPES.find(x => x.out === k && x.piece) ? 'set it down on its mark at camp' : 'tap to put it on the mat', raw: k });
-  for (const k of [...new Set(RECIPES.flatMap(r => r.in))]) if (MATS[k] && (state.inv.mats[k] || 0) > 0) cells.push({ icon: k, name: MATS[k], count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
+  const cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'The mat', line: matHint(), mat: true }];
+  for (const x of recipeBook()) cells.push({ icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
+  const ings = [...new Set(RECIPES.flatMap(x => x.in))];
+  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
+  for (const k of ings) if (stockOf(k) > 0) cells.push({ icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   return cells;
 }
 function craftCellAct(c) {
   if (!c) return;
   if (c.mat) { craftNow(); return; }
+  if (c.recipe) { layOut(c.recipe); return; }
   if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
   const slots = state.inv.craftSlots || 2;
   if ((state.mat || []).length >= slots) { state.menu.note = 'The mat is full. Combine or clear it.'; return; }
   if (matAvailable(c.raw) <= 0) return;
   (state.mat = state.mat || []).push(c.raw); sfx.tock();
+  if (state.menu) state.menu.note = '';
 }
 function drawCraftMat(px, y, pwide, fs) {
   const slots = state.inv.craftSlots || 2, s = Math.max(48, Math.min(64, UNIT * 1.5)), gap = 12, r = matMatch();
@@ -6939,7 +7023,7 @@ function drawCraftMat(px, y, pwide, fs) {
   ctx.strokeStyle = r ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.lineWidth = 2; ctx.strokeRect(rx, y, s, s);
   if (r) drawItemIcon(r.out, rx + s / 2, y + s / 2, s * 0.62); else { ctx.fillStyle = 'rgba(253,246,227,.35)'; ctx.fillText('?', rx + s / 2, y + s / 2 + fs * 0.35); }
   // recipes you've made, as little sums
-  const known = RECIPES.filter(x => (state.inv.known || {})[x.out]);
+  const known = RECIPES.filter(x => (state.inv.known || {})[recipeKey(x)]);
   let kx = px, ky = y + s + fs * 1.2; const ks = fs * 1.3;
   ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.7)}px "Courier New", monospace`;
   for (const k of known) {
@@ -7076,7 +7160,8 @@ const QUESTS = [
     { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
     const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;
-    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away.', { key: 'reward', life: 6, color: '#b8f28a' });
+    sfx.pickup(); sayHero('From Pip: a turnip, a carrot and some carrot seeds. Turnips mend you slowly; carrots, right away. Mash the two together sometime!', { key: 'reward', life: 6, color: '#b8f28a' });
+    hearRecipe('mash');
     refreshButtons();
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
@@ -7192,7 +7277,57 @@ const FOOD = {
   pepper: { lo: 0.15, hi: 0.35, rarity: 'uncommon' },
   fish: { lo: 0.25, hi: 0.4, rarity: 'uncommon' },
   squash: { lo: 0.4, hi: 0.6, rarity: 'rare' },
+  mash: { lo: 0.35, hi: 0.5, rarity: 'made' },            // made on the mat
+  salad: { lo: 0.5, hi: 0.7, rarity: 'made' },
+  trailmix: { lo: 0.2, hi: 0.3, rarity: 'made' },
 };
+const FOOD_NAME = { mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
+const foodName = f => FOOD_NAME[f] || f[0].toUpperCase() + f.slice(1);
+// ---------------- blades: the rusty sword from the stump, or a wooden one made of three sticks ----------------
+// The wooden sword splinters as you use it: every swing and every hit takes a little out of it, and after a few
+// good fights it shatters. It hits softer than steel. The same combat code swings either.
+const WOOD_SWORD = 14;
+function bladeKind() {
+  const inv = state.inv, wood = inv.woodsword > 0;
+  if (state.equip === 'woodsword' && wood) return 'wood';
+  if (inv.sword) return 'steel';
+  return wood ? 'wood' : null;
+}
+function bladeWear(n) {
+  const inv = state.inv, h = state.hero;
+  if (inv.aug && inv.aug.id) { /* augmentations wear per hit, in augBonus */ }
+  if (bladeKind() !== 'wood') return;
+  inv.woodsword = Math.max(0, inv.woodsword - n);
+  const k = inv.woodsword;
+  const tip = [h.x + h.fx * UNIT * 0.9, h.y + h.fy * UNIT * 0.9 - UNIT * 0.4];
+  if (k > 0 && k <= 5) for (let i = 0; i < 3; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (0.5 + Math.random() * 1.5), t: 0, life: 0.5, color: '#b08a5a', size: UNIT * 0.06 });   // splinters
+  if (k === 4) say('It\'s splintering...', h.x, h.y - UNIT * 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
+  if (k === 0) {                                   // shattered
+    sfx.crash(); state.shake = 0.2; zoomPulse(h.x, h.y, 'parry');
+    for (let i = 0; i < 16; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#b08a5a' : '#7a5a34', size: UNIT * 0.09 });
+    say('The wooden sword shatters!', h.x, h.y - UNIT * 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
+    state.atk = null; if (inv.aug && !inv.sword) inv.aug = null;
+    tidySlots();
+  }
+}
+// ---------------- augmentations: made on the mat, coat the blade you hold for a number of hits ----------------
+const AUG = {
+  thornwrap: { n: 8, what: 'the next 8 hits bite deeper.', bonus: 1 },
+  emberoil: { n: 6, what: 'the next 6 hits set things alight.', bonus: 0.5, burn: 2.5 },
+};
+function augBonus(e) {
+  const inv = state.inv, a = inv.aug;
+  if (!a || !AUG[a.id]) return 0;
+  const A = AUG[a.id];
+  if (A.burn) { e.burn = Math.max(e.burn || 0, A.burn); spark(e.x, e.y, '#ffa04a', 5, 2); }
+  if (--a.n <= 0) { inv.aug = null; const h = state.hero; say(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, h.x, h.y - UNIT * 1.3, { key: 'aug', life: 1.8 }); }
+  return A.bonus;
+}
+function augGlint(len, w) {
+  const a = state.inv.aug; if (!a) return;
+  if (a.id === 'thornwrap') { ctx.fillStyle = '#7a3a8a'; for (let k = 0; k < 4; k++) { const x = len * (0.25 + k * 0.17); ctx.beginPath(); ctx.moveTo(x, -w * 0.9); ctx.lineTo(x + w * 0.4, -w / 2); ctx.lineTo(x - w * 0.2, -w / 2); ctx.fill(); } ctx.fillStyle = 'rgba(240,235,225,.7)'; ctx.fillRect(len * 0.2, -w / 2, len * 0.6, w * 0.3); }
+  if (a.id === 'emberoil') { const f = 0.5 + 0.5 * Math.sin(state.time * 12); ctx.fillStyle = `rgba(255,${140 + 60 * f},60,.75)`; ctx.fillRect(len * 0.15, -w / 2, len * 0.8, w * 0.45); }
+}
 const CROP_XP = [0, 3, 8, 15, 25, 40];                 // harvests of that crop to reach each level
 const cropLevel = k => { const n = ((state.inv.cropXp || {})[k]) || 0; let l = 0; while (l + 1 < CROP_XP.length && n >= CROP_XP[l + 1]) l++; return l; };
 const farmLevel = () => Math.floor(Object.values(state.inv.cropXp || {}).reduce((a, b) => a + b, 0) / 6);   // one level per six harvests of anything
@@ -7227,6 +7362,8 @@ function eatFood(food) {
   if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
   if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
+  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); say('A spring in your step.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
+  if (food === 'salad') inv.turnipRegen = (inv.turnipRegen || 0) + maxVig() * 0.15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
   refreshButtons();
 }
@@ -7315,25 +7452,26 @@ function entryCount(e) {
   if (!e) return 0;
   if (e.kind === 'food') return inv.food.filter(x => x === e.id).length;
   if (e.kind === 'seed') return inv.bag[e.id] || 0;
-  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : inv.sword ? 1 : 0;
+  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : e.id === 'woodsword' ? (inv.woodsword > 0 ? 1 : 0) : inv.sword ? 1 : 0;
   if (e.kind === 'ability') return e.id === 'dodge' ? (inv.step ? 1 : 0) : e.id === 'fire' ? (inv.fire ? 1 : 0) : e.id === 'flare' ? (wears('embercharm') ? 1 : 0) : 0;
   return 0;
 }
 const ABILITY_NAME = { dodge: 'Dodge', fire: 'Marsh fire', flare: 'Flare' };
 const ABILITY_ICON = { dodge: 'step', fire: 'fire', flare: 'ember' };
 function entryInfo(e) {
-  if (e.kind === 'food') return { icon: e.id, name: e.id[0].toUpperCase() + e.id.slice(1), verb: 'Eat' };
+  if (e.kind === 'food') return { icon: e.id, name: foodName(e.id), verb: 'Eat' };
   if (e.kind === 'seed') return { icon: e.id, name: SEEDS[e.id].name, verb: 'Plant' };
-  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : 'Acorns', verb: '' };
+  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : e.id === 'woodsword' ? 'Wooden sword' : 'Acorns', verb: '' };
   return { icon: ABILITY_ICON[e.id], name: ABILITY_NAME[e.id], verb: '' };
 }
 // everything you could put in a slot right now, in a steady order: weapons, abilities, food, seeds
 function slotOptions() {
   const inv = state.inv, o = [];
   if (inv.sword) o.push({ kind: 'weapon', id: 'sword' });
+  if (inv.woodsword > 0) o.push({ kind: 'weapon', id: 'woodsword' });
   if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn' });
   for (const id of ['dodge', 'fire', 'flare']) if (entryCount({ kind: 'ability', id })) o.push({ kind: 'ability', id });
-  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
+  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash', 'trailmix', 'mash', 'salad']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
   for (const f of [...new Set(inv.food)]) if (!o.some(e => e.kind === 'food' && e.id === f)) o.push({ kind: 'food', id: f });
   for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) o.push({ kind: 'seed', id: k });
   return o;
@@ -7380,7 +7518,7 @@ function tidySlots() {
 function slotShow(s) {
   if (!s || !entryCount(s)) return null;
   const n = entryCount(s);
-  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && s.id === 'sword' || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id };
+  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && (s.id === 'sword' || s.id === 'woodsword') || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id, wear: s.id === 'woodsword' ? state.inv.woodsword / WOOD_SWORD : null };
 }
 // the plant button: the slot holding seeds you have
 function seedSlotKey() {
@@ -7439,6 +7577,7 @@ function drawSlotBar(x0, y0, len, s) {
       ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
       ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
       if (show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
+      if (show.wear != null) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.5, y + s * 0.48, s, 3); ctx.fillStyle = show.wear > 0.35 ? '#d8b888' : '#ff9a6a'; ctx.fillRect(x - s * 0.5, y + s * 0.48, s * show.wear, 3); }
       ctx.textAlign = 'left'; right = x + s * 0.6;
     }
     x += s * 1.2 + gap;
@@ -7710,6 +7849,13 @@ function drawItemIcon(type, x, y, s) {
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
       break;
+    case 'woodsword': ctx.save(); ctx.rotate(-0.7); ctx.fillStyle = '#b08a5a'; ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.62); ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.45); ctx.lineTo(0, -s * 0.55); ctx.lineTo(s * 0.06, -s * 0.45); ctx.fill();
+      ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.2, s * 0.14, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.05, s * 0.2, s * 0.1, s * 0.22); ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.07, s * 0.1); ctx.lineTo(s * 0.07, s * 0.02); ctx.stroke(); ctx.restore(); break;
+    case 'thornwrap': ctx.fillStyle = '#efe6d2'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a3a8a'; for (let k = 0; k < 5; k++) { const an = k / 5 * 6.28; ctx.beginPath(); ctx.moveTo(Math.cos(an) * s * 0.2, Math.sin(an) * s * 0.14); ctx.lineTo(Math.cos(an) * s * 0.42, Math.sin(an) * s * 0.3); ctx.lineTo(Math.cos(an + 0.3) * s * 0.22, Math.sin(an + 0.3) * s * 0.15); ctx.fill(); } break;
+    case 'emberoil': { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.3, s * 0.18, 0, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, s * 0.06, 0, 0, s * 0.06, s * 0.26); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,110,40,.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, s * 0.06, s * 0.24, s * 0.12, 0, 0, 6.28); ctx.fill(); break; }
+    case 'mash': case 'salad': ctx.fillStyle = '#8a6a4a'; ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.22, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = type === 'mash' ? '#e8c07a' : '#9fcf6a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.36, s * 0.12, 0, 0, 6.28); ctx.fill();
+      if (type === 'salad') { ctx.fillStyle = '#c0304a'; for (const [dx, dy] of [[-0.15, 0.02], [0.05, 0.06], [0.18, 0]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.05, 0, 6.28); ctx.fill(); } } else { ctx.fillStyle = '#e8792a'; ctx.fillRect(-s * 0.1, s * 0.03, s * 0.08, s * 0.05); } break;
+    case 'trailmix': for (const [dx, dy, c] of [[-0.15, 0.05, '#a0662a'], [0.1, -0.05, '#6a2a5a'], [0.2, 0.12, '#a0662a'], [-0.02, 0.18, '#c0304a'], [-0.2, -0.12, '#6a2a5a']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.1, 0, 6.28); ctx.fill(); } break;
     case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
     case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
     case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;

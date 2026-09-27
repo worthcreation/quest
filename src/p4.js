@@ -17,7 +17,7 @@ function updateCombat(dt) {
     if (state.whirl) { state.whirl = null; bumpCrazy('Spin dive'); }
     sfx.swoosh(); return;
   }
-  if (!inv.sword || state.pull.grip || h.ride || state.carry) return;
+  if (!bladeKind() || state.pull.grip || h.ride || state.carry) return;
   if (state.equip === 'acorn' && inv.acorns > 0) return;          // acorns in hand: F throws instead
   const hold = state.hold, cb = state.combo;
   state.atkCool -= dt;
@@ -52,6 +52,7 @@ function updateCombat(dt) {
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
+      bladeWear(1);                                          // a wooden blade gives a little with every swing
       if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
@@ -73,6 +74,7 @@ function updateCombat(dt) {
         cb.step = 'stab'; cb.t = state.time;
         state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level };
+        bladeWear(1);
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
@@ -105,8 +107,9 @@ function updateCombat(dt) {
       if (a.type === 'stab' && inv.horn) dmg += 1;
       if (a.type === 'stab' && a.level) dmg *= 1 + a.level * (inv.horn >= 2 ? 0.45 : 0.3);
       if (inv.slime > 0) dmg += 1;
-      dmg *= power();
+      dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
+      bladeWear(1);
     }
   }
   if (a.t >= a.dur) state.atk = null;
@@ -154,7 +157,8 @@ function updateWhirl(dt) {
     const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
     if (d > reach + e.r) continue;
     w.hit.add(e);
-    damage(e, ((1.2 + inv.up.edge * 0.5) * (1 + w.streak * 0.1) * power() + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    damage(e, ((1.2 + inv.up.edge * 0.5 + augBonus(e)) * (1 + w.streak * 0.1) * power() * (bladeKind() === 'wood' ? 0.6 : 1) + (inv.slime > 0 ? 1 : 0)) * crazyMult(), 'slash', dx / d, dy / d, true);   // everything gets thrown back
+    bladeWear(1);
   }
   if (Math.random() < 0.5) state.fx.push({ x: h.x + Math.cos(w.ang) * reach * 0.8, y: h.y + Math.sin(w.ang) * reach * 0.6, vx: 0, vy: 0, t: 0, life: 0.25, color: 'rgba(255,245,210,.7)', size: UNIT * 0.2 });
   if (state.bird) scareBird(h.x, h.y, 5);
@@ -168,7 +172,7 @@ function bumpCrazy(label) {
 }
 const crazyMult = () => { const c = state.crazy; return c && state.time - c.t < 2.5 ? 1 + Math.min(1, c.n * 0.12) : 1; };
 function slamDown() {
-  const h = state.hero, inv = state.inv, armed = inv.sword;
+  const h = state.hero, inv = state.inv, armed = !!bladeKind();
   state.slam = false;
   sfx.slam(); state.shake = 0.45; zoomPulse(h.x, h.y, 'kill');
   spark(h.x, h.y + UNIT * 0.3, '#9a8a6a', 16, 4);
@@ -787,6 +791,13 @@ function updateTexts(dt) {
   if (!state.title && state.titleQ && state.titleQ.length && !speakingNow()) {
     const t = state.titleQ.shift();
     if (t.style !== 'area' || state.time - t.at < 8) { t.t = 0; state.title = t; }   // stale place names are dropped
+  }
+  // held words stay while they're about what's in front of you. Walk away from the place they're about (or, for
+  // anything someone said, far from where they said it) and they let go and fade.
+  const h = state.hero;
+  for (const t of state.texts) if (t.hold && h && !t.follow) {
+    const s = t.site, far = s ? Math.hypot(h.x - s.x, h.y - s.y) > UNIT * s.r : t.x != null && Math.hypot(h.x - t.x, h.y - t.y) > UNIT * 11;
+    if (far) { t.hold = false; t.life = t.t + 0.8; }
   }
   for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life) state.texts.splice(i, 1); }
   if (state.title) { state.title.t += dt; if (state.title.t > state.title.life) state.title = null; }

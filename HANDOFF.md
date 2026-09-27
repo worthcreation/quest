@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 68, 27 Sep 2026)
+# Quest: handoff notes (as of build 69, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,35 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 69 in short
+- Text stays while it's relevant. say(..., {site: {x, y, r}}) ties held text to a place: walk more than r tiles away and it
+  lets go and fades (updateTexts in p4). Held speech without a site lets go 11 tiles from where it was said. pipSay takes
+  a 5th arg `site`; visits pass their spot. At the garden patches (within 4 tiles, with seeds) Pip says "Stand over here and
+  shove them in the dirt! They love this stuff." (site r 6).
+- Vigor bar is a fixed width: exactly the A S D F row (s * 5.85), whatever the vigor depth (p7 drawHUD).
+- Blades: bladeKind() (p14) = 'steel' (the stump sword) or 'wood'. Combat, slams and hero drawing use it instead of
+  inv.sword; story checks (pipWithYou etc.) still use inv.sword. Wooden sword: 3 sticks on the mat, inv.woodsword =
+  WOOD_SWORD (14) durability; bladeWear(1) per swing (slash start, stab start) and per landed hit (slash, stab, whirl);
+  splinters from 5 down, shatters at 0 (fx, line, slot clears). Hits at 0.6x. It's a weapon slot entry like the others.
+  Measured: 13 swings at nothing, or 7 landed strikes.
+- Crafting rework (p13). Field (the mat, anywhere): camp raw/pieces, small charms, the wooden sword, augmentations and
+  food. Ingredients come from one pool: stockOf/takeStock cover raw, MATS, acorns and food. RECIPES now carry kind:
+  raw | piece | wear | weapon | aug | food. New: woodsword (3 sticks), thornwrap (thorn + fluff: +1 damage, 8 hits),
+  emberoil (ember + glue: sets alight, 6 hits), mash (turnip + carrot), salad (mash's two + berries), trailmix (acorn +
+  berries: speed). Augmentations (inv.aug {id, n}, AUG in p14) coat the held blade and count down in augBonus(); drawn by
+  augGlint. Bench (FORGE, p6): big enhancements, now also Silk sling and Horn-lashed blade: diver silk and charger horn
+  drops are materials (silkpart/hornpart) worked there, no longer automatic. The Stalker's Step stays automatic (not a
+  weapon).
+- Knowing recipes: inv.known (made) and inv.heard (told). recipeBook() lists both in the Craft tab; F on one lays it out
+  (layOut) and jumps the cursor to Combine. Sources: Pip ("Three sticks lashed together make a sword!" out gathering with
+  3 sticks), Pip's reward line (mash), journal pages 5 and 8 (PAGE_LORE: ember oil, thorn wrap), and trial and error.
+  matHint(): "Almost. It feels like it wants one more thing." when the mat is one short of any recipe; "...and there's room
+  for one more thing." when it matches a recipe that has an unmade bigger cousin (glue -> mitts, emberoil -> embercharm,
+  mash -> salad).
+- Keys and slots: an entry sits in one slot only; remapping a key that's taken swaps (assignKey), so A S D F are each
+  bound once. Touch buttons checked for overlap.
+- Tests: t69 (12 checks). tools/shot.js B69=1.
 
 ## Build 68 in short
 - Mushrooms, mellower (p14). shroomGlow: three slow waves (one wobbling its own speed) through pow 4.2: mean 0.17, above 0.6

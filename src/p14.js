@@ -11,7 +11,57 @@ const FOOD = {
   pepper: { lo: 0.15, hi: 0.35, rarity: 'uncommon' },
   fish: { lo: 0.25, hi: 0.4, rarity: 'uncommon' },
   squash: { lo: 0.4, hi: 0.6, rarity: 'rare' },
+  mash: { lo: 0.35, hi: 0.5, rarity: 'made' },            // made on the mat
+  salad: { lo: 0.5, hi: 0.7, rarity: 'made' },
+  trailmix: { lo: 0.2, hi: 0.3, rarity: 'made' },
 };
+const FOOD_NAME = { mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
+const foodName = f => FOOD_NAME[f] || f[0].toUpperCase() + f.slice(1);
+// ---------------- blades: the rusty sword from the stump, or a wooden one made of three sticks ----------------
+// The wooden sword splinters as you use it: every swing and every hit takes a little out of it, and after a few
+// good fights it shatters. It hits softer than steel. The same combat code swings either.
+const WOOD_SWORD = 14;
+function bladeKind() {
+  const inv = state.inv, wood = inv.woodsword > 0;
+  if (state.equip === 'woodsword' && wood) return 'wood';
+  if (inv.sword) return 'steel';
+  return wood ? 'wood' : null;
+}
+function bladeWear(n) {
+  const inv = state.inv, h = state.hero;
+  if (inv.aug && inv.aug.id) { /* augmentations wear per hit, in augBonus */ }
+  if (bladeKind() !== 'wood') return;
+  inv.woodsword = Math.max(0, inv.woodsword - n);
+  const k = inv.woodsword;
+  const tip = [h.x + h.fx * UNIT * 0.9, h.y + h.fy * UNIT * 0.9 - UNIT * 0.4];
+  if (k > 0 && k <= 5) for (let i = 0; i < 3; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (0.5 + Math.random() * 1.5), t: 0, life: 0.5, color: '#b08a5a', size: UNIT * 0.06 });   // splinters
+  if (k === 4) say('It\'s splintering...', h.x, h.y - UNIT * 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
+  if (k === 0) {                                   // shattered
+    sfx.crash(); state.shake = 0.2; zoomPulse(h.x, h.y, 'parry');
+    for (let i = 0; i < 16; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#b08a5a' : '#7a5a34', size: UNIT * 0.09 });
+    say('The wooden sword shatters!', h.x, h.y - UNIT * 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
+    state.atk = null; if (inv.aug && !inv.sword) inv.aug = null;
+    tidySlots();
+  }
+}
+// ---------------- augmentations: made on the mat, coat the blade you hold for a number of hits ----------------
+const AUG = {
+  thornwrap: { n: 8, what: 'the next 8 hits bite deeper.', bonus: 1 },
+  emberoil: { n: 6, what: 'the next 6 hits set things alight.', bonus: 0.5, burn: 2.5 },
+};
+function augBonus(e) {
+  const inv = state.inv, a = inv.aug;
+  if (!a || !AUG[a.id]) return 0;
+  const A = AUG[a.id];
+  if (A.burn) { e.burn = Math.max(e.burn || 0, A.burn); spark(e.x, e.y, '#ffa04a', 5, 2); }
+  if (--a.n <= 0) { inv.aug = null; const h = state.hero; say(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, h.x, h.y - UNIT * 1.3, { key: 'aug', life: 1.8 }); }
+  return A.bonus;
+}
+function augGlint(len, w) {
+  const a = state.inv.aug; if (!a) return;
+  if (a.id === 'thornwrap') { ctx.fillStyle = '#7a3a8a'; for (let k = 0; k < 4; k++) { const x = len * (0.25 + k * 0.17); ctx.beginPath(); ctx.moveTo(x, -w * 0.9); ctx.lineTo(x + w * 0.4, -w / 2); ctx.lineTo(x - w * 0.2, -w / 2); ctx.fill(); } ctx.fillStyle = 'rgba(240,235,225,.7)'; ctx.fillRect(len * 0.2, -w / 2, len * 0.6, w * 0.3); }
+  if (a.id === 'emberoil') { const f = 0.5 + 0.5 * Math.sin(state.time * 12); ctx.fillStyle = `rgba(255,${140 + 60 * f},60,.75)`; ctx.fillRect(len * 0.15, -w / 2, len * 0.8, w * 0.45); }
+}
 const CROP_XP = [0, 3, 8, 15, 25, 40];                 // harvests of that crop to reach each level
 const cropLevel = k => { const n = ((state.inv.cropXp || {})[k]) || 0; let l = 0; while (l + 1 < CROP_XP.length && n >= CROP_XP[l + 1]) l++; return l; };
 const farmLevel = () => Math.floor(Object.values(state.inv.cropXp || {}).reduce((a, b) => a + b, 0) / 6);   // one level per six harvests of anything
@@ -46,6 +96,8 @@ function eatFood(food) {
   if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
   if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
+  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); say('A spring in your step.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
+  if (food === 'salad') inv.turnipRegen = (inv.turnipRegen || 0) + maxVig() * 0.15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
   refreshButtons();
 }
@@ -134,25 +186,26 @@ function entryCount(e) {
   if (!e) return 0;
   if (e.kind === 'food') return inv.food.filter(x => x === e.id).length;
   if (e.kind === 'seed') return inv.bag[e.id] || 0;
-  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : inv.sword ? 1 : 0;
+  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : e.id === 'woodsword' ? (inv.woodsword > 0 ? 1 : 0) : inv.sword ? 1 : 0;
   if (e.kind === 'ability') return e.id === 'dodge' ? (inv.step ? 1 : 0) : e.id === 'fire' ? (inv.fire ? 1 : 0) : e.id === 'flare' ? (wears('embercharm') ? 1 : 0) : 0;
   return 0;
 }
 const ABILITY_NAME = { dodge: 'Dodge', fire: 'Marsh fire', flare: 'Flare' };
 const ABILITY_ICON = { dodge: 'step', fire: 'fire', flare: 'ember' };
 function entryInfo(e) {
-  if (e.kind === 'food') return { icon: e.id, name: e.id[0].toUpperCase() + e.id.slice(1), verb: 'Eat' };
+  if (e.kind === 'food') return { icon: e.id, name: foodName(e.id), verb: 'Eat' };
   if (e.kind === 'seed') return { icon: e.id, name: SEEDS[e.id].name, verb: 'Plant' };
-  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : 'Acorns', verb: '' };
+  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : e.id === 'woodsword' ? 'Wooden sword' : 'Acorns', verb: '' };
   return { icon: ABILITY_ICON[e.id], name: ABILITY_NAME[e.id], verb: '' };
 }
 // everything you could put in a slot right now, in a steady order: weapons, abilities, food, seeds
 function slotOptions() {
   const inv = state.inv, o = [];
   if (inv.sword) o.push({ kind: 'weapon', id: 'sword' });
+  if (inv.woodsword > 0) o.push({ kind: 'weapon', id: 'woodsword' });
   if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn' });
   for (const id of ['dodge', 'fire', 'flare']) if (entryCount({ kind: 'ability', id })) o.push({ kind: 'ability', id });
-  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
+  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash', 'trailmix', 'mash', 'salad']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
   for (const f of [...new Set(inv.food)]) if (!o.some(e => e.kind === 'food' && e.id === f)) o.push({ kind: 'food', id: f });
   for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) o.push({ kind: 'seed', id: k });
   return o;
@@ -199,7 +252,7 @@ function tidySlots() {
 function slotShow(s) {
   if (!s || !entryCount(s)) return null;
   const n = entryCount(s);
-  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && s.id === 'sword' || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id };
+  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && (s.id === 'sword' || s.id === 'woodsword') || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id, wear: s.id === 'woodsword' ? state.inv.woodsword / WOOD_SWORD : null };
 }
 // the plant button: the slot holding seeds you have
 function seedSlotKey() {
@@ -258,6 +311,7 @@ function drawSlotBar(x0, y0, len, s) {
       ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
       ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
       if (show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
+      if (show.wear != null) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.5, y + s * 0.48, s, 3); ctx.fillStyle = show.wear > 0.35 ? '#d8b888' : '#ff9a6a'; ctx.fillRect(x - s * 0.5, y + s * 0.48, s * show.wear, 3); }
       ctx.textAlign = 'left'; right = x + s * 0.6;
     }
     x += s * 1.2 + gap;

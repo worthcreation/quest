@@ -791,13 +791,13 @@ function placePipNearHero() {
   const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
-function pipSay(key, text, at, sight = 7) {
+function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
   if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
-  if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
+  if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff', site });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -848,7 +848,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff' });
+      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff', site: v.site });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -880,10 +880,11 @@ function updatePip(dt) {
   if (sc.id === 'meadow' && inv.story === STORY.garden) {
     const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.turnipseed || 0;
     const nearPip = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 7;   // Pip stays put and calls things out from the garden
-    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!');
+    if (plot && nearPip) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 9 });
     if (!seeds && b && b.mode === 'perch' && nearPip) pipSay('robin-lesson', 'But first, seeds. See the robin? Run at it and it drops one. Go on!');
     if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`); } else if (b) p.robinHide = 0;
-    if (seeds && inv.firstBirdSeed && nearPip) pipSay('firstseed', `See? Turnip seeds! Stand on the rich soil and press ${seedKeyLabel()}.`);
+    const atPlots = plot && Math.hypot(h.x - plot[0] * W, h.y - plot[1] * H) < UNIT * 4;          // said at the site, and only while it's the thing in front of you
+    if (seeds && inv.firstBirdSeed && atPlots) pipSay('firstseed', 'Stand over here and shove them in the dirt! They love this stuff.', null, 7, { x: plot[0] * W, y: plot[1] * H, r: 6 });
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.');
     const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
@@ -912,6 +913,7 @@ function updatePip(dt) {
     if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
+    if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && (inv.pipTips || {}).shopping) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
     if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
     if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
@@ -1186,6 +1188,8 @@ const FORGE = [
   { k: 'temper', name: 'Tempered blade', what: 'Stabs hit harder.', how: 'Wrap the blade in ironwood and quench it with thorn sap. Finish with an ember bloom.', from: 'a smith\'s scrap somewhere in the Dank Cave', cost: [{ ironwood: 1, thorn: 1 }, { ironwood: 2, thorn: 2 }, { ironwood: 3, ember: 1 }] },
   { k: 'guard', name: 'Ironwood guard', what: 'Take less damage.', how: 'Shape ironwood into a guard, layered like a shell. A star petal seals the last layer.', from: 'taught by someone slow and patient', cost: [{ ironwood: 2 }, { ironwood: 3 }, { ironwood: 4, starpetal: 1 }] },
   { k: 'pouch', name: 'Ember pouch', what: 'Marsh fire spreads wider and burns longer.', how: 'Dry ember blooms in a pouch at your belt. They feed the spark.', from: 'taught by someone who knows a thing about gas', cost: [{ ember: 2 }, { ember: 3 }, { ember: 4, starpetal: 1 }] },
+  { k: 'silk', relic: true, name: 'Silk sling', what: 'Acorns fly faster and hit harder; at II they punch through; at III they tangle.', how: 'String diver silk into a sling for your acorns.', from: 'the silk of a diver', cost: [{ silkpart: 1 }, { silkpart: 1 }, { silkpart: 1 }] },
+  { k: 'horn', relic: true, name: 'Horn-lashed blade', what: 'Stabs hit harder and knock back; at II chained stabs hit harder still; at III they reach farther.', how: 'Lash a charger horn along the blade.', from: 'the horn of a charger', cost: [{ hornpart: 1 }, { hornpart: 1 }, { hornpart: 1 }] },
   { k: 'star', name: 'Star-petal hilt', what: 'Deeper vigor and a more forgiving whirlwind.', how: 'Bind two star petals into the grip.', from: 'an offering at a sunken shrine', cost: [{ starpetal: 2 }], max: 1 },
 ];
 function learnRecipe(k, source) {
@@ -1202,22 +1206,22 @@ function forgeItems() {
   const up = state.inv.up;
   return FORGE.map(f => {
     if (!state.inv.recipes[f.k]) return '??? (recipe not yet found)';
-    const lv = up[f.k], max = f.max || 3;
+    const lv = f.relic ? state.inv[f.k] || 0 : up[f.k], max = f.max || 3;
     return lv >= max ? `${f.name} ${'I'.repeat(lv)}: done` : `${f.name} ${'I'.repeat(lv + 1)}: ${costText(f.cost[lv])}`;
   }).concat('Back');
 }
 function forgeSelect(i) {
   const m = state.menu;
   if (i >= FORGE.length) { state.menu = null; return; }
-  const f = FORGE[i], inv = state.inv, lv = inv.up[f.k];
+  const f = FORGE[i], inv = state.inv, lv = f.relic ? inv[f.k] || 0 : inv.up[f.k];
   if (!inv.recipes[f.k]) { m.note = `You don't know how to make this yet. Hint: ${f.from}.`; return; }
   if (lv >= (f.max || 3)) { m.note = 'Already as good as it gets.'; return; }
   const c = f.cost[lv];
   if (!Object.entries(c).every(([k, n]) => inv.mats[k] >= n)) { m.note = `Need ${costText(c)}. ${f.what}`; return; }
   for (const [k, n] of Object.entries(c)) inv.mats[k] -= n;
-  inv.up[f.k]++;
+  if (f.relic) inv[f.k] = (inv[f.k] || 0) + 1; else inv.up[f.k]++;
   sfx.forge();
-  m.note = `${f.name} ${'I'.repeat(inv.up[f.k])}. ${f.what}`;
+  m.note = `${f.name} ${'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])}. ${f.relic ? RELICS[f.k].levels[inv[f.k] - 1] : f.what}`;
   if (f.k === 'star') state.hero.vig = maxVig();
   if (f.k === 'cap') { inv.scalp = true; showTitle('Stalker Cap', 'ears and all. what falls on your head bounces off', 'relic', 3.5); }
 }
@@ -1292,6 +1296,8 @@ function packCells(tab) {
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
     if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: slotActs({ kind: 'weapon', id: 'sword' }) });
+    if (inv.woodsword > 0) cells.push({ icon: 'woodsword', name: 'Wooden sword', line: `three sticks, lashed. ${Math.round(inv.woodsword / WOOD_SWORD * 100)}% left before it splinters apart`, mark: state.equip === 'woodsword', acts: slotActs({ kind: 'weapon', id: 'woodsword' }) });
+    if (inv.aug) cells.push({ icon: inv.aug.id, name: OUT_NAME[inv.aug.id], line: `on your blade: ${inv.aug.n} more hits` });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with their key; hold to throw harder', mark: state.equip === 'acorn', acts: slotActs({ kind: 'weapon', id: 'acorn' }) });
     cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
@@ -1312,7 +1318,7 @@ function packCells(tab) {
   }
   if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
     const fav = inv.favFood === f;
-    cells.push({ icon: f, name: f[0].toUpperCase() + f.slice(1), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
+    cells.push({ icon: f, name: foodName(f), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
       acts: [{ label: 'Eat', fn: () => { state.menu = null; eatFood(f); } }, { label: fav ? 'Stop eating first' : 'Eat first', fn: () => { inv.favFood = fav ? null : f; } }, ...slotActs({ kind: 'food', id: f }), drop(f, () => inv.food.splice(inv.food.indexOf(f), 1))] });
   }
   if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
