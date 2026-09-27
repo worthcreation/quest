@@ -2245,6 +2245,7 @@ function collect(it) {
       if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
     }
+    case 'lantern': inv.lantern = true; sfx.pickup(); showTitle('Candle lantern', 'a warm pool of light, wherever you go', 'relic', 3.6); break;
     case 'journal':
       inv.journal = 3; sfx.victory();
       showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);
@@ -4172,13 +4173,22 @@ function updatePip(dt) {
         const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
         let key, line;
         if (n(PIECE_OF[pc]) > 0) { key = 'set'; line = `Set the ${NAME[pc]} down right here!`; }
+        else if (!miss.length && !(inv.pipTips || {}).craftLesson) { key = 'have'; line = `Got it all for the ${NAME[pc]}! We'll put it together soon.`; }
         else if (!miss.length && pc === 'bench' && !n('glue')) { key = 'glue'; line = `Glue first: two fluff on the Craft mat (${K.menu.toUpperCase()}).`; }
         else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: a stick, glue and fluff (${K.menu.toUpperCase()}).`; }
         else { key = 'need-' + miss.join(','); line = `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`; }
         pipSay('camp-' + pc + '-' + key, line, at, 14, { x: at[0], y: at[1], r: 7 });
       }
       if (Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
-    } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    } else if (campDone() && !storyAt('adventure') && !state.cut) {
+      if (!(inv.pipTips || {}).campdone) {            // the big moment: Pip's line waits for you (F), then the feather, then dusk
+        (inv.pipTips = inv.pipTips || {}).campdone = true; p.visit = null;
+        say('Home base! We did it! Here, I found this feather. It\'s for you.', p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+        p.hop = { t: 0, n: 3 };
+      }
+      if (!gearOwned().includes('feather') && !heldText()) gainGear('feather');
+      if (gearOwned().includes('feather') && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (inv.acorns > 0 && !storyAt('adventure') && inv.quests && inv.quests.garden && inv.quests.garden.done != null) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
@@ -4189,22 +4199,26 @@ function updatePip(dt) {
     if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
-    if (!blade && fluffNeed && (raw.stick || 0) >= 3 && sc.id !== 'f1') pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
+    if (false) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
     if (sc.id === 'f1' && fluffNeed && state.items.some(i => i.type === 'fluff')) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
     const f1Empty = sc.id === 'f1' && !state.items.some(i => i.type === 'fluff');
-    if (f1Empty && fluffNeed) {                         // the fluff here is gone and it isn't enough: the rabbits, and a sword first
-      pipSay('more-fluff', 'Need one more! There are rabbits to the south... but they are mean!');
-      if (!blade && (raw.stick || 0) < 3 && (inv.pipTips || {})['more-fluff']) pipSay('more-sticks', 'Do you have enough sticks? Get some more back in the glade.');
-      if (!blade && (raw.stick || 0) >= 3 && (inv.pipTips || {})['more-fluff'] && pipSay('slap-sword', `Use what you have: slap together a wooden sword! ${K.menu.toUpperCase()}, Craft: stick, stick, stick. Then Combine.`)) hearRecipe('woodsword');
-      if (blade && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }   // the sword's done: say it now
+    // two tufts in hand: the crafting lesson, one page at a time, Pip waits on you (F each). Not a word of crafting before this.
+    if ((raw.fluff || 0) >= 2 && fluffNeed && !(inv.pipTips || {}).craftLesson && !heldText()) {
+      (inv.pipTips = inv.pipTips || {}).craftLesson = true; p.visit = null; hearRecipe('woodsword');
+      const enough = (raw.stick || 0) >= 3, M = K.menu.toUpperCase(), F = K.act.toUpperCase();
+      say(`Two tufts! The bench needs one more. There are rabbits to the south... but they are mean! Time you learned crafting. ` +
+        (enough ? `Open your pack: ${M}. Go to the Craft tab. Under Recipes, pick the wooden sword and press ${F}: three sticks go on the mat. Then ${F} on Combine!`
+                : `First, three sticks. Get some more back in the glade, then open your pack: ${M}, Craft tab, and make a wooden sword.`),
+        p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     }
+    if (f1Empty && fluffNeed && blade && (inv.pipTips || {}).craftLesson && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }
     if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
     if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
-    if ((raw.stick || 0) >= 3 && craftSlots() >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
+    if (false && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
-    if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
-    if (known.glue && craftSlots() >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Two stones and a stick make a fire ring!');
+    if (false) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
+    if (false) pipSay('craft3', 'Two stones and a stick make a fire ring!');
   }
   if (sc.id === 'start' && storyAt('adventure')) {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
@@ -4298,9 +4312,10 @@ function updateCut(dt) {
     const q = state.pip;
     if (at(2.2)) say('...and THAT\'S why we cannot wait until tomorrow!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(8.4)) say('Grab the lantern. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
+    if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
-    if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; state.inv.lantern = true; q.show = false; }
+    if (at(9.4) && !state.inv.lantern && !state.items.some(i => i.type === 'lantern')) { const lb = WORLD.tentin.feat.bedroll; state.items.push({ type: 'lantern', x: (lb[0] + 0.06) * W, y: (lb[1] + 0.1) * H }); }   // it's there on the floor by the bedroll
+    if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
   } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;
@@ -6651,7 +6666,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 91';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 92';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -8159,6 +8174,12 @@ function toggleWear(id) {
 // on the hero, every worn thing shows: drawn over the body at (x, top of head y), u = one tile
 function drawWorn(x, top, pw, ph, u) {
   const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
+  if (state.inv.lantern) {                           // the candle lantern, hanging at your side, flickering
+    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x + side * pw * 0.62, ly = top + ph * 0.62;
+    ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, ly - u * 0.2); ctx.lineTo(lx, ly - u * 0.08); ctx.stroke();
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(lx - u * 0.09, ly - u * 0.09, u * 0.18, u * 0.04); ctx.fillRect(lx - u * 0.09, ly + u * 0.12, u * 0.18, u * 0.04);
+    ctx.fillStyle = `rgba(255,${190 + 40 * f},90,${0.85 * f})`; ctx.fillRect(lx - u * 0.07, ly - u * 0.05, u * 0.14, u * 0.17);
+  }
   if (worn.includes('feather')) { ctx.save(); ctx.translate(x - side * pw * 0.25, top); ctx.rotate(-side * 0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, -u * 0.22, u * 0.07, u * 0.24, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -u * 0.44); ctx.stroke(); ctx.restore(); }
   if (worn.includes('stonecharm')) { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x, top + ph * 0.42, u * 0.09, u * 0.07, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - pw * 0.3, top + ph * 0.3); ctx.lineTo(x, top + ph * 0.36); ctx.lineTo(x + pw * 0.3, top + ph * 0.3); ctx.stroke(); }
   if (worn.includes('mitts')) { ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(x + sx * pw * 0.52, top + ph * 0.66, u * 0.1, 0, 6.28); ctx.fill(); } }
@@ -8415,6 +8436,9 @@ function drawItemIcon(type, x, y, s) {
     case 'mash': case 'salad': ctx.fillStyle = '#8a6a4a'; ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.22, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = type === 'mash' ? '#e8c07a' : '#9fcf6a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.36, s * 0.12, 0, 0, 6.28); ctx.fill();
       if (type === 'salad') { ctx.fillStyle = '#c0304a'; for (const [dx, dy] of [[-0.15, 0.02], [0.05, 0.06], [0.18, 0]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.05, 0, 6.28); ctx.fill(); } } else { ctx.fillStyle = '#e8792a'; ctx.fillRect(-s * 0.1, s * 0.03, s * 0.08, s * 0.05); } break;
     case 'trailmix': for (const [dx, dy, c] of [[-0.15, 0.05, '#a0662a'], [0.1, -0.05, '#6a2a5a'], [0.2, 0.12, '#a0662a'], [-0.02, 0.18, '#c0304a'], [-0.2, -0.12, '#6a2a5a']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.1, 0, 6.28); ctx.fill(); } break;
+    case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
+      ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
     case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
     case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
     case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;

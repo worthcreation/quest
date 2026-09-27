@@ -53,6 +53,11 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B92) {                             // build 92: the lantern (and feather) on the hero in the dark woods
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.lantern=true; gainGear('feather',true); state.title=null; enterScene('w1'); state.cut=null; state.enemies=[]; run(10); state.texts=[]; state.title=null; draw();
+  fs.writeFileSync('/tmp/b92.png', canvas.toBuffer('image/png')); console.log('b92 written');
+}
 if (process.env.B87) {                             // build 87: the Craft tab in sections, three places on the mat from the start
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('camp'); state.cut=null; run(3); state.texts=[]; state.title=null;

@@ -966,6 +966,7 @@ function collect(it) {
       if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
     }
+    case 'lantern': inv.lantern = true; sfx.pickup(); showTitle('Candle lantern', 'a warm pool of light, wherever you go', 'relic', 3.6); break;
     case 'journal':
       inv.journal = 3; sfx.victory();
       showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);

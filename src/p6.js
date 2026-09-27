@@ -1064,13 +1064,22 @@ function updatePip(dt) {
         const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
         let key, line;
         if (n(PIECE_OF[pc]) > 0) { key = 'set'; line = `Set the ${NAME[pc]} down right here!`; }
+        else if (!miss.length && !(inv.pipTips || {}).craftLesson) { key = 'have'; line = `Got it all for the ${NAME[pc]}! We'll put it together soon.`; }
         else if (!miss.length && pc === 'bench' && !n('glue')) { key = 'glue'; line = `Glue first: two fluff on the Craft mat (${K.menu.toUpperCase()}).`; }
         else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: a stick, glue and fluff (${K.menu.toUpperCase()}).`; }
         else { key = 'need-' + miss.join(','); line = `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`; }
         pipSay('camp-' + pc + '-' + key, line, at, 14, { x: at[0], y: at[1], r: 7 });
       }
       if (Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
-    } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    } else if (campDone() && !storyAt('adventure') && !state.cut) {
+      if (!(inv.pipTips || {}).campdone) {            // the big moment: Pip's line waits for you (F), then the feather, then dusk
+        (inv.pipTips = inv.pipTips || {}).campdone = true; p.visit = null;
+        say('Home base! We did it! Here, I found this feather. It\'s for you.', p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+        p.hop = { t: 0, n: 3 };
+      }
+      if (!gearOwned().includes('feather') && !heldText()) gainGear('feather');
+      if (gearOwned().includes('feather') && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (inv.acorns > 0 && !storyAt('adventure') && inv.quests && inv.quests.garden && inv.quests.garden.done != null) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
@@ -1081,22 +1090,26 @@ function updatePip(dt) {
     if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
     const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
-    if (!blade && fluffNeed && (raw.stick || 0) >= 3 && sc.id !== 'f1') pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
+    if (false) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
     if (sc.id === 'f1' && fluffNeed && state.items.some(i => i.type === 'fluff')) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
     const f1Empty = sc.id === 'f1' && !state.items.some(i => i.type === 'fluff');
-    if (f1Empty && fluffNeed) {                         // the fluff here is gone and it isn't enough: the rabbits, and a sword first
-      pipSay('more-fluff', 'Need one more! There are rabbits to the south... but they are mean!');
-      if (!blade && (raw.stick || 0) < 3 && (inv.pipTips || {})['more-fluff']) pipSay('more-sticks', 'Do you have enough sticks? Get some more back in the glade.');
-      if (!blade && (raw.stick || 0) >= 3 && (inv.pipTips || {})['more-fluff'] && pipSay('slap-sword', `Use what you have: slap together a wooden sword! ${K.menu.toUpperCase()}, Craft: stick, stick, stick. Then Combine.`)) hearRecipe('woodsword');
-      if (blade && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }   // the sword's done: say it now
+    // two tufts in hand: the crafting lesson, one page at a time, Pip waits on you (F each). Not a word of crafting before this.
+    if ((raw.fluff || 0) >= 2 && fluffNeed && !(inv.pipTips || {}).craftLesson && !heldText()) {
+      (inv.pipTips = inv.pipTips || {}).craftLesson = true; p.visit = null; hearRecipe('woodsword');
+      const enough = (raw.stick || 0) >= 3, M = K.menu.toUpperCase(), F = K.act.toUpperCase();
+      say(`Two tufts! The bench needs one more. There are rabbits to the south... but they are mean! Time you learned crafting. ` +
+        (enough ? `Open your pack: ${M}. Go to the Craft tab. Under Recipes, pick the wooden sword and press ${F}: three sticks go on the mat. Then ${F} on Combine!`
+                : `First, three sticks. Get some more back in the glade, then open your pack: ${M}, Craft tab, and make a wooden sword.`),
+        p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     }
+    if (f1Empty && fluffNeed && blade && (inv.pipTips || {}).craftLesson && !(inv.pipTips || {})['and-go']) { p.visit = null; state.pipTalkT = -99; pipSay('and-go', 'And go! South, to the rabbits!'); }
     if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
     if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
-    if ((raw.stick || 0) >= 3 && craftSlots() >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
+    if (false && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
-    if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
-    if (known.glue && craftSlots() >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Two stones and a stick make a fire ring!');
+    if (false) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
+    if (false) pipSay('craft3', 'Two stones and a stick make a fire ring!');
   }
   if (sc.id === 'start' && storyAt('adventure')) {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
@@ -1190,9 +1203,10 @@ function updateCut(dt) {
     const q = state.pip;
     if (at(2.2)) say('...and THAT\'S why we cannot wait until tomorrow!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(8.4)) say('Grab the lantern. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
+    if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
-    if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; state.inv.lantern = true; q.show = false; }
+    if (at(9.4) && !state.inv.lantern && !state.items.some(i => i.type === 'lantern')) { const lb = WORLD.tentin.feat.bedroll; state.items.push({ type: 'lantern', x: (lb[0] + 0.06) * W, y: (lb[1] + 0.1) * H }); }   // it's there on the floor by the bedroll
+    if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
   } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;

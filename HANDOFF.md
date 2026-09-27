@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 91, 27 Sep 2026)
+# Quest: handoff notes (as of build 92, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,21 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 92 in short
+- No crafting talk before the lesson: Pip's earlier craft lines (sword-first, woodsword, craft2, craft3) are off, and
+  camp marks say "Got it all for the fire ring! We'll put it together soon." until the lesson has happened.
+- The crafting lesson (p6, pipTips.craftLesson): once you have two tufts of fluff and the camp still needs one, Pip
+  says a held line (F turns each page): the bench needs one more, the rabbits are south and mean, time to learn
+  crafting, open the pack, Craft tab, pick the wooden sword under Recipes (F lays out three sticks), F on Combine. With
+  fewer than three sticks he sends you for sticks first. The wooden sword recipe is marked heard. "And go! South, to
+  the rabbits!" follows once you hold a blade.
+- The feather is back: at home base Pip's line waits for F ("Home base! We did it! Here, I found this feather. It's
+  for you." with a bounce), then the feather (banner, worn), then dusk.
+- The lantern is a real pickup: during the dusk scene it's placed on the floor by the bedroll (tentin) and Pip says
+  "Grab the lantern by my bed." No lantern, no light pool. Picked up, it hangs at your side and flickers (drawWorn),
+  with its own icon.
+- Tests: t92. tools/shot.js B92=1.
 
 ## Build 91 in short
 - Keys keep their jobs (laneAllows, p14): F takes blades only, D throwables only, A/S food and abilities. setSlot refuses

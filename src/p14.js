@@ -371,6 +371,12 @@ function toggleWear(id) {
 // on the hero, every worn thing shows: drawn over the body at (x, top of head y), u = one tile
 function drawWorn(x, top, pw, ph, u) {
   const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
+  if (state.inv.lantern) {                           // the candle lantern, hanging at your side, flickering
+    const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x + side * pw * 0.62, ly = top + ph * 0.62;
+    ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, ly - u * 0.2); ctx.lineTo(lx, ly - u * 0.08); ctx.stroke();
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(lx - u * 0.09, ly - u * 0.09, u * 0.18, u * 0.04); ctx.fillRect(lx - u * 0.09, ly + u * 0.12, u * 0.18, u * 0.04);
+    ctx.fillStyle = `rgba(255,${190 + 40 * f},90,${0.85 * f})`; ctx.fillRect(lx - u * 0.07, ly - u * 0.05, u * 0.14, u * 0.17);
+  }
   if (worn.includes('feather')) { ctx.save(); ctx.translate(x - side * pw * 0.25, top); ctx.rotate(-side * 0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, -u * 0.22, u * 0.07, u * 0.24, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -u * 0.44); ctx.stroke(); ctx.restore(); }
   if (worn.includes('stonecharm')) { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x, top + ph * 0.42, u * 0.09, u * 0.07, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - pw * 0.3, top + ph * 0.3); ctx.lineTo(x, top + ph * 0.36); ctx.lineTo(x + pw * 0.3, top + ph * 0.3); ctx.stroke(); }
   if (worn.includes('mitts')) { ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(x + sx * pw * 0.52, top + ph * 0.66, u * 0.1, 0, 6.28); ctx.fill(); } }
