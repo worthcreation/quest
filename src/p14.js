@@ -299,12 +299,13 @@ function slotActs(entry) {
 }
 // the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {
-  const slots = slotsOf(), gap = s * 0.35, w = ALL_SLOTS.length * s * 1.2 + (ALL_SLOTS.length - 1) * gap;
-  let x = Math.max(x0 + s * 0.6, x0 + len / 2 - w / 2 + s * 0.6), right = x0;
+  // only the filled ones are drawn, in A S D F order, as a group centred under the vigor bar
+  const slots = slotsOf(), gap = s * 0.35, on = ALL_SLOTS.filter(k => slotShow(slots[k])), w = on.length * s * 1.2 + Math.max(0, on.length - 1) * gap;
+  let x = x0 + len / 2 - w / 2 + s * 0.6, right = x0;
   const y = y0;
-  for (const k of ALL_SLOTS) {
+  for (const k of on) {
     const show = slotShow(slots[k]);
-    if (show) {
+    {
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       drawItemIcon(show.icon, x, y, s * 0.78);

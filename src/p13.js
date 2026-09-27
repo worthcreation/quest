@@ -298,7 +298,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 3.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }

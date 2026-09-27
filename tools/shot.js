@@ -53,6 +53,15 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B70) {                             // build 70: the Vale quest banner mid-rise, and the vigor bar at 8, 17 and 40
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; state.inv.sword=true; enterScene('start'); state.cut=null; state.enemies=[]; run(20); state.texts=[]; state.title=null;
+  showTitle('Find Pip', 'a new quest', 'herald', 3.6); run(40); state.texts=[]; draw(); fs.writeFileSync('/tmp/b70-banner.png', canvas.toBuffer('image/png'));
+  state.title=null; const inv=state.inv, h=state.hero; const strip=createCanvas(W*0.3, H*0.36), g=strip.getContext('2d');
+  [[0,8],[9,17],[32,25],[32,40]].forEach(([b,v],i)=>{ inv.vigBonus=b; h.vig=v; draw(); g.drawImage(canvas, 0, 0, W*0.3, H*0.09, 0, i*H*0.09, W*0.3, H*0.09); });
+  fs.writeFileSync('/tmp/b70-vigor.png', strip.toBuffer('image/png'));
+  console.log('b70 shots written');
+}
 if (process.env.B69) {                             // build 69: fixed vigor bar over the slots, wooden sword in hand, the Craft tab with recipes
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; enterScene('start'); state.cut=null; state.enemies=[]; run(3);

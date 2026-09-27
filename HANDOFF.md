@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 69, 27 Sep 2026)
+# Quest: handoff notes (as of build 70, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,24 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 70 in short
+- Quest banners (style 'herald', p5): the banner is drawn once into its own canvas (heraldImage, cached on the title as
+  T.img) and each frame only moved, unrolled from the middle and faded with smootherstep, so it no longer stutters (the
+  old per-frame shadowBlur was the cost). Themed by region: REGION_THEME, regionOf(sc) (sc.region, default 'vale').
+  Everything built so far is the Vale: green cloth ribbon, notched tails, gold trim, leaf sprigs. A new region sets
+  sc.region and adds a theme. "Quest complete" now uses the same banner (subtitle "quest complete"), still held for F,
+  and fades out over ~1.1 s when dismissed.
+- Vigor bar (p7 drawHUD): one layer = 17 vigor. Below 17 the bar grows with max vigor; at 17 it is the full width of the
+  slot row. Every further 17 lays another fill over the same bar, darker and more solid (layer(i), k = 1 - 0.55^i, no
+  limit); the top layer's room shows faintly; low vigor pulses a red frame. The depth gaps themselves already widen
+  (baseVig: 8, 12, 18, 27, 41, 61...). state.vigorBar records the geometry.
+- Slots: only filled slots draw, in A S D F order, as a group centred under the vigor bar (drawSlotBar).
+- Sparkles on items (drawGlints): about 1 to 2 per 10 s far off, one at a time (two at most within reach), 9 in 10 tiny
+  and faint (0.035 to 0.07 tiles, alpha under ~0.35), the rest up to the old size, 0.15 to 0.65 s each, and never twice
+  in the same spot running.
+- Tests: t70 (bar sizes/layers/centring, sparkle rates and sizes, banner caching and region, held completion banner).
+  tools/shot.js B70=1.
 
 ## Build 69 in short
 - Text stays while it's relevant. say(..., {site: {x, y, r}}) ties held text to a place: walk more than r tiles away and it

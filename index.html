@@ -1239,7 +1239,7 @@ function heldText() { return (state.title && state.title.hold) || state.texts.so
 // the action key clears one thing at a time: the quest alert first, then the oldest held speech.
 // Returns true when the press was used up this way.
 function dismissHeld() {
-  if (state.title && state.title.hold) { state.title.life = state.title.t + 0.3; state.title.hold = false; sfx.tock(); return true; }
+  if (state.title && state.title.hold) { state.title.life = state.title.t + (state.title.style === 'herald' ? 1.1 : 0.3); state.title.hold = false; sfx.tock(); return true; }
   const t = state.texts.find(o => o.hold);
   if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
   return false;
@@ -5802,18 +5802,33 @@ function drawFalls(open) {
 function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
-  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
-  const len = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35), hgt = Math.max(10, s * 0.55);   // fixed: exactly as wide as the A S D F row under it
-  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x0 - 3, y0 - 3, len + 6, hgt + 6);
-  const col = r > 0.6 ? '#9ee06a' : r > 0.35 ? '#e8c84a' : `rgba(230,90,60,${0.7 + 0.3 * Math.sin(state.time * 8)})`;
-  ctx.fillStyle = col; ctx.fillRect(x0, y0, len * r, hgt);
-  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x0, y0, len * r, hgt * 0.35);
-  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
-  for (let d = 1; d <= inv.depth; d++) { const xx = x0 + len * baseVig(d - 1) / mv; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + hgt); ctx.stroke(); }
-  ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3';
-  ctx.fillText(`vigor ${Math.ceil(h.vig)}/${mv}`, x0 + 4, y0 + hgt * 0.85);
+  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14, hgt = Math.max(10, s * 0.55);
+  // Vigor: the bar grows with your vigor up to one full layer of 17 (as wide as the A S D F row). Past that, each
+  // further 17 lays another fill over the same bar, darker and more solid than the one below, without end. The first
+  // fill is a very light green. The top layer's room shows faintly. Low on vigor, the frame pulses red.
+  const LAYER = 17, rowW = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35);
+  const len = rowW * Math.min(1, mv / LAYER), bx = x0 + (rowW - len) / 2;            // the bar and the slot row share a centre
+  const fills = Math.max(1, Math.ceil(mv / LAYER - 1e-9)), v = Math.max(0, h.vig);
+  const layer = i => { const k = 1 - Math.pow(0.55, i); return [Math.round(226 - 200 * k), Math.round(250 - 160 * k), Math.round(210 - 180 * k), 0.88 + 0.12 * k]; };
+  state.vigorBar = { x: bx, w: len, rowX: x0, rowW, fills };
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx - 3, y0 - 3, len + 6, hgt + 6);
+  { const top = fills - 1, [cr, cg, cb] = layer(top); ctx.fillStyle = `rgba(${cr},${cg},${cb},0.2)`; ctx.fillRect(bx, y0, rowW * Math.min(1, (mv - top * LAYER) / LAYER), hgt); }
+  for (let i = 0; i < fills; i++) {
+    const f = Math.max(0, Math.min(1, (v - i * LAYER) / LAYER));
+    if (f <= 0) break;
+    const [cr, cg, cb, ca] = layer(i);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${ca})`; ctx.fillRect(bx, y0, rowW * f, hgt);
+    if (i > 0) { ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx + rowW * f - 1, y0, 1, hgt); }   // where this layer's edge sits over the one below
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(bx, y0, rowW * Math.min(1, v / LAYER), hgt * 0.3);
+  if (r <= 0.35) { ctx.strokeStyle = `rgba(230,90,60,${0.55 + 0.45 * Math.sin(state.time * 8)})`; ctx.lineWidth = 2; ctx.strokeRect(bx - 2, y0 - 2, len + 4, hgt + 4); }
+  ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`;
+  const vt = len > rowW * 0.8 ? `vigor ${Math.ceil(h.vig)}/${mv}` : `${Math.ceil(h.vig)}/${mv}`;
+  const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
+  ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
+  ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
-  let x = drawSlotBar(x0, y0 + hgt + s * 0.95, len, s), y = y0 + hgt + s * 0.95;
+  let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {
     const k = 0.7; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6 * k, y - s * 0.6 * k, s * 1.2 * k, s * 1.2 * k);
     drawItemIcon(type, x, y, s * 0.8 * k);
@@ -5827,14 +5842,14 @@ function drawHUD() {
   if (inv.carrotBuff > 0) eff('carrot', inv.carrotBuff / 15);
   if (inv.squashBuff > 0) eff('squash', inv.squashBuff / 20);
   const need = 25 * Math.pow(1.35, inv.tlevel);
-  ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
+  ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(bx, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
   if (boss) {
     const bw = Math.min(W * 0.6, 420), bx = (W - bw) / 2, by = H - 34;
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
   drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
@@ -6134,7 +6149,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 69';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 70';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7205,7 +7220,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle('Quest complete', q.name, 'area', 2.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 3.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }
@@ -7565,12 +7580,13 @@ function slotActs(entry) {
 }
 // the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {
-  const slots = slotsOf(), gap = s * 0.35, w = ALL_SLOTS.length * s * 1.2 + (ALL_SLOTS.length - 1) * gap;
-  let x = Math.max(x0 + s * 0.6, x0 + len / 2 - w / 2 + s * 0.6), right = x0;
+  // only the filled ones are drawn, in A S D F order, as a group centred under the vigor bar
+  const slots = slotsOf(), gap = s * 0.35, on = ALL_SLOTS.filter(k => slotShow(slots[k])), w = on.length * s * 1.2 + Math.max(0, on.length - 1) * gap;
+  let x = x0 + len / 2 - w / 2 + s * 0.6, right = x0;
   const y = y0;
-  for (const k of ALL_SLOTS) {
+  for (const k of on) {
     const show = slotShow(slots[k]);
-    if (show) {
+    {
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       drawItemIcon(show.icon, x, y, s * 0.78);
@@ -7914,35 +7930,36 @@ function drawItems() {
     drawGlints(it, hsh);
   }
 }
-// Sparkles on things lying about. Far off, one small glint now and then. The closer you come the more often they
-// flash, the brighter and bigger, and the fancier (eight points, a turning star, a ring, a puff of motes). Within
-// reach of F they come thick and warm: that's the only cue; there's no button drawn. Each one lives a random while.
+// Sparkles on things lying about: sparse and light. Usually one glint at a time, and never twice in the same spot
+// in a row. Nine in ten are tiny and faint; now and then a bigger one (never bigger than a small star). They come a
+// little more often as you get close, and a touch warmer within reach of F; that's the only cue, no button drawn.
 const GLINTS = new WeakMap();
 function drawGlints(it, hsh) {
   const h = state.hero, d = Math.hypot(h.x - it.x, h.y - it.y) / UNIT, reach = d < PICK_R && h.z <= 0 && !state.carry;
   const near = Math.max(0, Math.min(1, 1 - (d - PICK_R) / 5));
-  const G = GLINTS.get(it) || { t: state.time, gl: [] }; GLINTS.set(it, G);           // kept off the item itself, so saves stay clean
+  const G = GLINTS.get(it) || { t: state.time, gl: [], lx: 0, ly: 0 }; GLINTS.set(it, G);
   const now = state.time, dt = Math.min(0.1, Math.max(0, now - G.t)); G.t = now;
-  const gl = G.gl;
-  const rate = 0.3 + near * near * 2.6 + (reach ? 6 : 0);
-  if (Math.random() < rate * dt && gl.length < 14) {
-    const c = Math.random() * (0.35 + near * 0.75 + (reach ? 0.4 : 0));      // how fancy this one gets
-    const kind = c < 0.45 ? 'star4' : c < 0.7 ? 'star8' : c < 0.9 ? 'spin' : c < 1.1 ? 'motes' : 'ring';
-    gl.push({ t0: now, dur: 0.22 + Math.random() * (0.5 + near * 0.9), kind, dx: (Math.random() - 0.5) * UNIT * (0.35 + near * 0.35), dy: -UNIT * (0.05 + Math.random() * 0.3),
-      r: UNIT * (0.12 + Math.random() * 0.1 + near * 0.12 + (reach ? 0.06 : 0)), rot: Math.random() * 6.28, warm: reach });
+  const gl = G.gl, rate = 0.12 + near * 0.5 + (reach ? 0.9 : 0), cap = reach ? 2 : 1;
+  if (gl.length < cap && Math.random() < rate * dt) {
+    let dx = 0, dy = 0;
+    for (let tries = 0; tries < 6; tries++) {                            // somewhere new each time
+      dx = (Math.random() - 0.5) * UNIT * 0.6; dy = -UNIT * (0.02 + Math.random() * 0.32);
+      if (Math.hypot(dx - G.lx, dy - G.ly) > UNIT * 0.22) break;
+    }
+    G.lx = dx; G.ly = dy;
+    const big = Math.random() < 0.1;
+    gl.push({ t0: now, dur: big ? 0.3 + Math.random() * 0.35 : 0.15 + Math.random() * 0.25, dx, dy,
+      r: big ? UNIT * (0.12 + Math.random() * 0.12) : UNIT * (0.035 + Math.random() * 0.035), a: big ? 0.45 + Math.random() * 0.3 : 0.18 + Math.random() * 0.17,
+      kind: big && Math.random() < 0.4 ? 'star8' : 'star4', warm: reach });
   }
   for (let i = gl.length - 1; i >= 0; i--) {
     const g = gl[i], p = (now - g.t0) / g.dur;
     if (p >= 1 || p < 0) { gl.splice(i, 1); continue; }
-    const k = Math.sin(p * Math.PI), x = it.x + g.dx, y = it.y + g.dy, r = g.r * k, a = (0.55 + 0.45 * near) * k;
-    const col = g.warm ? `rgba(255,236,150,${a})` : `rgba(255,250,225,${a})`;
-    ctx.fillStyle = col; ctx.strokeStyle = col;
-    const star = (rr, rot, pts = 4) => { ctx.beginPath(); for (let j = 0; j < pts * 2; j++) { const an = rot + j * Math.PI / pts, q = j % 2 ? rr * 0.22 : rr; ctx.lineTo(x + Math.cos(an) * q, y + Math.sin(an) * q); } ctx.closePath(); ctx.fill(); };
-    if (g.kind === 'star4') star(r, 0);
-    else if (g.kind === 'star8') { star(r, 0); star(r * 0.6, Math.PI / 4); }
-    else if (g.kind === 'spin') { star(r * 1.1, g.rot + p * 3); ctx.beginPath(); ctx.arc(x, y, r * 0.18, 0, 6.28); ctx.fill(); }
-    else if (g.kind === 'motes') { for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.arc(x + Math.cos(g.rot + j * 2.1) * r * 0.8, y - p * UNIT * 0.35 + Math.sin(g.rot + j * 2.1) * r * 0.4, Math.max(0.8, r * 0.14), 0, 6.28); ctx.fill(); } }
-    else { ctx.lineWidth = Math.max(1, r * 0.12); ctx.beginPath(); ctx.arc(x, y, r * (0.4 + p), 0, 6.28); ctx.stroke(); star(r * 0.7, g.rot); }
+    const k = Math.sin(p * Math.PI), x = it.x + g.dx, y = it.y + g.dy, r = g.r * k, a = g.a * k;
+    ctx.fillStyle = g.warm ? `rgba(255,238,170,${a})` : `rgba(255,252,235,${a})`;
+    const star = (rr, rot) => { ctx.beginPath(); for (let j = 0; j < 8; j++) { const an = rot + j * Math.PI / 4, q = j % 2 ? rr * 0.24 : rr; ctx.lineTo(x + Math.cos(an) * q, y + Math.sin(an) * q); } ctx.closePath(); ctx.fill(); };
+    star(r, 0);
+    if (g.kind === 'star8') star(r * 0.55, Math.PI / 4);
   }
 }
 // ---------- enemies ----------
@@ -8273,25 +8290,59 @@ function drawReadOn(x, y, size) {
   ctx.fillStyle = '#2a1e10'; ctx.fillText(lab, bx, by + 1);
   ctx.restore();
 }
+// ---------- quest banners, themed by region ----------
+// Every place so far (meadow, glade, riverbank, forest, marsh, swamp, camp, the hollows) is the first region, the Vale:
+// a green cloth ribbon with notched tails, gold trim and leaf sprigs. A new region adds its own theme here.
+const REGION_THEME = {
+  vale: { cloth: '#2f5a2a', cloth2: '#447e3a', edge: '#1d3a1a', trim: '#e8c86a', leaf: '#8cc05a', text: ['#fff8d8', '#f2d27a', '#c8942e'], ink: '#1f2a12', sub: '#e8f4d8' },
+  other: { cloth: '#3a3f55', cloth2: '#545b78', edge: '#22263a', trim: '#c8d0e8', leaf: '#a0a8c8', text: ['#ffffff', '#d8def0', '#9aa4c8'], ink: '#10131f', sub: '#e8ecf8' },
+};
+const regionOf = sc => (sc && sc.region) || 'vale';
+function heraldImage(T) {
+  const th = REGION_THEME[regionOf(sceneDef())] || REGION_THEME.other, dpr = Math.min(2, window.devicePixelRatio || 1);
+  const size = Math.min(W / 13, UNIT * 1.25), c = document.createElement('canvas'), g = c.getContext('2d');
+  const font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`; g.font = font;
+  const tw = Math.max(g.measureText(T.text).width, size * 4), bw = tw + size * 3.2, bh = size * 1.9, tail = size * 0.9, pad = size * 0.6;
+  c.width = Math.ceil((bw + tail * 2 + pad * 2) * dpr); c.height = Math.ceil((bh + size * 1.4 + pad) * dpr); c.dpr = dpr;
+  g.scale(dpr, dpr); g.font = font;                                      // resizing the canvas reset the font
+  const cx = c.width / dpr / 2, top = size * 1.1, y0 = top, y1 = top + bh, x0 = cx - bw / 2, x1 = cx + bw / 2;
+  // tails, tucked behind, with a notch
+  g.fillStyle = th.edge;
+  for (const s of [-1, 1]) { const xe = s < 0 ? x0 : x1, xo = xe + s * tail * 1.6; g.beginPath(); g.moveTo(xe, y0 + bh * 0.22); g.lineTo(xo, y0 + bh * 0.22); g.lineTo(xo - s * tail * 0.55, y0 + bh * 0.6); g.lineTo(xo, y1 + bh * 0.02); g.lineTo(xe, y1 + bh * 0.02); g.closePath(); g.fill(); }
+  // the cloth, a gentle wave, lighter across the middle
+  const grad = g.createLinearGradient(0, y0, 0, y1); grad.addColorStop(0, th.cloth2); grad.addColorStop(0.5, th.cloth); grad.addColorStop(1, th.edge);
+  g.fillStyle = grad; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, y0 - size * 0.25, x1, y0); g.lineTo(x1, y1); g.quadraticCurveTo(cx, y1 - size * 0.25, x0, y1); g.closePath(); g.fill();
+  g.strokeStyle = th.trim; g.lineWidth = Math.max(1.5, size * 0.05);
+  g.beginPath(); g.moveTo(x0 + size * 0.2, y0 + size * 0.14); g.quadraticCurveTo(cx, y0 - size * 0.1, x1 - size * 0.2, y0 + size * 0.14); g.stroke();
+  g.beginPath(); g.moveTo(x0 + size * 0.2, y1 - size * 0.14); g.quadraticCurveTo(cx, y1 - size * 0.38, x1 - size * 0.2, y1 - size * 0.14); g.stroke();
+  // leaf sprigs at each end
+  for (const s of [-1, 1]) { const lx = cx + s * (bw / 2 - size * 0.55), ly = (y0 + y1) / 2 - size * 0.05;
+    g.strokeStyle = th.leaf; g.lineWidth = Math.max(1, size * 0.04); g.beginPath(); g.moveTo(lx - s * size * 0.25, ly + size * 0.2); g.quadraticCurveTo(lx, ly, lx + s * size * 0.2, ly - size * 0.25); g.stroke();
+    g.fillStyle = th.leaf; for (const [dx, dy, r] of [[-0.1, 0.1, 0.5], [0.08, -0.08, -0.4], [0.16, -0.2, 0.3]]) { g.save(); g.translate(lx + s * dx * size, ly + dy * size); g.rotate(s * r); g.beginPath(); g.ellipse(0, 0, size * 0.13, size * 0.06, 0, 0, 6.28); g.fill(); g.restore(); } }
+  // the words: an ink shadow, then a gold gradient (no blur, so moving it is cheap)
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const ty = (y0 + y1) / 2 - size * 0.1;
+  g.fillStyle = th.ink; g.globalAlpha = 0.55; g.fillText(T.text, cx + size * 0.04, ty + size * 0.06); g.globalAlpha = 1;
+  const tg = g.createLinearGradient(0, ty - size / 2, 0, ty + size / 2); tg.addColorStop(0, th.text[0]); tg.addColorStop(0.55, th.text[1]); tg.addColorStop(1, th.text[2]);
+  g.fillStyle = tg; g.fillText(T.text, cx, ty);
+  g.font = `italic ${Math.round(size * 0.42)}px Georgia, serif`; g.fillStyle = th.sub; g.globalAlpha = 0.9; g.fillText(T.sub, cx, top - size * 0.45);
+  return c;
+}
 function drawTitle() {
   const T = state.title;
   if (!T) return;
   const k = T.t, fadeOut = Math.min(1, (T.life - k) / 0.6);
   ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  if (T.style === 'herald') {                        // a new quest: rises into view in gold, lingers, and melts away. No key needed.
-    const fin = Math.min(1, k / 0.8), fout = Math.min(1, (T.life - k) / 1.1), a = Math.min(fin, fout), e = 1 - Math.pow(1 - fin, 3);
-    const size = Math.min(W / 10, UNIT * 1.7) * (0.94 + 0.08 * (k / T.life)), y = H * 0.3 + (1 - e) * UNIT * 0.6;
-    ctx.globalAlpha = a * 0.5;                                            // a soft band of light behind it
-    const band = ctx.createLinearGradient(0, y - size * 1.6, 0, y + size * 1.2);
-    band.addColorStop(0, 'rgba(255,220,120,0)'); band.addColorStop(0.5, 'rgba(255,220,120,.28)'); band.addColorStop(1, 'rgba(255,220,120,0)');
-    ctx.fillStyle = band; ctx.fillRect(0, y - size * 1.6, W, size * 2.8);
-    ctx.globalAlpha = a * 0.85; ctx.fillStyle = '#fdf6e3'; ctx.font = `italic ${Math.round(size * 0.36)}px Georgia, serif`; ctx.fillText(T.sub, W / 2, y - size * 0.85);
-    ctx.globalAlpha = a; ctx.font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`;
-    ctx.shadowColor = '#ffcf5a'; ctx.shadowBlur = size * 0.35 * a; ctx.lineWidth = Math.max(2, size * 0.05); ctx.strokeStyle = '#3a2410'; ctx.strokeText(T.text, W / 2, y);
-    const gr = ctx.createLinearGradient(0, y - size / 2, 0, y + size / 2); gr.addColorStop(0, '#fff6c8'); gr.addColorStop(0.55, '#f2c94c'); gr.addColorStop(1, '#b8792a');
-    ctx.fillStyle = gr; ctx.fillText(T.text, W / 2, y); ctx.shadowBlur = 0;
-    const lw = Math.min(W * 0.5, size * 5) * e; ctx.strokeStyle = `rgba(255,227,138,${0.7 * a})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(W / 2 - lw / 2, y + size * 0.7); ctx.lineTo(W / 2 + lw / 2, y + size * 0.7); ctx.stroke();
-  } else if (T.style === 'quest') {
+  if (T.style === 'herald') {                        // quest banners: drawn once to their own canvas, then only moved and faded (smooth)
+    const img = T.img || (T.img = heraldImage(T));
+    const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * x * (x * (x * 6 - 15) + 10); };   // smootherstep
+    const fin = smooth(k / 0.9), unfurl = smooth(k / 0.75), fout = smooth((T.life - k) / 1.1), a = Math.min(fin, fout);
+    const drift = (1 - fin) * UNIT * 0.5 - (1 - fout) * UNIT * 0.35;
+    const dw = img.width / img.dpr, dh = img.height / img.dpr, x = W / 2 - dw / 2, y = H * 0.27 - dh / 2 + drift;
+    const vis = Math.max(1, img.width * unfurl), sx = (img.width - vis) / 2;           // the ribbon unrolls from the middle out
+    ctx.globalAlpha = a;
+    ctx.drawImage(img, sx, 0, vis, img.height, x + sx / img.dpr, y, vis / img.dpr, dh);
+    } else if (T.style === 'quest') {
     const pop = k < 0.35 ? 2.2 - 1.2 * (k / 0.35) : 1 + 0.04 * Math.sin(k * 6) * Math.max(0, 1 - k);
     const size = Math.min(W / 4.2, UNIT * 3.4) * pop;
     ctx.globalAlpha = Math.min(1, k / 0.1) * fadeOut;

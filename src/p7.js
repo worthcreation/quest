@@ -1097,18 +1097,33 @@ function drawFalls(open) {
 function drawHUD() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
   const h = state.hero, inv = state.inv, mv = maxVig(), r = Math.max(0, h.vig / mv);
-  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14;
-  const len = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35), hgt = Math.max(10, s * 0.55);   // fixed: exactly as wide as the A S D F row under it
-  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(x0 - 3, y0 - 3, len + 6, hgt + 6);
-  const col = r > 0.6 ? '#9ee06a' : r > 0.35 ? '#e8c84a' : `rgba(230,90,60,${0.7 + 0.3 * Math.sin(state.time * 8)})`;
-  ctx.fillStyle = col; ctx.fillRect(x0, y0, len * r, hgt);
-  ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x0, y0, len * r, hgt * 0.35);
-  ctx.strokeStyle = 'rgba(0,0,0,.35)'; ctx.lineWidth = 1;
-  for (let d = 1; d <= inv.depth; d++) { const xx = x0 + len * baseVig(d - 1) / mv; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + hgt); ctx.stroke(); }
-  ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3';
-  ctx.fillText(`vigor ${Math.ceil(h.vig)}/${mv}`, x0 + 4, y0 + hgt * 0.85);
+  const s = Math.min(24, UNIT * 0.6), x0 = 14, y0 = 14, hgt = Math.max(10, s * 0.55);
+  // Vigor: the bar grows with your vigor up to one full layer of 17 (as wide as the A S D F row). Past that, each
+  // further 17 lays another fill over the same bar, darker and more solid than the one below, without end. The first
+  // fill is a very light green. The top layer's room shows faintly. Low on vigor, the frame pulses red.
+  const LAYER = 17, rowW = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35);
+  const len = rowW * Math.min(1, mv / LAYER), bx = x0 + (rowW - len) / 2;            // the bar and the slot row share a centre
+  const fills = Math.max(1, Math.ceil(mv / LAYER - 1e-9)), v = Math.max(0, h.vig);
+  const layer = i => { const k = 1 - Math.pow(0.55, i); return [Math.round(226 - 200 * k), Math.round(250 - 160 * k), Math.round(210 - 180 * k), 0.88 + 0.12 * k]; };
+  state.vigorBar = { x: bx, w: len, rowX: x0, rowW, fills };
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx - 3, y0 - 3, len + 6, hgt + 6);
+  { const top = fills - 1, [cr, cg, cb] = layer(top); ctx.fillStyle = `rgba(${cr},${cg},${cb},0.2)`; ctx.fillRect(bx, y0, rowW * Math.min(1, (mv - top * LAYER) / LAYER), hgt); }
+  for (let i = 0; i < fills; i++) {
+    const f = Math.max(0, Math.min(1, (v - i * LAYER) / LAYER));
+    if (f <= 0) break;
+    const [cr, cg, cb, ca] = layer(i);
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${ca})`; ctx.fillRect(bx, y0, rowW * f, hgt);
+    if (i > 0) { ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx + rowW * f - 1, y0, 1, hgt); }   // where this layer's edge sits over the one below
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.16)'; ctx.fillRect(bx, y0, rowW * Math.min(1, v / LAYER), hgt * 0.3);
+  if (r <= 0.35) { ctx.strokeStyle = `rgba(230,90,60,${0.55 + 0.45 * Math.sin(state.time * 8)})`; ctx.lineWidth = 2; ctx.strokeRect(bx - 2, y0 - 2, len + 4, hgt + 4); }
+  ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`;
+  const vt = len > rowW * 0.8 ? `vigor ${Math.ceil(h.vig)}/${mv}` : `${Math.ceil(h.vig)}/${mv}`;
+  const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
+  ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
+  ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
-  let x = drawSlotBar(x0, y0 + hgt + s * 0.95, len, s), y = y0 + hgt + s * 0.95;
+  let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {
     const k = 0.7; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6 * k, y - s * 0.6 * k, s * 1.2 * k, s * 1.2 * k);
     drawItemIcon(type, x, y, s * 0.8 * k);
@@ -1122,14 +1137,14 @@ function drawHUD() {
   if (inv.carrotBuff > 0) eff('carrot', inv.carrotBuff / 15);
   if (inv.squashBuff > 0) eff('squash', inv.squashBuff / 20);
   const need = 25 * Math.pow(1.35, inv.tlevel);
-  ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
+  ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(bx, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
   if (boss) {
     const bw = Math.min(W * 0.6, 420), bx = (W - bw) / 2, by = H - 34;
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
+  state.hudRect = { x: 0, y: 0, w: Math.max(rowW + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
   drawQuestHud();
   drawArenaBanner();
   drawRapidsHud();
@@ -1429,7 +1444,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 69';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 70';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

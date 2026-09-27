@@ -439,7 +439,7 @@ function heldText() { return (state.title && state.title.hold) || state.texts.so
 // the action key clears one thing at a time: the quest alert first, then the oldest held speech.
 // Returns true when the press was used up this way.
 function dismissHeld() {
-  if (state.title && state.title.hold) { state.title.life = state.title.t + 0.3; state.title.hold = false; sfx.tock(); return true; }
+  if (state.title && state.title.hold) { state.title.life = state.title.t + (state.title.style === 'herald' ? 1.1 : 0.3); state.title.hold = false; sfx.tock(); return true; }
   const t = state.texts.find(o => o.hold);
   if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
   return false;
