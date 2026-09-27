@@ -278,10 +278,15 @@ function genWorld() {
   camp.feat.pip = [0.58, 0.44];
   npc(camp, { kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
+  camp.solids.slice(-3).forEach((s, i) => { s.showFlag = ['built_fire', 'built_tent', 'built_bench'][i]; });   // nothing is built at the start
+  camp.feat.buildSpots = [{ piece: 'fire', fx: 0.5, fy: 0.45, r: 0.9 }, { piece: 'tent', fx: 0.33, fy: 0.33, r: 1.3 }, { piece: 'bench', fx: 0.64, fy: 0.34, r: 0.9 }];
   claim(camp, 0.5, 0.45, 1.5); claim(camp, 0.33, 0.33, 1.8); claim(camp, 0.64, 0.34, 1.2);
   camp.feat.plots.forEach(p => claim(camp, p[0], p[1], 0.7));
   camp.feat.bench = [0.64, 0.34];
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
+  // raw materials lying about: enough for the camp, and a few spare in the glade and the meadow
+  const rawAt = (sc, type, box) => { const q = freeSpot(sc, box, 0.6, [[0.78, 0.62, 2.6]]); item(sc, { type, fx: q[0], fy: q[1] }); };   // clear of where the camp mushroom grows
+  for (const t of ['stick', 'stick', 'stick', 'stick', 'stone', 'stone', 'stone', 'fiber', 'fiber', 'fiber', 'fiber']) rawAt(camp, t, [0.12, 0.88, 0.2, 0.9]);
   edgeWall(camp, 'n', 'tree', 1.1, [], 1.5, 'green');
   edgeWall(camp, 'w', 'tree', 1.1, [], 1.6, 'green');
   edgeWall(camp, 'e', 'tree', 1.1, [], 1.6, 'green');
@@ -303,6 +308,7 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
+  for (const t of ['stick', 'stone', 'fiber', 'fiber']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   addPlots(start, 2, [0.15, 0.4, 0.6, 0.85]);
   decoFlowers(start, 26);
@@ -737,7 +743,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1998,6 +2004,10 @@ function collect(it) {
     case 'letter':
       say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
+    case 'stick': case 'stone': case 'fiber': case 'cloth':
+      rawOf()[it.type] = (rawOf()[it.type] || 0) + 1;
+      say(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, h.x, h.y - UNIT * 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
+      break;
     case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
     case 'rod': inv.rod = true; showTitle('Old Wick\'s fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
     case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
@@ -2817,7 +2827,12 @@ function interact() {
     if (d < UNIT * 3.2) say(`${K.act} to talk`, nx, ny - UNIT * 1.5, { key: 'talk-' + n.kind, tip: 'talk', life: 2.5 });
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
   }
-  if (sc.id === 'camp') {
+  for (const b of sc.feat.buildSpots || []) {
+    if (campBuilt(b.piece) || !pressedNow.act || Math.hypot(h.x - b.fx * W, h.y - b.fy * H) > UNIT * (b.r + 0.9)) continue;
+    if ((rawOf()[PIECE_OF[b.piece]] || 0) > 0) { placePiece(b); return true; }
+    say(`The ${RAW[PIECE_OF[b.piece]].toLowerCase()} goes here.`, b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2 }); return true;
+  }
+  if (sc.id === 'camp' && campBuilt('fire')) {
     const [fx, fy] = sc.feat.fire, d = Math.hypot(h.x - fx * W, h.y - fy * H);
     if (d < UNIT * 2.2) say(`${K.act} to rest by the fire`, fx * W, fy * H - UNIT * 1.2, { key: 'fire', tip: 'rest', life: 3 });
     if (d < UNIT * 1.7 && pressedNow.act) {
@@ -2827,7 +2842,7 @@ function interact() {
       return true;
     }
   }
-  if (sc.feat.bench) {
+  if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
     if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
@@ -2968,8 +2983,9 @@ function findInteractable() {
     for (const p of sc.pullables) if (!rt.pulled.has(p.id)) add(p.fx * W, p.fy * H, 'Pull', 1.8);
     for (const it of state.items) if (it.type === 'bigrock') add(it.x, it.y, 'Lift', 1.3);
   }
-  if (f.fire && sc.id === 'camp') add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
-  if (f.bench) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
+  if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
+  if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
+  for (const b of f.buildSpots || []) if (!campBuilt(b.piece) && (rawOf()[PIECE_OF[b.piece]] || 0) > 0) add(b.fx * W, b.fy * H, 'Build', b.r + 0.9);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
   if (f.plots && !state.carry) {
     const plots = rt.flags.plots || [];
@@ -3479,6 +3495,7 @@ function pipWithYou() {
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
 }
 function pipExit(sc) {                                // the exit that gets us closer to the woods gate
+  if (sc.id === 'camp' && !campDone()) return null;    // camp first
   let best = null, bd = screensBetween(sc.id, 'w2');
   for (const ex of sc.exits) { const d = screensBetween(ex.to, 'w2'); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
   return best || sc.exits.find(ex => ex.to === 'w2' || ex.to === 'w1') || null;
@@ -3540,13 +3557,25 @@ function updatePip(dt) {
   if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
+  const P = q => [q[0] * W, q[1] * H];
   if (sc.id === 'camp') {
-    pipSay('go', 'The glade\'s south. Come on!');
-    const P = q => [q[0] * W, q[1] * H];
-    if (f.bench && near(...f.bench, 4)) pipSay('bench', 'My workbench. We can make stuff here.', P(f.bench));
-    const plot = f.plots && f.plots.find(q => near(...q, 3));
+    const raw = rawOf(), known = inv.known || {}, spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
+    if (!campDone()) {
+      pipSay('gather', 'Grab sticks, stones and those grass tufts. Everything we need is right here.');
+      if ((raw.fiber || 0) >= 2 && !known.cord) pipSay('craft2', `Twist two grass tufts into cord. Open your pack, ${K.menu}, and use the Craft tab.`);
+      if (known.cord && (inv.craftSlots || 2) >= 3 && !known.firering) pipSay('craft3', 'Now three things at once! Two stones and a stick make a fire ring.');
+      for (const pc of ['fire', 'bench', 'tent']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, `Set it down on the marks, right here.`, P([spot(pc).fx, spot(pc).fy]));
+      if (campBuilt('fire')) pipSay('fireok', 'A real fire! Now a bench: two sticks and cord. Then my blanket makes a tent.');
+      if (!known.stake && known.benchkit) pipSay('stake', 'For the tent we need a stake. A stick sharpened on a stone!');
+    } else {
+      pipSay('campdone', 'Our very own camp! Now... treasure. The glade\'s south, come on!');
+      if (f.bench && near(...f.bench, 4)) pipSay('bench', 'The bench is for proper crafting, later.', P(f.bench));
+      if (f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
+    }
+  }
+  if (sc.id === 'start') {
+    const plot = f.plots && f.plots.find(q => near(...q, 4));
     if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
-    if (f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (sc.id === 'start') {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
@@ -3625,11 +3654,11 @@ function updateCut(dt) {
   c.t += dt;
   if (c.type === 'intro') {
     const p = state.pip;
-    if (c.t < 5 && (pressedNow.act || pressedNow.fire)) { c.t = 5; c.step = 50; unsay('npc'); }
-    if (at(0.8)) say('Perfect day to explore the old woods!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4 });
-    if (at(1.5)) say(`${K.act} skips`, W / 2, H - UNIT * 1.5, { key: 'skip', life: 3, tip: 'skip' });
-    if (at(3.1)) say('I\'ll show you the way. Stick with me!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 });
-    if (at(5.5)) { state.cut = null; p.follow = true; }
+    if (c.t < 8.2 && (pressedNow.act || pressedNow.fire)) { c.t = 8.2; c.step = 82; unsay('npc'); if (!(rawOf().cloth > 0)) rawOf().cloth = 1; }
+    if (at(0.6)) say('...and Old Wick swears there\'s treasure out past the woods. Real treasure!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 });
+    if (at(3.4)) say('But no adventure without a camp. Rule one.', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.6 });
+    if (at(5.8)) { say('I brought my old blanket. That\'s our tent, sorted. Sort of.', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 }); if (!(rawOf().cloth > 0)) rawOf().cloth = 1; }
+    if (at(8.6)) { state.cut = null; p.follow = true; }
   } else if (c.type === 'abduct') {
     const p = state.pip, gs = state.gremlins;
     if (at(0.3)) say('It opened! Hey, what\'s that rustling...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
@@ -3831,7 +3860,7 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
+const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
@@ -3871,6 +3900,7 @@ function systemSelect(i) {
 const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
 function packCells(tab) {
+  if (tab === 'Craft') return craftCells();
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
@@ -3943,6 +3973,7 @@ function updatePack() {
   if (pressedNow.right) mv(1);
   if (pressedNow.down) mv(cols);
   if (pressedNow.up) { if (m.sel < cols) { m.focus = 'tabs'; sfx.tock(); } else mv(-cols); }
+  if (tab === 'Craft' && pressedNow.act) { craftCellAct(cell); return; }
   if (pressedNow.act && cell && cell.acts && cell.acts.length) { m.focus = 'acts'; m.act = 0; sfx.tock(); }
 }
 const MAIN = () => MAIN_ITEMS().map(o => o[1]);
@@ -4045,6 +4076,7 @@ function loadSlot(i) {
   Object.assign(state.inv, d.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
+  if (!d.inv.raw && (state.inv.sword || state.inv.pipTaken || state.inv.pipSaved || state.seen.w1)) { const rt = rtFor('camp'); for (const pc of ['fire', 'tent', 'bench']) rt.flags['built_' + pc] = true; refreshSceneGeometry(); }
   state.hero.vig = Math.min(maxVig(), d.hero.vig);
   sayHero('Game loaded.', { life: 1.5 });
   return true;
@@ -4234,6 +4266,7 @@ function drawScene(sc) {
   drawRiverQuest(sc);
   if (sc.feat.signs) drawArenaSigns(sc);
   if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
+  if (sc.feat.buildSpots) drawBuildSpots(sc);
   if (sc.gusts) drawLandingShadow();
   if (sc.feat.portals) drawPuzzlePortals(sc);
   drawShadows();
@@ -5286,6 +5319,7 @@ function drawPack(m, x, y, pw, fs) {
     }
     return;
   }
+  if (tab === 'Craft') y += drawCraftMat(px, y + fs * 0.6, pwide, fs) + fs * 1.2;
   const cells = packCells(tab);
   const cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
   m.cols = cols;
@@ -5304,7 +5338,7 @@ function drawPack(m, x, y, pw, fs) {
     if (c.pips) for (let p = 0; p < 3; p++) { ctx.fillStyle = p < c.pips ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.beginPath(); ctx.arc(cx + 9 + p * 9, cy + cs - 9, 3, 0, 6.28); ctx.fill(); }
     if (c.star) { ctx.fillStyle = '#ffe38a'; ctx.beginPath(); for (let p = 0; p < 10; p++) { const a = p * Math.PI / 5 - Math.PI / 2, r0 = p % 2 ? 3 : 7; ctx.lineTo(cx + 12 + Math.cos(a) * r0, cy + 12 + Math.sin(a) * r0); } ctx.fill(); }
     if (c.done) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + cs - 20, cy + 12); ctx.lineTo(cx + cs - 14, cy + 18); ctx.lineTo(cx + cs - 6, cy + 7); ctx.stroke(); }
-    hits.push({ x: cx, y: cy, w: cs, h: cs, fn: () => { if (m.sel === i && m.focus !== 'tabs' && c.acts && c.acts.length) { m.focus = 'acts'; m.act = 0; } else { m.sel = i; m.focus = 'grid'; } } });
+    hits.push({ x: cx, y: cy, w: cs, h: cs, fn: () => { if (tab === 'Craft') { m.sel = i; m.focus = 'grid'; craftCellAct(c); return; } if (m.sel === i && m.focus !== 'tabs' && c.acts && c.acts.length) { m.focus = 'acts'; m.act = 0; } else { m.sel = i; m.focus = 'grid'; } } });
   });
   // detail: name, one line, actions
   const c = m.focus !== 'tabs' ? cells[m.sel] : null, dy = H - fs * 6.8;
@@ -5365,6 +5399,7 @@ function tipLibrary() {
     `${K.eat} eats. Choose which food comes first in the Food tab.`,
     `Carrying a rock: hold ${K.act} to aim, tap to set it down.`,
     'More max vigor means longer, higher jumps.',
+    'Craft: put things on the mat, and if they make something, the result shows. Start with two, later three.',
     'Mountain gusts come in threes: two gentle, then a strong one from the same way. Watch the tall grass.',
     'Jump any time during the strong gust and it carries you to the next ledge downwind.',
     'The wind can\'t move you on a grassy ledge or a rock. Wait there for the gust you want.',
@@ -5415,7 +5450,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 51';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 52';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6168,6 +6203,117 @@ function drawRideVignette() {
 }
 
 // =====================================================================
+// Setting up camp: the game opens with nothing built. Gather sticks, stones and grass, combine them
+// (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
+// =====================================================================
+const RAW = { stick: 'Stick', stone: 'Stone', fiber: 'Grass tuft', cloth: 'Old blanket', cord: 'Cord', stake: 'Stake', firering: 'Fire ring', benchkit: 'Workbench', tentkit: 'Tent' };
+const RECIPES = [
+  { out: 'cord', in: ['fiber', 'fiber'], line: 'two grass tufts, twisted' },
+  { out: 'stake', in: ['stick', 'stone'], line: 'a stick sharpened on a stone' },
+  { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'benchkit', in: ['stick', 'stick', 'cord'], line: 'sticks lashed with cord', piece: 'bench' },
+  { out: 'tentkit', in: ['stake', 'cord', 'cloth'], line: 'the blanket, pegged and tied', piece: 'tent' },
+];
+const PIECE_OF = { fire: 'firering', bench: 'benchkit', tent: 'tentkit' };
+const campBuilt = p => !!rtFor('camp').flags['built_' + p];
+const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
+function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
+function matAvailable(k) { return (rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
+function matMatch() {
+  const m = (state.mat || []).slice().sort().join('+');
+  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m) || null;
+}
+function craftNow() {
+  const r = matMatch(), inv = state.inv, raw = rawOf();
+  if (!r) { state.mat = []; sfx.tock(); return; }
+  for (const k of r.in) raw[k]--;
+  raw[r.out] = (raw[r.out] || 0) + 1;
+  const first = !(inv.known || {})[r.out];
+  (inv.known = inv.known || {})[r.out] = true;
+  state.mat = [];
+  sfx.forge(); state.menu && (state.menu.note = `Made: ${RAW[r.out]}${first ? ' (new!)' : ''}`);
+  if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; state.menu && (state.menu.note += '. Now you can combine three things.'); }
+}
+// the Craft tab: the mat, what it makes, and the things you can put on it
+function craftCells() {
+  const r = matMatch(), cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${RAW[r.out]}` : (state.mat || []).length ? 'Clear the mat' : 'The mat', line: r ? r.line : (state.mat || []).length ? 'that doesn\'t make anything yet' : 'pick things below to put them on the mat', mat: true }];
+  for (const k of Object.keys(RAW)) if ((rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: matAvailable(k), line: RECIPES.find(x => x.out === k && x.piece) ? 'set it down on its mark at camp' : 'tap to put it on the mat', raw: k });
+  return cells;
+}
+function craftCellAct(c) {
+  if (!c) return;
+  if (c.mat) { craftNow(); return; }
+  if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
+  const slots = state.inv.craftSlots || 2;
+  if ((state.mat || []).length >= slots) { state.menu.note = 'The mat is full. Combine or clear it.'; return; }
+  if (matAvailable(c.raw) <= 0) return;
+  (state.mat = state.mat || []).push(c.raw); sfx.tock();
+}
+function drawCraftMat(px, y, pwide, fs) {
+  const slots = state.inv.craftSlots || 2, s = Math.max(48, Math.min(64, UNIT * 1.5)), gap = 12, r = matMatch();
+  const total = slots * (s + gap) + fs * 2 + s, x0 = (W - total) / 2;
+  ctx.textAlign = 'center';
+  for (let i = 0; i < slots; i++) {
+    const x = x0 + i * (s + gap), k = (state.mat || [])[i];
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(x, y, s, s);
+    ctx.strokeStyle = 'rgba(255,227,138,.45)'; ctx.setLineDash([5, 4]); ctx.lineWidth = 2; ctx.strokeRect(x, y, s, s); ctx.setLineDash([]);
+    if (k) drawItemIcon(k, x + s / 2, y + s / 2, s * 0.62);
+    if (i < slots - 1) { ctx.fillStyle = '#d8d0c0'; ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.fillText('+', x + s + gap / 2, y + s / 2 + fs * 0.35); }
+  }
+  const ex = x0 + slots * (s + gap);
+  ctx.fillStyle = '#d8d0c0'; ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.fillText('=', ex + fs * 0.6, y + s / 2 + fs * 0.35);
+  const rx = ex + fs * 1.6;
+  ctx.fillStyle = r ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.04)'; ctx.fillRect(rx, y, s, s);
+  ctx.strokeStyle = r ? '#ffe38a' : 'rgba(255,255,255,.2)'; ctx.lineWidth = 2; ctx.strokeRect(rx, y, s, s);
+  if (r) drawItemIcon(r.out, rx + s / 2, y + s / 2, s * 0.62); else { ctx.fillStyle = 'rgba(253,246,227,.35)'; ctx.fillText('?', rx + s / 2, y + s / 2 + fs * 0.35); }
+  // recipes you've made, as little sums
+  const known = RECIPES.filter(x => (state.inv.known || {})[x.out]);
+  let kx = px, ky = y + s + fs * 1.2; const ks = fs * 1.3;
+  ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.7)}px "Courier New", monospace`;
+  for (const k of known) {
+    let x = kx;
+    k.in.forEach((it, j) => { drawItemIcon(it, x + ks / 2, ky, ks * 0.8); x += ks; if (j < k.in.length - 1) { ctx.fillStyle = '#b0a898'; ctx.fillText('+', x, ky + 4); x += fs * 0.6; } });
+    ctx.fillStyle = '#b0a898'; ctx.fillText('=', x + 2, ky + 4); x += fs * 0.8; drawItemIcon(k.out, x + ks / 2, ky, ks * 0.8); x += ks + fs;
+    kx = x; if (kx > px + pwide - ks * 5) { kx = px; ky += ks * 1.1; }
+  }
+  if (state.menu && state.menu.note) { ctx.textAlign = 'center'; ctx.fillStyle = '#b8f28a'; ctx.font = `${Math.round(fs * 0.85)}px "Courier New", monospace`; ctx.fillText(state.menu.note, W / 2, y - fs * 0.5); }
+  ctx.textAlign = 'center';
+  return ky + ks * 0.8 - y;                            // height used
+}
+// camp marks: a dashed outline where each piece goes, until it's built
+function drawBuildSpots(sc) {
+  for (const b of sc.feat.buildSpots || []) {
+    if (campBuilt(b.piece)) continue;
+    const x = b.fx * W, y = b.fy * H, u = UNIT, r = b.r * u;
+    ctx.strokeStyle = `rgba(255,240,200,${0.45 + 0.2 * Math.sin(state.time * 3)})`; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.6, 0, 0, 6.28); ctx.stroke(); ctx.setLineDash([]);
+    ctx.globalAlpha = 0.35; drawItemIcon(PIECE_OF[b.piece], x, y - u * 0.1, u * 0.9); ctx.globalAlpha = 1;
+  }
+}
+function placePiece(b) {
+  const raw = rawOf(), k = PIECE_OF[b.piece], rt = rtFor('camp');
+  raw[k]--; rt.flags['built_' + b.piece] = true;
+  refreshSceneGeometry(); sfx.forge(); sfx.pickup(); zoomPulse(b.fx * W, b.fy * H, 'pickup'); spark(b.fx * W, b.fy * H, '#ffe38a', 14, 3);
+  if (b.piece === 'fire') state.fireLit = 1;
+}
+// icons for the raw stuff and what it becomes
+function drawRawIcon(type, s) {
+  switch (type) {
+    case 'stick': ctx.save(); ctx.rotate(-0.6); ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.42, -s * 0.05, s * 0.84, s * 0.1); ctx.fillRect(s * 0.1, -s * 0.05, s * 0.18, -s * 0.1); ctx.restore(); return true;
+    case 'stone': ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.32, s * 0.24, 0.2, 0, 6.28); ctx.fill(); ctx.fillStyle = '#b8b2a6'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.03, s * 0.12, s * 0.07, 0.2, 0, 6.28); ctx.fill(); return true;
+    case 'fiber': ctx.strokeStyle = '#8fae4a'; ctx.lineWidth = Math.max(1.5, s * 0.06); for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.05, s * 0.35); ctx.quadraticCurveTo(i * s * 0.12, 0, i * s * 0.2, -s * 0.38); ctx.stroke(); } return true;
+    case 'cloth': ctx.fillStyle = '#b05a4a'; ctx.fillRect(-s * 0.34, -s * 0.28, s * 0.68, s * 0.56); ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.34, i * s * 0.16); ctx.lineTo(s * 0.34, i * s * 0.16); ctx.stroke(); } return true;
+    case 'cord': ctx.strokeStyle = '#c9b070'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.beginPath(); for (let a = 0; a < 12; a += 0.3) ctx.lineTo(Math.cos(a) * s * (0.1 + a * 0.02), Math.sin(a) * s * (0.1 + a * 0.02)); ctx.stroke(); return true;
+    case 'stake': ctx.fillStyle = '#8a6a3a'; ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, s * 0.2); ctx.lineTo(0, s * 0.42); ctx.lineTo(-s * 0.06, s * 0.2); ctx.fill(); return true;
+    case 'firering': for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.2, s * 0.1, s * 0.08, 0, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.15, -s * 0.03, s * 0.3, s * 0.06); return true;
+    case 'benchkit': ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.14); ctx.fillRect(-s * 0.32, 0, s * 0.08, s * 0.3); ctx.fillRect(s * 0.24, 0, s * 0.08, s * 0.3); return true;
+    case 'tentkit': ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(0, -s * 0.38); ctx.lineTo(s * 0.4, s * 0.3); ctx.lineTo(-s * 0.4, s * 0.3); ctx.fill(); ctx.fillStyle = '#3a2616'; ctx.beginPath(); ctx.moveTo(0, -s * 0.05); ctx.lineTo(s * 0.12, s * 0.3); ctx.lineTo(-s * 0.12, s * 0.3); ctx.fill(); return true;
+    case 'mat': ctx.strokeStyle = 'rgba(255,227,138,.7)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeRect(-s * 0.35, -s * 0.3, s * 0.7, s * 0.6); ctx.setLineDash([]); return true;
+  }
+  return false;
+}
+
+// =====================================================================
 // Drawing
 // =====================================================================
 // ---------- shared pieces ----------
@@ -6195,6 +6341,7 @@ function drawScalp(x, top, w) {                  // stalker scalp: fur cap, ears
   for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * w * 0.18, top + w * 0.1); ctx.lineTo(x + i * w * 0.18 + w * 0.04, top - w * 0.04); ctx.stroke(); }
 }
 function drawItemIcon(type, x, y, s) {
+  if (RAW[type] || type === 'mat') { ctx.save(); ctx.translate(x, y); const done = drawRawIcon(type, s); ctx.restore(); if (done) return; }
   ctx.save(); ctx.translate(x, y);
   switch (type) {
     case 'scalp': drawScalp(0, s * 0.2, s * 1.05); break;
