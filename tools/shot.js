@@ -53,6 +53,13 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B77) {                             // build 77: the book as a two-page spread, and the tiles overlay
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; enterScene('tentin'); state.cut=null; run(3); state.texts=[]; state.title=null;
+  state.menu={view:'book',page:2}; draw(); fs.writeFileSync('/tmp/b77-book.png', canvas.toBuffer('image/png')); state.menu=null;
+  state.settings.tiles=true; enterScene('riverbank'); state.hero.x=W*0.5; state.hero.y=H*0.8; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b77-tiles.png', canvas.toBuffer('image/png')); state.settings.tiles=false;
+  console.log('b77 shots written');
+}
 if (process.env.B76) {                             // build 76: a waiting line vs a free line
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.garden; enterScene('meadow'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;

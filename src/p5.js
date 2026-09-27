@@ -709,6 +709,7 @@ function drawTitle() {
 // =====================================================================
 // Start
 // =====================================================================
+if (document.fonts && document.fonts.load) document.fonts.load('24px Caveat').catch(() => {});   // Pip's handwriting for the book
 const startEl = document.getElementById('start');
 // ---------------- full screen on phones ----------------
 const standalone = () => window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;

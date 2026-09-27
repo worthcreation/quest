@@ -30,7 +30,7 @@ function interact() {
       if (state.inv.pipSaved) {
         showTitle('Traveler\'s Mushroom', `its spores will remember ${SHROOM_NAMES[sc.id]}`, 'relic', 3.5);
         say(`${K.act} at any mushroom you've found to travel between them.`, mx * W, my * H - UNIT * 1.6, { key: 'shroom', tip: 'shroom', life: 5 });
-      } else say('A giant mushroom, glowing faintly.', mx * W, my * H - UNIT * 2, { key: 'shroom', life: 2.5 });
+      } else if (!state.intro) say('A giant mushroom, glowing faintly.', mx * W, my * H - UNIT * 2, { key: 'shroom', life: 2.5 });
     }
     // found mushrooms grow spores over time; walk up to gather them
     if (d < UNIT * 2.3 && state.inv.shrooms[sc.id]) {
@@ -262,10 +262,11 @@ function riverSideQuest(sc, h) {
   const inv = state.inv, f = sc.feat;
   if (f.farside) {
     const [fx, fy] = f.farside, x = fx * W, y = fy * H, rt = rtFor(sc.id);
-    const nearSide = !isChasm(h.x, h.y) && (h.x / W + h.y / H > 0.62);          // south of the river
-    if (nearSide && !rt.flags.sawFarside && state.time - (state.enterT || 0) > 1.2) {   // seen from across: a mystery, not yet a quest
+    // Nothing is said about the far side until you're actually over there and can see it plainly (inView: close, and no
+    // river or trees between). From the start side it's just a place on the map. Never during Pip's opening.
+    if (!rt.flags.sawFarside && !state.intro && !speakingNow() && inView(x, y + UNIT * 0.6, 6)) {
       rt.flags.sawFarside = true;
-      say('Across the water: a shack, a jetty, and something made of logs. No way over from here.', x + UNIT * 3, y + UNIT * 1.5, { key: 'farside', life: 5 });
+      say('A shack, a jetty, and something made of logs. Somebody lives here. Or did.', x + UNIT * 2, y - UNIT * 1.2, { key: 'farside', life: 5 });
     }
     // on the far side (reached by crossing the ford): the sign, the unfinished raft, the shack door
     const sign = [x + UNIT * 1.35, y - UNIT * 0.4], door = [x - UNIT * 0.05, y + UNIT * 0.65], wreck = [x - UNIT * 0.05, y + UNIT * 1.35];
@@ -1324,6 +1325,7 @@ const SYSTEM_ITEMS = () => [
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
   ['labels', `Action labels: ${state.settings.labels === false ? 'off' : 'on'}`],
+  ['tiles', `Show tiles: ${state.settings.tiles ? 'on' : 'off'}`],
   ['levels', 'Testing: set levels'],
   ['new', 'New adventure'],
 ];
@@ -1345,6 +1347,7 @@ function systemSelect(i) {
   if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
   if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
   if (key === 'levels') Object.assign(m, { view: 'levels', sel: 0, note: '' });
+  if (key === 'tiles') { state.settings.tiles = !state.settings.tiles; state.tileCache = null; saveSettings(); }
   if (key === 'sound') setSound(!soundOn);
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
@@ -1537,7 +1540,7 @@ function updateMenu() {
   if (m.view === 'pack') { updatePack(); return; }
   if (m.view === 'poses') { if (pressedNow.act) state.menu = null; return; }
   if (m.view === 'chest') { updateChest(m); return; }
-  if (m.view === 'book') { if (pressedNow.left) m.page = Math.max(0, m.page - 1); if (pressedNow.right) m.page = Math.min(BOOK.length - 1, m.page + 1); if (pressedNow.act) state.menu = null; return; }
+  if (m.view === 'book') { const sp = m.page - (m.page % 2); if (pressedNow.left) m.page = Math.max(0, sp - 2); if (pressedNow.right) { const n = m.pageCount || BOOK.length; m.page = Math.min(n - 1 - ((n - 1) % 2), sp + 2); } if (pressedNow.act) state.menu = null; return; }   // two pages to a spread
   if (m.view === 'levels' && (pressedNow.left || pressedNow.right)) { const r = LEVEL_ROWS()[m.sel]; if (r && r.adj && !/^Everything/.test(r.label)) { r.adj(pressedNow.right ? 1 : -1); sfx.tock(); } }
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
@@ -1674,7 +1677,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; if (d.settings.tiles) state.settings.tiles = true; }
   } catch (e) {}
   refreshK();
 }

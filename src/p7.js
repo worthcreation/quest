@@ -34,6 +34,7 @@ function draw() {
     }
   }
   drawRideVignette();
+  if (state.settings.tiles) drawTiles();
   drawActionHint();
   drawHUD();
   drawRadial();
@@ -1342,6 +1343,40 @@ function drawPack(m, x, y, pw, fs) {
   drawTipMarquee(fs);
 }
 // the shine on whatever F would use, with a one-word label if labels are on
+// System > Show tiles: the field as the game sees it, one square per tile. Ground you can't cross is tinted.
+function drawTiles() {
+  const sc = sceneDef(), key = sc.id + '|' + W + '|' + H + '|' + state.solids.length;
+  if (!state.tileCache || state.tileCache.key !== key) {
+    const cols = Math.ceil(W / UNIT), rows = Math.ceil(H / UNIT), bad = [];
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const x = (c + 0.5) * UNIT, y = (r + 0.5) * UNIT; bad.push(isChasm(x, y) ? 2 : state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r) ? 1 : 0); }
+    state.tileCache = { key, cols, rows, bad };
+  }
+  const T = state.tileCache, z = state.cam.ez;
+  ctx.save();
+  for (let r = 0; r < T.rows; r++) for (let c = 0; c < T.cols; c++) {
+    const [sx, sy] = toScreen(c * UNIT, r * UNIT), s = UNIT * z, b = T.bad[r * T.cols + c];
+    ctx.fillStyle = b === 2 ? 'rgba(80,140,255,.22)' : b === 1 ? 'rgba(255,90,70,.2)' : (r + c) % 2 ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)';
+    ctx.fillRect(sx, sy, s, s);
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let c = 0; c <= T.cols; c++) { const [a0, b0] = toScreen(c * UNIT, 0), [a1, b1] = toScreen(c * UNIT, T.rows * UNIT); ctx.moveTo(a0, b0); ctx.lineTo(a1, b1); }
+  for (let r = 0; r <= T.rows; r++) { const [a0, b0] = toScreen(0, r * UNIT), [a1, b1] = toScreen(T.cols * UNIT, r * UNIT); ctx.moveTo(a0, b0); ctx.lineTo(a1, b1); }
+  ctx.stroke();
+  const h = state.hero, [hx, hy] = toScreen(Math.floor(h.x / UNIT) * UNIT, Math.floor(h.y / UNIT) * UNIT);   // the tile you're on
+  ctx.strokeStyle = 'rgba(255,227,138,.8)'; ctx.lineWidth = 2; ctx.strokeRect(hx, hy, UNIT * z, UNIT * z);
+  ctx.restore();
+}
+// everything you could do right where the gold ring is, each with its key (F first)
+function actionList(it) {
+  const out = [], sc = sceneDef(), h = state.hero, near = (x, y, r) => Math.hypot(h.x - x, h.y - y) < UNIT * r;
+  const jk = keyName(K.jump === ' ' ? ' ' : K.jump);
+  if (itemAtFeet() && it.verb !== 'Pick up') out.push({ key: K.act, verb: 'Pick up' });
+  out.push({ key: it.key || K.act, verb: it.verb });
+  if (sc.feat.plots) { const sk = seedSlotKey(), rt = rtFor(sc.id); sc.feat.plots.forEach(([fx, fy], i) => { if (sk && sk !== 'f' && near(fx * W, fy * H, 1.3) && !((rt.flags.plots || [])[i] || {}).s && !out.some(o => o.verb === 'Plant')) out.push({ key: slotLabel(sk), verb: 'Plant' }); }); }
+  for (const pl of sc.pullables) if (pl.kind === 'rock' && !rtFor(sc.id).pulled.has(pl.id) && !rtFor(sc.id).flags['knocked_' + pl.id] && near(pl.fx * W, pl.fy * H, 2)) { out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound it loose' }); break; }
+  if (it.verb === 'Shake' || /tree/i.test(it.verb)) out.push({ key: `${jk} ${K.act.toUpperCase()}`, verb: 'Pound' });
+  return out.filter((o, i) => out.findIndex(q => q.key === o.key && q.verb === o.verb) === i).slice(0, 3);
+}
 function drawActionHint() {
   const it = findInteractable();
   state.actionHint = it;
@@ -1355,15 +1390,22 @@ function drawActionHint() {
   if (state.settings.labels === false) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const key = it.key || K.act, kw = ctx.measureText(key).width + 12, lw = ctx.measureText(it.verb).width, w = kw + lw + 14, hgt = fs + 10;
+  const acts = actionList(it), hgt = fs + 10;                     // one chip per thing you can do here: key, then what it does
+  const parts = acts.map(a => { const kw = ctx.measureText(a.key).width + 12, lw = ctx.measureText(a.verb).width; return { ...a, kw, w: kw + lw + 14 }; });
+  const w = parts.reduce((s, q) => s + q.w, 0) + (parts.length - 1) * 6;
   const bx = Math.max(6, Math.min(W - w - 6, sx - w / 2)), by = Math.max(6, sy - u * 1.6 - hgt);
-  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, hgt, hgt / 2) : ctx.rect(bx, by, w, hgt); ctx.fill();
-  ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kw, hgt - 6); ctx.fill();
-  ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-  ctx.fillStyle = '#1a1420'; ctx.fillText(key, bx + 3 + kw / 2, by + hgt / 2 + 1);
-  ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(it.verb, bx + kw + 9, by + hgt / 2 + 1);
-  ctx.textBaseline = 'alphabetic';
-  state.hintRect = { x: bx, y: by, w, h: hgt };
+  let cx = bx;
+  ctx.textBaseline = 'middle';
+  parts.forEach((q, i) => {
+    ctx.globalAlpha = i === 0 ? 1 : 0.85;
+    ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx, by, q.w, hgt, hgt / 2) : ctx.rect(cx, by, q.w, hgt); ctx.fill();
+    ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(cx + 3, by + 3, q.kw, hgt - 6, (hgt - 6) / 2) : ctx.rect(cx + 3, by + 3, q.kw, hgt - 6); ctx.fill();
+    ctx.textAlign = 'center'; ctx.fillStyle = '#1a1420'; ctx.fillText(q.key, cx + 3 + q.kw / 2, by + hgt / 2 + 1);
+    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(q.verb, cx + q.kw + 9, by + hgt / 2 + 1);
+    cx += q.w + 6;
+  });
+  ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+  state.hintRect = { x: bx, y: by, w, h: hgt }; state.hintActs = acts;
 }
 function drawChest(m) {
   ctx.fillStyle = 'rgba(12,10,16,.9)'; ctx.fillRect(0, 0, W, H);
@@ -1387,19 +1429,38 @@ function drawChest(m) {
   ctx.fillText(m.note || `\u2190 \u2192 pick a side \u00b7 ${K.act} moves one across \u00b7 ${K.menu} closes`, W / 2, H - fs);
   ctx.textAlign = 'left';
 }
+// Pip's book: an open book, two pages to a spread, in Pip's hand (Caveat: a quick scrawl, still easy to read)
+const HAND = (px, bold) => `${bold ? '700' : '500'} ${px}px Caveat, "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive`;
 function drawBook(m) {
   ctx.fillStyle = 'rgba(12,10,16,.88)'; ctx.fillRect(0, 0, W, H);
-  const pw = Math.min(W - 40, 640), ph = Math.min(H - 60, 460), x = (W - pw) / 2, y = (H - ph) / 2, fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.5)));
+  const pw = Math.min(W - 40, 760), ph = Math.min(H - 60, 480), x = (W - pw) / 2, y = (H - ph) / 2, fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.5)));
   ctx.fillStyle = '#7a3a2a'; ctx.fillRect(x - 10, y - 10, pw + 20, ph + 20);
   ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x, y, pw, ph);
-  ctx.strokeStyle = 'rgba(120,90,60,.4)'; ctx.beginPath(); ctx.moveTo(x + pw / 2, y); ctx.lineTo(x + pw / 2, y + ph); ctx.stroke();
-  const p = BOOK[m.page];
-  ctx.fillStyle = '#3a2616'; ctx.font = `bold ${Math.round(fs * 1.2)}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillText(p.title, W / 2, y + fs * 2.2);
-  ctx.font = `${fs}px Georgia, serif`; ctx.textAlign = 'left';
-  let yy = y + fs * 4;
-  for (const l of p.lines) for (const w2 of wrap(l, pw - fs * 3)) { ctx.fillText(w2, x + fs * 1.5, yy); yy += fs * 1.5; }
-  ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
-  ctx.fillText(`page ${m.page + 1} of ${BOOK.length}   \u2190 \u2192 to turn   ${K.act} closes`, W / 2, y + ph - fs);
+  const g = ctx.createLinearGradient(x + pw / 2 - 18, 0, x + pw / 2 + 18, 0); g.addColorStop(0, 'rgba(120,90,60,0)'); g.addColorStop(0.5, 'rgba(120,90,60,.35)'); g.addColorStop(1, 'rgba(120,90,60,0)');
+  ctx.fillStyle = g; ctx.fillRect(x + pw / 2 - 18, y, 36, ph);                                   // the gutter
+  const hs = Math.round(fs * 1.3), gutter = fs * 1.6, colW = pw / 2 - gutter - fs * 1.2, bottom = y + ph - fs * 2.4;
+  // flow every entry onto as many pages as it needs (a long one carries on overleaf), then show two at a time
+  const pages = [];
+  for (const e of BOOK) {
+    let pg = [], yy = y + fs * 2.4; const newPage = () => { pages.push(pg); pg = []; yy = y + fs * 2.4; };
+    ctx.font = HAND(Math.round(hs * 1.2), true);
+    for (const tl of wrap(e.title, colW)) { pg.push({ t: tl, big: true, y: yy }); yy += hs * 1.1; }
+    yy += fs * 0.5; ctx.font = HAND(hs, false);
+    for (const l of e.lines) { for (const w2 of wrap(l, colW)) { if (yy > bottom) newPage(); pg.push({ t: w2, y: yy }); yy += hs * 1.05; } yy += hs * 0.25; }
+    pages.push(pg);
+  }
+  m.pageCount = pages.length;
+  const sp = Math.min(m.page - (m.page % 2), pages.length - 1 - ((pages.length - 1) % 2));
+  [sp, sp + 1].forEach((pi, side) => {
+    const pg = pages[pi]; if (!pg) return;
+    const cx = x + (side ? pw / 2 + gutter : fs * 1.2);
+    ctx.textAlign = 'left';
+    for (const r of pg) { ctx.font = HAND(r.big ? Math.round(hs * 1.2) : hs, !!r.big); ctx.fillStyle = r.big ? '#3a2616' : '#3e2a1a'; ctx.fillText(r.t, cx, r.y); }
+    ctx.fillStyle = '#9a8a70'; ctx.font = HAND(Math.round(fs * 1.1), false); ctx.textAlign = side ? 'right' : 'left';
+    ctx.fillText(String(pi + 1), side ? x + pw - fs * 1.2 : x + fs * 1.2, y + ph - fs);                  // page numbers in the corners
+  });
+  ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+  ctx.fillText(`${sp > 0 ? '\u2190 ' : ''}${sp + 2 < pages.length ? '\u2192 turns the page   ' : ''}${K.act} closes`, W / 2, y + ph + fs * 1.6);
   ctx.textAlign = 'left';
 }
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
@@ -1469,7 +1530,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 76';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 77';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

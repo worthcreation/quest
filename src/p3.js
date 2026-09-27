@@ -379,6 +379,19 @@ function collideSolids(a, r) {
 }
 const inPool = (x, y) => state.pools.some(p => Math.hypot(x - p.x, y - p.y) < p.r * 0.85);
 const onRock = (sc, x, y, pad = 0) => (sc.rocks || []).some(r => Math.hypot(x - r.fx * W, y - r.fy * H) < r.r * UNIT - pad);
+// can you actually see this from where you stand? Close enough, and nothing you couldn't walk through in between:
+// no river, chasm or deep water, no tree or big rock. Notices about a place wait for this.
+function inView(x, y, tiles = 6) {
+  const h = state.hero, d = Math.hypot(x - h.x, y - h.y);
+  if (d > UNIT * tiles) return false;
+  const n = Math.ceil(d / (UNIT * 0.3));
+  for (let i = 1; i < n; i++) {
+    const px = h.x + (x - h.x) * i / n, py = h.y + (y - h.y) * i / n;
+    if (isChasm(px, py)) return false;
+    if (state.solids.some(s => (s.kind === 'tree' || s.r > UNIT * 0.7) && Math.hypot(s.x - px, s.y - py) < s.r * 0.8)) return false;
+  }
+  return true;
+}
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
   if (sc.rocks && onRock(sc, x, y, pad)) return false;

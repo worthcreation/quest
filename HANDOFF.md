@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 76, 27 Sep 2026)
+# Quest: handoff notes (as of build 77, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,20 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 77 in short
+- inView(x, y, tiles) (p3): near enough and nothing impassable on the straight line between (river, chasm, deep water,
+  trees or big rocks). Notices about places wait for it. The far-side shack notice now only comes when you're over
+  there looking at it (never from the near bank, never during the opening); the mushroom notice also waits for the
+  opening to end.
+- Action hint shows every action available at the spot as key + verb chips (actionList in p7): F first, plus the seed
+  slot's Plant at a patch, Pick up when something lies at your feet, and jump-then-F to pound a buried rock loose.
+- Pip's book (tentin): an open book with two pages to a spread, text flowed onto pages (a long entry carries on
+  overleaf), page numbers in the corners, in Caveat (Google Fonts, linked in head.html; falls back to other cursive
+  fonts offline). HAND(px, bold) builds the font string.
+- System > Show tiles: a checkered overlay of the actual tiles (UNIT squares), water tinted blue, blocked ground red,
+  your tile outlined (drawTiles, cached per scene; state.settings.tiles is saved).
+- Tests: t77. tools/shot.js B77=1.
 
 ## Build 76 in short
 - Waiting vs free words (p5 drawTexts): speech that waits for F is a solid box with a pulsing edge in the speaker's
