@@ -741,14 +741,17 @@ function syncMudRocks(sc) {
   sc.pullables = sc.pullables.filter(p => !p.mud);
   for (const m of rt.flags.mudRocks || []) sc.pullables.push({ id: m.id, kind: 'rock', fx: m.fx, fy: m.fy, need: 2, mud: true });
 }
-function sinkRock(x, y) {
+// soft ground: a thrown rock can bury itself where it lands, not only in mud (EARTHEN areas, off rock and water)
+const EARTHEN = new Set(['forest', 'woods', 'field', 'marsh', 'swamp']);
+const earthen = (x, y, sc = sceneDef()) => EARTHEN.has(sc.area) && !(sc.rocks && onRock(sc, x, y)) && !isChasm(x, y);
+function sinkRock(x, y, how = 'mud') {
   const sc = sceneDef(), rt = rtFor(sc.id), id = 'mud' + (rt.flags.mudN = (rt.flags.mudN || 0) + 1);
   (rt.flags.mudRocks = rt.flags.mudRocks || []).push({ id, fx: x / W, fy: y / H });
   syncMudRocks(sc);
   sfx.splash(); state.shake = 0.12;
   for (let d = 0; d < 14; d++) state.fx.push({ x: x + (Math.random() - 0.5) * UNIT * 0.8, y, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#3e2c18' : '#5a4128', size: UNIT * 0.1 });
-  say('Glorp. Stuck in the mud.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
-  say(`A rock in the mud is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
+  say(how === 'mud' ? 'Glorp. Stuck in the mud.' : 'Thunk. It buried itself in the soft earth.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
+  say(`A buried rock is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
 }
 function freePullable(pl, x, y) {
   if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }

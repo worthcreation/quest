@@ -259,7 +259,8 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
 // ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
-function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
+// breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
+function keystone(sc, bar, at, rope, rU = 0.8, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
   sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
@@ -475,7 +476,7 @@ function genWorld() {
       (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
-      for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.42, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
+      for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.7, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
       sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
       keep.push([...k, 3], [...r, 2.5]);
     }
@@ -487,7 +488,7 @@ function genWorld() {
       sc.feat.hole = [0.9, (east[0] + east[1]) / 2];
       barrier(sc, 'burrow', 'burrow', 0.905, east[0] - 0.02, 0.905, east[1] + 0.02, 0.62);
       { const bs = sc.solids.filter(s => s.bar === 'burrow'); bs.forEach((s, k) => { s.holeMid = k === Math.floor(bs.length / 2); }); }   // one small odd hole in a heap of rock and roots
-      for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.42, pickStone()); keep.push([...q, 1.6]); }
+      for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.7, pickStone()); keep.push([...q, 1.6]); }
       sc.paths.push(makePath(wPt, r, 1), makePath(r, [p[0] - 0.12, p[1]], 1));
       keep.push([...p, 7], [...r, 2.5]);
     }
@@ -1271,6 +1272,7 @@ function dismissHeld() {
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
 function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+  if (style === 'relic' || style === 'quest') { style = 'herald'; life = Math.max(life, 3.6); }   // one kind of banner for everything notable: the region's ribbon
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
@@ -2018,14 +2020,17 @@ function syncMudRocks(sc) {
   sc.pullables = sc.pullables.filter(p => !p.mud);
   for (const m of rt.flags.mudRocks || []) sc.pullables.push({ id: m.id, kind: 'rock', fx: m.fx, fy: m.fy, need: 2, mud: true });
 }
-function sinkRock(x, y) {
+// soft ground: a thrown rock can bury itself where it lands, not only in mud (EARTHEN areas, off rock and water)
+const EARTHEN = new Set(['forest', 'woods', 'field', 'marsh', 'swamp']);
+const earthen = (x, y, sc = sceneDef()) => EARTHEN.has(sc.area) && !(sc.rocks && onRock(sc, x, y)) && !isChasm(x, y);
+function sinkRock(x, y, how = 'mud') {
   const sc = sceneDef(), rt = rtFor(sc.id), id = 'mud' + (rt.flags.mudN = (rt.flags.mudN || 0) + 1);
   (rt.flags.mudRocks = rt.flags.mudRocks || []).push({ id, fx: x / W, fy: y / H });
   syncMudRocks(sc);
   sfx.splash(); state.shake = 0.12;
   for (let d = 0; d < 14; d++) state.fx.push({ x: x + (Math.random() - 0.5) * UNIT * 0.8, y, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#3e2c18' : '#5a4128', size: UNIT * 0.1 });
-  say('Glorp. Stuck in the mud.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
-  say(`A rock in the mud is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
+  say(how === 'mud' ? 'Glorp. Stuck in the mud.' : 'Thunk. It buried itself in the soft earth.', x, y - UNIT * 1.2, { key: 'mud', life: 2.2, color: '#c9a86a' });
+  say(`A buried rock is stuck fast. Pound beside it (${K.jump} then ${K.act}), then rock it and heave it out.`, x, y, { key: 'mudtip', tip: 'mud', life: 4 });
 }
 function freePullable(pl, x, y) {
   if (pl.mud) { const rt = rtFor(state.scene); rt.flags.mudRocks = (rt.flags.mudRocks || []).filter(m => m.id !== pl.id); delete rt.flags['knocked_' + pl.id]; syncMudRocks(sceneDef()); }
@@ -3361,7 +3366,7 @@ function riverSideQuest(sc, h) {
     if (Math.hypot(h.x - wreck[0], h.y - wreck[1]) < UNIT * 1.4) {
       if (!inv.raft) {                                // touching Wick's raft is what starts it
         inv.raft = 1;
-        setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty across the water: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns`, 'relic', 4.5), 0);
+        /* the Downriver quest announces itself (quest banner) */
       }
       say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : 'Old Wick\'s first raft, never finished.', wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
       if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
@@ -3549,7 +3554,7 @@ function npcLines(n) {
     if (inv.journal === 3) return { lines: ['My journal! You got it back!', 'Keep it. You\'ll make better use of the maps than me. They\'re in your menu.'], then: () => { inv.journal = 4; sfx.heart(); } };
     if (rt.flags.pipSpores && !inv.journal) {
       return { lines: ['I saw it! The gremlin with my journal, sneaking back toward the glade.', 'It\'ll run the way they dragged me: through the glade and into the woods.', 'Follow the torn pages. Please get it back.'],
-        then: () => { inv.journal = 1; inv.thiefAt = 0; spawnPages(); showTitle('The Stolen Journal', 'the thief is in the glade. follow its dropped pages into the woods', 'relic', 4); } };
+        then: () => { inv.journal = 1; inv.thiefAt = 0; spawnPages(); /* the journal quest announces itself (quest banner) */ } };
     }
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
@@ -3746,6 +3751,7 @@ function updateShots(dt) {
     if (done) {
       state.shots.splice(i, 1);
       if (rock && inMud(s.x, s.y)) sinkRock(s.x, s.y);     // short of the mark and into the mud: stuck
+      else if (rock && earthen(s.x, s.y) && Math.random() < 0.2) sinkRock(s.x, s.y, 'earth');   // or it digs into soft ground
       else if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
@@ -4197,7 +4203,6 @@ function startRescue() {
   const inv = state.inv;
   inv.pipSaved = true;
   sfx.victory(); zoomPulse(state.hero.x, state.hero.y, 'boss');
-  showTitle('Pip is safe', 'the woods still keep their secrets', 'relic', 4);
   setTimeout(() => { transitionTo('camp', 0.5, 0.58); setTimeout(() => say('Pip wants a word by the fire.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', life: 4 }), 0); }, 0);
 }
 function startEnding() {
@@ -4260,7 +4265,6 @@ function updateCut(dt) {
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      showTitle('Find Pip', 'the gremlins dragged Pip down a hole. Smash it open!', 'area', 3.5);
       say('Down the hole! It\'s too small to follow. Smash it open with a rock!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
@@ -4276,7 +4280,6 @@ function updateCut(dt) {
     if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
     if (at(7)) {
       p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      showTitle('Find Pip', 'the gremlins took Pip into the woods', 'area', 3.5);
       say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
@@ -4293,7 +4296,7 @@ function updateCut(dt) {
     h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
     if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
-    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('THE BLADE', 'rusted, waiting, and yours', 'quest', 3); }
+    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'herald', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
     if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {
@@ -6577,7 +6580,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 87';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 88';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -8788,7 +8791,7 @@ function heraldImage(T) {
   const size = Math.min(W / 13, UNIT * 1.25), c = document.createElement('canvas'), g = c.getContext('2d');
   const font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`; g.font = font;
   const tw = Math.max(g.measureText(T.text).width, size * 4), bw = tw + size * 3.2, bh = size * 1.9, tail = size * 0.9, pad = size * 0.6;
-  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = T.note ? g.measureText(T.note).width : 0; g.font = font;
+  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = Math.max(T.note ? g.measureText(T.note).width : 0, T.sub ? g.measureText(T.sub).width * 1.05 : 0); g.font = font;
   c.width = Math.ceil((Math.max(bw + tail * 3.2, nw + pad * 2) + pad * 2) * dpr); c.height = Math.ceil((bh + size * (T.note ? 2.2 : 1.4) + pad) * dpr); c.dpr = dpr;
   g.scale(dpr, dpr); g.font = font;                                      // resizing the canvas reset the font
   const cx = c.width / dpr / 2, top = size * 1.1, y0 = top, y1 = top + bh, x0 = cx - bw / 2, x1 = cx + bw / 2;

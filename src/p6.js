@@ -287,7 +287,7 @@ function riverSideQuest(sc, h) {
     if (Math.hypot(h.x - wreck[0], h.y - wreck[1]) < UNIT * 1.4) {
       if (!inv.raft) {                                // touching Wick's raft is what starts it
         inv.raft = 1;
-        setTimeout(() => showTitle('Sidequest: Downriver', `build a raft at the old jetty across the water: ${RAFT.driftwood} driftwood and ${RAFT.thorn} thorns`, 'relic', 4.5), 0);
+        /* the Downriver quest announces itself (quest banner) */
       }
       say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : 'Old Wick\'s first raft, never finished.', wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
       if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
@@ -475,7 +475,7 @@ function npcLines(n) {
     if (inv.journal === 3) return { lines: ['My journal! You got it back!', 'Keep it. You\'ll make better use of the maps than me. They\'re in your menu.'], then: () => { inv.journal = 4; sfx.heart(); } };
     if (rt.flags.pipSpores && !inv.journal) {
       return { lines: ['I saw it! The gremlin with my journal, sneaking back toward the glade.', 'It\'ll run the way they dragged me: through the glade and into the woods.', 'Follow the torn pages. Please get it back.'],
-        then: () => { inv.journal = 1; inv.thiefAt = 0; spawnPages(); showTitle('The Stolen Journal', 'the thief is in the glade. follow its dropped pages into the woods', 'relic', 4); } };
+        then: () => { inv.journal = 1; inv.thiefAt = 0; spawnPages(); /* the journal quest announces itself (quest banner) */ } };
     }
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
@@ -672,6 +672,7 @@ function updateShots(dt) {
     if (done) {
       state.shots.splice(i, 1);
       if (rock && inMud(s.x, s.y)) sinkRock(s.x, s.y);     // short of the mark and into the mud: stuck
+      else if (rock && earthen(s.x, s.y) && Math.random() < 0.2) sinkRock(s.x, s.y, 'earth');   // or it digs into soft ground
       else if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
@@ -1123,7 +1124,6 @@ function startRescue() {
   const inv = state.inv;
   inv.pipSaved = true;
   sfx.victory(); zoomPulse(state.hero.x, state.hero.y, 'boss');
-  showTitle('Pip is safe', 'the woods still keep their secrets', 'relic', 4);
   setTimeout(() => { transitionTo('camp', 0.5, 0.58); setTimeout(() => say('Pip wants a word by the fire.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', life: 4 }), 0); }, 0);
 }
 function startEnding() {
@@ -1186,7 +1186,6 @@ function updateCut(dt) {
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      showTitle('Find Pip', 'the gremlins dragged Pip down a hole. Smash it open!', 'area', 3.5);
       say('Down the hole! It\'s too small to follow. Smash it open with a rock!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
@@ -1202,7 +1201,6 @@ function updateCut(dt) {
     if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
     if (at(7)) {
       p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      showTitle('Find Pip', 'the gremlins took Pip into the woods', 'area', 3.5);
       say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
@@ -1219,7 +1217,7 @@ function updateCut(dt) {
     h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
     if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
-    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('THE BLADE', 'rusted, waiting, and yours', 'quest', 3); }
+    if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'herald', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
     if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {

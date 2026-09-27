@@ -464,6 +464,7 @@ function dismissHeld() {
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
 function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+  if (style === 'relic' || style === 'quest') { style = 'herald'; life = Math.max(life, 3.6); }   // one kind of banner for everything notable: the region's ribbon
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;

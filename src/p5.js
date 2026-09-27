@@ -631,7 +631,7 @@ function heraldImage(T) {
   const size = Math.min(W / 13, UNIT * 1.25), c = document.createElement('canvas'), g = c.getContext('2d');
   const font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`; g.font = font;
   const tw = Math.max(g.measureText(T.text).width, size * 4), bw = tw + size * 3.2, bh = size * 1.9, tail = size * 0.9, pad = size * 0.6;
-  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = T.note ? g.measureText(T.note).width : 0; g.font = font;
+  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = Math.max(T.note ? g.measureText(T.note).width : 0, T.sub ? g.measureText(T.sub).width * 1.05 : 0); g.font = font;
   c.width = Math.ceil((Math.max(bw + tail * 3.2, nw + pad * 2) + pad * 2) * dpr); c.height = Math.ceil((bh + size * (T.note ? 2.2 : 1.4) + pad) * dpr); c.dpr = dpr;
   g.scale(dpr, dpr); g.font = font;                                      // resizing the canvas reset the font
   const cx = c.width / dpr / 2, top = size * 1.1, y0 = top, y1 = top + bh, x0 = cx - bw / 2, x1 = cx + bw / 2;

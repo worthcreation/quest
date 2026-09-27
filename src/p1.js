@@ -202,7 +202,8 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
 // ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
-function keystone(sc, bar, at, rope, rU = 0.55, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
+// breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
+function keystone(sc, bar, at, rope, rU = 0.8, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
   sandstone: { name: 'Sandstone', dur: 1, tint: '#c9a878', inside: [['stone', 0.8], ['seed', 0.3]] },   // 'seed' here means the local vegetable's seed
@@ -418,7 +419,7 @@ function genWorld() {
       (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
-      for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.42, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
+      for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.7, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
       sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
       keep.push([...k, 3], [...r, 2.5]);
     }
@@ -430,7 +431,7 @@ function genWorld() {
       sc.feat.hole = [0.9, (east[0] + east[1]) / 2];
       barrier(sc, 'burrow', 'burrow', 0.905, east[0] - 0.02, 0.905, east[1] + 0.02, 0.62);
       { const bs = sc.solids.filter(s => s.bar === 'burrow'); bs.forEach((s, k) => { s.holeMid = k === Math.floor(bs.length / 2); }); }   // one small odd hole in a heap of rock and roots
-      for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.42, pickStone()); keep.push([...q, 1.6]); }
+      for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.7, pickStone()); keep.push([...q, 1.6]); }
       sc.paths.push(makePath(wPt, r, 1), makePath(r, [p[0] - 0.12, p[1]], 1));
       keep.push([...p, 7], [...r, 2.5]);
     }

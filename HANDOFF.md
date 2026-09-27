@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 87, 27 Sep 2026)
+# Quest: handoff notes (as of build 88, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 88 in short
+- Thrown rocks can bury themselves anywhere on soft ground, not only in mud: a 20% chance on EARTHEN areas (forest,
+  woods, field, marsh, swamp), off rock slabs and water (earthen(), p3). Same buried rock as mud: pound, rock, heave.
+  sinkRock(x, y, how) says "Thunk. It buried itself in the soft earth." for these.
+- Breakable (cracked) stones are bigger than a thrown rock: keystones 0.8 tiles, the practice stones 0.7 (thrown 0.6).
+- One banner style: showTitle maps 'relic' and 'quest' to the region's 'herald' ribbon (min 3.6 s), with room for long
+  subtitles. Quest-ish one-offs that doubled up with the quest banners are gone (Find Pip x2, Sidequest: Downriver,
+  The Stolen Journal, Pip is safe); "The Blade" uses the ribbon. Place names on entering a screen stay as they were.
+- Tests: t88.
 
 ## Build 87 in short
 - Trees drop sticks as well as acorns when shaken or pounded (dropAcorn, p4: 40% stick).
