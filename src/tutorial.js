@@ -72,3 +72,43 @@ function campMarkLine() {
   if (!miss.length) return pc === 'fire' ? `You've got it! Craft: two stones and a stick (${M}).` : `You've got it! Craft: a stick, glue and fluff (${M}).`;
   return `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Pip's other lines: flavour and the woods. Each: a key (said once), where (scene), when it applies, the words,
+// optionally where Pip walks to say it (at) and how near you must be for that (sight). Order is priority.
+// ---------------------------------------------------------------------------------------------------------------
+const PIP_LINES = [
+  { key: 'compost', when: () => state.inv.acorns > 0 && !storyAt('adventure') && state.inv.quests && state.inv.quests.garden && state.inv.quests.garden.done != null,
+    text: 'Get enough of those acorns, and you can make some awesome compost!' },
+  { key: 'chest', scene: 'tentin', at: sc => [sc.feat.chest[0] * W, sc.feat.chest[1] * H],
+    text: 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!' },
+  { key: 'pound', when: sc => storyAt('gather') && !campDone() && sc.id !== 'camp' && TUT.tip('tada'),
+    text: 'Try pounding around in different places. You never know what you might knock loose!' },
+  { key: 'tentin', scene: 'camp', when: () => storyAt('gather') && !campDone() && Object.keys(state.inv.pipTips || {}).some(k => k.startsWith('tut-camp')), at: () => [0.33 * W, 0.33 * H], sight: 14,
+    text: 'My book in the tent explains stuff.' },
+  { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
+    text: 'That mushroom hums at night.' },
+  // the glade, once the adventure is on: the brambles, the buried rock, the throw
+  { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
+    text: 'The blank part of the map is past these brambles. We need something heavy.' },
+  { key: 'pull', scene: 'start', sight: 12,
+    when: (sc, h, rt) => { const rock = sc.pullables.find(r => r.id === 'rock'); return storyAt('adventure') && !rt.flags.thicket && TUT.tip('brambles') && rock && !rt.pulled.has(rock.id) && !state.carry && Math.hypot(h.x - rock.fx * W, h.y - rock.fy * H) < UNIT * 5; },
+    at: sc => { const r = sc.pullables.find(q => q.id === 'rock'); return [r.fx * W, r.fy * H]; },
+    text: (sc, h, rt) => rt.flags.knocked_rock ? 'It moved! Rock it back and forth!' : 'This rock\'s stuck fast. Jump and stomp right next to it!' },
+  { key: 'throw', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket && !!state.carry, at: () => [W * 0.955, H * 0.5], text: 'Throw it at the brambles!' },
+  { key: 'smashed', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !!rt.flags.thicket, at: () => [W * 0.93, H * 0.5], text: 'Ha! The woods are east.' },
+  { key: 'jump', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !!rt.flags.thicket,
+    at: (sc, h) => { const t = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0]; return t ? [t.x, t.y] : null; },
+    text: 'Stomp by a tree for acorns.' },
+  { key: 'map-start', scene: 'start', when: () => storyAt('adventure'), text: 'Glade: big rock, brambles. On the map!' },
+  // the woods: practice stones, the wedged boulders, the mud
+  { key: 'practice', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'knockA') && !broken('w1', 'knockA') && !broken('w1', 'knockB'),
+    at: sc => { const k = sc.solids.find(s => s.bar === 'knockA'); return [k.fx * W, k.fy * H]; }, text: 'See the cracked stones? Practise on those. Heave a rock and let it fly!' },
+  { key: 'gate', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'crack1' && s.kind === 'cracked'), sight: 12,
+    at: sc => { const k = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'); return [k.fx * W, k.fy * H]; }, text: 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.' },
+  { key: 'opened', scene: 'w1', when: () => broken('w1', 'crack1'), text: 'CRASH! Onward!' },
+  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, mud, a very suspicious tree.' },
+  { key: 'map-w2', scene: 'w2', text: 'Last blank corner of the map! Past these boulders, and it\'s done.' },
+  { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
+    text: 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!' },
+];

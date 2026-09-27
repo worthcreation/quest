@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 94, 27 Sep 2026)
+# Quest: handoff notes (as of build 95, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,15 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 95: Pip's remaining lines as data, and design pages
+- PIP_LINES (tutorial.js, after TUTORIAL): every non-tutorial Pip line (compost, chest, pounding, the tent book, the
+  mushroom, the glade's brambles/rock/throw, the woods' practice stones, gate, mud) as entries {key, scene, when, at,
+  sight, text}; updatePip walks the list and pipSay says each once. The abduction trigger (w2, boulders down) stays in
+  pip.js. updatePip is now behaviour only.
+- docs/: keys.md, pip.md, crafting.md, farming.md, README.md. Rules in plain words, one page per system; change the
+  page first, then the code.
+- Tests unchanged, 48 of 48.
 
 ## Build 94: the tutorial as one ordered list (src/tutorial.js)
 - TUTORIAL is an array of steps in play order: seeds, plant, tocamp, tada, sticks, stones, fluff, lesson, sword, rabbits,

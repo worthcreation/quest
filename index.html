@@ -4365,43 +4365,17 @@ function updatePip(dt) {
       const tips = inv.pipTips || {};
       if (tips.campdone && !gearOwned().includes('feather') && !heldText()) gainGear('feather');
       if (gearOwned().includes('feather') && !storyAt('adventure') && !state.cut && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
-      if (storyAt('gather') && !campDone() && Object.keys(tips).some(k => k.startsWith('tut-build'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
-      if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
     }
   }
-  if (inv.acorns > 0 && !storyAt('adventure') && inv.quests && inv.quests.garden && inv.quests.garden.done != null) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
-  if (sc.id === 'tentin' && f.chest) pipSay('chest', 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!', P(f.chest));
-  if (storyAt('gather') && !campDone() && sc.id !== 'camp' && (inv.pipTips || {})['tut-tada|']) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
-  if (sc.id === 'start' && storyAt('adventure')) {
-    const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
-    if (!rt.flags.thicket) {
-      const thicket = [W * 0.955, H * 0.5];
-      pipSay('brambles', 'The blank part of the map is past these brambles. We need something heavy.', thicket, 14);
-      const told = (state.inv.pipTips || {}).brambles;
-      if (told && rock && !loose && !state.carry && near(rock.fx, rock.fy, 5)) pipSay('pull', rt.flags.knocked_rock ? 'It moved! Rock it back and forth!' : 'This rock\'s stuck fast. Jump and stomp right next to it!', [rock.fx * W, rock.fy * H]);
-      if (state.carry) pipSay('throw', 'Throw it at the brambles!', thicket);
-    } else {
-      pipSay('smashed', 'Ha! The woods are east.', [W * 0.93, H * 0.5]);
-      const tree = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
-      if (tree) pipSay('jump', 'Stomp by a tree for acorns.', [tree.x, tree.y]);
-    }
+  // everything else Pip has to say (flavour, the woods, the map) comes from PIP_LINES in tutorial.js
+  for (const L of PIP_LINES) {
+    if (L.scene && L.scene !== sc.id) continue;
+    if (L.when && !L.when(sc, h, rt)) continue;
+    const at = L.at ? L.at(sc, h, rt) : null;
+    pipSay(L.key, typeof L.text === 'function' ? L.text(sc, h, rt) : L.text, at || null, L.sight || 7);
   }
-  if (false) pipSay('robin', 'Startle that robin for a seed.', [state.bird.x, state.bird.y + UNIT]);
-  if (sc.id === 'w1') {
-    const ks = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'), kA = sc.solids.find(s => s.bar === 'knockA');
-    if (!broken('w1', 'crack1')) {
-      if (kA && !broken('w1', 'knockA') && !broken('w1', 'knockB')) pipSay('practice', 'See the cracked stones? Practise on those. Heave a rock and let it fly!', [kA.fx * W, kA.fy * H]);
-      if (ks) pipSay('gate', 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.', [ks.fx * W, ks.fy * H], 12);
-    } else pipSay('opened', 'CRASH! Onward!');
-    pipSay('map-w1', 'Drawing the woods in... boulders, mud, a very suspicious tree.');
-  }
-  if (sc.id === 'start' && storyAt('adventure')) pipSay('map-start', 'Glade: big rock, brambles. On the map!');
-  if (sc.id === 'w2') {
-    const ks = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked');
-    pipSay('map-w2', 'Last blank corner of the map! Past these boulders, and it\'s done.');
-    if (!broken('w2', 'crack2')) pipSay('ring', 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!', ks ? [ks.fx * W, ks.fy * H] : null);
-    else if (!state.cut) startAbduct();              // the boulders tumble, and they were waiting
-  }
+  if (sc.id === 'w2' && broken('w2', 'crack2') && !state.cut && storyAt('adventure')) startAbduct();   // the boulders tumble, and they were waiting
+
 }
 // ===== tutorial.js: the early game as one ordered list. Each step says what must be true to move on (done), where Pip
 // leads (goal), where he stands and what he says when it starts (scene, spot, say), and how he nags if nothing happens
@@ -4477,6 +4451,46 @@ function campMarkLine() {
   if (!miss.length) return pc === 'fire' ? `You've got it! Craft: two stones and a stick (${M}).` : `You've got it! Craft: a stick, glue and fluff (${M}).`;
   return `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Pip's other lines: flavour and the woods. Each: a key (said once), where (scene), when it applies, the words,
+// optionally where Pip walks to say it (at) and how near you must be for that (sight). Order is priority.
+// ---------------------------------------------------------------------------------------------------------------
+const PIP_LINES = [
+  { key: 'compost', when: () => state.inv.acorns > 0 && !storyAt('adventure') && state.inv.quests && state.inv.quests.garden && state.inv.quests.garden.done != null,
+    text: 'Get enough of those acorns, and you can make some awesome compost!' },
+  { key: 'chest', scene: 'tentin', at: sc => [sc.feat.chest[0] * W, sc.feat.chest[1] * H],
+    text: 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!' },
+  { key: 'pound', when: sc => storyAt('gather') && !campDone() && sc.id !== 'camp' && TUT.tip('tada'),
+    text: 'Try pounding around in different places. You never know what you might knock loose!' },
+  { key: 'tentin', scene: 'camp', when: () => storyAt('gather') && !campDone() && Object.keys(state.inv.pipTips || {}).some(k => k.startsWith('tut-camp')), at: () => [0.33 * W, 0.33 * H], sight: 14,
+    text: 'My book in the tent explains stuff.' },
+  { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
+    text: 'That mushroom hums at night.' },
+  // the glade, once the adventure is on: the brambles, the buried rock, the throw
+  { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
+    text: 'The blank part of the map is past these brambles. We need something heavy.' },
+  { key: 'pull', scene: 'start', sight: 12,
+    when: (sc, h, rt) => { const rock = sc.pullables.find(r => r.id === 'rock'); return storyAt('adventure') && !rt.flags.thicket && TUT.tip('brambles') && rock && !rt.pulled.has(rock.id) && !state.carry && Math.hypot(h.x - rock.fx * W, h.y - rock.fy * H) < UNIT * 5; },
+    at: sc => { const r = sc.pullables.find(q => q.id === 'rock'); return [r.fx * W, r.fy * H]; },
+    text: (sc, h, rt) => rt.flags.knocked_rock ? 'It moved! Rock it back and forth!' : 'This rock\'s stuck fast. Jump and stomp right next to it!' },
+  { key: 'throw', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket && !!state.carry, at: () => [W * 0.955, H * 0.5], text: 'Throw it at the brambles!' },
+  { key: 'smashed', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !!rt.flags.thicket, at: () => [W * 0.93, H * 0.5], text: 'Ha! The woods are east.' },
+  { key: 'jump', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !!rt.flags.thicket,
+    at: (sc, h) => { const t = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0]; return t ? [t.x, t.y] : null; },
+    text: 'Stomp by a tree for acorns.' },
+  { key: 'map-start', scene: 'start', when: () => storyAt('adventure'), text: 'Glade: big rock, brambles. On the map!' },
+  // the woods: practice stones, the wedged boulders, the mud
+  { key: 'practice', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'knockA') && !broken('w1', 'knockA') && !broken('w1', 'knockB'),
+    at: sc => { const k = sc.solids.find(s => s.bar === 'knockA'); return [k.fx * W, k.fy * H]; }, text: 'See the cracked stones? Practise on those. Heave a rock and let it fly!' },
+  { key: 'gate', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'crack1' && s.kind === 'cracked'), sight: 12,
+    at: sc => { const k = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'); return [k.fx * W, k.fy * H]; }, text: 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.' },
+  { key: 'opened', scene: 'w1', when: () => broken('w1', 'crack1'), text: 'CRASH! Onward!' },
+  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, mud, a very suspicious tree.' },
+  { key: 'map-w2', scene: 'w2', text: 'Last blank corner of the map! Past these boulders, and it\'s done.' },
+  { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
+    text: 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!' },
+];
 // ===== cutscenes.js: Scripted moments: dusk and the lantern, the abduction, the sword reveal, the toad, the rescue, the ending, the warden talk.
 // in the woods, right before the sword: the gremlins take Pip, and the journal with them
 function startDusk() { state.cut = { type: 'dusk', t: 0, step: 0 }; }
@@ -7101,7 +7115,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 94';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 95';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

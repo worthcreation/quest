@@ -276,41 +276,15 @@ function updatePip(dt) {
       const tips = inv.pipTips || {};
       if (tips.campdone && !gearOwned().includes('feather') && !heldText()) gainGear('feather');
       if (gearOwned().includes('feather') && !storyAt('adventure') && !state.cut && !heldText() && !(state.title && state.title.style === 'herald')) { if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
-      if (storyAt('gather') && !campDone() && Object.keys(tips).some(k => k.startsWith('tut-build'))) pipSay('tentin', 'My book in the tent explains stuff.', P([0.33, 0.33]), 14);
-      if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
     }
   }
-  if (inv.acorns > 0 && !storyAt('adventure') && inv.quests && inv.quests.garden && inv.quests.garden.done != null) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
-  if (sc.id === 'tentin' && f.chest) pipSay('chest', 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!', P(f.chest));
-  if (storyAt('gather') && !campDone() && sc.id !== 'camp' && (inv.pipTips || {})['tut-tada|']) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
-  if (sc.id === 'start' && storyAt('adventure')) {
-    const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
-    if (!rt.flags.thicket) {
-      const thicket = [W * 0.955, H * 0.5];
-      pipSay('brambles', 'The blank part of the map is past these brambles. We need something heavy.', thicket, 14);
-      const told = (state.inv.pipTips || {}).brambles;
-      if (told && rock && !loose && !state.carry && near(rock.fx, rock.fy, 5)) pipSay('pull', rt.flags.knocked_rock ? 'It moved! Rock it back and forth!' : 'This rock\'s stuck fast. Jump and stomp right next to it!', [rock.fx * W, rock.fy * H]);
-      if (state.carry) pipSay('throw', 'Throw it at the brambles!', thicket);
-    } else {
-      pipSay('smashed', 'Ha! The woods are east.', [W * 0.93, H * 0.5]);
-      const tree = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
-      if (tree) pipSay('jump', 'Stomp by a tree for acorns.', [tree.x, tree.y]);
-    }
+  // everything else Pip has to say (flavour, the woods, the map) comes from PIP_LINES in tutorial.js
+  for (const L of PIP_LINES) {
+    if (L.scene && L.scene !== sc.id) continue;
+    if (L.when && !L.when(sc, h, rt)) continue;
+    const at = L.at ? L.at(sc, h, rt) : null;
+    pipSay(L.key, typeof L.text === 'function' ? L.text(sc, h, rt) : L.text, at || null, L.sight || 7);
   }
-  if (false) pipSay('robin', 'Startle that robin for a seed.', [state.bird.x, state.bird.y + UNIT]);
-  if (sc.id === 'w1') {
-    const ks = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'), kA = sc.solids.find(s => s.bar === 'knockA');
-    if (!broken('w1', 'crack1')) {
-      if (kA && !broken('w1', 'knockA') && !broken('w1', 'knockB')) pipSay('practice', 'See the cracked stones? Practise on those. Heave a rock and let it fly!', [kA.fx * W, kA.fy * H]);
-      if (ks) pipSay('gate', 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.', [ks.fx * W, ks.fy * H], 12);
-    } else pipSay('opened', 'CRASH! Onward!');
-    pipSay('map-w1', 'Drawing the woods in... boulders, mud, a very suspicious tree.');
-  }
-  if (sc.id === 'start' && storyAt('adventure')) pipSay('map-start', 'Glade: big rock, brambles. On the map!');
-  if (sc.id === 'w2') {
-    const ks = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked');
-    pipSay('map-w2', 'Last blank corner of the map! Past these boulders, and it\'s done.');
-    if (!broken('w2', 'crack2')) pipSay('ring', 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!', ks ? [ks.fx * W, ks.fy * H] : null);
-    else if (!state.cut) startAbduct();              // the boulders tumble, and they were waiting
-  }
+  if (sc.id === 'w2' && broken('w2', 'crack2') && !state.cut && storyAt('adventure')) startAbduct();   // the boulders tumble, and they were waiting
+
 }
