@@ -799,6 +799,6 @@ function updateTexts(dt) {
     const s = t.site, far = s ? Math.hypot(h.x - s.x, h.y - s.y) > UNIT * s.r : t.x != null && Math.hypot(h.x - t.x, h.y - t.y) > UNIT * 11;
     if (far) { t.hold = false; t.life = t.t + 0.8; }
   }
-  for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life) state.texts.splice(i, 1); }
+  for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life && !(t.done == null && nextPage(t))) state.texts.splice(i, 1); }
   if (state.title) { state.title.t += dt; if (state.title.t > state.title.life) state.title = null; }
 }

@@ -759,7 +759,7 @@ function updateIntro(dt) {
   if (!c.gone) {
     p.side = h.x > p.x ? 1 : -1;
     if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
-    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc' }); c.step++; }
+    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); c.step++; }
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
@@ -774,7 +774,7 @@ function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W +
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
 function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
-  return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
+  return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
   const inv = state.inv;
@@ -791,13 +791,17 @@ function placePipNearHero() {
   const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
+// Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
+// else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
+const PIP_HOLD = new Set(['plots', 'robin-lesson', 'firstseed', 'tocamp', 'campdone', 'tentin', 'chest']);
+const PIP_GAP = 8;
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < (PIP_HOLD.has(key) ? 2.2 : PIP_GAP) || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff', site });
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site, hold: PIP_HOLD.has(key) ? undefined : false, size: PIP_HOLD.has(key) ? 1 : 0.9 });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -810,7 +814,7 @@ function needWords(miss) {
   return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
 }
 function pipGatherTalk(sc, p) {
-  if (sc.id === 'camp' || p.visit) return;
+  if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
   const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
@@ -820,9 +824,9 @@ function pipGatherTalk(sc, p) {
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
-  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return;
+  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
 }
 // Pip's spot beside something: on the side facing you, a step away from it
 function pipBeside(v) {
@@ -839,7 +843,7 @@ function updatePip(dt) {
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
-  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
+  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 4.2);   // well out in front, so the way is plain
   let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
   if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
   const v = p.visit;
@@ -848,7 +852,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff', site: v.site });
+      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site: v.site, hold: PIP_HOLD.has(v.key) ? undefined : false, size: PIP_HOLD.has(v.key) ? 1 : 0.9 });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -907,6 +911,7 @@ function updatePip(dt) {
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (inv.acorns > 0 && !storyAt('adventure')) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
+  if (sc.id === 'tentin' && f.chest) pipSay('chest', 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!', P(f.chest));
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
     const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
@@ -1514,6 +1519,9 @@ function loadSlot(i) {
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
+  if (!state.inv.chestStocked) {                        // older saves: the chest gets its starting seeds and acorns too
+    const ch = state.inv.chest || (state.inv.chest = {}); (ch.bag = ch.bag || {}).turnipseed = (ch.bag.turnipseed || 0) + 2; ch.acorns = (ch.acorns || 0) + 3; state.inv.chestStocked = true;
+  }
   migrateSeeds(state.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
@@ -1561,7 +1569,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
   } catch (e) {}
   refreshK();
 }

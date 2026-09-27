@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 70, 27 Sep 2026)
+# Quest: handoff notes (as of build 71, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -34,13 +34,29 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
 
+## Build 71 in short
+- Slot labels: an old save could bring back two actions on one key (dash on D from before slotd existed), which made
+  the row read D S D. Loading settings now falls back to DEFAULT_KEYS when any key is bound twice. Labels are A S D F,
+  each once, in order.
+- Speech (keys pip/npc) never goes to the bottom reading panel. say() splits it into pages of a sentence or two
+  (speechPages, ~80 chars); F turns the page (nextPage), timed speech turns its own pages. Pip's words carry who:'pip'
+  and ride above Pip wherever Pip is (layoutTexts), in Pip's colour, in a narrower bubble. The panel is only for
+  letters, pages and signs.
+- Pip is lighter: only PIP_HOLD lines (the garden lesson, heading to camp, home base, the tent, the chest) wait for F;
+  every other hint fades on its own at 0.9 size, with at least PIP_GAP (8 s) between them. The gathering tally stays
+  out of the tent.
+- Pip leads 4.2 tiles out (was 2.2), about 4 tiles ahead in practice.
+- Pip follows you into the tent (pipWithYou allows tentin). The chest starts with 2 turnip seeds and 3 acorns (newInv;
+  older saves get them once via inv.chestStocked), and Pip mentions them and compost inside.
+- Quest complete: the same banner as a new quest, with the quest's QUEST_DID line under it, a fanfare, 4.6 s, not held.
+- Tests: t71. tools/shot.js B71=1.
+
 ## Build 70 in short
 - Quest banners (style 'herald', p5): the banner is drawn once into its own canvas (heraldImage, cached on the title as
   T.img) and each frame only moved, unrolled from the middle and faded with smootherstep, so it no longer stutters (the
   old per-frame shadowBlur was the cost). Themed by region: REGION_THEME, regionOf(sc) (sc.region, default 'vale').
   Everything built so far is the Vale: green cloth ribbon, notched tails, gold trim, leaf sprigs. A new region sets
-  sc.region and adds a theme. "Quest complete" now uses the same banner (subtitle "quest complete"), still held for F,
-  and fades out over ~1.1 s when dismissed.
+  sc.region and adds a theme. "Quest complete" uses the same banner (see build 71).
 - Vigor bar (p7 drawHUD): one layer = 17 vigor. Below 17 the bar grows with max vigor; at 17 it is the full width of the
   slot row. Every further 17 lays another fill over the same bar, darker and more solid (layer(i), k = 1 - 0.55^i, no
   limit); the top layer's room shows faintly; low vigor pulses a red frame. The depth gaps themselves already widen

@@ -53,6 +53,16 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B71) {                             // build 71: Pip's words in a bubble over Pip, and the quest-complete banner
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('camp'); state.cut=null; state.enemies=[]; run(10); state.texts=[]; state.title=null;
+  state.inv.food.push('turnip','carrot'); state.inv.bag.turnipseed=2; run(30); state.texts=[]; state.title=null;
+  state.pip={x:W*0.55,y:H*0.5,show:true,follow:true}; state.hero.x=W*0.45; state.hero.y=H*0.6;
+  say('We still need a fire ring and a bench. River stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields down south. For glue. Trust me.', state.pip.x, state.pip.y-UNIT*1.3, {key:'pip', color:'#bfe4ff'});
+  run(3); draw(); fs.writeFileSync('/tmp/b71-bubble.png', canvas.toBuffer('image/png'));
+  state.texts=[]; state.title={ text: "Pip's garden", sub: 'quest complete', style: 'herald', t: 0, life: 4.6, at: state.time, hold: false, note: QUEST_DID.garden }; run(50); draw(); fs.writeFileSync('/tmp/b71-outro.png', canvas.toBuffer('image/png'));
+  console.log('b71 shots written');
+}
 if (process.env.B70) {                             // build 70: the Vale quest banner mid-rise, and the vigor bar at 8, 17 and 40
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; state.inv.sword=true; enterScene('start'); state.cut=null; state.enemies=[]; run(20); state.texts=[]; state.title=null;

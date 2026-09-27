@@ -419,21 +419,38 @@ function say(text, x, y, opts = {}) {
   const badge = promptKey(text);
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
-    const o = state.texts.find(o => o.key === opts.key && o.text === text);
+    const o = state.texts.find(o => o.key === opts.key && (o.full || o.text) === text);
     if (o) { o.x = x; o.y = y; if (!o.hold) o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
   }
   // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
   const hold = SPEECH.has(opts.key) && opts.hold !== false;
-  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  // speech comes a sentence or two at a time, near whoever is saying it: never a wall of words
+  const pages = SPEECH.has(opts.key) ? speechPages(text) : [text];
+  const t = { text: pages[0], full: text, more: pages.slice(1), hold0: hold, who: opts.who || (opts.key === 'pip' ? 'pip' : null), x, y, t: 0, life: hold ? 1e9 : (opts.life && pages.length === 1 ? opts.life : readTime(pages[0])), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
-  const dup = state.texts.find(o => o.text === text);
+  const dup = state.texts.find(o => (o.full || o.text) === text);
   if (dup) { dup.life = Math.max(dup.life, dup.t + t.life); return; }
   state.texts.push(t);
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// split speech into pages of a sentence or two (about 80 characters at most)
+function speechPages(text, max = 80) {
+  const sent = text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [text], out = [];
+  let cur = '';
+  for (const s0 of sent) { const s = s0.trim(); if (!s) continue; if (cur && (cur + ' ' + s).length > max) { out.push(cur); cur = s; } else cur = cur ? cur + ' ' + s : s; }
+  if (cur) out.push(cur);
+  return out.length ? out : [text];
+}
+const readTime = s => Math.min(7, 2.4 + s.length / 16);
+// the next page of what someone is saying, if there is one
+function nextPage(t) {
+  if (!t.more || !t.more.length) return false;
+  t.text = t.more.shift(); t.t = 0; t.pos = null; t.ly = null; t.hold = t.hold0; t.life = t.hold ? 1e9 : readTime(t.text);
+  return true;
+}
 // anything waiting to be read? (a held title or held speech)
 function heldText() { return (state.title && state.title.hold) || state.texts.some(t => t.hold); }
 // the action key clears one thing at a time: the quest alert first, then the oldest held speech.
@@ -441,7 +458,7 @@ function heldText() { return (state.title && state.title.hold) || state.texts.so
 function dismissHeld() {
   if (state.title && state.title.hold) { state.title.life = state.title.t + (state.title.style === 'herald' ? 1.1 : 0.3); state.title.hold = false; sfx.tock(); return true; }
   const t = state.texts.find(o => o.hold);
-  if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
+  if (t) { sfx.tock(); if (nextPage(t)) return true; t.hold = false; t.life = t.t + 0.25; t.done = state.time; return true; }
   return false;
 }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }

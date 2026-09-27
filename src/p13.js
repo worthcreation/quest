@@ -246,6 +246,16 @@ function campHave() {                                    // raw counted with wha
   const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
   return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
 }
+// what each quest amounts to, said in the banner when it's done
+const QUEST_DID = {
+  garden: 'Seeds in the ground, and your first turnip pulled.',
+  camp: 'A fire ring, a bench and a tent: home base.',
+  pip: 'Pip is safe, and the tunnels know your name.',
+  beans: 'The toad is fed, and grateful.',
+  journal: 'Every map Pip ever drew, back where it belongs.',
+  raft: 'Down the river and on to new water.',
+  shrooms: 'The mushrooms will carry you now.',
+};
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
@@ -298,7 +308,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 3.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { const tt = { text: q.name, sub: 'quest complete', style: 'herald', t: 0, life: 4.6, at: state.time, hold: false, note: QUEST_DID[q.id] || '' }; if (speakingNow()) (state.titleQ = state.titleQ || []).push(tt); else state.title = tt; sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }

@@ -779,7 +779,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: vegetable seeds (turnip, carrot, pepper, squash) grow that vegetable; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
+function newInv() { return { story: 0, chest: { bag: { turnipseed: 2 }, acorns: 3 }, chestStocked: true, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1219,21 +1219,38 @@ function say(text, x, y, opts = {}) {
   const badge = promptKey(text);
   if (badge) { rememberTip(text); return; }          // "F to ..." prompts are replaced by the shine and label
   if (opts.key) {                                 // same message still showing: keep it, don't restart it
-    const o = state.texts.find(o => o.key === opts.key && o.text === text);
+    const o = state.texts.find(o => o.key === opts.key && (o.full || o.text) === text);
     if (o) { o.x = x; o.y = y; if (!o.hold) o.life = Math.max(o.life, o.t + (opts.life || 3.2) * 0.5); return; }
   }
   // speech (Pip, people) stays on screen until you press the action key: nothing you're meant to read walks off on its own
   const hold = SPEECH.has(opts.key) && opts.hold !== false;
-  const t = { text, x, y, t: 0, life: hold ? 1e9 : (opts.life || 3.2), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
+  // speech comes a sentence or two at a time, near whoever is saying it: never a wall of words
+  const pages = SPEECH.has(opts.key) ? speechPages(text) : [text];
+  const t = { text: pages[0], full: text, more: pages.slice(1), hold0: hold, who: opts.who || (opts.key === 'pip' ? 'pip' : null), x, y, t: 0, life: hold ? 1e9 : (opts.life && pages.length === 1 ? opts.life : readTime(pages[0])), hold, site: opts.site || null, key: opts.key || null, follow: x == null, size: opts.size || 1, color: opts.color || '#fdf6e3', badge, hint: !opts.color && !SPEECH.has(opts.key) && !badge };
   if (t.key) state.texts = state.texts.filter(o => o.key !== t.key);
   if (t.follow) state.texts = state.texts.filter(o => !o.follow);
   // the same words from somewhere else just refresh; too many at once drops the oldest non-reading one
-  const dup = state.texts.find(o => o.text === text);
+  const dup = state.texts.find(o => (o.full || o.text) === text);
   if (dup) { dup.life = Math.max(dup.life, dup.t + t.life); return; }
   state.texts.push(t);
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// split speech into pages of a sentence or two (about 80 characters at most)
+function speechPages(text, max = 80) {
+  const sent = text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [text], out = [];
+  let cur = '';
+  for (const s0 of sent) { const s = s0.trim(); if (!s) continue; if (cur && (cur + ' ' + s).length > max) { out.push(cur); cur = s; } else cur = cur ? cur + ' ' + s : s; }
+  if (cur) out.push(cur);
+  return out.length ? out : [text];
+}
+const readTime = s => Math.min(7, 2.4 + s.length / 16);
+// the next page of what someone is saying, if there is one
+function nextPage(t) {
+  if (!t.more || !t.more.length) return false;
+  t.text = t.more.shift(); t.t = 0; t.pos = null; t.ly = null; t.hold = t.hold0; t.life = t.hold ? 1e9 : readTime(t.text);
+  return true;
+}
 // anything waiting to be read? (a held title or held speech)
 function heldText() { return (state.title && state.title.hold) || state.texts.some(t => t.hold); }
 // the action key clears one thing at a time: the quest alert first, then the oldest held speech.
@@ -1241,7 +1258,7 @@ function heldText() { return (state.title && state.title.hold) || state.texts.so
 function dismissHeld() {
   if (state.title && state.title.hold) { state.title.life = state.title.t + (state.title.style === 'herald' ? 1.1 : 0.3); state.title.hold = false; sfx.tock(); return true; }
   const t = state.texts.find(o => o.hold);
-  if (t) { t.hold = false; t.life = t.t + 0.25; t.done = state.time; sfx.tock(); return true; }
+  if (t) { sfx.tock(); if (nextPage(t)) return true; t.hold = false; t.life = t.t + 0.25; t.done = state.time; return true; }
   return false;
 }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
@@ -3002,7 +3019,7 @@ function updateTexts(dt) {
     const s = t.site, far = s ? Math.hypot(h.x - s.x, h.y - s.y) > UNIT * s.r : t.x != null && Math.hypot(h.x - t.x, h.y - t.y) > UNIT * 11;
     if (far) { t.hold = false; t.life = t.t + 0.8; }
   }
-  for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life) state.texts.splice(i, 1); }
+  for (let i = state.texts.length - 1; i >= 0; i--) { const t = state.texts[i]; t.t += dt; if (t.t > t.life && !(t.done == null && nextPage(t))) state.texts.splice(i, 1); }
   if (state.title) { state.title.t += dt; if (state.title.t > state.title.life) state.title = null; }
 }
 
@@ -3766,7 +3783,7 @@ function updateIntro(dt) {
   if (!c.gone) {
     p.side = h.x > p.x ? 1 : -1;
     if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
-    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc' }); c.step++; }
+    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); c.step++; }
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
@@ -3781,7 +3798,7 @@ function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W +
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
 function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
-  return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
+  return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
   const inv = state.inv;
@@ -3798,13 +3815,17 @@ function placePipNearHero() {
   const h = state.hero, bx = h.x - h.fx * UNIT * 1.3 + h.fy * UNIT * 0.8, by = h.y - h.fy * UNIT * 1.3 - h.fx * UNIT * 0.8;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
+// Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
+// else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
+const PIP_HOLD = new Set(['plots', 'robin-lesson', 'firstseed', 'tocamp', 'campdone', 'tentin', 'chest']);
+const PIP_GAP = 8;
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < (PIP_HOLD.has(key) ? 2.2 : PIP_GAP) || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff', site });
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site, hold: PIP_HOLD.has(key) ? undefined : false, size: PIP_HOLD.has(key) ? 1 : 0.9 });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -3817,7 +3838,7 @@ function needWords(miss) {
   return parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0];
 }
 function pipGatherTalk(sc, p) {
-  if (sc.id === 'camp' || p.visit) return;
+  if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
   const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
@@ -3827,9 +3848,9 @@ function pipGatherTalk(sc, p) {
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
-  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < 2.2 || speakingNow()) return;
+  if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + text.length / 18), color: '#bfe4ff' });
+  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
 }
 // Pip's spot beside something: on the side facing you, a step away from it
 function pipBeside(v) {
@@ -3846,7 +3867,7 @@ function updatePip(dt) {
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
   const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
-  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 2.2);
+  const dx = gx - h.x, dy = gy - h.y, dl = Math.hypot(dx, dy) || 1, lead = Math.min(dl, UNIT * 4.2);   // well out in front, so the way is plain
   let tx = h.x + dx / dl * lead - dy / dl * UNIT * 0.9, ty = h.y + dy / dl * lead + dx / dl * UNIT * 0.9;
   if (garden) { [tx, ty] = gardenSpot(); p.visit = null; }
   const v = p.visit;
@@ -3855,7 +3876,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', life: Math.min(4.5, 1.8 + v.text.length / 18), color: '#bfe4ff', site: v.site });
+      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site: v.site, hold: PIP_HOLD.has(v.key) ? undefined : false, size: PIP_HOLD.has(v.key) ? 1 : 0.9 });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -3914,6 +3935,7 @@ function updatePip(dt) {
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (inv.acorns > 0 && !storyAt('adventure')) pipSay('compost', 'Get enough of those acorns, and you can make some awesome compost!');
+  if (sc.id === 'tentin' && f.chest) pipSay('chest', 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!', P(f.chest));
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
     const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
@@ -4521,6 +4543,9 @@ function loadSlot(i) {
   resetRun(d.seed);
   for (const [k, r] of Object.entries(d.rt)) RT[k] = { deadAt: r.deadAt || {}, items: r.items, pulled: new Set(r.pulled), flags: r.flags || {}, bossDead: r.bossDead };
   Object.assign(state.inv, d.inv);
+  if (!state.inv.chestStocked) {                        // older saves: the chest gets its starting seeds and acorns too
+    const ch = state.inv.chest || (state.inv.chest = {}); (ch.bag = ch.bag || {}).turnipseed = (ch.bag.turnipseed || 0) + 2; ch.acorns = (ch.acorns || 0) + 3; state.inv.chestStocked = true;
+  }
   migrateSeeds(state.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
@@ -4568,7 +4593,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; }
   } catch (e) {}
   refreshK();
 }
@@ -6149,7 +6174,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 70';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 71';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7168,6 +7193,16 @@ function campHave() {                                    // raw counted with wha
   const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
   return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
 }
+// what each quest amounts to, said in the banner when it's done
+const QUEST_DID = {
+  garden: 'Seeds in the ground, and your first turnip pulled.',
+  camp: 'A fire ring, a bench and a tent: home base.',
+  pip: 'Pip is safe, and the tunnels know your name.',
+  beans: 'The toad is fed, and grateful.',
+  journal: 'Every map Pip ever drew, back where it belongs.',
+  raft: 'Down the river and on to new water.',
+  shrooms: 'The mushrooms will carry you now.',
+};
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
@@ -7220,7 +7255,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 3.6, true); sfx.heart(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { const tt = { text: q.name, sub: 'quest complete', style: 'herald', t: 0, life: 4.6, at: state.time, hold: false, note: QUEST_DID[q.id] || '' }; if (speakingNow()) (state.titleQ = state.titleQ || []).push(tt); else state.title = tt; sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }
@@ -8218,7 +8253,7 @@ function layoutTexts() {
   const h = state.hero, placed = [], res = reservedRects(), boxes = [];
   const size = Math.round(Math.max(TEXT.min, Math.min(TEXT.max, UNIT * 0.52)));
   // long reads (letters, pages, signs) go in one panel at the bottom; only the newest shows
-  const reads = state.texts.filter(t => t.text.length > TEXT.readChars);
+  const reads = state.texts.filter(t => t.text.length > TEXT.readChars && !SPEECH.has(t.key));   // speech never goes down here
   const read = reads[reads.length - 1];
   if (read) {
     ctx.font = `${size}px Georgia, serif`;
@@ -8229,16 +8264,17 @@ function layoutTexts() {
   }
   // the rest: the hero's own words first, then newest to oldest; anything that can't find clear room waits
   const speaking = speakingNow();
-  const floats = state.texts.filter(t => t.text.length <= TEXT.readChars && !(speaking && t.hint)).slice(-TEXT.maxShown)
+  const floats = state.texts.filter(t => (t.text.length <= TEXT.readChars || SPEECH.has(t.key)) && !(speaking && t.hint)).slice(-TEXT.maxShown)
     .sort((a, b) => (b.follow ? 1 : 0) - (a.follow ? 1 : 0) || a.t - b.t);
   for (const t of floats) {
     const fs = Math.round(size * t.size);
     ctx.font = `bold ${fs}px "Courier New", monospace`;
-    const lines = t.badge ? [t.badge] : wrap(t.text, Math.min(W * 0.7, UNIT * 10 * t.size, 460));
+    const lines = t.badge ? [t.badge] : wrap(t.text, Math.min(W * 0.7, UNIT * (SPEECH.has(t.key) ? 7.5 : 10) * t.size, SPEECH.has(t.key) ? 340 : 460));
     const lh = fs * 1.3, bh = lines.length * lh + TEXT.pad * 1.4, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + TEXT.pad * 2.4;
-    const wx = t.follow ? h.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : t.y;
+    const sp = t.who === 'pip' && state.pip && state.pip.show ? state.pip : null;      // Pip's words ride along above Pip
+    const wx = t.follow ? h.x : sp ? sp.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : sp ? sp.y - (sp.hz || 0) - UNIT * 1.3 : t.y;
     const [ax, ay] = toScreen(wx, wy);
-    if (t.pos && t.pos.w === bw) {                    // already placed: it stays exactly there
+    if (t.pos && t.pos.w === bw && !sp) {                    // already placed: it stays exactly there
       const b = { t, x: t.pos.x, y: t.pos.y, drawY: t.pos.y, w: bw, h: bh, lines, size: fs, lh };
       boxes.push(b); placed.push(b); continue;
     }
@@ -8303,7 +8339,8 @@ function heraldImage(T) {
   const size = Math.min(W / 13, UNIT * 1.25), c = document.createElement('canvas'), g = c.getContext('2d');
   const font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`; g.font = font;
   const tw = Math.max(g.measureText(T.text).width, size * 4), bw = tw + size * 3.2, bh = size * 1.9, tail = size * 0.9, pad = size * 0.6;
-  c.width = Math.ceil((bw + tail * 2 + pad * 2) * dpr); c.height = Math.ceil((bh + size * 1.4 + pad) * dpr); c.dpr = dpr;
+  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = T.note ? g.measureText(T.note).width : 0; g.font = font;
+  c.width = Math.ceil((Math.max(bw + tail * 3.2, nw + pad * 2) + pad * 2) * dpr); c.height = Math.ceil((bh + size * (T.note ? 2.2 : 1.4) + pad) * dpr); c.dpr = dpr;
   g.scale(dpr, dpr); g.font = font;                                      // resizing the canvas reset the font
   const cx = c.width / dpr / 2, top = size * 1.1, y0 = top, y1 = top + bh, x0 = cx - bw / 2, x1 = cx + bw / 2;
   // tails, tucked behind, with a notch
@@ -8326,6 +8363,7 @@ function heraldImage(T) {
   const tg = g.createLinearGradient(0, ty - size / 2, 0, ty + size / 2); tg.addColorStop(0, th.text[0]); tg.addColorStop(0.55, th.text[1]); tg.addColorStop(1, th.text[2]);
   g.fillStyle = tg; g.fillText(T.text, cx, ty);
   g.font = `italic ${Math.round(size * 0.42)}px Georgia, serif`; g.fillStyle = th.sub; g.globalAlpha = 0.9; g.fillText(T.sub, cx, top - size * 0.45);
+  if (T.note) { g.font = `${Math.round(size * 0.4)}px Georgia, serif`; g.fillStyle = th.sub; g.fillText(T.note, cx, y1 + size * 0.5); }   // what was done
   return c;
 }
 function drawTitle() {

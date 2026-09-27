@@ -520,7 +520,7 @@ function layoutTexts() {
   const h = state.hero, placed = [], res = reservedRects(), boxes = [];
   const size = Math.round(Math.max(TEXT.min, Math.min(TEXT.max, UNIT * 0.52)));
   // long reads (letters, pages, signs) go in one panel at the bottom; only the newest shows
-  const reads = state.texts.filter(t => t.text.length > TEXT.readChars);
+  const reads = state.texts.filter(t => t.text.length > TEXT.readChars && !SPEECH.has(t.key));   // speech never goes down here
   const read = reads[reads.length - 1];
   if (read) {
     ctx.font = `${size}px Georgia, serif`;
@@ -531,16 +531,17 @@ function layoutTexts() {
   }
   // the rest: the hero's own words first, then newest to oldest; anything that can't find clear room waits
   const speaking = speakingNow();
-  const floats = state.texts.filter(t => t.text.length <= TEXT.readChars && !(speaking && t.hint)).slice(-TEXT.maxShown)
+  const floats = state.texts.filter(t => (t.text.length <= TEXT.readChars || SPEECH.has(t.key)) && !(speaking && t.hint)).slice(-TEXT.maxShown)
     .sort((a, b) => (b.follow ? 1 : 0) - (a.follow ? 1 : 0) || a.t - b.t);
   for (const t of floats) {
     const fs = Math.round(size * t.size);
     ctx.font = `bold ${fs}px "Courier New", monospace`;
-    const lines = t.badge ? [t.badge] : wrap(t.text, Math.min(W * 0.7, UNIT * 10 * t.size, 460));
+    const lines = t.badge ? [t.badge] : wrap(t.text, Math.min(W * 0.7, UNIT * (SPEECH.has(t.key) ? 7.5 : 10) * t.size, SPEECH.has(t.key) ? 340 : 460));
     const lh = fs * 1.3, bh = lines.length * lh + TEXT.pad * 1.4, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + TEXT.pad * 2.4;
-    const wx = t.follow ? h.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : t.y;
+    const sp = t.who === 'pip' && state.pip && state.pip.show ? state.pip : null;      // Pip's words ride along above Pip
+    const wx = t.follow ? h.x : sp ? sp.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : sp ? sp.y - (sp.hz || 0) - UNIT * 1.3 : t.y;
     const [ax, ay] = toScreen(wx, wy);
-    if (t.pos && t.pos.w === bw) {                    // already placed: it stays exactly there
+    if (t.pos && t.pos.w === bw && !sp) {                    // already placed: it stays exactly there
       const b = { t, x: t.pos.x, y: t.pos.y, drawY: t.pos.y, w: bw, h: bh, lines, size: fs, lh };
       boxes.push(b); placed.push(b); continue;
     }
@@ -605,7 +606,8 @@ function heraldImage(T) {
   const size = Math.min(W / 13, UNIT * 1.25), c = document.createElement('canvas'), g = c.getContext('2d');
   const font = `bold ${Math.round(size)}px Georgia, "Times New Roman", serif`; g.font = font;
   const tw = Math.max(g.measureText(T.text).width, size * 4), bw = tw + size * 3.2, bh = size * 1.9, tail = size * 0.9, pad = size * 0.6;
-  c.width = Math.ceil((bw + tail * 2 + pad * 2) * dpr); c.height = Math.ceil((bh + size * 1.4 + pad) * dpr); c.dpr = dpr;
+  g.font = `${Math.round(size * 0.4)}px Georgia, serif`; const nw = T.note ? g.measureText(T.note).width : 0; g.font = font;
+  c.width = Math.ceil((Math.max(bw + tail * 3.2, nw + pad * 2) + pad * 2) * dpr); c.height = Math.ceil((bh + size * (T.note ? 2.2 : 1.4) + pad) * dpr); c.dpr = dpr;
   g.scale(dpr, dpr); g.font = font;                                      // resizing the canvas reset the font
   const cx = c.width / dpr / 2, top = size * 1.1, y0 = top, y1 = top + bh, x0 = cx - bw / 2, x1 = cx + bw / 2;
   // tails, tucked behind, with a notch
@@ -628,6 +630,7 @@ function heraldImage(T) {
   const tg = g.createLinearGradient(0, ty - size / 2, 0, ty + size / 2); tg.addColorStop(0, th.text[0]); tg.addColorStop(0.55, th.text[1]); tg.addColorStop(1, th.text[2]);
   g.fillStyle = tg; g.fillText(T.text, cx, ty);
   g.font = `italic ${Math.round(size * 0.42)}px Georgia, serif`; g.fillStyle = th.sub; g.globalAlpha = 0.9; g.fillText(T.sub, cx, top - size * 0.45);
+  if (T.note) { g.font = `${Math.round(size * 0.4)}px Georgia, serif`; g.fillStyle = th.sub; g.fillText(T.note, cx, y1 + size * 0.5); }   // what was done
   return c;
 }
 function drawTitle() {
