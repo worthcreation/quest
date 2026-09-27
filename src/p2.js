@@ -371,7 +371,7 @@ const ZP = {          // amount, duration, bounces
   hurt:   [0.05, 0.45, 2],
   parry:  [0.07, 0.55, 3],
   kill:   [0.09, 0.8, 3],
-  pickup: [0.05, 0.6, 2],
+  pickup: [0.012, 0.3, 1],                    // a picked-up thing: barely a nudge
   land:   [0.12, 0.9, 4],
   boss:   [0.15, 1.5, 5],
   title:  [0.05, 1.1, 2],

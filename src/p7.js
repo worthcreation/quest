@@ -1183,16 +1183,19 @@ function drawPack(m, x, y, pw, fs) {
   const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
   const rr_ = (x0, y0, w0, h0, r0) => { ctx.beginPath(); ctx.moveTo(x0 + r0, y0); ctx.arcTo(x0 + w0, y0, x0 + w0, y0 + h0, r0); ctx.arcTo(x0 + w0, y0 + h0, x0, y0 + h0, r0); ctx.arcTo(x0, y0 + h0, x0, y0, r0); ctx.arcTo(x0, y0, x0 + w0, y0, r0); ctx.closePath(); };
   const pwide = Math.min(W - 24, 680), px = (W - pwide) / 2;
-  // tabs
-  const chips = PACK_TABS.map((t, i) => [t, i]);
-  ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.textAlign = 'center';
-  const cw = pwide / chips.length, th = fs * 1.9;
+  // tabs: only the ones with something behind them, each as wide as its word (the font shrinks to fit the row)
+  const chips = PACK_TABS.map((t, i) => [t, i]).filter(([t]) => tabShown(t));
+  let tfs = Math.round(fs * 0.8), cws;
+  for (;;) { ctx.font = `${tfs}px "Courier New", monospace`; cws = chips.map(([t]) => ctx.measureText(t).width + tfs * 1.4); if (cws.reduce((a, b) => a + b, 0) + chips.length * 4 <= pwide || tfs <= 9) break; tfs--; }
+  ctx.textAlign = 'center';
+  const th = fs * 1.9, tot = cws.reduce((a, b) => a + b, 0) + (chips.length - 1) * 4; let cx = px + (pwide - tot) / 2;
   chips.forEach(([label, i], k) => {
-    const cx = px + k * cw, on = m.tab === i, foc = on && m.focus === 'tabs';
-    ctx.fillStyle = on ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.06)'; rr_(cx + 2, y - th * 0.75, cw - 4, th, 6); ctx.fill();
+    const cw = cws[k], on = m.tab === i, foc = on && m.focus === 'tabs';
+    ctx.fillStyle = on ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.06)'; rr_(cx, y - th * 0.75, cw, th, 6); ctx.fill();
     if (foc) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.fillStyle = on ? '#ffe38a' : '#d8d0c0'; ctx.fillText(label, cx + cw / 2, y + fs * 0.1);
-    hits.push({ x: cx, y: y - th * 0.75, w: cw, h: th, fn: () => { m.tab = i; m.sel = 0; m.focus = 'grid'; } });
+    const x0 = cx; hits.push({ x: x0, y: y - th * 0.75, w: cw, h: th, fn: () => { m.tab = i; m.sel = 0; m.focus = 'grid'; } });
+    cx += cw + 4;
   });
   y += th * 0.9;
   const areaH = H - y - fs * 7.5;
@@ -1275,14 +1278,33 @@ function drawPack(m, x, y, pw, fs) {
     }
     return;
   }
+  if (tab === 'Status') {                              // everything about you that grows, read-only
+    let yy = y + fs * 0.4; const lx = px + 14, vx = px + pwide * 0.42;
+    for (const r of statusRows()) {
+      if (yy > H - fs * 3) break;
+      if (r[0] === 'head') { yy += fs * 0.5; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(fs * 0.9)}px Georgia, serif`; ctx.fillText(r[1], lx, yy + fs * 0.8); yy += fs * 1.3; continue; }
+      ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillStyle = '#d8d0c0'; ctx.fillText(r[1], lx + fs, yy + fs * 0.8);
+      if (r[0] === 'skill') {
+        const bw = pwide * 0.3, bh = fs * 0.45; ctx.fillStyle = '#fdf6e3'; ctx.fillText(`level ${r[2]} of ${r[3]}`, vx, yy + fs * 0.8);
+        const bx = vx + fs * 8; ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx, yy + fs * 0.4, bw, bh); ctx.fillStyle = '#c9a2ff'; ctx.fillRect(bx, yy + fs * 0.4, bw * (r[2] >= r[3] ? 1 : r[4]), bh);
+      } else { ctx.fillStyle = '#fdf6e3'; const ls = wrap(r[2], pwide - (vx - px) - 14); ls.forEach((l, k) => ctx.fillText(l, vx, yy + fs * 0.8 + k * fs * 1.05)); yy += (ls.length - 1) * fs * 1.05; }
+      yy += fs * 1.25;
+    }
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
+    drawTipMarquee(fs);
+    return;
+  }
   if (tab === 'Craft') y += drawCraftMat(px, y + fs * 0.6, pwide, fs) + fs * 1.2;
   const cells = packCells(tab);
   const cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
   m.cols = cols;
   const gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
   if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
+  const LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
+  const rowY = r => { let yy = y; for (let k = 0; k <= r; k++) { if (LAY.some(q => q.r === k && q.head)) yy += headH; if (k < r) yy += cs + gap; } return yy; };
+  LAY.forEach((q, i) => { if (q.head) { ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,227,138,.75)'; ctx.font = `bold ${Math.round(fs * 0.7)}px Georgia, serif`; ctx.fillText(q.head, gx, rowY(q.r) - fs * 0.3); ctx.textAlign = 'center'; } });
   cells.forEach((c, i) => {
-    const cx = gx + (i % cols) * (cs + gap), cy = y + Math.floor(i / cols) * (cs + gap), sel = i === m.sel && m.focus !== 'tabs';
+    const cx = gx + LAY[i].c * (cs + gap), cy = rowY(LAY[i].r), sel = i === m.sel && m.focus !== 'tabs';
     if (cy + cs > y + areaH) return;
     ctx.fillStyle = sel ? 'rgba(242,201,76,.22)' : 'rgba(255,255,255,.07)'; rr_(cx, cy, cs, cs, 8); ctx.fill();
     if (sel) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
@@ -1299,17 +1321,19 @@ function drawPack(m, x, y, pw, fs) {
   // detail: name, one line, actions
   const c = m.focus !== 'tabs' ? cells[m.sel] : null, dy = H - fs * 6.8;
   if (c) {
-    ctx.fillStyle = 'rgba(255,255,255,.06)'; rr_(px, dy - fs * 1.5, pwide, fs * 5.4, 10); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; rr_(px, dy - fs * 1.5, pwide, fs * 6.3, 10); ctx.fill();
     ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${fs}px Georgia, serif`; ctx.fillText(c.name, px + 14, dy);
-    ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.82)}px "Courier New", monospace`; ctx.fillText(c.line || '', px + 14, dy + fs * 1.3);
+    ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.82)}px "Courier New", monospace`;
+    const dl = wrap(c.line || '', pwide - 28).slice(0, 2); dl.forEach((l, k) => ctx.fillText(l, px + 14, dy + fs * 1.3 + k * fs * 1.05));   // wraps, never runs off the panel
+    const aY = (dl.length - 1) * fs * 1.05;
     let ax = px + 14;
     (c.acts || []).forEach((a, k) => {
       ctx.font = `${Math.round(fs * 0.82)}px "Courier New", monospace`;
       const w0 = ctx.measureText(a.label).width + 22, on = m.focus === 'acts' && m.act === k;
-      ctx.fillStyle = on ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.1)'; rr_(ax, dy + fs * 2.1, w0, fs * 1.6, 6); ctx.fill();
+      ctx.fillStyle = on ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.1)'; rr_(ax, dy + fs * 2.1 + aY, w0, fs * 1.6, 6); ctx.fill();
       if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
-      ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.fillText(a.label, ax + 11, dy + fs * 3.2);
-      hits.push({ x: ax, y: dy + fs * 2.1, w: w0, h: fs * 1.6, fn: () => { m.sel = cells.indexOf(c); m.focus = 'grid'; a.fn(); sfx.pickup(); } });
+      ctx.fillStyle = on ? '#ffe38a' : '#fdf6e3'; ctx.fillText(a.label, ax + 11, dy + fs * 3.2 + aY);
+      hits.push({ x: ax, y: dy + fs * 2.1 + aY, w: w0, h: fs * 1.6, fn: () => { m.sel = cells.indexOf(c); m.focus = 'grid'; a.fn(); sfx.pickup(); } });
       ax += w0 + 8;
     });
     ctx.textAlign = 'center';
@@ -1445,7 +1469,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 73';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 75';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -1455,7 +1479,7 @@ function drawMenu() {
   ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.font = '12px "Courier New", monospace';
   ctx.fillText(BUILD, W - 10, H - 8); ctx.textAlign = 'left';
   const pw = Math.min(W - 30, 520), fs = Math.round(Math.max(14, Math.min(20, UNIT * 0.55))), lh = fs * 2.1;
-  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', forge: 'Workbench', pack: 'Pack', spores: 'Spore travel', settings: 'Settings' };
+  const titles = { main: 'Paused', equip: 'Equipment', save: 'Save game', load: 'Load game', new: 'Start a new adventure?', keys: 'Controls', levels: 'Testing: set levels', forge: 'Workbench', pack: 'Pack', spores: 'Spore travel', settings: 'Settings' };
   let y = Math.max(40, H * 0.14);
   const x = (W - pw) / 2;
   ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3';

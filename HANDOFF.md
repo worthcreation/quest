@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 73, 27 Sep 2026)
+# Quest: handoff notes (as of build 75, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,25 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 75 in short
+- Pickups barely nudge the camera now (ZP.pickup 0.012 / 0.3 s / 1 bounce).
+- Pack tabs show only when there's something behind them (tabShown: Wear once you own something to wear, Food/Seeds/
+  Materials when you carry some, Map once you have the journal). Left/right skip hidden tabs (stepTab). Tabs are sized to
+  their words and the font shrinks to fit, so nothing clips. The empty Wear placeholder and the always-on "Farming level"
+  Gear cell are gone.
+- Sections: cells can carry `sec`; packLayout starts a new row (with the section name above it) at each change, and
+  up/down move by rows. Gear is split into Weapons, Abilities, Upgrades, Tools. Detail text wraps (two lines) instead of
+  running off the panel.
+- New Status tab (statusRows): vigor and depth, every skill with level and progress, gathering reach, garden levels,
+  upgrades. Read-only.
+- System > Testing: set levels (menu view 'levels', LEVEL_ROWS): every skill, vigor depth, turnip bonus; left/right or F
+  to change, plus everything to the top / back to zero. D steps back to System from sub-screens.
+- Tests: t75. tools/shot.js B75=1.
+
+## Build 74 in short
+- Robin seed drops: during Pip's garden lesson a startle drops seeds 80% of the time (was 40%; the first is still
+  certain). Outside the lesson it stays 40% (scareBird, p4). Test: t74.
 
 ## Build 73 in short
 - Text boxes no longer dodge things frame by frame. A box that belongs to a speaker (Pip) searches for clear room once,

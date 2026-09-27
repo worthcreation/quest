@@ -53,6 +53,17 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B75) {                             // build 75: pack tabs early and later, Gear sections, Status, testing levels
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; enterScene('riverbank'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
+  state.menu={view:'pack',tab:0,sel:0,focus:'tabs',act:0,sys:0,note:''}; run(2); draw(); fs.writeFileSync('/tmp/b75-early.png', canvas.toBuffer('image/png'));
+  const inv=state.inv; inv.sword=true; inv.acorns=5; inv.fire=true; inv.step=1; inv.silk=2; inv.up.edge=1; inv.rod=true; inv.food.push('turnip','carrot'); inv.bag.turnipseed=2; inv.mats.thorn=2; gainGear('feather',true); state.title=null; state.texts=[];
+  setSkillLevel('gather',4); setSkillLevel('acorn',2); inv.cropXp={turnip:5};
+  state.menu={view:'pack',tab:0,sel:2,focus:'grid',act:0,sys:0,note:''}; run(2); draw(); fs.writeFileSync('/tmp/b75-gear.png', canvas.toBuffer('image/png'));
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Status'),sel:0,focus:'tabs',act:0,sys:0,note:''}; run(2); draw(); fs.writeFileSync('/tmp/b75-status.png', canvas.toBuffer('image/png'));
+  state.menu={view:'levels',sel:1,note:''}; run(2); draw(); fs.writeFileSync('/tmp/b75-levels.png', canvas.toBuffer('image/png'));
+  console.log('b75 shots written');
+}
 if (process.env.B72) {                             // build 72: gathering rings at level 0 and level 8, loose-ground hints
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.pipTaken=true; enterScene('start'); state.cut=null; state.enemies=[]; state.items=[]; run(5); state.texts=[]; state.title=null;

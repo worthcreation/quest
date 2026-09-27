@@ -1263,7 +1263,18 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Wear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
+const PACK_TABS = ['Gear', 'Wear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Status', 'System'];
+// a tab shows only once there's something behind it
+function tabShown(t) {
+  const inv = state.inv;
+  if (t === 'Wear') return gearOwned().length > 0;
+  if (t === 'Food') return inv.food.length > 0;
+  if (t === 'Seeds') return Object.values(inv.bag || {}).some(n => n > 0);
+  if (t === 'Materials') return packCells('Materials').length > 0;
+  if (t === 'Map') return inv.journal >= 3;
+  return true;
+}
+function stepTab(i, d) { for (let k = 1; k <= PACK_TABS.length; k++) { const j = (i + d * k + PACK_TABS.length * 4) % PACK_TABS.length; if (tabShown(PACK_TABS[j])) return j; } return i; }
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
@@ -1276,6 +1287,7 @@ const SYSTEM_ITEMS = () => [
   ['sound', `Sound: ${soundOn ? 'on' : 'off'}`],
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
   ['labels', `Action labels: ${state.settings.labels === false ? 'off' : 'on'}`],
+  ['levels', 'Testing: set levels'],
   ['new', 'New adventure'],
 ];
 const SYS_TAB = () => PACK_TABS.indexOf('System');
@@ -1295,6 +1307,7 @@ function systemSelect(i) {
   if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
   if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
   if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
+  if (key === 'levels') Object.assign(m, { view: 'levels', sel: 0, note: '' });
   if (key === 'sound') setSound(!soundOn);
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
@@ -1304,6 +1317,36 @@ function systemSelect(i) {
 }
 const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
+// grid places for pack cells: a new section starts a new row (with its name above it)
+function packLayout(cells, cols) {
+  const out = []; let r = 0, c = 0, sec;
+  cells.forEach((cell, i) => { if (i && (c >= cols || cell.sec !== sec)) { r++; c = 0; } sec = cell.sec; out.push({ r, c, head: c === 0 && cell.sec && (i === 0 || cells[i - 1].sec !== cell.sec) ? cell.sec : null }); c++; });
+  return out;
+}
+// the Status tab: everything about you that grows, in one place
+function statusRows() {
+  const inv = state.inv, h = state.hero, rows = [];
+  rows.push(['head', 'You']);
+  rows.push(['row', 'Vigor', `${Math.ceil(h.vig)} of ${maxVig()}  \u00b7  depth ${inv.depth}${inv.vigBonus ? `  \u00b7  +${inv.vigBonus} from turnips` : ''}`]);
+  rows.push(['head', 'Skills']);
+  const SK = { acorn: 'Acorns', sword: 'Sword', dodge: 'Dodging', farm: 'Farming', gather: 'Gathering' };
+  for (const [id, name] of Object.entries(SK)) { const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prog = s.n + s.hits * 2; rows.push(['skill', name, s.lvl, max, need ? Math.min(1, (prog - (SKILLS[id].steps[s.lvl - 1] || 0)) / (need - (SKILLS[id].steps[s.lvl - 1] || 0))) : 1]); }
+  rows.push(['row', 'Gathering reach', `${gatherReach().toFixed(1)} tiles${autoRange('stick') ? `  \u00b7  common things come to you from ${autoRange('stick') >= 99 ? 'anywhere' : autoRange('stick').toFixed(1) + ' tiles'}` : ''}`]);
+  const crops = Object.keys(inv.cropXp || {});
+  if (crops.length || farmLevel()) { rows.push(['head', 'Garden']); rows.push(['row', 'Farming level', `${farmLevel()}  \u00b7  seeds come back ${Math.round(farmLevel() * 6)}% more often`]); for (const c of crops) rows.push(['row', c[0].toUpperCase() + c.slice(1), `level ${cropLevel(c)}`]); }
+  const ups = FORGE.filter(f => f.relic ? inv[f.k] : inv.up[f.k]);
+  if (ups.length || inv.step) { rows.push(['head', 'Upgrades']); for (const f of ups) rows.push(['row', f.name, 'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])]); if (inv.step) rows.push(['row', RELICS.step.name, 'I'.repeat(inv.step)]); }
+  return rows;
+}
+// System > Testing: set levels straight away
+const LEVEL_ROWS = () => [
+  ...Object.keys(SKILLS).map(id => ({ label: `${id[0].toUpperCase() + id.slice(1)} skill: ${skillLevel(id)} of ${SKILLS[id].steps.length}`, adj: d => setSkillLevel(id, (skillLevel(id) + d + SKILLS[id].steps.length + 1) % (SKILLS[id].steps.length + 1)) })),
+  { label: `Vigor depth: ${state.inv.depth}`, adj: d => { state.inv.depth = Math.max(0, Math.min(12, state.inv.depth + d)); state.hero.vig = maxVig(); } },
+  { label: `Turnip vigor bonus: ${state.inv.vigBonus}`, adj: d => { state.inv.vigBonus = Math.max(0, Math.min(40, state.inv.vigBonus + d * 5)); state.hero.vig = maxVig(); } },
+  { label: 'Everything to the top', adj: () => { for (const id of Object.keys(SKILLS)) setSkillLevel(id, SKILLS[id].steps.length); } },
+  { label: 'Everything back to zero', adj: () => { for (const id of Object.keys(SKILLS)) setSkillLevel(id, 0); } },
+  { label: 'Back', adj: null },
+];
 function packCells(tab) {
   if (tab === 'Craft') return craftCells();
   const inv = state.inv, cells = [], h = state.hero;
@@ -1313,13 +1356,15 @@ function packCells(tab) {
     if (inv.woodsword > 0) cells.push({ icon: 'woodsword', name: 'Wooden sword', line: `three sticks, lashed. ${Math.round(inv.woodsword / WOOD_SWORD * 100)}% left before it splinters apart`, mark: state.equip === 'woodsword', acts: slotActs({ kind: 'weapon', id: 'woodsword' }) });
     if (inv.aug) cells.push({ icon: inv.aug.id, name: OUT_NAME[inv.aug.id], line: `on your blade: ${inv.aug.n} more hits` });
     if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with their key; hold to throw harder', mark: state.equip === 'acorn', acts: slotActs({ kind: 'weapon', id: 'acorn' }) });
-    cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
     if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+    const SEC = c => ['sword', 'woodsword', 'acorn', 'thornwrap', 'emberoil'].includes(c.icon) ? 'Weapons' : ['fire', 'step', 'silk', 'horn', 'ember'].includes(c.icon) ? 'Abilities' : ['rod', 'journal'].includes(c.icon) ? 'Tools' : 'Upgrades';
+    const ORD = ['Weapons', 'Abilities', 'Upgrades', 'Tools'];
+    cells.forEach(c => { c.sec = SEC(c); }); cells.sort((a, b) => ORD.indexOf(a.sec) - ORD.indexOf(b.sec));
   }
   if (tab === 'Wear') {                                 // armaments, charms and flair: a few at a time, all of them visible on you
     const worn = inv.worn || [], n = wearSlots();
@@ -1356,11 +1401,13 @@ function questRows(v) {
   return rows;
 }
 function updatePack() {
-  const m = state.menu, tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' ? [] : packCells(tab), cols = m.cols || 5;
+  const m = state.menu;
+  if (!tabShown(PACK_TABS[m.tab])) m.tab = stepTab(m.tab, 1);
+  const tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' || tab === 'Status' ? [] : packCells(tab), cols = m.cols || 5;
   const mv = (d) => { m.sel = Math.max(0, Math.min(cells.length - 1, m.sel + d)); sfx.tock(); };
   if (m.focus === 'tabs') {
-    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
-    if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.sel = 0; sfx.tock(); }
+    if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.sel = 0; sfx.tock(); }
+    if (pressedNow.right) { m.tab = stepTab(m.tab, 1); m.sel = 0; sfx.tock(); }
     if (pressedNow.act || pressedNow.down) {
       if (tab === 'System') { m.focus = 'grid'; m.sys = m.sys || 0; sfx.tock(); }
       else if (tab === 'Quests' && !ARENA) { m.focus = 'grid'; m.qsel = 0; sfx.tock(); }
@@ -1373,8 +1420,8 @@ function updatePack() {
     m.qsel = Math.min(m.qsel || 0, n - 1);
     if (pressedNow.up) { if (m.qsel <= 0) m.focus = 'tabs'; else m.qsel--; sfx.tock(); }
     if (pressedNow.down) { m.qsel = Math.min(n - 1, m.qsel + 1); sfx.tock(); }
-    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
-    if (pressedNow.right) { m.tab = (m.tab + 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.right) { m.tab = stepTab(m.tab, 1); m.focus = 'tabs'; sfx.tock(); }
     const row = questRows(v)[m.qsel];
     if (pressedNow.act && row && row.kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
     if (pressedNow.act && row && row.kind === 'cur') { trackQuest(row.c.q.id, !tracked(row.c.q.id)); sfx.tock(); }   // active on the HUD, or not
@@ -1385,7 +1432,7 @@ function updatePack() {
     m.sys = m.sys || 0;
     if (pressedNow.up) { if (m.sys === 0) m.focus = 'tabs'; else m.sys--; sfx.tock(); }
     if (pressedNow.down) { m.sys = Math.min(n - 1, m.sys + 1); sfx.tock(); }
-    if (pressedNow.left) { m.tab = (m.tab + PACK_TABS.length - 1) % PACK_TABS.length; m.focus = 'tabs'; sfx.tock(); }
+    if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.focus = 'tabs'; sfx.tock(); }
     if (pressedNow.act) systemSelect(m.sys);
     return;
   }
@@ -1401,8 +1448,13 @@ function updatePack() {
   if (!cells.length) { m.focus = 'tabs'; return; }
   if (pressedNow.left) mv(-1);
   if (pressedNow.right) mv(1);
-  if (pressedNow.down) mv(cols);
-  if (pressedNow.up) { if (m.sel < cols) { m.focus = 'tabs'; sfx.tock(); } else mv(-cols); }
+  {                                                     // up and down go by rows (sections start new rows)
+    const L = packLayout(cells, cols), cur = L[m.sel] || { r: 0, c: 0 };
+    const row = r => L.map((q, i) => [q, i]).filter(([q]) => q.r === r);
+    const go = r => { const R = row(r); if (!R.length) return false; m.sel = R.reduce((b, x) => Math.abs(x[0].c - cur.c) < Math.abs(b[0].c - cur.c) ? x : b)[1]; sfx.tock(); return true; };
+    if (pressedNow.down) go(cur.r + 1);
+    if (pressedNow.up && !go(cur.r - 1)) { m.focus = 'tabs'; sfx.tock(); }
+  }
   if (tab === 'Craft' && pressedNow.act) { craftCellAct(cell); return; }
   if (pressedNow.act && cell && cell.acts && cell.acts.length) { m.focus = 'acts'; m.act = 0; sfx.tock(); }
 }
@@ -1425,6 +1477,7 @@ function menuItems() {
   if (m.view === 'settings') return SETTINGS_ITEMS().map(o => o[1]);
   if (m.view === 'pack') return [];
   if (m.view === 'spores') return travelOptions(state.scene).map(o => `${SHROOM_NAMES[o.id]}: ${o.cost} spore${o.cost > 1 ? 's' : ''}`).concat('Back');
+  if (m.view === 'levels') return LEVEL_ROWS().map(r => r.label + (r.adj && !/^Everything/.test(r.label) ? '   < >' : ''));
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
@@ -1437,6 +1490,7 @@ function menuBack() {
     if (m.focus === 'grid') { m.focus = 'tabs'; return; }
     state.lastTab = m.tab;
   }
+  if (['levels', 'keys', 'save', 'load'].includes(m.view)) { toSystem(m.view); return; }   // sub-screens step back to System
   state.menu = null; state.mat = state.mat || [];
 }
 function updateMenu() {
@@ -1447,6 +1501,7 @@ function updateMenu() {
   if (m.view === 'poses') { if (pressedNow.act) state.menu = null; return; }
   if (m.view === 'chest') { updateChest(m); return; }
   if (m.view === 'book') { if (pressedNow.left) m.page = Math.max(0, m.page - 1); if (pressedNow.right) m.page = Math.min(BOOK.length - 1, m.page + 1); if (pressedNow.act) state.menu = null; return; }
+  if (m.view === 'levels' && (pressedNow.left || pressedNow.right)) { const r = LEVEL_ROWS()[m.sel]; if (r && r.adj && !/^Everything/.test(r.label)) { r.adj(pressedNow.right ? 1 : -1); sfx.tock(); } }
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
   if (pressedNow.act) menuSelect(m.sel);
@@ -1483,6 +1538,10 @@ function menuSelect(i) {
     if (state.inv.spores < opts[i].cost) { m.note = `Not enough spores: ${state.inv.spores}/${opts[i].cost}. Found mushrooms grow more over time.`; return; }
     state.menu = null;
     sporeJump(opts[i].id, opts[i].cost);
+  } else if (m.view === 'levels') {                   // F raises (and wraps), arrows go either way
+    const r = LEVEL_ROWS()[i];
+    if (!r || !r.adj) { toSystem('levels'); return; }
+    r.adj(1); m.note = r.label.startsWith('Everything') ? 'Done.' : '';
   } else if (m.view === 'keys') {
     if (i < ACTIONS.length) state.remap = ACTIONS[i];
     else if (i === ACTIONS.length) { state.settings.keys = { ...DEFAULT_KEYS }; refreshK(); saveSettings(); }

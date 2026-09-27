@@ -753,7 +753,7 @@ function scareBird(x, y, range) {
   sfx.flap(panOf(b.x)); sfx.chirp(panOf(b.x));
   // in Pip's garden lesson the first try always works; after that it's the usual chance, and Pip cheers you on
   const lesson = state.inv.story === STORY.garden;
-  let drop = Math.random() < 0.4;
+  let drop = Math.random() < (lesson ? 0.8 : 0.4);            // doubled during Pip's garden lesson
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
   if (drop) { state.items.push({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 }); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
   else if (lesson && state.pip && state.pip.show && !speakingNow()) {
