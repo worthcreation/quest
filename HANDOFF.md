@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 78, 27 Sep 2026)
+# Quest: handoff notes (as of build 79, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,11 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 79 in short
+- The opening (updateIntro): while Pip talks he wanders the bank around where you started (short walks, pauses, never
+  into the river, a new spot if one can't be reached in 3.5 s), his words riding along with him; after the last line he
+  runs off south at 1.5x walking speed. Test: t79.
 
 ## Build 78 in short
 - Pip in the garden opens with the quest's first step ('garden-open': seeds from the robin). The robin line and the

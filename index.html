@@ -3820,13 +3820,26 @@ function updateIntro(dt) {
   const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = STORY.garden; };
   if (state.scene !== 'riverbank') { finish(); return; }
   if (!c.gone) {
-    p.side = h.x > p.x ? 1 : -1;
+    // while talking, Pip can't stand still: little wanders around the bank near where you started, pausing now and then
+    if (!c.home) c.home = [p.x, p.y];
+    if (c.wt && state.time - c.wtT > 3.5) c.wt = null;   // couldn't get there (a rock, the water's edge): pick somewhere else
+    if (!c.wt || Math.hypot(p.x - c.wt[0], p.y - c.wt[1]) < UNIT * 0.2) {
+      if (!c.pause) c.pause = state.time + 0.4 + Math.random() * 1.2;
+      if (state.time > c.pause) { const a = Math.random() * 6.28, r = UNIT * (0.8 + Math.random() * 1.6); c.wt = [c.home[0] + Math.cos(a) * r, c.home[1] + Math.sin(a) * r * 0.7]; c.wtT = state.time; c.pause = 0; }
+    }
+    if (c.wt) {
+      const dx = c.wt[0] - p.x, dy = c.wt[1] - p.y, d = Math.hypot(dx, dy);
+      if (d > UNIT * 0.2) { const sp = Math.min(d, L() * sceneDef().speed * 0.55 * dt), ox = p.x, oy = p.y; p.x += dx / d * sp; p.y += dy / d * sp;
+        if (isChasm(p.x, p.y, UNIT * 0.3)) { p.x = ox; p.y = oy; c.wt = null; c.pause = 0; }                 // not into the river
+        collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.6); }
+      p.side = Math.abs(dx) > UNIT * 0.2 ? (dx > 0 ? 1 : -1) : (h.x > p.x ? 1 : -1);
+    } else p.side = h.x > p.x ? 1 : -1;
     if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
     if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); c.step++; }
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
-  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.15 * dt;
+  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.5 * dt;   // off at a run for the garden
   p.x += dx / d * sp; p.y += dy / d * sp; p.side = dx > 0 ? 1 : -1;
   collideSolids(p, UNIT * 0.38);
   if (p.y > H + UNIT * 0.6 || state.time - c.t0 > 12) finish();
@@ -6421,7 +6434,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 78';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 79';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
