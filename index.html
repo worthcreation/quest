@@ -208,7 +208,7 @@ function decoFlowers(sc, n) {
   for (let i = 0; i < n; i++) sc.deco.push({ kind: 'flower', fx: rng(), fy: rng(), c: pick(cols) });
   for (let i = 0; i < 30; i++) sc.deco.push({ kind: 'grass', fx: rng(), fy: rng(), s: rr(0.5, 1) });
 }
-// farm patches: a few tilled plots near the path; what grows depends on the region
+// farm patches: a few patches of rich soil near the path; what grows depends on the region
 // spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
 const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
 function addPlots(sc, n, box) {
@@ -278,15 +278,21 @@ function genWorld() {
   camp.feat.pip = [0.58, 0.44];
   npc(camp, { kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
-  camp.solids.slice(-3).forEach((s, i) => { s.showFlag = ['built_fire', 'built_tent', 'built_bench'][i]; });   // nothing is built at the start
-  camp.feat.buildSpots = [{ piece: 'fire', fx: 0.5, fy: 0.45, r: 0.9 }, { piece: 'tent', fx: 0.33, fy: 0.33, r: 1.3 }, { piece: 'bench', fx: 0.64, fy: 0.34, r: 0.9 }];
+  camp.solids.slice(-3).forEach((s, i) => { s.showFlag = ['built_fire', 'built_tent', 'built_bench'][i]; });   // only Pip's tent stands at first
+  camp.feat.buildSpots = [{ piece: 'fire', fx: 0.5, fy: 0.45, r: 0.9 }, { piece: 'bench', fx: 0.64, fy: 0.34, r: 0.9 }];
+  camp.feat.tentDoor = [0.33, 0.33 + 1.25 * UNIT / H];
   claim(camp, 0.5, 0.45, 1.5); claim(camp, 0.33, 0.33, 1.8); claim(camp, 0.64, 0.34, 1.2);
   camp.feat.plots.forEach(p => claim(camp, p[0], p[1], 0.7));
   camp.feat.bench = [0.64, 0.34];
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
-  // raw materials lying about: enough for the camp, and a few spare in the glade and the meadow
-  const rawAt = (sc, type, box) => { const q = freeSpot(sc, box, 0.6, [[0.78, 0.62, 2.6]]); item(sc, { type, fx: q[0], fy: q[1] }); };   // clear of where the camp mushroom grows
-  for (const t of ['stick', 'stick', 'stick', 'stick', 'stone', 'stone', 'stone', 'fiber', 'fiber', 'fiber', 'fiber']) rawAt(camp, t, [0.12, 0.88, 0.2, 0.9]);
+  // inside Pip's tent: a bedroll, a chest for storage, and Pip's book of rules and training on a crate
+  const tentin = add(newScene({ id: 'tentin', area: 'indoor', msg: '', music: 'forest', amb: 'none', floor: '#6e5a3e', heroStart: [0.5, 0.8], speed: 0.4 }));
+  tentin.feat.tentRoom = true;
+  tentin.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'camp', arrive: [0.33, 0.33 + 1.9 * UNIT / H] }];
+  for (const side of ['n', 'w', 'e']) edgeWall(tentin, side, 'wall', 1.0, [], 1.2);
+  edgeWall(tentin, 's', 'wall', 1.0, [[0.4, 0.6]], 1.2);
+  tentin.solids.push(solid(0.3, 0.4, 1.0, 'bed'), solid(0.7, 0.38, 0.7, 'chest'), solid(0.5, 0.3, 0.6, 'lectern'));
+  tentin.feat.bedroll = [0.3, 0.4]; tentin.feat.chest = [0.7, 0.38]; tentin.feat.book = [0.5, 0.3];
   edgeWall(camp, 'n', 'tree', 1.1, [], 1.5, 'green');
   edgeWall(camp, 'w', 'tree', 1.1, [], 1.6, 'green');
   edgeWall(camp, 'e', 'tree', 1.1, [], 1.6, 'green');
@@ -308,7 +314,7 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of ['stick', 'stone', 'fiber', 'fiber']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }
+  for (const t of ['stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   addPlots(start, 2, [0.15, 0.4, 0.6, 0.85]);
   decoFlowers(start, 26);
@@ -324,7 +330,7 @@ function genWorld() {
     meadow.feat.perches.push(p);
   }
   scatter(meadow, 7, 'tree', 0.9, 1.3, 1.4, meadow.feat.perches.map(p => [...p, 2.2]), undefined, 'green');
-  addPlots(meadow, 3, [0.5, 0.85, 0.2, 0.8]);
+  addPlots(meadow, 3, [0.5, 0.85, 0.2, 0.8]);             // Pip's little garden
   decoFlowers(meadow, 60);
 
   // ---------------- The river: it rises beyond the north edge of the riverbank, cuts across that screen's
@@ -339,6 +345,17 @@ function genWorld() {
   scatter(riverbank, 7, 'tree', 0.9, 1.3, 1.4, [], [0.15, 0.9, 0.35, 0.9], 'green');
   scatter(riverbank, 3, 'boulder', 0.6, 1.0, 1.4, [], [0.2, 0.9, 0.3, 0.8]);
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
+  {                                                   // river stones along the near bank
+    const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
+    [0.25, 0.45, 0.65].forEach(t => {
+      const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
+      const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1], cx = (ax + (bx - ax) * u2) * W, cy = (ay + (by - ay) * u2) * H;
+      const vx = (bx - ax) * W, vy = (by - ay) * H, l = Math.hypot(vx, vy) || 1, nx = vy / l, ny = -vx / l, s2 = (nx + ny > 0 ? 1 : -1);   // the normal pointing to the south-east bank
+      let off = half + UNIT * 1.3, fx = 0, fy = 0;
+      for (let tries = 0; tries < 6; tries++, off += UNIT * 0.8) { fx = (cx + s2 * nx * off) / W; fy = (cy + s2 * ny * off) / H; if (!onClaim(riverbank, fx, fy, 0.6)) break; }   // step back from the water until the spot is free
+      item(riverbank, { type: 'stone', fx, fy });
+    });
+  }
   decoFlowers(riverbank, 30);
 
   const meadow2 = add(newScene({ id: 'meadow2', area: 'forest', msg: 'Rocks break through the grass', music: 'forest', amb: 'none', floor: '#51994f' }));
@@ -521,6 +538,7 @@ function genWorld() {
       sc.spawns.push({ type: 'rabbit', fx: p[0], fy: p[1] });
     }
     for (let t = 0; t < 90; t++) { const fx = rng(), fy = rng(); if (!inRects(F.chasms, fx, fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.6, 1.3), ph: rng() * 6 }); }
+    if (i <= 2) for (let t = 0; t < (i === 1 ? 3 : 2); t++) { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.4], 0.6); item(sc, { type: 'fluff', fx: q[0], fy: q[1] }); }   // rabbit fluff snagged on the grass
     // rock banks: out in the ravines to hop across on, and slabs on the banks; the wind can't move you on rock
     sc.rocks = [];
     sc.rockCols = F.chasms.map(() => rng());                                 // where each ravine's rock column stands, fixed per seed
@@ -561,7 +579,7 @@ function genWorld() {
   foot.feat.plots = [];
   foot.feat.crops = [];
   const CROPS = ['squash', 'carrot', 'berries', 'turnip', 'pepper', 'squash'];
-  foot.feat.plotLv = 1;                              // someone farmed here before you: already tilled
+  foot.feat.plotLv = 1;                              // someone farmed here before you: the rich soil is already turned
   for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { foot.feat.plots.push([0.22 + c * 0.06, 0.45 + r * 0.12]); foot.feat.crops.push(CROPS[c]); claim(foot, 0.22 + c * 0.06, 0.45 + r * 0.12, 0.7); }
   addShroom(foot, [0.82, 0.28], 0);
   scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6], [0.82, 0.28, 2.5]], [0.1, 0.9, 0.12, 0.88]);
@@ -743,7 +761,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: common 'seed' grows the local food; rarer seeds grow crafting materials
-function newInv() { return { raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
+function newInv() { return { story: 0, chest: {}, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { seed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1209,7 +1227,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -1284,7 +1302,7 @@ function enterScene(id, fx, fy) {
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
   if (sc.windLedges) layoutLedges(sc);
-  if (sc.feat.farside) placeDock(sc);                 // the jetty sits on the far bank at any screen shape
+  if (sc.feat.farside) { placeDock(sc); placeOldJetty(sc); }   // Wick's jetty over there, the old one on this side
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
@@ -1893,7 +1911,7 @@ const DROPS = {
   diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
   charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
   glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
-  rabbit:   [['carrot', 0.35], ['thornseed', 0.08], ['seed', 0.1]],
+  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['seed', 0.1]],
   lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
   gremlin:  [['thornseed', 0.1], ['seed', 0.25], ['acorn', 0.3]],
   warden:   [['warden', 1]],
@@ -1986,7 +2004,7 @@ function collect(it) {
     case 'seed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
       inv.bag[it.type]++;
       const S = SEEDS[it.type];
-      if (it.type === 'seed') tell('A seed. Plant it in any tilled soil.', 3.5, 'seed');
+      if (it.type === 'seed') tell('A seed. Plant it in any patch of rich soil.', 3.5, 'seed');
       else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
@@ -2004,7 +2022,7 @@ function collect(it) {
     case 'letter':
       say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
-    case 'stick': case 'stone': case 'fiber': case 'cloth':
+    case 'stick': case 'stone': case 'fluff':
       rawOf()[it.type] = (rawOf()[it.type] || 0) + 1;
       say(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, h.x, h.y - UNIT * 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
       break;
@@ -2827,6 +2845,10 @@ function interact() {
     if (d < UNIT * 3.2) say(`${K.act} to talk`, nx, ny - UNIT * 1.5, { key: 'talk-' + n.kind, tip: 'talk', life: 2.5 });
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
   }
+  if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
+  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); say('A quick nap. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
+  if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
+  if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { state.menu = { view: 'book', page: 0 }; sfx.tock(); return true; }
   for (const b of sc.feat.buildSpots || []) {
     if (campBuilt(b.piece) || !pressedNow.act || Math.hypot(h.x - b.fx * W, h.y - b.fy * H) > UNIT * (b.r + 0.9)) continue;
     if ((rawOf()[PIECE_OF[b.piece]] || 0) > 0) { placePiece(b); return true; }
@@ -2849,9 +2871,11 @@ function interact() {
   }
   if (sc.feat.plots && !nearPull) {
     const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0, lv: sc.feat.plotLv || 0 })));
+    let nearestPlot = -1, nd = UNIT * 0.8;              // the patch you're standing on, not just the first one in reach
+    sc.feat.plots.forEach(([qx, qy], j) => { const dd = Math.hypot(h.x - qx * W, h.y - qy * H); if (dd <= nd) { nd = dd; nearestPlot = j; } });
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
-      if (d2 > UNIT * 0.8) continue;
+      if (i !== nearestPlot) continue;
       const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
       const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
@@ -2891,10 +2915,10 @@ function interact() {
 // Farm patches start as a wild tuft of rich earth and can be improved, one step at a time:
 // faster growth, a chance of an extra harvest, a chance to get a seed back.
 const PATCH = [
-  { name: 'Wild tuft', speed: 1, bonus: 0, seedBack: 0 },
-  { name: 'Tilled patch', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work acorns in as mulch' },
-  { name: 'Framed bed', speed: 1.45, bonus: 0.35, seedBack: 0.25, cost: { thorn: 3 }, how: 'frame it with thorn-wood' },
-  { name: 'Raised bed', speed: 1.8, bonus: 0.7, seedBack: 0.35, cost: { ironwood: 1, ember: 1 }, how: 'raise it with ironwood and warm ember soil' },
+  { name: 'Tuft of rich soil', speed: 1, bonus: 0, seedBack: 0 },
+  { name: 'Turned rich soil', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work acorns in as mulch' },
+  { name: 'Framed rich-soil bed', speed: 1.45, bonus: 0.35, seedBack: 0.25, cost: { thorn: 3 }, how: 'frame it with thorn-wood' },
+  { name: 'Raised rich-soil bed', speed: 1.8, bonus: 0.7, seedBack: 0.35, cost: { ironwood: 1, ember: 1 }, how: 'raise it with ironwood and warm ember soil' },
 ];
 const patchOf = p => PATCH[Math.min(PATCH.length - 1, p.lv || 0)];
 const patchCost = c => Object.entries(c).map(([k, n]) => `${n} ${k === 'acorn' ? 'acorns' : MATS[k]}`).join(' + ');
@@ -2986,6 +3010,10 @@ function findInteractable() {
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
   if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
   for (const b of f.buildSpots || []) if (!campBuilt(b.piece) && (rawOf()[PIECE_OF[b.piece]] || 0) > 0) add(b.fx * W, b.fy * H, 'Build', b.r + 0.9);
+  if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
+  if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
+  if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
+  if (f.book) add(f.book[0] * W, f.book[1] * H, 'Read', 1.6);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
   if (f.plots && !state.carry) {
     const plots = rt.flags.plots || [];
@@ -3481,12 +3509,15 @@ function updateGas(dt) {
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
-  state.cut = { type: 'intro', t: 0, step: 0 };
   state.night = 0; state.rain = 0; state.clouds2 = 0; state.fireLit = 1;
-  state.pip = { x: WORLD.camp.feat.pip[0] * W, y: WORLD.camp.feat.pip[1] * H, show: true };
-  const h = state.hero; h.fx = 1; h.fy = 0; h.side = 1;
-  setMusic('forest');
-  setAmbience('none');
+  rtFor('camp').flags.built_tent = true;               // Pip already pitched the tent at the camp spot
+  if (state.scene !== 'riverbank') enterScene('riverbank');
+  placeOldJetty(sceneDef());
+  const [jx, jy, dx, dy] = sceneDef().feat.oldJetty, h = state.hero;
+  h.x = (jx + dx * 0.9 * UNIT / W) * W; h.y = (jy + dy * 0.9 * UNIT / H) * H; h.fx = dx; h.fy = dy; h.side = dx < 0 ? -1 : 1;
+  state.pip = { x: h.x + UNIT * 0.9, y: h.y + UNIT * 0.3, show: true, follow: true, side: -1 };
+  state.cut = { type: 'intro', t: 0, step: 0 };
+  setMusic('forest'); setAmbience('rain');
 }
 // ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
@@ -3494,11 +3525,14 @@ function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && sc.area !== 'indoor' && sc.area !== 'cave';
 }
-function pipExit(sc) {                                // the exit that gets us closer to the woods gate
-  if (sc.id === 'camp' && !campDone()) return null;    // camp first
-  let best = null, bd = screensBetween(sc.id, 'w2');
-  for (const ex of sc.exits) { const d = screensBetween(ex.to, 'w2'); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
-  return best || sc.exits.find(ex => ex.to === 'w2' || ex.to === 'w1') || null;
+function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
+  const inv = state.inv;
+  if (!storyAt('tocamp') || (storyAt('gather') && !campDone())) return null;   // practising in the garden, or out gathering: Pip just keeps you company
+  const goal = storyAt('adventure') ? 'w2' : 'camp';
+  if (sc.id === goal) return null;
+  let best = null, bd = screensBetween(sc.id, goal);
+  for (const ex of sc.exits) { const d = screensBetween(ex.to, goal); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
+  return best || null;
 }
 function placePipNearHero() {
   const old = state.pip && state.pip.visit;          // left before Pip got to say it: Pip can say it next time
@@ -3553,29 +3587,39 @@ function updatePip(dt) {
   }
   collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5);
   if (!p.visit && Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 6.5) placePipNearHero();   // got stuck while following: catch up (never while waiting at something)
-  const home = ['camp', 'start', 'meadow', 'w1', 'w2'];
+  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
   if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
-  const P = q => [q[0] * W, q[1] * H];
-  if (sc.id === 'camp') {
-    const raw = rawOf(), known = inv.known || {}, spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
-    if (!campDone()) {
-      pipSay('gather', 'Grab sticks, stones and those grass tufts. Everything we need is right here.');
-      if ((raw.fiber || 0) >= 2 && !known.cord) pipSay('craft2', `Twist two grass tufts into cord. Open your pack, ${K.menu}, and use the Craft tab.`);
-      if (known.cord && (inv.craftSlots || 2) >= 3 && !known.firering) pipSay('craft3', 'Now three things at once! Two stones and a stick make a fire ring.');
-      for (const pc of ['fire', 'bench', 'tent']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, `Set it down on the marks, right here.`, P([spot(pc).fx, spot(pc).fy]));
-      if (campBuilt('fire')) pipSay('fireok', 'A real fire! Now a bench: two sticks and cord. Then my blanket makes a tent.');
-      if (!known.stake && known.benchkit) pipSay('stake', 'For the tent we need a stake. A stick sharpened on a stone!');
-    } else {
-      pipSay('campdone', 'Our very own camp! Now... treasure. The glade\'s south, come on!');
-      if (f.bench && near(...f.bench, 4)) pipSay('bench', 'The bench is for proper crafting, later.', P(f.bench));
-      if (f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
+  const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
+  // the garden: plant your three seeds in the rich soil, then Pip has a place to show you
+  if (sc.id === 'meadow' && inv.story === STORY.garden) {
+    const plot = f.plots && f.plots[0];
+    if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
+    const planted = (rt.flags.plots || []).filter(p => p.s === 1).length;
+    if (planted >= Math.min(2, f.plots.length) || (planted && !(inv.bag.seed > 0))) {
+      if (pipSay('tocamp', 'They\'ll grow while we\'re out. Now... I found the most AWESOME spot for a camp. Follow me!')) inv.story = STORY.tocamp;
     }
   }
-  if (sc.id === 'start') {
-    const plot = f.plots && f.plots.find(q => near(...q, 4));
-    if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
+  if (sc.id === 'camp') {
+    const spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
+    if (inv.story === STORY.tocamp) { if (pipSay('tada', 'TA-DA! Best spot in the whole world. I already put the tent up, look!')) inv.story = STORY.gather; }
+    else if (storyAt('gather') && !campDone()) {
+      pipSay('shopping', 'We still need a fire ring and a bench. River stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields down south. For glue. Trust me.');
+      pipSay('tentin', 'Oh, and go look inside the tent. I left my book in there.', P([0.33, 0.33]));
+      for (const pc of ['fire', 'bench']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, 'Set it down on the marks, right here.', P([spot(pc).fx, spot(pc).fy]));
+      if (campBuilt('fire') && !campBuilt('bench')) pipSay('fireok', 'A real fire! Now the bench: two sticks and some of that glue.');
+    } else if (campDone()) { if (!storyAt('adventure')) inv.story = STORY.adventure; pipSay('campdone', 'Home base! Now... treasure. The woods are past the glade, come on!'); }
+    if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
+  }
+  if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
+    const nearIt = t => state.items.find(it => it.type === t && Math.hypot(it.x - h.x, it.y - h.y) < UNIT * 6);
+    const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
+    if (sc.id === 'riverbank' && st) pipSay('stones', 'River stones! Nice flat ones.', [st.x, st.y]);
+    if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
+    if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
+    if ((raw.fluff || 0) >= 2 && !known.glue) pipSay('craft2', `Two bits of fluff make rabbit glue. Open your pack, ${K.menu}, Craft tab!`);
+    if (known.glue && (inv.craftSlots || 2) >= 3 && (raw.stone || 0) >= 2 && !known.firering) pipSay('craft3', 'Three things at once now! Two stones and a stick make a fire ring.');
   }
   if (sc.id === 'start') {
     const rock = sc.pullables.find(r => r.id === 'rock'), loose = rock && rt.pulled.has(rock.id);
@@ -3654,11 +3698,20 @@ function updateCut(dt) {
   c.t += dt;
   if (c.type === 'intro') {
     const p = state.pip;
-    if (c.t < 8.2 && (pressedNow.act || pressedNow.fire)) { c.t = 8.2; c.step = 82; unsay('npc'); if (!(rawOf().cloth > 0)) rawOf().cloth = 1; }
-    if (at(0.6)) say('...and Old Wick swears there\'s treasure out past the woods. Real treasure!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(3.4)) say('But no adventure without a camp. Rule one.', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.6 });
-    if (at(5.8)) { say('I brought my old blanket. That\'s our tent, sorted. Sort of.', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 }); if (!(rawOf().cloth > 0)) rawOf().cloth = 1; }
-    if (at(8.6)) { state.cut = null; p.follow = true; }
+    if (c.t < 9.5 && (pressedNow.act || pressedNow.fire)) { c.t = 9.5; c.step = 95; unsay('npc'); }
+    if (at(0.5)) say('...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3.2 });
+    if (at(3.8)) say('And past the woods? Treasure. Actual, real, heavy treasure!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
+    if (at(6.8)) say('We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 3 });
+    if (c.t > 9.6 && !c.walked) {                     // a walk you don't steer: off the jetty and south to the garden
+      const sp = UNIT * 3.2 * dt;
+      h.y += sp; h.fx = 0; h.fy = 1; h.vx = 0; h.vy = sp / dt; p.y += sp; p.x += (h.x + UNIT * 0.9 - p.x) * 0.05;
+      if (h.y > H - UNIT * 0.8) { c.walked = true; const gx = h.x / W; enterScene('meadow', gx, 0.06); nudgeFree(); p.x = state.hero.x + UNIT; p.y = state.hero.y; c.t2 = 0; }
+    }
+    if (c.walked) {                                    // into the meadow, over to the patches of rich soil
+      c.t2 += dt; const q = sceneDef().feat.plots[0], tx = q[0] * W - UNIT * 1.4, ty = q[1] * H, dx2 = tx - h.x, dy2 = ty - h.y, d2 = Math.hypot(dx2, dy2);
+      if (d2 > UNIT * 0.3 && c.t2 < 5) { const sp = Math.min(d2, UNIT * 3.2 * dt); h.x += dx2 / d2 * sp; h.y += dy2 / d2 * sp; h.fx = dx2 / d2; h.fy = dy2 / d2; h.vx = h.fx * UNIT * 3; h.vy = h.fy * UNIT * 3; p.x += (h.x + UNIT * 1.1 - p.x) * 0.06; p.y += (h.y - UNIT * 0.3 - p.y) * 0.06; }
+      else { h.vx = h.vy = 0; state.cut = null; p.follow = true; state.inv.story = STORY.garden; state.inv.bag.seed = (state.inv.bag.seed || 0) + 3; say('Here, three seeds. Your turn!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' }); }
+    }
   } else if (c.type === 'abduct') {
     const p = state.pip, gs = state.gremlins;
     if (at(0.3)) say('It opened! Hey, what\'s that rustling...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
@@ -4003,6 +4056,8 @@ function updateMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'pack') { updatePack(); return; }
   if (m.view === 'poses') { if (pressedNow.act) state.menu = null; return; }
+  if (m.view === 'chest') { updateChest(m); return; }
+  if (m.view === 'book') { if (pressedNow.left) m.page = Math.max(0, m.page - 1); if (pressedNow.right) m.page = Math.min(BOOK.length - 1, m.page + 1); if (pressedNow.act) state.menu = null; return; }
   if (pressedNow.up) { m.sel = (m.sel + items.length - 1) % items.length; sfx.tock(); }
   if (pressedNow.down) { m.sel = (m.sel + 1) % items.length; sfx.tock(); }
   if (pressedNow.act) menuSelect(m.sel);
@@ -4218,6 +4273,44 @@ function burstDarkShroom() {
   say('The mushroom bursts! Spores everywhere.', x, y - UNIT * 2, { key: 'burst', life: 3 });
 }
 
+// ---------------- the tent chest: move things between your pack and the chest, one at a time ----------------
+function stashList(src) {
+  const out = [];
+  for (const [k, n] of Object.entries(src.food || {})) if (n > 0) out.push({ cat: 'food', k, n, icon: k, name: k[0].toUpperCase() + k.slice(1) });
+  for (const [k, n] of Object.entries(src.bag || {})) if (n > 0) out.push({ cat: 'bag', k, n, icon: k, name: SEEDS[k].name });
+  for (const [k, n] of Object.entries(src.raw || {})) if (n > 0) out.push({ cat: 'raw', k, n, icon: k, name: RAW[k] });
+  for (const [k, n] of Object.entries(src.mats || {})) if (n > 0) out.push({ cat: 'mats', k, n, icon: k, name: MATS[k] });
+  if (src.acorns > 0) out.push({ cat: 'acorns', k: 'acorn', n: src.acorns, icon: 'acorn', name: 'Acorns' });
+  return out;
+}
+function packAsStash() { const inv = state.inv, food = {}; for (const f of inv.food) food[f] = (food[f] || 0) + 1; return { food, bag: inv.bag, raw: rawOf(), mats: inv.mats, acorns: inv.acorns }; }
+function moveOne(e, toChest) {
+  const inv = state.inv, ch = inv.chest || (inv.chest = {});
+  const give = (cat, k) => { if (cat === 'food') { const i = inv.food.indexOf(k); if (i < 0) return false; inv.food.splice(i, 1); } else if (cat === 'acorns') { if (inv.acorns <= 0) return false; inv.acorns--; } else { const t = cat === 'raw' ? rawOf() : inv[cat]; if (!(t[k] > 0)) return false; t[k]--; } return true; };
+  const take = (cat, k) => { const t = ch[cat] || (ch[cat] = {}); if (!(t[k] > 0)) return false; t[k]--; return true; };
+  if (toChest) { if (!give(e.cat, e.k)) return; if (e.cat === 'acorns') ch.acorns = (ch.acorns || 0) + 1; else { const t = ch[e.cat] || (ch[e.cat] = {}); t[e.k] = (t[e.k] || 0) + 1; } }
+  else {
+    if (e.cat === 'acorns') { if (!(ch.acorns > 0)) return; ch.acorns--; inv.acorns = Math.min(30, inv.acorns + 1); }
+    else { if (e.cat === 'food' && inv.food.length >= 8) { state.menu.note = 'Your pack can\'t hold more food.'; return; } if (!take(e.cat, e.k)) return; if (e.cat === 'food') inv.food.push(e.k); else { const t = e.cat === 'raw' ? rawOf() : inv[e.cat]; t[e.k] = (t[e.k] || 0) + 1; } }
+  }
+  sfx.tock();
+}
+function updateChest(m) {
+  const lists = [stashList(packAsStash()), stashList(state.inv.chest || {})], L = lists[m.col];
+  if (pressedNow.left) { m.col = 0; m.sel = Math.min(m.sel, Math.max(0, lists[0].length - 1)); }
+  if (pressedNow.right) { m.col = 1; m.sel = Math.min(m.sel, Math.max(0, lists[1].length - 1)); }
+  if (pressedNow.up) m.sel = Math.max(0, m.sel - 1);
+  if (pressedNow.down) m.sel = Math.min(Math.max(0, L.length - 1), m.sel + 1);
+  if (pressedNow.act && L[m.sel]) { m.note = ''; moveOne(L[m.sel], m.col === 0); const n = stashList(m.col === 0 ? packAsStash() : state.inv.chest || {}).length; m.sel = Math.min(m.sel, Math.max(0, n - 1)); }
+}
+// Pip's book: rules first, then training notes
+const BOOK = [
+  { title: 'Pip\'s Rules of Adventure', lines: ['1. Always bring snacks.', '2. Never trust a gremlin that smiles.', '3. If it glows, poke it with a stick first.', '4. Rich soil + seeds = more snacks. See rule 1.', '5. No adventure without a camp.', '6. If Old Wick says it, it\'s probably true. Probably.', '7. Rabbits know more than they let on.'] },
+  { title: 'Training: getting about', lines: [TOUCH ? 'Walk with the pad.' : 'Arrow keys walk.', `${K.jump} jumps. More max vigor, longer jumps.`, `${K.act} does whatever the gold label says: talk, plant, enter, build.`, `${K.menu} opens your pack. Craft is the second tab.`, 'The wind can\'t push you on rock or a grassy ledge.'] },
+  { title: 'Training: fighting', lines: [`Tap ${K.act} to slash. Seven slashes in rhythm make a whirlwind.`, `Hold ${K.act} and let go to stab.`, `Jump, then ${K.act} in the air to pound the ground.`, `Tap ${K.swap} to swap weapons, hold it for the quick wheel.`, 'Low vigor makes every swing slow and weak. Rest.'] },
+  { title: 'Training: growing and making', lines: ['Plant seeds in patches of rich soil.', 'Improve a patch and it grows faster, and sometimes gives more.', 'Put things on the Craft mat. If they make something, it shows.', 'Two things at first. Three once you get the hang of it.', 'Camp pieces go on the marks at camp.'] },
+];
+
 // =====================================================================
 // Drawing: one scene painter for every area. Areas differ by palette,
 // ground detail, and how much shade the lighting pass lays over them.
@@ -4394,7 +4487,7 @@ function drawSmallBird(b) {
 // ---------------- ground ----------------
 function drawGround(sc) {
   const f = sc.feat;
-  if (sc.area === 'indoor') drawRoom();
+  if (sc.area === 'indoor') { if (sc.feat.tentRoom) drawTentRoom(); else drawRoom(); }
   if (sc.area === 'forest' || sc.area === 'woods' || sc.area === 'river') {
     for (const d of sc.deco) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
@@ -4653,6 +4746,7 @@ function drawRiverQuest(sc) {
     else { ctx.fillStyle = '#6b5a3a'; ctx.fillRect(x - u * 0.4, y + u * 1.6, u * 0.8, u * 0.12); }
   }
   if (f.dock) drawJetty(sc);
+  if (f.oldJetty) drawOldJetty(sc);
   for (const [x, y, i] of fishSpots(sc)) {             // rising fish: rings that spread and fade, always in the water
     const k = (state.time * 0.7 + i * 0.37) % 1;
     ctx.strokeStyle = `rgba(230,245,250,${0.7 * (1 - k)})`; ctx.lineWidth = 1.5;
@@ -4702,7 +4796,7 @@ function drawGustGrass(x, y, sc) {
   ctx.lineCap = 'butt';
 }
 
-// tilled plots: a wooden frame with corner stakes around furrowed soil, in every region
+// farm patches of rich soil, in every region
 function drawPlots(sc) {
   const f = sc.feat;
   if (!f.plots) return;
@@ -4721,7 +4815,7 @@ function drawPlots(sc) {
       });
     }
 
-// a farm patch at each level: a wild tuft of dark earth, tilled rows, a framed bed, a stone-edged raised bed
+// a farm patch at each level: a tuft of rich soil, turned rich soil, a framed bed, a stone-edged raised bed
 function drawPatch(x, y, lv, seed) {
   const u = UNIT, j = k => Math.sin(seed * 12.9898 + k * 78.233) * 0.5;       // small fixed wobbles per patch
   if (lv === 0) {
@@ -4861,6 +4955,17 @@ function drawSolid(s) {
       ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
       break;
     case 'wall': break;                                // the room draws its own walls
+    case 'chest':
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.55, y + u * 0.2, u * 1.15, u * 0.2);
+      ctx.fillStyle = '#7a5230'; ctx.fillRect(x - u * 0.55, y - u * 0.35, u * 1.1, u * 0.6);
+      ctx.fillStyle = '#8a6238'; ctx.fillRect(x - u * 0.58, y - u * 0.55, u * 1.16, u * 0.25);
+      ctx.fillStyle = '#c9a46a'; ctx.fillRect(x - u * 0.06, y - u * 0.35, u * 0.12, u * 0.16);
+      break;
+    case 'lectern':
+      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.3, u * 0.9, u * 0.55);
+      ctx.fillStyle = '#8a3a2a'; ctx.fillRect(x - u * 0.38, y - u * 0.5, u * 0.36, u * 0.26); ctx.fillStyle = '#9a4a3a'; ctx.fillRect(x + u * 0.02, y - u * 0.5, u * 0.36, u * 0.26);
+      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x - u * 0.34, y - u * 0.47, u * 0.3, u * 0.2); ctx.fillRect(x + u * 0.05, y - u * 0.47, u * 0.3, u * 0.2);
+      break;
     case 'mirror':                                     // a standing mirror in a wooden frame
       ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 1.5, u * 0.9, u * 1.6); ctx.fillRect(x - u * 0.55, y + u * 0.05, u * 1.1, u * 0.15);
       ctx.fillStyle = '#a8c8d8'; ctx.fillRect(x - u * 0.34, y - u * 1.4, u * 0.68, u * 1.35);
@@ -4964,8 +5069,15 @@ function drawHero() {
   const blink = !state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2;
   const sp = Math.hypot(h.vx, h.vy), stretch = Math.min(0.18, sp / 3000);
   const pw = UNIT * (1 + stretch * Math.abs(h.vx) / (sp || 1)), ph = UNIT * (1 + stretch * Math.abs(h.vy) / (sp || 1));
-  const y = h.y - h.z, sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
-  if (!(h.ride && h.ride.wind)) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + ph * 0.45, pw * 0.55 * sh, pw * 0.2 * sh, 0, 0, 6.28); ctx.fill(); }
+  const y = h.y - h.z, sh = 1 - Math.min(0.6, h.z / (UNIT * 5)), near = heightScale(h.z);
+  if (!(h.ride && h.ride.wind)) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + ph * 0.45, pw * 0.55 * sh, pw * 0.2 * sh, 0, 0, 6.28); ctx.fill(); }   // the shadow stays on the ground, at ground size
+  if (near > 1.001) { ctx.save(); ctx.translate(h.x, y); ctx.scale(near, near); ctx.translate(-h.x, -y); drawHeroBody(h, pw, ph, y, sh); ctx.restore(); return; }
+  drawHeroBody(h, pw, ph, y, sh);
+}
+// up in the air is closer to the viewer: grow a little with height (never more than a third bigger)
+function heightScale(z) { return 1 + Math.min(0.33, Math.max(0, z) / UNIT * 0.12); }
+function drawHeroBody(h, pw, ph, y, sh) {
+  const blink = !state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2;
   if (blink) return;
   if (state.hold.charged) { ctx.fillStyle = `rgba(255,240,180,${0.35 + 0.25 * Math.sin(state.time * 30)})`; ctx.fillRect(h.x - pw / 2 - 3, y - ph / 2 - 3, pw + 6, ph + 6); }
   const heroic = state.cut && state.cut.type === 'sword';
@@ -5071,8 +5183,9 @@ function drawPullable(sc, pl) {
 function drawShots() {
   for (const s of state.shots) {
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(s.x, s.y + UNIT * 0.2, UNIT * (s.kind === 'rock' ? 0.5 : 0.15), UNIT * 0.1, 0, 0, 6.28); ctx.fill();
-    if (s.kind === 'rock') drawRock(s.x, s.y - s.z, UNIT * 0.6);
-    else { ctx.save(); ctx.translate(s.x, s.y - s.z); ctx.rotate(s.spin); drawItemIcon('acorn', 0, 0, UNIT * 0.6); ctx.restore(); }
+    const k = heightScale(s.z);
+    if (s.kind === 'rock') drawRock(s.x, s.y - s.z, UNIT * 0.6 * k);
+    else { ctx.save(); ctx.translate(s.x, s.y - s.z); ctx.rotate(s.spin); drawItemIcon('acorn', 0, 0, UNIT * 0.6 * k); ctx.restore(); }
   }
 }
 function drawAim() {
@@ -5388,6 +5501,43 @@ function drawActionHint() {
   ctx.textBaseline = 'alphabetic';
   state.hintRect = { x: bx, y: by, w, h: hgt };
 }
+function drawChest(m) {
+  ctx.fillStyle = 'rgba(12,10,16,.9)'; ctx.fillRect(0, 0, W, H);
+  const fs = Math.round(Math.max(14, Math.min(18, UNIT * 0.46))), colW = Math.min(W * 0.44, 340), lh = fs * 2;
+  const lists = [stashList(packAsStash()), stashList(state.inv.chest || {})];
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.font = `bold ${fs * 1.3}px Georgia, serif`; ctx.fillText('Storage', W / 2, fs * 2.2);
+  ['Your pack', 'The chest'].forEach((t, c) => {
+    const x0 = W / 2 + (c ? 12 : -colW - 12), y0 = fs * 4;
+    ctx.fillStyle = m.col === c ? '#ffe38a' : '#d8d0c0'; ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillText(t, x0, y0);
+    lists[c].forEach((e, i) => {
+      const y = y0 + fs + i * lh, on = m.col === c && m.sel === i;
+      if (y > H - fs * 3) return;
+      ctx.fillStyle = on ? 'rgba(242,201,76,.22)' : 'rgba(255,255,255,.05)'; ctx.fillRect(x0, y, colW, lh - 4);
+      drawItemIcon(e.icon, x0 + lh * 0.5, y + lh * 0.45, lh * 0.7);
+      ctx.fillStyle = '#fdf6e3'; ctx.font = `${fs}px "Courier New", monospace`; ctx.fillText(`${e.name}`, x0 + lh * 1.1, y + lh * 0.62);
+      ctx.textAlign = 'right'; ctx.fillText(`${e.n}`, x0 + colW - 10, y + lh * 0.62); ctx.textAlign = 'left';
+    });
+    if (!lists[c].length) { ctx.fillStyle = 'rgba(253,246,227,.4)'; ctx.fillText('empty', x0, y0 + fs * 2); }
+  });
+  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(253,246,227,.6)'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+  ctx.fillText(m.note || `\u2190 \u2192 pick a side \u00b7 ${K.act} moves one across \u00b7 ${K.menu} closes`, W / 2, H - fs);
+  ctx.textAlign = 'left';
+}
+function drawBook(m) {
+  ctx.fillStyle = 'rgba(12,10,16,.88)'; ctx.fillRect(0, 0, W, H);
+  const pw = Math.min(W - 40, 640), ph = Math.min(H - 60, 460), x = (W - pw) / 2, y = (H - ph) / 2, fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.5)));
+  ctx.fillStyle = '#7a3a2a'; ctx.fillRect(x - 10, y - 10, pw + 20, ph + 20);
+  ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x, y, pw, ph);
+  ctx.strokeStyle = 'rgba(120,90,60,.4)'; ctx.beginPath(); ctx.moveTo(x + pw / 2, y); ctx.lineTo(x + pw / 2, y + ph); ctx.stroke();
+  const p = BOOK[m.page];
+  ctx.fillStyle = '#3a2616'; ctx.font = `bold ${Math.round(fs * 1.2)}px Georgia, serif`; ctx.textAlign = 'center'; ctx.fillText(p.title, W / 2, y + fs * 2.2);
+  ctx.font = `${fs}px Georgia, serif`; ctx.textAlign = 'left';
+  let yy = y + fs * 4;
+  for (const l of p.lines) for (const w2 of wrap(l, pw - fs * 3)) { ctx.fillText(w2, x + fs * 1.5, yy); yy += fs * 1.5; }
+  ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
+  ctx.fillText(`page ${m.page + 1} of ${BOOK.length}   \u2190 \u2192 to turn   ${K.act} closes`, W / 2, y + ph - fs);
+  ctx.textAlign = 'left';
+}
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
 function tipLibrary() {
   const inv = state.inv, t = [
@@ -5405,7 +5555,7 @@ function tipLibrary() {
     'The wind can\'t move you on a grassy ledge or a rock. Wait there for the gust you want.',
     'Turnips raise your max vigor for good.',
     'When vigor runs low every swing is slow and weak. Rest a moment.',
-    'Startled birds drop seeds. Plant them in tilled soil.',
+    'Startled birds drop seeds. Plant them in rich soil.',
     `Hold ${K.act} on a big rock and pull away from it to wiggle it free.`,
     'Stone plates hold gates open while something heavy sits on them.',
     TOUCH ? 'Use the pad to walk.' : 'Arrow keys walk.',
@@ -5450,10 +5600,12 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 52';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 53';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
+  if (m.view === 'chest') { drawChest(m); return; }
+  if (m.view === 'book') { drawBook(m); return; }
   ctx.fillStyle = 'rgba(8,6,12,.72)'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.font = '12px "Courier New", monospace';
   ctx.fillText(BUILD, W - 10, H - 8); ctx.textAlign = 'left';
@@ -5956,7 +6108,7 @@ function drawHeroModelInWorld(h, heroic) {
   const [pose, k] = heroPose(h), view = heroFacing(h.fx, h.fy), flip = h.side || (h.fx < 0 ? -1 : 1);
   const moved = Math.hypot(h.x - (h.mx ?? h.x), h.y - (h.my ?? h.y)); h.mx = h.x; h.my = h.y;
   h.walkPh = (h.walkPh || 0) + moved / (UNIT * 0.28);
-  const u = UNIT * (h.falling > 0 ? Math.max(0.05, h.falling / 0.8) : 1);
+  const u = UNIT * (h.falling > 0 ? Math.max(0.05, h.falling / 0.8) : 1) * heightScale(h.z);
   const footY = h.y + UNIT * 0.42 - h.z + (h.falling > 0 ? (1 - h.falling / 0.8) * UNIT : 0);
   ctx.fillStyle = 'rgba(0,0,0,.22)'; const sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
   if (!(h.ride && h.ride.wind)) { ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + UNIT * 0.42, UNIT * 0.42 * sh, UNIT * 0.14 * sh, 0, 0, 6.28); ctx.fill(); }
@@ -6206,15 +6358,14 @@ function drawRideVignette() {
 // Setting up camp: the game opens with nothing built. Gather sticks, stones and grass, combine them
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
 // =====================================================================
-const RAW = { stick: 'Stick', stone: 'Stone', fiber: 'Grass tuft', cloth: 'Old blanket', cord: 'Cord', stake: 'Stake', firering: 'Fire ring', benchkit: 'Workbench', tentkit: 'Tent' };
+// stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
+const RAW = { stick: 'Stick', stone: 'River stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
 const RECIPES = [
-  { out: 'cord', in: ['fiber', 'fiber'], line: 'two grass tufts, twisted' },
-  { out: 'stake', in: ['stick', 'stone'], line: 'a stick sharpened on a stone' },
-  { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', in: ['stick', 'stick', 'cord'], line: 'sticks lashed with cord', piece: 'bench' },
-  { out: 'tentkit', in: ['stake', 'cord', 'cloth'], line: 'the blanket, pegged and tied', piece: 'tent' },
+  { out: 'glue', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
+  { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
+  { out: 'benchkit', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
 ];
-const PIECE_OF = { fire: 'firering', bench: 'benchkit', tent: 'tentkit' };
+const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
@@ -6301,6 +6452,8 @@ function drawRawIcon(type, s) {
   switch (type) {
     case 'stick': ctx.save(); ctx.rotate(-0.6); ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.42, -s * 0.05, s * 0.84, s * 0.1); ctx.fillRect(s * 0.1, -s * 0.05, s * 0.18, -s * 0.1); ctx.restore(); return true;
     case 'stone': ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.32, s * 0.24, 0.2, 0, 6.28); ctx.fill(); ctx.fillStyle = '#b8b2a6'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.03, s * 0.12, s * 0.07, 0.2, 0, 6.28); ctx.fill(); return true;
+    case 'fluff': ctx.fillStyle = '#f2ece0'; for (const [ox, oy, r] of [[-0.12, 0.02, 0.2], [0.1, -0.04, 0.22], [0, 0.1, 0.18], [0.02, -0.14, 0.14]]) { ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill(); } ctx.fillStyle = 'rgba(180,160,140,.4)'; ctx.beginPath(); ctx.arc(0.05 * s, 0.05 * s, 0.08 * s, 0, 6.28); ctx.fill(); return true;
+    case 'glue': ctx.fillStyle = '#d9c9a0'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.3, s * 0.26, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#f2ece0'; for (const [ox, oy] of [[-0.2, -0.12], [0.18, -0.16], [0.24, 0.12]]) { ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.08, 0, 6.28); ctx.fill(); } ctx.strokeStyle = 'rgba(140,110,70,.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.25); ctx.quadraticCurveTo(-s * 0.08, s * 0.4, -s * 0.12, s * 0.45); ctx.stroke(); return true;
     case 'fiber': ctx.strokeStyle = '#8fae4a'; ctx.lineWidth = Math.max(1.5, s * 0.06); for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.05, s * 0.35); ctx.quadraticCurveTo(i * s * 0.12, 0, i * s * 0.2, -s * 0.38); ctx.stroke(); } return true;
     case 'cloth': ctx.fillStyle = '#b05a4a'; ctx.fillRect(-s * 0.34, -s * 0.28, s * 0.68, s * 0.56); ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.34, i * s * 0.16); ctx.lineTo(s * 0.34, i * s * 0.16); ctx.stroke(); } return true;
     case 'cord': ctx.strokeStyle = '#c9b070'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.beginPath(); for (let a = 0; a < 12; a += 0.3) ctx.lineTo(Math.cos(a) * s * (0.1 + a * 0.02), Math.sin(a) * s * (0.1 + a * 0.02)); ctx.stroke(); return true;
@@ -6311,6 +6464,40 @@ function drawRawIcon(type, s) {
     case 'mat': ctx.strokeStyle = 'rgba(255,227,138,.7)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeRect(-s * 0.35, -s * 0.3, s * 0.7, s * 0.6); ctx.setLineDash([]); return true;
   }
   return false;
+}
+
+// ---------------- the story's first steps: jetty, garden, the camp spot ----------------
+const STORY = { garden: 1, tocamp: 2, gather: 3, adventure: 4 };
+const storyAt = k => (state.inv.story || 0) >= STORY[k];
+// the old fishing jetty on this side of the river, where it all starts: short, weathered, a board missing
+function placeOldJetty(sc) {
+  const r = sc.river, half = r.w * UNIT / 2, R = [W * 0.6, H * 0.52];
+  let best = null;
+  for (let i = 0; i < r.pts.length - 1; i++) {
+    const ax = r.pts[i][0] * W, ay = r.pts[i][1] * H, bx = r.pts[i + 1][0] * W, by = r.pts[i + 1][1] * H, vx = bx - ax, vy = by - ay;
+    const t = Math.max(0, Math.min(1, ((R[0] - ax) * vx + (R[1] - ay) * vy) / (vx * vx + vy * vy))), qx = ax + vx * t, qy = ay + vy * t, d = Math.hypot(R[0] - qx, R[1] - qy);
+    if (!best || d < best.d) best = { d, qx, qy };
+  }
+  const nx = (R[0] - best.qx) / best.d, ny = (R[1] - best.qy) / best.d;
+  sc.feat.oldJetty = [(best.qx + nx * (half + UNIT * 0.4)) / W, (best.qy + ny * (half + UNIT * 0.4)) / H, -nx, -ny];
+}
+function drawOldJetty(sc) {
+  const [fx, fy, dx, dy] = sc.feat.oldJetty, x = fx * W, y = fy * H, u = UNIT, len = u * 1.6, wid = u * 0.8;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(Math.atan2(dy, dx));
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(0, -wid / 2 + 3, len, wid);
+  for (let i = 0; i < 6; i++) { if (i === 4) continue; ctx.fillStyle = i % 2 ? '#7d6547' : '#8a7152'; ctx.fillRect(i * len / 6, -wid / 2 + Math.sin(i * 7) * 2, len / 6 - 2, wid); }
+  ctx.fillStyle = '#4a3a28'; for (const px of [u * 0.1, len - u * 0.1]) for (const py of [-wid / 2 - 2, wid / 2 - 4]) ctx.fillRect(px - 3, py, 6, 6);
+  ctx.restore();
+}
+// the tent, from the inside: canvas walls, a bedroll, a chest, and Pip's book on a crate
+function drawTentRoom() {
+  const u = UNIT;
+  ctx.fillStyle = '#6e5a3e'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#b86a52'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W * 0.8, H * 0.2); ctx.lineTo(W * 0.2, H * 0.2); ctx.fill();   // canvas overhead
+  ctx.fillStyle = '#a05a44'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W * 0.2, H * 0.2); ctx.lineTo(W * 0.2, H); ctx.lineTo(0, H); ctx.fill(); ctx.beginPath(); ctx.moveTo(W, 0); ctx.lineTo(W * 0.8, H * 0.2); ctx.lineTo(W * 0.8, H); ctx.lineTo(W, H); ctx.fill();
+  ctx.strokeStyle = 'rgba(60,30,20,.35)'; ctx.lineWidth = 2; for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(W * 0.2 * k / 5, H * 0.2 * k / 5); ctx.lineTo(W * 0.2 * k / 5, H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(W - W * 0.2 * k / 5, H * 0.2 * k / 5); ctx.lineTo(W - W * 0.2 * k / 5, H); ctx.stroke(); }
+  ctx.fillStyle = '#5a4a38'; ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.6, W * 0.22, H * 0.18, 0, 0, 6.28); ctx.fill();   // rug
+  ctx.fillStyle = 'rgba(255,240,200,.25)'; ctx.fillRect(W * 0.42, H - u * 1.2, W * 0.16, u * 1.2);                       // light at the flap
 }
 
 // =====================================================================
