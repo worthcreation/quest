@@ -555,6 +555,7 @@ function genWorld() {
   foot.feat.plots = [];
   foot.feat.crops = [];
   const CROPS = ['squash', 'carrot', 'berries', 'turnip', 'pepper', 'squash'];
+  foot.feat.plotLv = 1;                              // someone farmed here before you: already tilled
   for (let r = 0; r < 2; r++) for (let c = 0; c < 6; c++) { foot.feat.plots.push([0.22 + c * 0.06, 0.45 + r * 0.12]); foot.feat.crops.push(CROPS[c]); claim(foot, 0.22 + c * 0.06, 0.45 + r * 0.12, 0.7); }
   addShroom(foot, [0.82, 0.28], 0);
   scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6], [0.82, 0.28, 2.5]], [0.1, 0.9, 0.12, 0.88]);
@@ -2832,27 +2833,35 @@ function interact() {
     if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
   }
   if (sc.feat.plots && !nearPull) {
-    const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0 })));
+    const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0, lv: sc.feat.plotLv || 0 })));
     for (let i = 0; i < plots.length; i++) {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (d2 > UNIT * 0.8) continue;
       const p = plots[i], stage = plotStage(p), crop = (sc.feat.crops && sc.feat.crops[i]) || CROP[sc.area] || 'turnip';
       const have = Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
-      if (p.s === 0) say(have.length ? `${K.act} to plant` : 'Tilled soil. Birds and gremlins drop seeds; rarer seeds come from tougher things.', px * W, py * H - UNIT, { key: 'plot', tip: have.length ? null : 'plot', life: 2.5 });
+      const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
+      if (p.s === 0 && !have.length && !improve) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
       if (!pressedNow.act) return false;
+      const doImprove = () => {
+        payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
+        say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' });
+      };
       const plant = kind => {
         state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
         sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
         say(kind === 'seed' ? `Planted. ${CROP_NAME[crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
       };
-      if (p.s === 0 && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
-      else if (p.s === 0 && have.length === 1) plant(have[0]);
-      else if (p.s === 0 && have.length > 1) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`), i2 => plant(have[i2]));
+      const imp = improve ? [`Improve to ${next.name} (${patchCost(next.cost)})`] : [];
+      if (p.s === 0 && !have.length && improve) ask(`${patchOf(p).name}`, px * W, py * H - UNIT, imp, () => doImprove());
+      else if (p.s === 0 && !improve && state.inv.favSeed && state.inv.bag[state.inv.favSeed] > 0) plant(state.inv.favSeed);
+      else if (p.s === 0 && !improve && have.length === 1) plant(have[0]);
+      else if (p.s === 0 && (have.length > 1 || improve)) ask('Plant which seed?', px * W, py * H - UNIT, have.map(k => `${SEEDS[k].name} x${state.inv.bag[k]}`).concat(imp), i2 => i2 < have.length ? plant(have[i2]) : doImprove());
       else if (p.s === 1 && stage >= 3) {
-        const S = SEEDS[p.seed || 'seed'];
+        const S = SEEDS[p.seed || 'seed'], P = patchOf(p), extra = rng() < P.bonus ? 1 : 0;
         p.s = 0; sfx.pop(); zoomPulse(px * W, py * H, 'pickup');
-        if (S.yields) { for (let n = 0; n < S.yields[1]; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${S.yields[1]} ${MATS[S.yields[0]]}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
-        else { collect({ type: crop, x: px * W, y: py * H }); say(`A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+        if (S.yields) { const n0 = S.yields[1] + extra; for (let n = 0; n < n0; n++) collect({ type: S.yields[0], x: px * W, y: py * H }); say(`Harvested ${n0} ${MATS[S.yields[0]]}${extra ? ' (a good crop!)' : ''}`, px * W, py * H - UNIT, { key: 'plot', life: 2.2 }); }
+        else { for (let n = 0; n <= extra; n++) collect({ type: crop, x: px * W, y: py * H }); say(extra ? `Two ${crop}s!` : `A ${crop}!`, px * W, py * H - UNIT, { key: 'plot', life: 2 }); }
+        if (rng() < P.seedBack) { state.inv.bag[p.seed || 'seed']++; say('...and a seed to plant again.', px * W, py * H - UNIT * 1.8, { key: 'plot2', life: 2, color: '#b8f28a' }); }
       }
       else if (p.s === 1) say(['Just planted.', 'A sprout!', 'Leafy. Nearly there.'][stage], px * W, py * H - UNIT, { key: 'plot', life: 2 });
       return true;
@@ -2864,9 +2873,21 @@ function interact() {
   } else if (pressedNow.act) { dropRock(); return true; }
   return false;
 }
+// Farm patches start as a wild tuft of rich earth and can be improved, one step at a time:
+// faster growth, a chance of an extra harvest, a chance to get a seed back.
+const PATCH = [
+  { name: 'Wild tuft', speed: 1, bonus: 0, seedBack: 0 },
+  { name: 'Tilled patch', speed: 1.2, bonus: 0, seedBack: 0.15, cost: { acorn: 3 }, how: 'work acorns in as mulch' },
+  { name: 'Framed bed', speed: 1.45, bonus: 0.35, seedBack: 0.25, cost: { thorn: 3 }, how: 'frame it with thorn-wood' },
+  { name: 'Raised bed', speed: 1.8, bonus: 0.7, seedBack: 0.35, cost: { ironwood: 1, ember: 1 }, how: 'raise it with ironwood and warm ember soil' },
+];
+const patchOf = p => PATCH[Math.min(PATCH.length - 1, p.lv || 0)];
+const patchCost = c => Object.entries(c).map(([k, n]) => `${n} ${k === 'acorn' ? 'acorns' : MATS[k]}`).join(' + ');
+function canAfford(c) { const inv = state.inv; return Object.entries(c).every(([k, n]) => (k === 'acorn' ? inv.acorns : inv.mats[k]) >= n); }
+function payFor(c) { const inv = state.inv; for (const [k, n] of Object.entries(c)) { if (k === 'acorn') inv.acorns -= n; else inv.mats[k] -= n; } }
 const CROP = { forest: 'turnip', woods: 'turnip', field: 'carrot', marsh: 'pepper', swamp: 'pepper', cave: 'squash' };
 const CROP_NAME = { turnip: 'Turnips', carrot: 'Carrots', pepper: 'Bog peppers', squash: 'Squash', berries: 'Berries' };
-const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) / SEEDS[p.seed || 'seed'].grow)) : 0;
+const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / SEEDS[p.seed || 'seed'].grow)) : 0;
 function dropRock() {                               // set down a step ahead, the way you face
   const h = state.hero;
   state.carry = null;
@@ -2954,7 +2975,9 @@ function findInteractable() {
     const plots = rt.flags.plots || [];
     f.plots.forEach((q, i) => {
       const p = plots[i] || { s: 0 }, st = plotStage(p);
+      const nx = PATCH[(p.lv || 0) + 1];
       if (p.s === 0 && Object.values(inv.bag).some(v => v > 0)) add(q[0] * W, q[1] * H, 'Plant', 0.8);
+      else if (p.s === 0 && nx && canAfford(nx.cost)) add(q[0] * W, q[1] * H, 'Improve', 0.8);
       if (p.s && st >= 3) add(q[0] * W, q[1] * H, 'Harvest', 0.8);
     });
   }
@@ -3522,7 +3545,7 @@ function updatePip(dt) {
     const P = q => [q[0] * W, q[1] * H];
     if (f.bench && near(...f.bench, 4)) pipSay('bench', 'My workbench. We can make stuff here.', P(f.bench));
     const plot = f.plots && f.plots.find(q => near(...q, 3));
-    if (plot) pipSay('plots', 'Plant seeds here.', P(plot));
+    if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
     if (f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (sc.id === 'start') {
@@ -4653,12 +4676,7 @@ function drawPlots(sc) {
       const plots = rtFor(sc.id).flags.plots || [];
       f.plots.forEach(([px, py], i) => {
         const x = px * W, y = py * H, p = plots[i] || { s: 0 }, st = plotStage(p);
-        ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - UNIT * 0.5 + 2, y - UNIT * 0.4 + 3, UNIT, UNIT * 0.8);
-        ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - UNIT * 0.45, y - UNIT * 0.35, UNIT * 0.9, UNIT * 0.7);
-        ctx.strokeStyle = '#4e331b'; ctx.lineWidth = 2;
-        for (const o of [-0.2, 0, 0.2]) { ctx.beginPath(); ctx.moveTo(x - UNIT * 0.38, y + o * UNIT); ctx.lineTo(x + UNIT * 0.38, y + o * UNIT); ctx.stroke(); }
-        ctx.strokeStyle = '#a07a48'; ctx.lineWidth = 3; ctx.strokeRect(x - UNIT * 0.47, y - UNIT * 0.37, UNIT * 0.94, UNIT * 0.74);   // wooden frame
-        ctx.fillStyle = '#c9a46a'; for (const [cx, cy] of [[-0.47, -0.37], [0.47, -0.37], [-0.47, 0.37], [0.47, 0.37]]) ctx.fillRect(x + cx * UNIT - 2.5, y + cy * UNIT - 5, 5, 7);
+        drawPatch(x, y, p.lv != null ? p.lv : (f.plotLv || 0), i);
         const S = SEEDS[p.seed || 'seed'], crop = (f.crops && f.crops[i]) || CROP[sc.area] || 'turnip';
         if (p.s && S.yields && st >= 1) {                // rare crops: a plant of their own colour, the material showing when ripe
           ctx.save(); ctx.translate(x, y);
@@ -4670,6 +4688,32 @@ function drawPlots(sc) {
       });
     }
 
+// a farm patch at each level: a wild tuft of dark earth, tilled rows, a framed bed, a stone-edged raised bed
+function drawPatch(x, y, lv, seed) {
+  const u = UNIT, j = k => Math.sin(seed * 12.9898 + k * 78.233) * 0.5;       // small fixed wobbles per patch
+  if (lv === 0) {
+    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(x + 2, y + 3, u * 0.5, u * 0.3, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#4e3620';
+    for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.ellipse(x + (k - 2) * u * 0.16 + j(k) * u * 0.1, y + j(k + 9) * u * 0.1, u * (0.2 + 0.05 * j(k + 3)), u * 0.14, j(k + 5), 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = '#6a4a2c'; for (let k = 0; k < 4; k++) ctx.fillRect(x + (k - 1.5) * u * 0.18 + j(k + 11) * 4, y - u * 0.04 + j(k + 13) * 4, 3, 2);   // crumbs of rich earth
+    ctx.strokeStyle = '#5f8a3a'; ctx.lineWidth = 1.5;
+    for (const [ox, oy] of [[-0.45, -0.12], [0.42, 0.1], [0.1, -0.24]]) { ctx.beginPath(); ctx.moveTo(x + ox * u, y + oy * u); ctx.lineTo(x + ox * u - 2, y + oy * u - u * 0.18); ctx.moveTo(x + ox * u, y + oy * u); ctx.lineTo(x + ox * u + 3, y + oy * u - u * 0.15); ctx.stroke(); }
+    return;
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.5 + 2, y - u * 0.4 + 3, u, u * 0.8);
+  if (lv >= 3) {                                            // raised bed: stone edging all round
+    ctx.fillStyle = '#8f887c'; ctx.fillRect(x - u * 0.55, y - u * 0.44, u * 1.1, u * 0.88);
+    ctx.fillStyle = '#a39b8e'; for (let k = 0; k < 6; k++) ctx.fillRect(x - u * 0.55 + k * u * 0.185, y - u * 0.44, u * 0.16, u * 0.08);
+  }
+  ctx.fillStyle = lv >= 3 ? '#4a321c' : '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.35, u * 0.9, u * 0.7);
+  ctx.strokeStyle = lv >= 3 ? '#3a2614' : '#4e331b'; ctx.lineWidth = 2;
+  for (const o of [-0.2, 0, 0.2]) { ctx.beginPath(); ctx.moveTo(x - u * 0.38, y + o * u + j(o * 10) * 2); ctx.lineTo(x + u * 0.38, y + o * u - j(o * 10) * 2); ctx.stroke(); }
+  if (lv >= 2) {                                            // a wooden frame with corner pegs
+    ctx.strokeStyle = '#a07a48'; ctx.lineWidth = 3; ctx.strokeRect(x - u * 0.47, y - u * 0.37, u * 0.94, u * 0.74);
+    ctx.fillStyle = '#c9a46a'; for (const [cx, cy] of [[-0.47, -0.37], [0.47, -0.37], [-0.47, 0.37], [0.47, 0.37]]) ctx.fillRect(x + cx * u - 2.5, y + cy * u - 5, 5, 7);
+  }
+  if (lv >= 3 && Math.sin(state.time * 2 + seed) > 0.96) spark(x + j(state.time) * u * 0.6, y - u * 0.1, 'rgba(255,170,90,.8)', 1, 1);   // warm ember soil
+}
 // ---------------- trees and solids ----------------
 function drawShadows() {
   for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') {
@@ -5371,7 +5415,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 49';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 50';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
