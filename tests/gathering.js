@@ -16,8 +16,8 @@ state.inv.food.push('turnip','carrot'); run(20); console.log('2 food goes to S t
 // 3. gathering: Pip leads to each place in turn
 const R=rawOf(); for(const k in R) R[k]=0; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; rtFor('meadow').flags.plots=WORLD.meadow.feat.plots.map(()=>({s:1,t:0,lv:0,seed:'turnipseed'})); rtFor('camp').flags.built_tent=true; inv.woodsword=0; const path=[];
 const step=(fn, label)=>{ fn(); path.push(label+' -> '+tutorialGoal()); };
-step(()=>{}, 'nothing'); step(()=>{R.stick=2;}, '2 sticks'); step(()=>{R.stone=2;}, '+2 stones'); step(()=>{R.fluff=2; rtFor('f1').items=rtFor('f1').items.filter(i=>i.type!=='fluff');}, '+2 fluff, field bare');
-step(()=>{R.stick=5;}, '+3 more sticks'); step(()=>{inv.woodsword=WOOD_SWORD;}, 'sword made'); step(()=>{R.fluff=3;}, 'third fluff');
+step(()=>{}, 'nothing'); step(()=>{R.stick=6;}, '6 sticks'); step(()=>{R.stone=5;}, '+5 stones'); step(()=>{R.fluff=2; rtFor('f1').items=rtFor('f1').items.filter(i=>i.type!=='fluff');}, '+2 fluff, field bare');
+step(()=>{R.stick=9;}, '+3 more sticks'); step(()=>{inv.woodsword=WOOD_SWORD;}, 'sword made'); step(()=>{R.fluff=4;}, 'fluff 4 of 4');
 console.log('3 where Pip takes you:\\n   '+path.join('\\n   '));
 // 4. on the bare field with fluff short: Pip's lines, in order
 R.fluff=2; R.stick=3; inv.woodsword=0; const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&o.key==='pip') said.push(t); return _s(t,x,y,o); };

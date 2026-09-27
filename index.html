@@ -338,7 +338,7 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of ['stick', 'stick', 'stick', 'stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
+  for (const t of Array(10).fill('stick')) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
 
@@ -370,7 +370,7 @@ function genWorld() {
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
-    [0.25, 0.45, 0.65].forEach(t => {
+    [0.15, 0.27, 0.39, 0.51, 0.63, 0.75].forEach(t => {        // six smooth stones along the bank: the ring takes five
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
       const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1], cx = (ax + (bx - ax) * u2) * W, cy = (ay + (by - ay) * u2) * H;
       const vx = (bx - ax) * W, vy = (by - ay) * H, l = Math.hypot(vx, vy) || 1, nx = vy / l, ny = -vx / l, s2 = (nx + ny > 0 ? 1 : -1);   // the normal pointing to the south-east bank
@@ -530,7 +530,7 @@ function genWorld() {
   const FIELD = [
     { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
     { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 2, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
     { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
     { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
@@ -1055,6 +1055,16 @@ const CAVE_LOOP = [
   [61,0],[0,0],[0,0],[0,0],[62,0],[0,0],[0,0],[0,0],
 ];
 const MUSIC = {
+  twilight: {                    // after the camp's done: slow, low and warm, with space between the notes
+    step: 60 / 66 / 2, shift: 0, shimmer: true,
+    lead: { type: 'sine', vol: 0.07, len: 3.2 }, bass: { type: 'sine', vol: 0.1, len: 5 },
+    loop: [
+      [64,40],[0,0],[0,0],[67,0],[0,0],[0,0], [71,45],[0,0],[0,0],[69,0],[0,0],[0,0],
+      [67,43],[0,0],[0,0],[64,0],[0,0],[0,0], [62,38],[0,0],[0,0],[0,0],[0,0],[0,0],
+      [64,40],[0,0],[0,0],[67,0],[0,0],[71,0], [72,45],[0,0],[0,0],[71,0],[0,0],[0,0],
+      [67,43],[0,0],[0,0],[69,0],[0,0],[67,0], [64,40],[0,0],[0,0],[0,0],[0,0],[0,0],
+    ],
+  },
   forest: {
     step: 60 / 92 / 2, shift: 0, shimmer: true,
     lead: { type: 'triangle', vol: 0.10, len: 1.6 }, bass: { type: 'sine', vol: 0.14, len: 3.2 },
@@ -1173,6 +1183,7 @@ function setAmbience(type) {
   if (type === 'falls') { f.type = 'lowpass'; f.frequency.value = 900; }
   if (type === 'marsh') { f.type = 'lowpass'; f.frequency.value = 260; }
   if (type === 'rain') { f.type = 'highpass'; f.frequency.value = 1800; }
+  if (type === 'night') { f.type = 'lowpass'; f.frequency.value = 420; }   // a soft breeze under the crickets
   g.gain.value = 0.0001;
   src.connect(f).connect(g).connect(master);
   src.start();
@@ -1187,6 +1198,8 @@ function ambLevel(v, freq) {
 
 // sound effects
 const sfx = {
+  cricket(pan) { const f = 4100 + Math.random() * 500; for (let i = 0; i < 3; i++) tone(f, i * 0.055, 0.035, { type: 'sine', vol: 0.025, attack: 0.004, pan, dest: musicGain }); },
+  owl(pan) { tone(392, 0, 0.35, { type: 'sine', vol: 0.05, attack: 0.08, to: 370, pan, dest: musicGain }); tone(349, 0.45, 0.55, { type: 'sine', vol: 0.045, attack: 0.1, to: 330, pan, dest: musicGain }); },
   drip(pan) { const f = 1400 + Math.random() * 900; tone(f, 0, 0.12, { type: 'sine', vol: 0.07, attack: 0.002, to: f * 0.4, pan, dest: musicGain }); tone(f, 0.28, 0.1, { type: 'sine', vol: 0.02, attack: 0.002, to: f * 0.4, pan: -pan, dest: musicGain }); },
   fall()   { [784, 659, 523, 392, 311, 233].forEach((f, i) => tone(f, i * 0.12, 0.3, { type: 'triangle', vol: 0.12 })); },
   growl()  { noise(0, 1.1, { vol: 0.35, freq: 260, q: 4 }); tone(70, 0, 1.0, { type: 'sawtooth', vol: 0.07, attack: 0.15, to: 48 }); },
@@ -1352,10 +1365,12 @@ function say(text, x, y, opts = {}) {
 function sayHero(text, opts) { say(text, null, null, opts); }
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
-  const sent = text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [text], out = [];
+  const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
+  const sent = body.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [body], out = [];
   let cur = '';
   for (const s0 of sent) { const s = s0.trim(); if (!s) continue; if (cur && (cur + ' ' + s).length > max) { out.push(cur); cur = s; } else cur = cur ? cur + ' ' + s : s; }
   if (cur) out.push(cur);
+  if (out.length && lead) out[0] = lead.trim() + out[0];
   return out.length ? out : [text];
 }
 const readTime = s => Math.min(7, 2.4 + s.length / 16);
@@ -1449,6 +1464,7 @@ function enterScene(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
+  state.pipGone = null;                              // Pip is wherever the new screen puts him
   syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
   state.atk = null; state.hold = { on: false, t: 0, charged: false }; state.aim.on = false;
@@ -1522,8 +1538,9 @@ function enterScene(id, fx, fy) {
   if (pipWithYou()) placePipNearHero();
   const bossAlive = id === 'c7' && !rt.bossDead;
   const tense = sc.area === 'woods' && state.inv.pipTaken && !state.inv.sword;
-  setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : sc.music);
-  setAmbience(sc.amb);
+  const night = state.dusk && ['camp', 'tentin', 'start', 'meadow', 'riverbank'].includes(id);   // after camp's set up: twilight around home
+  setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : night ? 'twilight' : sc.music);
+  setAmbience(night ? 'night' : sc.amb);
   refreshButtons();
 }
 
@@ -1618,6 +1635,11 @@ function update(dt) {
   state.frameDt = dt;
   readPresses();
   updateQuests();
+  coachUpdate();                                     // coached steps move on as you do them, menus included
+  if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
+    state.nightT = state.time + 0.35 + Math.random() * 0.9;
+    if (Math.random() < 0.06) sfx.owl((Math.random() - 0.5) * 1.4); else sfx.cricket((Math.random() - 0.5) * 1.6);
+  }
   if (state.time - (state.slotT || -9) > 0.25) { state.slotT = state.time; tidySlots(); }
   // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
   if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
@@ -1634,6 +1656,7 @@ function update(dt) {
   if (sc.gusts) updateWind(dt, sc);
   if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
   if (sc.amb === 'marsh') ambLevel(0.05);
+  if (amb && amb.type === 'night') ambLevel(0.025);
   if (sc.river) ambLevel(0.07 + 0.08 * Math.max(0, 1 - Math.min(...sc.river.pts.map(p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H))) / (UNIT * 12)), 2200);   // rushing water, louder near it
   if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
   updateGas(dt);
@@ -3421,8 +3444,8 @@ function interactBook(sc, h, rt, nearPull) {
 function interactBuild(sc, h, rt, nearPull) {
   for (const b of sc.feat.buildSpots || []) {
     if (campBuilt(b.piece) || !pressedNow.act || Math.hypot(h.x - b.fx * W, h.y - b.fy * H) > UNIT * (b.r + 0.9)) continue;
-    if ((rawOf()[PIECE_OF[b.piece]] || 0) > 0) { placePiece(b); return true; }
-    say(`The ${RAW[PIECE_OF[b.piece]].toLowerCase()} goes here.`, b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2 }); return true;
+    const line = setCampPart(b);
+    say(line || (b.piece === 'fire' ? `The fire ring goes here: ${CAMP_PARTS.fire.stones} smooth stones, then tinder.` : `The bench goes here: two frames.`), b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2.2 }); return true;
   }
 }
 function interactCampfire(sc, h, rt, nearPull) {
@@ -3559,7 +3582,7 @@ function findInteractable() {
   }
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
   if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
-  for (const b of f.buildSpots || []) if (!campBuilt(b.piece) && (rawOf()[PIECE_OF[b.piece]] || 0) > 0) add(b.fx * W, b.fy * H, 'Build', b.r + 0.9);
+  for (const b of f.buildSpots || []) if (!campBuilt(b.piece)) { const r0 = rawOf(), P = campParts(); const v = b.piece === 'fire' ? (P.stones < CAMP_PARTS.fire.stones && r0.stone ? 'Set stones' : P.stones >= CAMP_PARTS.fire.stones && r0.tinder ? 'Add tinder' : r0.firering ? 'Build' : null) : (r0.benchframe ? 'Set frame' : r0.benchkit ? 'Build' : null); if (v) add(b.fx * W, b.fy * H, v, b.r + 0.9); }
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
@@ -4232,6 +4255,7 @@ const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
 function remindNow(sc, h) {                          // the current tutorial step's nag, phrased its way, at a spot that helps
   const s = tutorialStep(); if (!s || !s.remind || (s.scene && s.scene !== sc.id && s.id !== 'rabbits')) return null;
+  if (s.say && TUT.saidAt(s.id) == null) return null;       // no nagging about a step before Pip has introduced it
   const lines = s.remind().filter(Boolean); if (!lines.length) return null;
   const n = (state.remind && state.remind.n) || 0;
   return { key: s.id, at: s.remindAt ? s.remindAt(n) : (s.spot ? s.spot() : null), lines };
@@ -4264,7 +4288,8 @@ function pipSay(key, text, at, sight = 7, site = null) {
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
 // place has given what it can, or what's still missing. Said again only when the answer changes.
-const CAMP_NEED = { stone: 2, stick: 2, fluff: 3 };   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
+const CAMP_NEED = { stone: 5, stick: 6, fluff: 4 };   // ring: 5 stones + tinder (2 sticks); bench: 2 frames, each 2 sticks + glue (2 fluff)
+// (was 2 / 2 / 3 before build 98)   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
 function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
 function needWords(miss) {
   const w = { stone: n => `${n} smooth stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
@@ -4298,7 +4323,7 @@ function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
   state.tutStep = s ? s.id : null;
   if (!s || heldText() || p.visit) return;
-  if (sc.id === 'camp' && s.scene !== 'camp' && !s.hold) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
+  if (sc.id === 'camp' && ['sticks', 'stones', 'fluff', 'sword', 'rabbits'].includes(s.id)) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
     const line = campMarkLine(), b = campMark(), key = 'tut-camp|' + line;
     if (line && b && !tips[key]) { state.pipTalkT = -99; pipSay(key, line, [b.fx * W, b.fy * H], 40, { x: b.fx * W, y: b.fy * H, r: 7 }); }
     return;
@@ -4314,6 +4339,7 @@ function tutorialTalk(sc, p, h) {
     if (!pipSay(key, line, at && Math.hypot(at[0] - p.x, at[1] - p.y) > UNIT * 1.2 ? at : null, 40, at ? { x: at[0], y: at[1], r: 9 } : null)) return;
     if (s.once) tips[s.once] = true;
   }
+  (state.inv.tutAt = state.inv.tutAt || {})[s.id] = state.playTime || 0;
   if (s.id === 'tada') state.inv.story = STORY.gather;
   if (s.after) s.after();
 }
@@ -4334,6 +4360,7 @@ function updatePip(dt) {
   const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
   if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
   if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
+  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the tent, out of camp)
   if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
@@ -4349,7 +4376,10 @@ function updatePip(dt) {
   // never standing still: waiting up ahead (or at his garden post) he paces and potters about the spot
   const pot = k => [Math.cos(state.time * 0.8 + k) * UNIT * 0.7 + Math.cos(state.time * 1.9 + k * 2) * UNIT * 0.2, Math.sin(state.time * 1.1 + k) * UNIT * 0.4];
   let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
-  if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }   // Pip's post is the garden (a reminder can take him off it)
+  if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }
+  const TL = !p.visit && tutorialLead(sc);            // the tour: walk to the door / the flap / the way out, and slip out of sight there
+  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; p.show = false; } }
+  if (!TL && state.tutWait && !p.visit) { const w = state.tutWait; tx = w[0]; ty = w[1]; }   // Pip's post is the garden (a reminder can take him off it)
   // Early on, if you don't follow, Pip goes on ahead: after a while he walks right off the screen, then pops back in
   // from that side to hurry you up, and heads off again. Only when there's somewhere to lead you (the way to camp,
   // or the way on while gathering).
@@ -4392,6 +4422,11 @@ function updatePip(dt) {
     const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
+  }
+  if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, p.x, p.y) && p.show) {   // the wind shoves Pip too
+    const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
+    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) say(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff', size: 0.9 }); }
+    if (state.gustPhase !== 'blow') p.windT = 0;
   }
   const offRoad = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'away');
   if (!offRoad) { collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5); }   // (heading off the screen: no clamping)
@@ -4444,6 +4479,16 @@ const TUT = {
   exitSpot: () => { const sc = sceneDef(), ex = pipExit(sc); if (!ex) return null; const e = edgePoint(ex.side, (ex.a + ex.b) / 2); return [e[0] * W - (ex.side === 'e' ? UNIT * 1.5 : ex.side === 'w' ? -UNIT * 1.5 : 0), e[1] * H - (ex.side === 's' ? UNIT * 1.5 : ex.side === 'n' ? -UNIT * 1.5 : 0)]; },
   f1Fluff: () => (state.scene === 'f1' ? state.items : (RT.f1 ? RT.f1.items : (WORLD.f1.initItems || []))).some(i => i.type === 'fluff'),
   tip: k => (state.inv.pipTips || {})[k],
+  saidAt: id => ((state.inv.tutAt || {})[id]),
+  since: id => { const a = ((state.inv.tutAt || {})[id]); return a == null ? -1 : (state.playTime || 0) - a; },
+  near: (at, tiles) => !!at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) < UNIT * tiles,
+  mark: piece => { const b = (WORLD.camp.feat.buildSpots || []).find(q => q.piece === piece); return b && [b.fx * W, b.fy * H]; },
+  door: () => { const d = WORLD.camp.feat.tentDoor; return [d[0] * W, d[1] * H]; },
+  flap: () => [W * 0.5, H * 0.94],
+  campExit: () => { const e = WORLD.camp.exits[0]; const q = edgePoint(e.side, (e.a + e.b) / 2); return [q[0] * W, Math.min(H * 0.93, q[1] * H)]; },
+  // a tour stop is done once Pip has said it and you came over (or waited long enough)
+  noTour: () => (TUT.tip('tada') || state.inv.story > STORY.gather) && TUT.saidAt('tada') == null,   // jumped in (older save, test): no tour
+  followed: (id, at) => TUT.saidAt(id) != null && (TUT.near(at, 3.5) || TUT.since(id) > 9),
   M: () => K.menu.toUpperCase(), F: () => K.act.toUpperCase(),
 };
 const TUTORIAL = [
@@ -4457,11 +4502,26 @@ const TUTORIAL = [
     key: () => (TUT.planted() === 1 && !TUT.seeds()) ? 'again' : 'first',
     remind: () => TUT.seeds() ? ['This patch is empty. Pop a seed in!', 'Right here! The dirt wants those seeds.', 'Stand on the soil and press F.', 'Seeds do best in the ground, not your pocket!'] : ['One more seed! Startle the robin again.', 'The robin always comes back. Give it a scare!'],
     remindAt: () => TUT.seeds() ? TUT.emptyPlot() : TUT.robin() },
-  { id: 'tocamp', done: () => TUT.tip('tada') || state.inv.story >= STORY.gather, goal: () => 'camp', scene: 'meadow', spot: null,
+  { id: 'tocamp', done: () => TUT.tip('tada') || state.inv.story >= STORY.gather || state.scene === 'camp', goal: () => 'camp', scene: 'meadow', spot: null,
     say: () => 'They\'ll grow while we\'re out. Now... I found the most AWESOME spot for a camp. Follow me!',
     remind: () => ['Camp\'s this way!', 'Come on, to the camp spot!', 'Follow me, it\'s not far.'], remindAt: () => TUT.exitSpot() },
   { id: 'tada', done: () => TUT.tip('tada') || state.inv.story >= STORY.gather, scene: 'camp', spot: null, once: 'tada',
     say: () => 'TA-DA! Best spot in the whole world. I built us a lean-to! It mostly stays up.' },
+  // the camp tour: Pip shows you each spot, the lean-to last, goes in, you follow, he shows you inside, then out and away
+  { id: 'tour-fire', done: () => TUT.noTour() || TUT.followed('tour-fire', TUT.mark('fire')) || campBuilt('fire'), scene: 'camp', spot: () => TUT.mark('fire'),
+    say: () => 'This is where the fire goes: five smooth stones in a ring, and tinder in the middle.' },
+  { id: 'tour-bench', done: () => TUT.noTour() || TUT.followed('tour-bench', TUT.mark('bench')) || campBuilt('bench'), scene: 'camp', spot: () => TUT.mark('bench'),
+    say: () => 'And here, a workbench. Two frames of sticks and rabbit glue.' },
+  { id: 'tour-tent', done: () => TUT.noTour() || state.scene === 'tentin' || TUT.saidAt('tour-inside') != null, scene: 'camp', spot: () => TUT.door(),
+    say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, after: true },
+    remind: () => ['In you come! The flap\'s right here.', 'Come inside!'], remindAt: () => TUT.door() },
+  { id: 'tour-inside', done: () => TUT.noTour() || TUT.since('tour-inside') > 7 || state.scene === 'camp' && TUT.saidAt('tour-inside') != null, scene: 'tentin', spot: () => { const b = WORLD.tentin.feat.book; return [b[0] * W, b[1] * H + UNIT]; },
+    say: () => 'My book: rules and tips, with drawings. The chest has seeds and acorns. That\'s my bed. Nap there when you\'re worn out.' },
+  { id: 'tour-out', done: () => TUT.noTour() || state.scene === 'camp' && TUT.saidAt('tour-out') != null || TUT.saidAt('tour-exit') != null, scene: 'tentin', spot: null,
+    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, after: true } },
+  { id: 'tour-exit', done: () => TUT.noTour() || state.scene !== 'camp' && TUT.saidAt('tour-exit') != null, scene: 'camp', spot: null, goal: () => 'start',
+    say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, after: true },
+    remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },
   { id: 'sticks', done: () => !campMissing().stick, goal: () => 'start', scene: 'start', spot: () => TUT.nearItem('stick') && [TUT.nearItem('stick').x, TUT.nearItem('stick').y],
     say: () => 'Good sticks. Dry ones burn best. We need a couple.', remind: () => ['Here\'s a good stick!', 'Grab this stick!', 'Sticks, under the trees. We need them.'], remindAt: () => { const it = TUT.nearItem('stick'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'stones', done: () => !campMissing().stone, goal: () => 'riverbank', scene: 'riverbank', spot: () => TUT.nearItem('stone') && [TUT.nearItem('stone').x, TUT.nearItem('stone').y],
@@ -4469,10 +4529,8 @@ const TUTORIAL = [
   { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'f2', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
     say: () => 'Fluff blows all over in this wind. Grab it quick!', remind: () => ['Quick, the fluff!', 'Don\'t let the wind take it!', 'Rabbit fluff. We need three tufts.'], remindAt: () => { const it = TUT.nearItem('fluff'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'lesson', done: () => TUT.tip('craftLesson') || !TUT.fluffNeed(), once: 'craftLesson', hold: true, spot: null, goal: () => TUT.raw().stick >= 3 ? null : 'start',
-    say: () => `Two tufts! The bench needs one more. There are rabbits to the south... but they are mean! Time you learned crafting. ` +
-      (TUT.raw().stick >= 3 ? `Open your pack: ${TUT.M()}. Go to the Craft tab. Under Recipes, pick the wooden sword and press ${TUT.F()}: three sticks go on the mat. Then ${TUT.F()} on Combine!`
-                             : `First, three sticks. Get some more back in the glade, then open your pack: ${TUT.M()}, Craft tab, and make a wooden sword.`),
-    after: () => hearRecipe('woodsword') },
+    say: () => 'Two tufts! The bench needs more for its glue. There are rabbits to the south... but they are mean! Time you learned crafting. Let\'s make you a wooden sword.',
+    after: () => { hearRecipe('woodsword'); startCoach('sword'); } },
   { id: 'sword', done: () => !!bladeKind() || !TUT.fluffNeed(), goal: () => TUT.raw().stick >= 3 ? null : 'start', spot: null,
     remind: () => TUT.raw().stick >= 3 ? [`Slap that sword together! ${TUT.M()}, Craft, wooden sword, Combine.`, 'Three sticks on the mat, then Combine!'] : ['Sticks first. The glade has plenty.', 'Three sticks for a sword!'], remindAt: () => TUT.exitSpot() },
   { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'f2', scene: null, spot: null,
@@ -4483,9 +4541,16 @@ const TUTORIAL = [
   { id: 'homebase', done: () => gearOwned().includes('feather'), scene: 'camp', spot: null, hold: true, once: 'campdone', bounce: true,
     say: () => 'Home base! We did it! Here, I found this feather. It\'s for you.' },
 ];
+// where the current step wants Pip to walk (and whether he steps out of sight on arriving), once he's said his line
+function tutorialLead(sc) {
+  const s = tutorialStep(); if (!s || !s.lead || s.lead.scene !== sc.id) return null;
+  if (s.lead.after && TUT.saidAt(s.id) == null) return null;
+  return { at: s.lead.at(), hide: s.lead.hide };
+}
 function tutorialStep() {
   if (!state.inv || ARENA || PUZZLE || storyAt('adventure')) return null;
-  for (const s of TUTORIAL) { if (s.begins && !s.begins()) return null; if (!s.done()) return s; }
+  const D = state.inv.tutDone || (state.inv.tutDone = {});       // once a step is done it stays done (walking away doesn't undo it)
+  for (const s of TUTORIAL) { if (s.begins && !s.begins()) return null; if (D[s.id]) continue; if (!s.done()) return s; D[s.id] = true; }
   return null;
 }
 function tutorialGoal() { const s = tutorialStep(); return s && s.goal ? s.goal() : null; }
@@ -4493,14 +4558,21 @@ function tutorialGoal() { const s = tutorialStep(); return s && s.goal ? s.goal(
 function campMark() { const f = WORLD.camp.feat, pc = ['fire', 'bench'].find(q => !campBuilt(q)); return pc && (f.buildSpots || []).find(b => b.piece === pc); }
 function campMarkLine() {
   const b = campMark(); if (!b) return '';
-  const pc = b.piece, raw = rawOf(), n = k => raw[k] || 0, NAME = { fire: 'fire ring', bench: 'workbench' }, M = TUT.M();
-  const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 1 - n('stick'), fluff: (n('glue') ? 1 : 3) - n('fluff') };
-  const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
-  if (n(PIECE_OF[pc]) > 0) return `Set the ${NAME[pc]} down right here!`;
-  if (!miss.length && !TUT.tip('craftLesson')) return `Got it all for the ${NAME[pc]}! We'll put it together soon.`;
-  if (!miss.length && pc === 'bench' && !n('glue')) return `Glue first: two fluff on the Craft mat (${M}).`;
-  if (!miss.length) return pc === 'fire' ? `You've got it! Craft: two stones and a stick (${M}).` : `You've got it! Craft: a stick, glue and fluff (${M}).`;
-  return `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`;
+  const raw = rawOf(), n = k => raw[k] || 0, P = campParts(), M = TUT.M(), taught = TUT.tip('craftLesson');
+  if (b.piece === 'fire') {
+    const left = CAMP_PARTS.fire.stones - P.stones;
+    if (left > 0 && n('stone')) return `Set the stones here! ${Math.min(left, n('stone'))} of your stones go in the ring.`;
+    if (left > 0) return `Fire ring goes here: ${left === CAMP_PARTS.fire.stones ? 'five smooth stones' : left + ' more smooth stone' + (left > 1 ? 's' : '')}, then tinder.`;
+    if (n('tinder')) return 'Tinder in the middle, and we have a fire!';
+    if (!taught) return 'The ring is done! It needs tinder. We\'ll make some soon.';
+    return n('stick') >= 2 ? `Tinder: two sticks on the Craft mat (${M}).` : 'Tinder needs two sticks. The glade has plenty.';
+  }
+  const left = CAMP_PARTS.bench.frames - P.frames;
+  if (n('benchframe')) return 'Set the frame here!';
+  if (!taught) return 'The bench goes here: two frames. We\'ll make them soon.';
+  if (n('glue') && n('stick') >= 2) return `Frame: two sticks and glue on the Craft mat (${M}). ${left} to go.`;
+  if (n('fluff') >= 2 && !n('glue')) return `Glue first: two fluff on the Craft mat (${M}).`;
+  return `The bench needs ${left} frame${left > 1 ? 's' : ''}: each two sticks and rabbit glue.`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -4510,12 +4582,8 @@ function campMarkLine() {
 const PIP_LINES = [
   { key: 'compost', when: () => state.inv.acorns > 0 && !storyAt('adventure') && state.inv.quests && state.inv.quests.garden && state.inv.quests.garden.done != null,
     text: 'Get enough of those acorns, and you can make some awesome compost!' },
-  { key: 'chest', scene: 'tentin', at: sc => [sc.feat.chest[0] * W, sc.feat.chest[1] * H],
-    text: 'There are a couple of seeds in the chest, and some acorns. Work acorns into the garden soil and it makes awesome compost!' },
   { key: 'pound', when: sc => storyAt('gather') && !campDone() && sc.id !== 'camp' && TUT.tip('tada'),
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
-  { key: 'tentin', scene: 'camp', when: () => storyAt('gather') && !campDone() && Object.keys(state.inv.pipTips || {}).some(k => k.startsWith('tut-camp')), at: () => [0.33 * W, 0.33 * H], sight: 14,
-    text: 'My book in the tent explains stuff.' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
   // the glade, once the adventure is on: the brambles, the buried rock, the throw
@@ -4542,6 +4610,51 @@ const PIP_LINES = [
   { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
     text: 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!' },
 ];
+
+// ---------------------------------------------------------------------------------------------------------------
+// Coached steps: instructions that stay on screen (even inside the pack) until you've actually done each one.
+// startCoach(id) begins a sequence once; coachUpdate() (called every frame from update) moves it along; drawCoach
+// (draw-ui.js) shows the current step. Each step: text, done(); an optional skip() leaves a step out.
+// ---------------------------------------------------------------------------------------------------------------
+const inPack = tab => state.menu && state.menu.view === 'pack' && (!tab || PACK_TABS[state.menu.tab] === tab);
+const onMat = (k, n) => (state.mat || []).filter(x => x === k).length >= n;
+const COACH = {
+  sword: () => [
+    { text: 'First, three sticks. The glade has plenty.', done: () => rawOf().stick >= 3 || !!bladeKind() },
+    { text: `Open your pack: ${TUT.M()}`, done: () => inPack() || !!bladeKind() },
+    { text: 'Go to the Craft tab: \u2190 \u2192', done: () => inPack('Craft') || !!bladeKind() },
+    { text: `Under Recipes, pick the wooden sword and press ${TUT.F()}`, done: () => onMat('stick', 3) || !!bladeKind() },
+    { text: `Press ${TUT.F()} on Combine`, done: () => !!bladeKind() },
+    { text: `Close the pack: ${TUT.M()}`, done: () => !state.menu },
+  ],
+  tinder: () => [
+    { text: 'Tinder takes two sticks. The glade has plenty.', done: () => rawOf().stick >= 2 || rawOf().tinder > 0 || campBuilt('fire') },
+    { text: `Open your pack: ${TUT.M()}`, done: () => inPack() || rawOf().tinder > 0 || campBuilt('fire') },
+    { text: 'Craft tab, then tinder under Recipes', done: () => onMat('stick', 2) || rawOf().tinder > 0 || campBuilt('fire') },
+    { text: `Press ${TUT.F()} on Combine`, done: () => rawOf().tinder > 0 || campBuilt('fire') },
+    { text: `Close the pack, then ${TUT.F()} at the ring`, done: () => campBuilt('fire') },
+  ],
+  frame: () => [
+    { text: `Glue first: two fluff. Open your pack (${TUT.M()}), Craft, rabbit glue`, done: () => rawOf().glue > 0 || rawOf().benchframe > 0 || campBuilt('bench') },
+    { text: 'Then a frame: two sticks and glue (Recipes: bench frame)', done: () => rawOf().benchframe > 0 || campBuilt('bench') },
+    { text: `Close the pack, then ${TUT.F()} at the bench mark`, done: () => campParts().frames > 0 || campBuilt('bench') },
+  ],
+};
+function startCoach(id) {
+  const tips = state.inv.pipTips || (state.inv.pipTips = {});
+  if (tips['coach-' + id] || !COACH[id]) return;
+  tips['coach-' + id] = true; state.coach = { id, i: 0, t: state.time };
+}
+function coachUpdate() {
+  if (!state.inv || ARENA || PUZZLE) return;
+  // camp coaching starts on its own once the lesson has happened
+  if (!state.coach && TUT.tip('craftLesson') && !campBuilt('fire') && campParts().stones >= CAMP_PARTS.fire.stones) { hearRecipe('tinder'); startCoach('tinder'); }
+  if (!state.coach && TUT.tip('craftLesson') && campBuilt('fire') && !campBuilt('bench') && bladeKind()) { hearRecipe('glue'); hearRecipe('benchframe'); startCoach('frame'); }
+  const c = state.coach; if (!c) return;
+  const steps = COACH[c.id]();
+  while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); }
+  if (c.i >= steps.length) state.coach = null;
+}
 // ===== cutscenes.js: Scripted moments: dusk and the lantern, the abduction, the sword reveal, the toad, the rescue, the ending, the warden talk.
 // in the woods, right before the sword: the gremlins take Pip, and the journal with them
 function startDusk() { state.cut = { type: 'dusk', t: 0, step: 0 }; }
@@ -4883,6 +4996,7 @@ const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood:
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
 // grid places for pack cells: a new section starts a new row (with its name above it)
 function packLayout(cells, cols) {
+  if (cells.length && cells[0].col != null) { const n = [0, 0, 0]; return cells.map(c => ({ c: c.col, r: n[c.col]++ })); }   // Craft: columns, a row each
   const out = []; let r = 0, c = 0, sec;
   cells.forEach((cell, i) => { if (i && (c >= cols || cell.sec !== sec)) { r++; c = 0; } sec = cell.sec; out.push({ r, c, head: c === 0 && cell.sec && (i === 0 || cells[i - 1].sec !== cell.sec) ? cell.sec : null }); c++; });
   return out;
@@ -5010,6 +5124,15 @@ function updatePack() {
     return;
   }
   if (!cells.length) { m.focus = 'tabs'; return; }
+  if (tab === 'Craft' && cells[0] && cells[0].col != null) {           // columns: left / right move across, keeping the row as near as possible
+    const L = packLayout(cells, cols), cur = L[m.sel] || { c: 0, r: 0 };
+    const hop = d => { for (let c = cur.c + d; c >= 0 && c <= 2; c += d) { const col = L.map((q, i) => [q, i]).filter(([q]) => q.c === c); if (col.length) { m.sel = col[Math.min(cur.r, col.length - 1)][1]; sfx.tock(); return; } } };
+    if (pressedNow.left) hop(-1); if (pressedNow.right) hop(1);
+    if (pressedNow.down) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r + 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } }
+    if (pressedNow.up) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r - 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } else { m.focus = 'tabs'; sfx.tock(); } }
+    if (pressedNow.act) craftCellAct(cell);
+    return;
+  }
   if (pressedNow.left) mv(-1);
   if (pressedNow.right) mv(1);
   {                                                     // up and down go by rows (sections start new rows)
@@ -5196,6 +5319,8 @@ const BOOK_PAGES = () => [
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
+  { title: 'Pip\'s map', map: true },
+  { title: 'Still to map', todo: true },
   { title: 'Tired?', bits: [['zzz', 'Low vigor: slow and floppy.'], ['fire', 'Sit by the fire.'], ['snack', 'Eat something!']] },
 ];
 const BOOK = { get length() { return BOOK_PAGES().length; } };
@@ -5256,7 +5381,7 @@ function loadSettings() {
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
-const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', tinder: 'Tinder', benchframe: 'Bench frame', firering: 'Fire ring', benchkit: 'Workbench' };
 // Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
 // (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
 // sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
@@ -5264,8 +5389,9 @@ const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue
 // a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
   { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'smooth stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', kind: 'piece', in: ['stick', 'glue', 'fluff'], line: 'a stick plank, glued, with a fluff cushion. Fancy.', piece: 'bench' },
+  // camp parts: made on the mat, set in place at camp. The stones aren't crafted: you set them in the ring yourself.
+  { out: 'tinder', kind: 'part', in: ['stick', 'stick'], line: 'dry sticks snapped into kindling. It goes in the middle of the ring.', piece: 'fire' },
+  { out: 'benchframe', kind: 'part', in: ['stick', 'stick', 'glue'], line: 'two sticks glued into a frame. The bench takes two.', piece: 'bench' },
   { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
   { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat smooth stone on a loop of glue-stiff fluff. Worn on the chest.' },
   { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
@@ -5279,7 +5405,11 @@ const RECIPES = [
 const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
 const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
-const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
+const PIECE_OF = { fire: 'tinder', bench: 'benchframe' };   // (older saves may still hold a whole firering / benchkit: those set down in one go)
+// Camp is built at its marks, a piece at a time: the fire ring takes CAMP_PARTS.fire.stones stones set by hand, then
+// tinder; the bench takes CAMP_PARTS.bench.frames frames. What's been set lives in rtFor('camp').flags.parts.
+const CAMP_PARTS = { fire: { stones: 5, tinder: 1 }, bench: { frames: 2 } };
+function campParts() { const f = rtFor('camp').flags; return f.parts || (f.parts = { stones: 0, tinder: 0, frames: 0 }); }
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
@@ -5331,20 +5461,27 @@ function layOut(r) {
   m.note = recipeOK(r) ? `${outName(r)}: ready. ${K.act} to combine.` : 'It won\'t take right now.';
 }
 // the Craft tab: the Combine cell, then your recipes, then everything you could put on the mat
+// The Craft tab in three columns: what you can make (Combine on top, then recipes), what you've got to make it with
+// (everything you carry that goes on a mat, and parts waiting to be set at camp), and, greyed, what you've made and
+// finished: a record of done work (and later, what the bench could still improve).
 function craftCells() {
   const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
-  const cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'The mat', line: matHint(), mat: true }];
-  cells[0].sec = 'The mat';
-  for (const x of recipeBook()) cells.push({ sec: 'Recipes', icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
+  const cells = [{ col: 0, icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'Combine', line: matHint(), mat: true }];
+  for (const x of recipeBook()) cells.push({ col: 0, icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : ' \u00b7 heard about it'}. ${K.act} lays it out.` });
   const ings = [...new Set(RECIPES.flatMap(x => x.in))];
-  const MADE = new Set(RECIPES.map(x => x.out));                // things you made (glue, camp pieces) apart from things you found
-  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ sec: 'Made', icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
-  for (const k of ings) if (MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Made', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'made by you; tap to put it on the mat', raw: k });
-  for (const k of ings) if (!MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Materials', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  for (const k of ings) if (stockOf(k) > 0) cells.push({ col: 1, icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  for (const k of ['tinder', 'benchframe', 'firering', 'benchkit']) if ((rawOf()[k] || 0) > 0 && !ings.includes(k)) cells.push({ col: 1, icon: k, name: RAW[k], count: rawOf()[k], line: 'set it in place at camp (F at its mark)', raw: k, part: true });
+  const done = [];
+  if (inv.woodsword > 0 || known.woodsword) done.push({ icon: 'woodsword', name: 'Wooden sword', line: inv.woodsword > 0 ? 'made; it splinters with use' : 'made once; three sticks for another' });
+  for (const g of gearOwned()) if (WEAR[g] && RECIPES.some(x => x.out === g)) done.push({ icon: 'wear_' + g, name: WEAR[g].name, line: 'made: see the Wear tab' });
+  if (campBuilt('fire')) done.push({ icon: 'firering', name: 'Fire ring', line: 'set at camp' });
+  if (campBuilt('bench')) done.push({ icon: 'benchkit', name: 'Workbench', line: 'set at camp: bigger work happens there' });
+  for (const d of done) cells.push({ col: 2, grey: true, ...d });
   return cells;
 }
 function craftCellAct(c) {
   if (!c) return;
+  if (c.grey) return;                                 // a record, nothing to do with it here
   if (c.mat) { craftNow(); return; }
   if (c.recipe) { layOut(c.recipe); return; }
   if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
@@ -5383,12 +5520,32 @@ function drawBuildSpots(sc) {
     const x = b.fx * W, y = b.fy * H, u = UNIT, r = b.r * u;
     ctx.strokeStyle = `rgba(255,240,200,${0.45 + 0.2 * Math.sin(state.time * 3)})`; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.6, 0, 0, 6.28); ctx.stroke(); ctx.setLineDash([]);
-    ctx.globalAlpha = 0.35; drawItemIcon(PIECE_OF[b.piece], x, y - u * 0.1, u * 0.9); ctx.globalAlpha = 1;
+    const P = campParts();
+    if (b.piece === 'fire') {                            // the ring's five places: set stones solid, the rest faint; tinder in the middle
+      for (let i = 0; i < CAMP_PARTS.fire.stones; i++) { const a = i / CAMP_PARTS.fire.stones * 6.28 - 1.57; ctx.globalAlpha = i < P.stones ? 1 : 0.25; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.62, y + Math.sin(a) * r * 0.38, u * 0.15, u * 0.11, 0, 0, 6.28); ctx.fill(); }
+      ctx.globalAlpha = 0.3; drawItemIcon('tinder', x, y, u * 0.6); ctx.globalAlpha = 1;
+    } else {
+      for (let i = 0; i < CAMP_PARTS.bench.frames; i++) { ctx.globalAlpha = i < P.frames ? 1 : 0.3; drawItemIcon('benchframe', x + (i - 0.5) * u * 0.7, y - u * 0.1, u * 0.7); }
+      ctx.globalAlpha = 1;
+    }
   }
 }
-function placePiece(b) {
-  const raw = rawOf(), k = PIECE_OF[b.piece], rt = rtFor('camp');
-  raw[k]--; rt.flags['built_' + b.piece] = true;
+// F at a camp mark: set what you carry that belongs there. Returns the line to say, or null if nothing to set.
+function setCampPart(b) {
+  const raw = rawOf(), P = campParts(), x = b.fx * W, y = b.fy * H, fx = () => { sfx.pickup(); spark(x, y, '#ffe38a', 8, 2); zoomPulse(x, y, 'pickup'); };
+  if (b.piece === 'fire' && (raw.firering || 0) > 0) { raw.firering--; placePiece(b, true); return 'The fire ring is in!'; }
+  if (b.piece === 'bench' && (raw.benchkit || 0) > 0) { raw.benchkit--; placePiece(b, true); return 'The bench is in!'; }
+  if (b.piece === 'fire') {
+    const need = CAMP_PARTS.fire.stones - P.stones;
+    if (need > 0 && (raw.stone || 0) > 0) { const n = Math.min(need, raw.stone); raw.stone -= n; P.stones += n; fx(); return P.stones >= CAMP_PARTS.fire.stones ? 'The ring is done. Now tinder in the middle.' : `Stones set: ${P.stones} of ${CAMP_PARTS.fire.stones}.`; }
+    if (need <= 0 && (raw.tinder || 0) > 0) { raw.tinder--; P.tinder = 1; placePiece(b); return 'Tinder in. A fire!'; }
+  }
+  if (b.piece === 'bench' && (raw.benchframe || 0) > 0) { raw.benchframe--; P.frames++; fx(); if (P.frames >= CAMP_PARTS.bench.frames) { placePiece(b); return 'Both frames up. A bench!'; } return `Frame set: ${P.frames} of ${CAMP_PARTS.bench.frames}.`; }
+  return null;
+}
+function placePiece(b, whole) {
+  const rt = rtFor('camp');
+  rt.flags['built_' + b.piece] = true;
   refreshSceneGeometry(); sfx.forge(); sfx.pickup(); zoomPulse(b.fx * W, b.fy * H, 'pickup'); spark(b.fx * W, b.fy * H, '#ffe38a', 14, 3);
   if (b.piece === 'fire') state.fireLit = 1;
 }
@@ -5403,6 +5560,8 @@ function drawRawIcon(type, s) {
     case 'cloth': ctx.fillStyle = '#b05a4a'; ctx.fillRect(-s * 0.34, -s * 0.28, s * 0.68, s * 0.56); ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.34, i * s * 0.16); ctx.lineTo(s * 0.34, i * s * 0.16); ctx.stroke(); } return true;
     case 'cord': ctx.strokeStyle = '#c9b070'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.beginPath(); for (let a = 0; a < 12; a += 0.3) ctx.lineTo(Math.cos(a) * s * (0.1 + a * 0.02), Math.sin(a) * s * (0.1 + a * 0.02)); ctx.stroke(); return true;
     case 'stake': ctx.fillStyle = '#8a6a3a'; ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, s * 0.2); ctx.lineTo(0, s * 0.42); ctx.lineTo(-s * 0.06, s * 0.2); ctx.fill(); return true;
+    case 'tinder': ctx.save(); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = Math.max(1.5, s * 0.07); for (const [a, l] of [[-0.5, 0.36], [0.4, 0.32], [1.3, 0.3], [-1.2, 0.28], [0.1, 0.34]]) { ctx.beginPath(); ctx.moveTo(-Math.cos(a) * s * l, s * 0.12 - Math.sin(a) * s * l * 0.5); ctx.lineTo(Math.cos(a) * s * l, s * 0.12 + Math.sin(a) * s * l * 0.5); ctx.stroke(); } ctx.restore(); break;
+    case 'benchframe': ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.36, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(s * 0.28, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(-s * 0.4, -s * 0.22, s * 0.8, s * 0.09); ctx.fillStyle = '#d9c9a0'; ctx.beginPath(); ctx.arc(-s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.arc(s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.fill(); break;
     case 'firering': for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.2, s * 0.1, s * 0.08, 0, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.15, -s * 0.03, s * 0.3, s * 0.06); return true;
     case 'benchkit': ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.14); ctx.fillRect(-s * 0.32, 0, s * 0.08, s * 0.3); ctx.fillRect(s * 0.24, 0, s * 0.08, s * 0.3); return true;
     case 'tentkit': ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(0, -s * 0.38); ctx.lineTo(s * 0.4, s * 0.3); ctx.lineTo(-s * 0.4, s * 0.3); ctx.fill(); ctx.fillStyle = '#3a2616'; ctx.beginPath(); ctx.moveTo(0, -s * 0.05); ctx.lineTo(s * 0.12, s * 0.3); ctx.lineTo(-s * 0.12, s * 0.3); ctx.fill(); return true;
@@ -5483,9 +5642,9 @@ function drawLamps() {
 
 function campHave() {                                    // raw counted with what's already crafted or built into it
   const raw = rawOf(), inv = state.inv, known = inv.known || {};
-  const ring = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
-  const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
-  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 1 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) + (bench ? 1 : 0) };
+  const P = campParts(), fire = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
+  const tinder = fire ? 1 : (raw.tinder || 0) + P.tinder, frames = bench ? 2 : Math.min(2, (raw.benchframe || 0) + P.frames);
+  return { stone: fire ? 5 : (raw.stone || 0) + P.stones, stick: (raw.stick || 0) + tinder * 2 + frames * 2, fluff: (raw.fluff || 0) + (raw.glue || 0) * 2 + frames * 2 };
 }
 function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }
 // ===== quests.js: QUESTS, steps, tracking, the quest HUD, the quest log.
@@ -5518,9 +5677,9 @@ const QUESTS = [
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
-    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(2, c.stick)}/2, rabbit fluff ${Math.min(3, c.fluff)}/3.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 2 && c.fluff >= 3; } },
-    { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
-    { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(5, c.stone)}/5, sticks ${Math.min(6, c.stick)}/6, rabbit fluff ${Math.min(4, c.fluff)}/4.`; }, done: () => { const c = campHave(); return c.stone >= 5 && c.stick >= 6 && c.fluff >= 4; } },
+    { id: 'fire', name: 'Build the fire ring', line: () => `Set ${CAMP_PARTS.fire.stones} smooth stones in the ring (${campParts().stones} so far), then tinder: two sticks on the mat.`, done: () => campBuilt('fire') },
+    { id: 'bench', name: 'Build the bench', line: () => `Two frames (${campParts().frames} set): each two sticks and rabbit glue, made on the mat.`, done: () => campBuilt('bench') },
   ] },
   { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
     { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },
@@ -6102,7 +6261,7 @@ function draw() {
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
   state.frameNo = (state.frameNo || 0) + 1;
-  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) drawScene(sc);
+  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (state.dusk && sc.id === 'tentin') drawCandles(sc); }
   ctx.restore();
   if (state.dusk && sc.area !== 'indoor') {
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(60,40,110,.36)'); g.addColorStop(1, 'rgba(200,100,60,.18)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // twilight
@@ -6123,8 +6282,20 @@ function draw() {
   drawChoice();
   drawTitle();
   if (state.menu) drawMenu();
+  drawCoach();
 }
 
+// dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
+function drawCandles(sc) {
+  const f = sc.feat, spots = [f.book && [f.book[0] + 0.03, f.book[1] - 0.02], f.chest && [f.chest[0] - 0.03, f.chest[1] - 0.03], f.bedroll && [f.bedroll[0] + 0.07, f.bedroll[1] - 0.05]].filter(Boolean);
+  spots.forEach(([fx, fy], i) => {
+    const x = fx * W, y = fy * H, u = UNIT, fl = 0.8 + 0.12 * Math.sin(state.time * (9 + i * 2)) + 0.08 * Math.sin(state.time * (23 + i * 5));
+    const g = ctx.createRadialGradient(x, y - u * 0.35, 0, x, y - u * 0.35, u * 2.2 * fl); g.addColorStop(0, 'rgba(255,200,120,.32)'); g.addColorStop(1, 'rgba(255,200,120,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.35, u * 2.2 * fl, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#efe6d2'; ctx.fillRect(x - u * 0.06, y - u * 0.3, u * 0.12, u * 0.3);
+    ctx.fillStyle = `rgba(255,${200 + 30 * fl},90,.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.38 - fl * u * 0.02, u * 0.05, u * 0.1 * fl, 0, 0, 6.28); ctx.fill();
+  });
+}
 function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
@@ -6654,7 +6825,7 @@ function drawSolid(s) {
       for (const k of [0.56, 0.29]) { ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6 * k, u * 0.32 * k, 0, 0, 6.28); ctx.stroke(); }
       break;
     case 'campfire': {
-      for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
+      for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 - 1.57; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
       ctx.strokeStyle = '#4a2f1a'; ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - u * 0.25, y + u * 0.1); ctx.lineTo(x + u * 0.25, y - u * 0.1); ctx.moveTo(x - u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.25, y + u * 0.1); ctx.stroke();
       if (state.fireLit !== 0) {
         const fl = 1 + 0.15 * Math.sin(state.time * 17) + 0.1 * Math.sin(state.time * 29);
@@ -7168,7 +7339,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 97';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 98';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8055,6 +8226,22 @@ function heraldImage(T) {
   if (T.note) { g.font = `${Math.round(size * 0.4)}px Georgia, serif`; g.fillStyle = th.sub; g.fillText(T.note, cx, y1 + size * 0.5); }   // what was done
   return c;
 }
+// the coached step: a small fixed note at the top, over everything (the pack too), until you've done it
+function drawCoach() {
+  const c = state.coach; if (!c) return;
+  const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
+  const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = 8 - (1 - k) * 10;
+  ctx.globalAlpha = 0.6 + 0.4 * k;
+  ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#bfe4ff'; ctx.fillText(label, x + fs, y + h / 2 + 1);
+  ctx.fillStyle = '#fdf6e3'; ctx.fillText(s.text, x + fs + ctx.measureText(label).width, y + h / 2 + 1);
+  for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
+  ctx.restore();
+}
 function drawTitle() {
   const T = state.title;
   if (!T) return;
@@ -8400,6 +8587,8 @@ function drawPack(m, x, y, pw, fs) {
   m.cols = cols;
   let gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
   if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
+  if (tab === 'Craft' && cells.length && cells[0].col != null) { drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_); }
+  else {
   let LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
   {                                                    // sections take room: shrink the cells until everything clears the detail panel
     const limit = H - fs * 8.6, fit = () => { const rows = LAY.length ? LAY[LAY.length - 1].r + 1 : 0, heads = new Set(LAY.filter(q => q.head).map(q => q.r)).size; return y + rows * (cs + gap) + heads * headH <= limit; };
@@ -8423,6 +8612,7 @@ function drawPack(m, x, y, pw, fs) {
     if (c.done) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + cs - 20, cy + 12); ctx.lineTo(cx + cs - 14, cy + 18); ctx.lineTo(cx + cs - 6, cy + 7); ctx.stroke(); }
     hits.push({ x: cx, y: cy, w: cs, h: cs, fn: () => { if (tab === 'Craft') { m.sel = i; m.focus = 'grid'; craftCellAct(c); return; } if (m.sel === i && m.focus !== 'tabs' && c.acts && c.acts.length) { m.focus = 'acts'; m.act = 0; } else { m.sel = i; m.focus = 'grid'; } } });
   });
+  }
   // detail: name, one line, actions
   const c = m.focus !== 'tabs' ? cells[m.sel] : null, dy = H - fs * 6.8;
   if (c) {
@@ -8565,8 +8755,13 @@ function drawBook(m) {
     ctx.textAlign = 'left'; ctx.fillStyle = '#3a2616'; ctx.font = HAND(Math.round(hs * 1.35), true);
     ctx.fillText(pg.title, x0, y + fs * 2.6);
     ctx.strokeStyle = 'rgba(58,38,22,.5)'; ctx.lineWidth = 1.5; wobbleLine([[x0, y + fs * 3.1], [x0 + ctx.measureText(pg.title).width, y + fs * 3.2]], 11 + pi);
-    const rowH = (ph - fs * 5.2) / pg.bits.length, ds = Math.min(rowH * 0.8, colW * 0.34);
-    pg.bits.forEach(([d, text], i) => {
+    if (pg.map) { drawBookMap(x0, y + fs * 3.8, colW, ph - fs * 5.6, hs, pi); }
+    if (pg.todo) {                                     // what's left: places seen from the edge but not walked, and rumours of what's beyond
+      let yy = y + fs * 4.6; ctx.font = HAND(hs, false); ctx.fillStyle = '#3e2a1a';
+      for (const l of mapTodo()) { for (const w2 of wrap(l, colW)) { if (yy > y + ph - fs * 2.2) break; ctx.fillText(w2, x0, yy); yy += hs * 1.05; } yy += hs * 0.35; }
+    }
+    const bits = pg.bits || [], rowH = (ph - fs * 5.2) / Math.max(1, bits.length), ds = Math.min(rowH * 0.8, colW * 0.34);
+    bits.forEach(([d, text], i) => {
       const ry = y + fs * 4 + i * rowH, cx = x0 + ds / 2, cy = ry + rowH / 2;
       drawDoodle(d, cx, cy, ds, pi * 7 + i);
       ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(hs, false);
@@ -8575,9 +8770,77 @@ function drawBook(m) {
     ctx.fillStyle = '#9a8a70'; ctx.font = HAND(Math.round(fs * 1.1), false); ctx.textAlign = side ? 'right' : 'left';
     ctx.fillText(String(pi + 1), side ? x + pw - fs * 1.2 : x + fs * 1.2, y + ph - fs);
   });
-  ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
-  ctx.fillText(`${sp > 0 ? '\u2190 ' : ''}${sp + 2 < pages.length ? '\u2192 turns the page   ' : ''}${K.act} closes`, W / 2, y + ph + fs * 1.6);
+  // how to use the book: one small, plain pill under it, always the same words
+  const hint = TOUCH ? 'swipe or tap \u2190 \u2192 to turn   \u00b7   tap F to close' : `\u2190 \u2192  turn pages   \u00b7   ${K.act.toUpperCase()}  close`, hfs = Math.round(Math.max(12, Math.min(15, fs * 0.8)));
+  ctx.font = `bold ${hfs}px "Courier New", monospace`; const hw = ctx.measureText(hint).width + hfs * 2, hh = hfs * 1.9, hx = (W - hw) / 2, hy = y + ph + 16;
+  ctx.fillStyle = 'rgba(12,10,16,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(hx, hy, hw, hh, hh / 2) : ctx.rect(hx, hy, hw, hh); ctx.fill();
+  ctx.strokeStyle = 'rgba(242,230,200,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#f2e6c8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, W / 2, hy + hh / 2 + 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(242,230,200,.55)'; ctx.font = HAND(Math.round(fs * 1.05), false); ctx.textAlign = 'center';
+  ctx.fillText(`${sp + 1}-${Math.min(pages.length, sp + 2)} of ${pages.length}`, W / 2, y - 16); ctx.textAlign = 'left';
+}
+// Pip's map in the book: a pencil sketch of the places around home. Walked: inked with its name. Seen from next door
+// but not walked: a dashed box, still to finish. Past that, a few arrows off the edge of the page: what's beyond.
+const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'f2', 'f3'];
+const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', f2: 'Field', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
+// Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
+function drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_) {
+  const colW = pwide / 3, rh = Math.max(30, Math.min(40, fs * 2.1)), gap = 5, limit = H - fs * 8.6, is = rh * 0.72;
+  ['Make', 'Materials', 'Made'].forEach((t, c) => { ctx.textAlign = 'left'; ctx.fillStyle = c === 2 ? 'rgba(255,227,138,.4)' : 'rgba(255,227,138,.85)'; ctx.font = `bold ${Math.round(fs * 0.75)}px Georgia, serif`; ctx.fillText(t, px + c * colW + 6, y + fs * 0.2); });
+  const n = [0, 0, 0], y0 = y + fs * 0.7;
+  cells.forEach((cl, i) => {
+    const c = cl.col, r = n[c]++, x = px + c * colW + 4, yy = y0 + r * (rh + gap), w = colW - 10, sel = i === m.sel && m.focus !== 'tabs';
+    if (yy + rh > limit) return;
+    ctx.globalAlpha = cl.grey ? 0.45 : 1;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.22)' : cl.mat ? 'rgba(184,242,138,.12)' : 'rgba(255,255,255,.06)'; rr_(x, yy, w, rh, 7); ctx.fill();
+    if (sel) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+    drawItemIcon(cl.icon, x + rh / 2, yy + rh / 2, is * 0.8);
+    ctx.fillStyle = cl.mat ? '#b8f28a' : '#fdf6e3'; ctx.font = `${cl.mat ? 'bold ' : ''}${Math.round(fs * 0.78)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let label = cl.name; while (ctx.measureText(label).width > w - rh - (cl.count ? fs * 1.6 : 6) && label.length > 4) label = label.slice(0, -2) + '\u2026';
+    ctx.fillText(label, x + rh + 2, yy + rh / 2 + 1);
+    if (cl.count != null && cl.count > 0) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffe38a'; ctx.fillText(cl.count, x + w - 6, yy + rh / 2 + 1); }
+    if (cl.grey) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + w - 18, yy + rh / 2); ctx.lineTo(x + w - 13, yy + rh / 2 + 5); ctx.lineTo(x + w - 6, yy + rh / 2 - 5); ctx.stroke(); }
+    ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
+    hits.push({ x, y: yy, w, h: rh, fn: () => { m.sel = i; m.focus = 'grid'; craftCellAct(cl); } });
+  });
   ctx.textAlign = 'left';
+}
+function drawBookMap(x0, y0, w, h, hs, seed) {
+  const ids = HOME_MAP.filter(id => MAP_LAYOUT[id] && WORLD[id]), xs = ids.map(id => MAP_LAYOUT[id][0]), ys = ids.map(id => MAP_LAYOUT[id][1]);
+  const cx0 = Math.min(...xs), cy0 = Math.min(...ys), cols = Math.max(...xs) - cx0 + 1, rows = Math.max(...ys) - cy0 + 1;
+  const cell = Math.min(w / cols, (h - hs * 2) / rows), ox = x0 + (w - cell * cols) / 2, oy = y0;
+  const at = id => [ox + (MAP_LAYOUT[id][0] - cx0) * cell, oy + (MAP_LAYOUT[id][1] - cy0) * cell];
+  const seen = id => !!state.seen[id], known = id => seen(id) || ids.some(o => seen(o) && WORLD[o].exits.some(e => e.to === id));
+  ctx.save(); ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  for (const id of ids) if (seen(id)) for (const e of WORLD[id].exits) if (ids.includes(e.to) && known(e.to)) { const [a, b] = at(id), [c, d] = at(e.to); wobbleLine([[a + cell / 2, b + cell / 2], [c + cell / 2, d + cell / 2]], seed + 3); }
+  ids.forEach((id, i) => {
+    if (!known(id)) return;
+    const [bx, by] = at(id), pad = cell * 0.12, bw = cell - pad * 2;
+    if (seen(id)) { ctx.fillStyle = 'rgba(160,190,120,.35)'; ctx.fillRect(bx + pad, by + pad, bw, bw); ctx.setLineDash([]); }
+    else ctx.setLineDash([4, 4]);
+    wobbleLine([[bx + pad, by + pad], [bx + pad + bw, by + pad], [bx + pad + bw, by + pad + bw], [bx + pad, by + pad + bw], [bx + pad, by + pad]], seed + i * 7);
+    ctx.setLineDash([]);
+    ctx.fillStyle = seen(id) ? '#3e2a1a' : 'rgba(62,42,26,.55)'; ctx.font = HAND(Math.round(Math.min(hs * 0.8, cell * 0.28)), seen(id)); ctx.textAlign = 'center';
+    ctx.fillText(seen(id) ? (MAP_SHORT[id] || id) : '?', bx + cell / 2, by + cell * 0.58);
+    if (id === state.scene || (state.scene === 'tentin' && id === 'camp')) { ctx.fillStyle = '#c0304a'; ctx.beginPath(); ctx.arc(bx + cell * 0.78, by + cell * 0.25, Math.max(2.5, cell * 0.06), 0, 6.28); ctx.fill(); }
+  });
+  // off the page: what's beyond, as Pip imagines it
+  ctx.font = HAND(Math.round(hs * 0.75), false); ctx.fillStyle = 'rgba(62,42,26,.7)'; ctx.textAlign = 'left';
+  ctx.fillText('\u2193 the peaks?', ox + cell * 1.2, oy + rows * cell + hs * 0.9);
+  ctx.textAlign = 'right'; ctx.fillText('deeper woods \u2192', ox + cols * cell, oy - hs * 0.3);
+  ctx.textAlign = 'left'; ctx.fillText('\u2190 downriver', ox, oy - hs * 0.3);
+  ctx.restore(); ctx.textAlign = 'left';
+}
+function mapTodo() {
+  const out = [], seen = id => !!state.seen[id];
+  const half = HOME_MAP.filter(id => !seen(id) && HOME_MAP.some(o => seen(o) && WORLD[o] && WORLD[o].exits.some(e => e.to === id)));
+  for (const id of half.slice(0, 4)) out.push(`- ${MAP_SHORT[id] || id}: only peeked in. Still to draw.`);
+  if (!seen('w3')) out.push('- Past the boulders in the woods. Something glints? No. Probably nothing.');
+  out.push('- Downriver: Old Wick\'s pool, so shiny it hurts your eyes.');
+  out.push('- South, past the windy fields: mountains. Who lives up there?');
+  out.push('- I keep hearing digging under the woods...');
+  return out;
 }
 // pencil lines that wobble a little, the same way every frame (seeded)
 function wobbleLine(pts, seed, close) {

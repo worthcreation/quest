@@ -5,7 +5,7 @@
 // (two things at first, then three), and set the pieces down on the marks: fire ring, workbench, tent.
 // =====================================================================
 // stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields to the south
-const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', firering: 'Fire ring', benchkit: 'Workbench' };
+const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue: 'Rabbit glue', tinder: 'Tinder', benchframe: 'Bench frame', firering: 'Fire ring', benchkit: 'Workbench' };
 // Field crafting: the mat in your pack, anywhere. Camp pieces, small charms, a wooden sword, weapon augmentations
 // (they coat whatever blade you hold for a number of strikes) and food made by combining. Big enhancements to the
 // sword itself happen at the workbench (FORGE in p6). What you can put on the mat: camp raw things, materials,
@@ -13,8 +13,9 @@ const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue
 // a thing you've made feels like it could take one more), from Pip, and from Pip's journal pages.
 const RECIPES = [
   { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
-  { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'smooth stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', kind: 'piece', in: ['stick', 'glue', 'fluff'], line: 'a stick plank, glued, with a fluff cushion. Fancy.', piece: 'bench' },
+  // camp parts: made on the mat, set in place at camp. The stones aren't crafted: you set them in the ring yourself.
+  { out: 'tinder', kind: 'part', in: ['stick', 'stick'], line: 'dry sticks snapped into kindling. It goes in the middle of the ring.', piece: 'fire' },
+  { out: 'benchframe', kind: 'part', in: ['stick', 'stick', 'glue'], line: 'two sticks glued into a frame. The bench takes two.', piece: 'bench' },
   { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
   { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat smooth stone on a loop of glue-stiff fluff. Worn on the chest.' },
   { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
@@ -28,7 +29,11 @@ const RECIPES = [
 const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
 const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
-const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
+const PIECE_OF = { fire: 'tinder', bench: 'benchframe' };   // (older saves may still hold a whole firering / benchkit: those set down in one go)
+// Camp is built at its marks, a piece at a time: the fire ring takes CAMP_PARTS.fire.stones stones set by hand, then
+// tinder; the bench takes CAMP_PARTS.bench.frames frames. What's been set lives in rtFor('camp').flags.parts.
+const CAMP_PARTS = { fire: { stones: 5, tinder: 1 }, bench: { frames: 2 } };
+function campParts() { const f = rtFor('camp').flags; return f.parts || (f.parts = { stones: 0, tinder: 0, frames: 0 }); }
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
@@ -80,20 +85,27 @@ function layOut(r) {
   m.note = recipeOK(r) ? `${outName(r)}: ready. ${K.act} to combine.` : 'It won\'t take right now.';
 }
 // the Craft tab: the Combine cell, then your recipes, then everything you could put on the mat
+// The Craft tab in three columns: what you can make (Combine on top, then recipes), what you've got to make it with
+// (everything you carry that goes on a mat, and parts waiting to be set at camp), and, greyed, what you've made and
+// finished: a record of done work (and later, what the bench could still improve).
 function craftCells() {
   const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
-  const cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'The mat', line: matHint(), mat: true }];
-  cells[0].sec = 'The mat';
-  for (const x of recipeBook()) cells.push({ sec: 'Recipes', icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : (x.lore ? ` \u00b7 ${x.lore}` : ' \u00b7 heard about it')}. ${K.act} lays it out.` });
+  const cells = [{ col: 0, icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'Combine', line: matHint(), mat: true }];
+  for (const x of recipeBook()) cells.push({ col: 0, icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : ' \u00b7 heard about it'}. ${K.act} lays it out.` });
   const ings = [...new Set(RECIPES.flatMap(x => x.in))];
-  const MADE = new Set(RECIPES.map(x => x.out));                // things you made (glue, camp pieces) apart from things you found
-  for (const k of Object.keys(RAW)) if (!ings.includes(k) && (rawOf()[k] || 0) > 0) cells.push({ sec: 'Made', icon: k, name: RAW[k], count: rawOf()[k], line: 'set it down on its mark at camp', raw: k });
-  for (const k of ings) if (MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Made', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'made by you; tap to put it on the mat', raw: k });
-  for (const k of ings) if (!MADE.has(k) && stockOf(k) > 0) cells.push({ sec: 'Materials', icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  for (const k of ings) if (stockOf(k) > 0) cells.push({ col: 1, icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
+  for (const k of ['tinder', 'benchframe', 'firering', 'benchkit']) if ((rawOf()[k] || 0) > 0 && !ings.includes(k)) cells.push({ col: 1, icon: k, name: RAW[k], count: rawOf()[k], line: 'set it in place at camp (F at its mark)', raw: k, part: true });
+  const done = [];
+  if (inv.woodsword > 0 || known.woodsword) done.push({ icon: 'woodsword', name: 'Wooden sword', line: inv.woodsword > 0 ? 'made; it splinters with use' : 'made once; three sticks for another' });
+  for (const g of gearOwned()) if (WEAR[g] && RECIPES.some(x => x.out === g)) done.push({ icon: 'wear_' + g, name: WEAR[g].name, line: 'made: see the Wear tab' });
+  if (campBuilt('fire')) done.push({ icon: 'firering', name: 'Fire ring', line: 'set at camp' });
+  if (campBuilt('bench')) done.push({ icon: 'benchkit', name: 'Workbench', line: 'set at camp: bigger work happens there' });
+  for (const d of done) cells.push({ col: 2, grey: true, ...d });
   return cells;
 }
 function craftCellAct(c) {
   if (!c) return;
+  if (c.grey) return;                                 // a record, nothing to do with it here
   if (c.mat) { craftNow(); return; }
   if (c.recipe) { layOut(c.recipe); return; }
   if (RECIPES.find(x => x.out === c.raw && x.piece)) { state.menu.note = 'Set it down on its mark at camp.'; return; }
@@ -132,12 +144,32 @@ function drawBuildSpots(sc) {
     const x = b.fx * W, y = b.fy * H, u = UNIT, r = b.r * u;
     ctx.strokeStyle = `rgba(255,240,200,${0.45 + 0.2 * Math.sin(state.time * 3)})`; ctx.setLineDash([6, 6]); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.6, 0, 0, 6.28); ctx.stroke(); ctx.setLineDash([]);
-    ctx.globalAlpha = 0.35; drawItemIcon(PIECE_OF[b.piece], x, y - u * 0.1, u * 0.9); ctx.globalAlpha = 1;
+    const P = campParts();
+    if (b.piece === 'fire') {                            // the ring's five places: set stones solid, the rest faint; tinder in the middle
+      for (let i = 0; i < CAMP_PARTS.fire.stones; i++) { const a = i / CAMP_PARTS.fire.stones * 6.28 - 1.57; ctx.globalAlpha = i < P.stones ? 1 : 0.25; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.62, y + Math.sin(a) * r * 0.38, u * 0.15, u * 0.11, 0, 0, 6.28); ctx.fill(); }
+      ctx.globalAlpha = 0.3; drawItemIcon('tinder', x, y, u * 0.6); ctx.globalAlpha = 1;
+    } else {
+      for (let i = 0; i < CAMP_PARTS.bench.frames; i++) { ctx.globalAlpha = i < P.frames ? 1 : 0.3; drawItemIcon('benchframe', x + (i - 0.5) * u * 0.7, y - u * 0.1, u * 0.7); }
+      ctx.globalAlpha = 1;
+    }
   }
 }
-function placePiece(b) {
-  const raw = rawOf(), k = PIECE_OF[b.piece], rt = rtFor('camp');
-  raw[k]--; rt.flags['built_' + b.piece] = true;
+// F at a camp mark: set what you carry that belongs there. Returns the line to say, or null if nothing to set.
+function setCampPart(b) {
+  const raw = rawOf(), P = campParts(), x = b.fx * W, y = b.fy * H, fx = () => { sfx.pickup(); spark(x, y, '#ffe38a', 8, 2); zoomPulse(x, y, 'pickup'); };
+  if (b.piece === 'fire' && (raw.firering || 0) > 0) { raw.firering--; placePiece(b, true); return 'The fire ring is in!'; }
+  if (b.piece === 'bench' && (raw.benchkit || 0) > 0) { raw.benchkit--; placePiece(b, true); return 'The bench is in!'; }
+  if (b.piece === 'fire') {
+    const need = CAMP_PARTS.fire.stones - P.stones;
+    if (need > 0 && (raw.stone || 0) > 0) { const n = Math.min(need, raw.stone); raw.stone -= n; P.stones += n; fx(); return P.stones >= CAMP_PARTS.fire.stones ? 'The ring is done. Now tinder in the middle.' : `Stones set: ${P.stones} of ${CAMP_PARTS.fire.stones}.`; }
+    if (need <= 0 && (raw.tinder || 0) > 0) { raw.tinder--; P.tinder = 1; placePiece(b); return 'Tinder in. A fire!'; }
+  }
+  if (b.piece === 'bench' && (raw.benchframe || 0) > 0) { raw.benchframe--; P.frames++; fx(); if (P.frames >= CAMP_PARTS.bench.frames) { placePiece(b); return 'Both frames up. A bench!'; } return `Frame set: ${P.frames} of ${CAMP_PARTS.bench.frames}.`; }
+  return null;
+}
+function placePiece(b, whole) {
+  const rt = rtFor('camp');
+  rt.flags['built_' + b.piece] = true;
   refreshSceneGeometry(); sfx.forge(); sfx.pickup(); zoomPulse(b.fx * W, b.fy * H, 'pickup'); spark(b.fx * W, b.fy * H, '#ffe38a', 14, 3);
   if (b.piece === 'fire') state.fireLit = 1;
 }
@@ -152,6 +184,8 @@ function drawRawIcon(type, s) {
     case 'cloth': ctx.fillStyle = '#b05a4a'; ctx.fillRect(-s * 0.34, -s * 0.28, s * 0.68, s * 0.56); ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.34, i * s * 0.16); ctx.lineTo(s * 0.34, i * s * 0.16); ctx.stroke(); } return true;
     case 'cord': ctx.strokeStyle = '#c9b070'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.beginPath(); for (let a = 0; a < 12; a += 0.3) ctx.lineTo(Math.cos(a) * s * (0.1 + a * 0.02), Math.sin(a) * s * (0.1 + a * 0.02)); ctx.stroke(); return true;
     case 'stake': ctx.fillStyle = '#8a6a3a'; ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, s * 0.2); ctx.lineTo(0, s * 0.42); ctx.lineTo(-s * 0.06, s * 0.2); ctx.fill(); return true;
+    case 'tinder': ctx.save(); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = Math.max(1.5, s * 0.07); for (const [a, l] of [[-0.5, 0.36], [0.4, 0.32], [1.3, 0.3], [-1.2, 0.28], [0.1, 0.34]]) { ctx.beginPath(); ctx.moveTo(-Math.cos(a) * s * l, s * 0.12 - Math.sin(a) * s * l * 0.5); ctx.lineTo(Math.cos(a) * s * l, s * 0.12 + Math.sin(a) * s * l * 0.5); ctx.stroke(); } ctx.restore(); break;
+    case 'benchframe': ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.36, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(s * 0.28, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(-s * 0.4, -s * 0.22, s * 0.8, s * 0.09); ctx.fillStyle = '#d9c9a0'; ctx.beginPath(); ctx.arc(-s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.arc(s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.fill(); break;
     case 'firering': for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.2, s * 0.1, s * 0.08, 0, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.15, -s * 0.03, s * 0.3, s * 0.06); return true;
     case 'benchkit': ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.14); ctx.fillRect(-s * 0.32, 0, s * 0.08, s * 0.3); ctx.fillRect(s * 0.24, 0, s * 0.08, s * 0.3); return true;
     case 'tentkit': ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(0, -s * 0.38); ctx.lineTo(s * 0.4, s * 0.3); ctx.lineTo(-s * 0.4, s * 0.3); ctx.fill(); ctx.fillStyle = '#3a2616'; ctx.beginPath(); ctx.moveTo(0, -s * 0.05); ctx.lineTo(s * 0.12, s * 0.3); ctx.lineTo(-s * 0.12, s * 0.3); ctx.fill(); return true;
@@ -232,8 +266,8 @@ function drawLamps() {
 
 function campHave() {                                    // raw counted with what's already crafted or built into it
   const raw = rawOf(), inv = state.inv, known = inv.known || {};
-  const ring = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
-  const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
-  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 1 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) + (bench ? 1 : 0) };
+  const P = campParts(), fire = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
+  const tinder = fire ? 1 : (raw.tinder || 0) + P.tinder, frames = bench ? 2 : Math.min(2, (raw.benchframe || 0) + P.frames);
+  return { stone: fire ? 5 : (raw.stone || 0) + P.stones, stick: (raw.stick || 0) + tinder * 2 + frames * 2, fluff: (raw.fluff || 0) + (raw.glue || 0) * 2 + frames * 2 };
 }
 function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }

@@ -41,10 +41,12 @@ function say(text, x, y, opts = {}) {
 function sayHero(text, opts) { say(text, null, null, opts); }
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
-  const sent = text.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [text], out = [];
+  const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
+  const sent = body.match(/[^.!?]+[.!?]+["')]*\s*|[^.!?]+$/g) || [body], out = [];
   let cur = '';
   for (const s0 of sent) { const s = s0.trim(); if (!s) continue; if (cur && (cur + ' ' + s).length > max) { out.push(cur); cur = s; } else cur = cur ? cur + ' ' + s : s; }
   if (cur) out.push(cur);
+  if (out.length && lead) out[0] = lead.trim() + out[0];
   return out.length ? out : [text];
 }
 const readTime = s => Math.min(7, 2.4 + s.length / 16);

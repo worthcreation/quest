@@ -662,6 +662,22 @@ function heraldImage(T) {
   if (T.note) { g.font = `${Math.round(size * 0.4)}px Georgia, serif`; g.fillStyle = th.sub; g.fillText(T.note, cx, y1 + size * 0.5); }   // what was done
   return c;
 }
+// the coached step: a small fixed note at the top, over everything (the pack too), until you've done it
+function drawCoach() {
+  const c = state.coach; if (!c) return;
+  const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
+  const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
+  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = 8 - (1 - k) * 10;
+  ctx.globalAlpha = 0.6 + 0.4 * k;
+  ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#bfe4ff'; ctx.fillText(label, x + fs, y + h / 2 + 1);
+  ctx.fillStyle = '#fdf6e3'; ctx.fillText(s.text, x + fs + ctx.measureText(label).width, y + h / 2 + 1);
+  for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
+  ctx.restore();
+}
 function drawTitle() {
   const T = state.title;
   if (!T) return;
@@ -1007,6 +1023,8 @@ function drawPack(m, x, y, pw, fs) {
   m.cols = cols;
   let gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
   if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
+  if (tab === 'Craft' && cells.length && cells[0].col != null) { drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_); }
+  else {
   let LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
   {                                                    // sections take room: shrink the cells until everything clears the detail panel
     const limit = H - fs * 8.6, fit = () => { const rows = LAY.length ? LAY[LAY.length - 1].r + 1 : 0, heads = new Set(LAY.filter(q => q.head).map(q => q.r)).size; return y + rows * (cs + gap) + heads * headH <= limit; };
@@ -1030,6 +1048,7 @@ function drawPack(m, x, y, pw, fs) {
     if (c.done) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx + cs - 20, cy + 12); ctx.lineTo(cx + cs - 14, cy + 18); ctx.lineTo(cx + cs - 6, cy + 7); ctx.stroke(); }
     hits.push({ x: cx, y: cy, w: cs, h: cs, fn: () => { if (tab === 'Craft') { m.sel = i; m.focus = 'grid'; craftCellAct(c); return; } if (m.sel === i && m.focus !== 'tabs' && c.acts && c.acts.length) { m.focus = 'acts'; m.act = 0; } else { m.sel = i; m.focus = 'grid'; } } });
   });
+  }
   // detail: name, one line, actions
   const c = m.focus !== 'tabs' ? cells[m.sel] : null, dy = H - fs * 6.8;
   if (c) {
@@ -1172,8 +1191,13 @@ function drawBook(m) {
     ctx.textAlign = 'left'; ctx.fillStyle = '#3a2616'; ctx.font = HAND(Math.round(hs * 1.35), true);
     ctx.fillText(pg.title, x0, y + fs * 2.6);
     ctx.strokeStyle = 'rgba(58,38,22,.5)'; ctx.lineWidth = 1.5; wobbleLine([[x0, y + fs * 3.1], [x0 + ctx.measureText(pg.title).width, y + fs * 3.2]], 11 + pi);
-    const rowH = (ph - fs * 5.2) / pg.bits.length, ds = Math.min(rowH * 0.8, colW * 0.34);
-    pg.bits.forEach(([d, text], i) => {
+    if (pg.map) { drawBookMap(x0, y + fs * 3.8, colW, ph - fs * 5.6, hs, pi); }
+    if (pg.todo) {                                     // what's left: places seen from the edge but not walked, and rumours of what's beyond
+      let yy = y + fs * 4.6; ctx.font = HAND(hs, false); ctx.fillStyle = '#3e2a1a';
+      for (const l of mapTodo()) { for (const w2 of wrap(l, colW)) { if (yy > y + ph - fs * 2.2) break; ctx.fillText(w2, x0, yy); yy += hs * 1.05; } yy += hs * 0.35; }
+    }
+    const bits = pg.bits || [], rowH = (ph - fs * 5.2) / Math.max(1, bits.length), ds = Math.min(rowH * 0.8, colW * 0.34);
+    bits.forEach(([d, text], i) => {
       const ry = y + fs * 4 + i * rowH, cx = x0 + ds / 2, cy = ry + rowH / 2;
       drawDoodle(d, cx, cy, ds, pi * 7 + i);
       ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(hs, false);
@@ -1182,9 +1206,77 @@ function drawBook(m) {
     ctx.fillStyle = '#9a8a70'; ctx.font = HAND(Math.round(fs * 1.1), false); ctx.textAlign = side ? 'right' : 'left';
     ctx.fillText(String(pi + 1), side ? x + pw - fs * 1.2 : x + fs * 1.2, y + ph - fs);
   });
-  ctx.textAlign = 'center'; ctx.fillStyle = '#7a6a50'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
-  ctx.fillText(`${sp > 0 ? '\u2190 ' : ''}${sp + 2 < pages.length ? '\u2192 turns the page   ' : ''}${K.act} closes`, W / 2, y + ph + fs * 1.6);
+  // how to use the book: one small, plain pill under it, always the same words
+  const hint = TOUCH ? 'swipe or tap \u2190 \u2192 to turn   \u00b7   tap F to close' : `\u2190 \u2192  turn pages   \u00b7   ${K.act.toUpperCase()}  close`, hfs = Math.round(Math.max(12, Math.min(15, fs * 0.8)));
+  ctx.font = `bold ${hfs}px "Courier New", monospace`; const hw = ctx.measureText(hint).width + hfs * 2, hh = hfs * 1.9, hx = (W - hw) / 2, hy = y + ph + 16;
+  ctx.fillStyle = 'rgba(12,10,16,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(hx, hy, hw, hh, hh / 2) : ctx.rect(hx, hy, hw, hh); ctx.fill();
+  ctx.strokeStyle = 'rgba(242,230,200,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.fillStyle = '#f2e6c8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, W / 2, hy + hh / 2 + 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = 'rgba(242,230,200,.55)'; ctx.font = HAND(Math.round(fs * 1.05), false); ctx.textAlign = 'center';
+  ctx.fillText(`${sp + 1}-${Math.min(pages.length, sp + 2)} of ${pages.length}`, W / 2, y - 16); ctx.textAlign = 'left';
+}
+// Pip's map in the book: a pencil sketch of the places around home. Walked: inked with its name. Seen from next door
+// but not walked: a dashed box, still to finish. Past that, a few arrows off the edge of the page: what's beyond.
+const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'f2', 'f3'];
+const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', f2: 'Field', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
+// Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
+function drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_) {
+  const colW = pwide / 3, rh = Math.max(30, Math.min(40, fs * 2.1)), gap = 5, limit = H - fs * 8.6, is = rh * 0.72;
+  ['Make', 'Materials', 'Made'].forEach((t, c) => { ctx.textAlign = 'left'; ctx.fillStyle = c === 2 ? 'rgba(255,227,138,.4)' : 'rgba(255,227,138,.85)'; ctx.font = `bold ${Math.round(fs * 0.75)}px Georgia, serif`; ctx.fillText(t, px + c * colW + 6, y + fs * 0.2); });
+  const n = [0, 0, 0], y0 = y + fs * 0.7;
+  cells.forEach((cl, i) => {
+    const c = cl.col, r = n[c]++, x = px + c * colW + 4, yy = y0 + r * (rh + gap), w = colW - 10, sel = i === m.sel && m.focus !== 'tabs';
+    if (yy + rh > limit) return;
+    ctx.globalAlpha = cl.grey ? 0.45 : 1;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.22)' : cl.mat ? 'rgba(184,242,138,.12)' : 'rgba(255,255,255,.06)'; rr_(x, yy, w, rh, 7); ctx.fill();
+    if (sel) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
+    drawItemIcon(cl.icon, x + rh / 2, yy + rh / 2, is * 0.8);
+    ctx.fillStyle = cl.mat ? '#b8f28a' : '#fdf6e3'; ctx.font = `${cl.mat ? 'bold ' : ''}${Math.round(fs * 0.78)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    let label = cl.name; while (ctx.measureText(label).width > w - rh - (cl.count ? fs * 1.6 : 6) && label.length > 4) label = label.slice(0, -2) + '\u2026';
+    ctx.fillText(label, x + rh + 2, yy + rh / 2 + 1);
+    if (cl.count != null && cl.count > 0) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffe38a'; ctx.fillText(cl.count, x + w - 6, yy + rh / 2 + 1); }
+    if (cl.grey) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + w - 18, yy + rh / 2); ctx.lineTo(x + w - 13, yy + rh / 2 + 5); ctx.lineTo(x + w - 6, yy + rh / 2 - 5); ctx.stroke(); }
+    ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;
+    hits.push({ x, y: yy, w, h: rh, fn: () => { m.sel = i; m.focus = 'grid'; craftCellAct(cl); } });
+  });
   ctx.textAlign = 'left';
+}
+function drawBookMap(x0, y0, w, h, hs, seed) {
+  const ids = HOME_MAP.filter(id => MAP_LAYOUT[id] && WORLD[id]), xs = ids.map(id => MAP_LAYOUT[id][0]), ys = ids.map(id => MAP_LAYOUT[id][1]);
+  const cx0 = Math.min(...xs), cy0 = Math.min(...ys), cols = Math.max(...xs) - cx0 + 1, rows = Math.max(...ys) - cy0 + 1;
+  const cell = Math.min(w / cols, (h - hs * 2) / rows), ox = x0 + (w - cell * cols) / 2, oy = y0;
+  const at = id => [ox + (MAP_LAYOUT[id][0] - cx0) * cell, oy + (MAP_LAYOUT[id][1] - cy0) * cell];
+  const seen = id => !!state.seen[id], known = id => seen(id) || ids.some(o => seen(o) && WORLD[o].exits.some(e => e.to === id));
+  ctx.save(); ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+  for (const id of ids) if (seen(id)) for (const e of WORLD[id].exits) if (ids.includes(e.to) && known(e.to)) { const [a, b] = at(id), [c, d] = at(e.to); wobbleLine([[a + cell / 2, b + cell / 2], [c + cell / 2, d + cell / 2]], seed + 3); }
+  ids.forEach((id, i) => {
+    if (!known(id)) return;
+    const [bx, by] = at(id), pad = cell * 0.12, bw = cell - pad * 2;
+    if (seen(id)) { ctx.fillStyle = 'rgba(160,190,120,.35)'; ctx.fillRect(bx + pad, by + pad, bw, bw); ctx.setLineDash([]); }
+    else ctx.setLineDash([4, 4]);
+    wobbleLine([[bx + pad, by + pad], [bx + pad + bw, by + pad], [bx + pad + bw, by + pad + bw], [bx + pad, by + pad + bw], [bx + pad, by + pad]], seed + i * 7);
+    ctx.setLineDash([]);
+    ctx.fillStyle = seen(id) ? '#3e2a1a' : 'rgba(62,42,26,.55)'; ctx.font = HAND(Math.round(Math.min(hs * 0.8, cell * 0.28)), seen(id)); ctx.textAlign = 'center';
+    ctx.fillText(seen(id) ? (MAP_SHORT[id] || id) : '?', bx + cell / 2, by + cell * 0.58);
+    if (id === state.scene || (state.scene === 'tentin' && id === 'camp')) { ctx.fillStyle = '#c0304a'; ctx.beginPath(); ctx.arc(bx + cell * 0.78, by + cell * 0.25, Math.max(2.5, cell * 0.06), 0, 6.28); ctx.fill(); }
+  });
+  // off the page: what's beyond, as Pip imagines it
+  ctx.font = HAND(Math.round(hs * 0.75), false); ctx.fillStyle = 'rgba(62,42,26,.7)'; ctx.textAlign = 'left';
+  ctx.fillText('\u2193 the peaks?', ox + cell * 1.2, oy + rows * cell + hs * 0.9);
+  ctx.textAlign = 'right'; ctx.fillText('deeper woods \u2192', ox + cols * cell, oy - hs * 0.3);
+  ctx.textAlign = 'left'; ctx.fillText('\u2190 downriver', ox, oy - hs * 0.3);
+  ctx.restore(); ctx.textAlign = 'left';
+}
+function mapTodo() {
+  const out = [], seen = id => !!state.seen[id];
+  const half = HOME_MAP.filter(id => !seen(id) && HOME_MAP.some(o => seen(o) && WORLD[o] && WORLD[o].exits.some(e => e.to === id)));
+  for (const id of half.slice(0, 4)) out.push(`- ${MAP_SHORT[id] || id}: only peeked in. Still to draw.`);
+  if (!seen('w3')) out.push('- Past the boulders in the woods. Something glints? No. Probably nothing.');
+  out.push('- Downriver: Old Wick\'s pool, so shiny it hurts your eyes.');
+  out.push('- South, past the windy fields: mountains. Who lives up there?');
+  out.push('- I keep hearing digging under the woods...');
+  return out;
 }
 // pencil lines that wobble a little, the same way every frame (seeded)
 function wobbleLine(pts, seed, close) {

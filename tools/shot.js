@@ -53,6 +53,18 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B98) {                             // build 98: craft columns, the coach note, the book's map pages, candles at dusk, the ring's stones
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; inv.pipTips.craftLesson=true;
+  ['riverbank','start','meadow','camp','f1','w1'].forEach(id=>state.seen[id]=true);
+  enterScene('camp'); state.cut=null; run(5); state.texts=[]; state.title=null;
+  Object.assign(rawOf(),{stick:5,stone:2,fluff:3,glue:1}); inv.acorns=3; campParts().stones=3; inv.woodsword=6; inv.known={glue:true,woodsword:true}; inv.heard={tinder:true,benchframe:true};
+  state.coach={id:'tinder',i:2,t:0}; state.menu={view:'pack',tab:PACK_TABS.indexOf('Craft'),sel:1,focus:'grid',act:0,note:''}; state.mat=['stick']; run(2); draw(); fs.writeFileSync('/tmp/b98-craft.png', canvas.toBuffer('image/png'));
+  state.menu=null; state.coach=null; state.hero.x=W*0.45; state.hero.y=H*0.55; run(5); state.texts=[]; draw(); fs.writeFileSync('/tmp/b98-camp.png', canvas.toBuffer('image/png'));
+  state.menu={view:'book',page:6}; draw(); fs.writeFileSync('/tmp/b98-book.png', canvas.toBuffer('image/png')); state.menu=null;
+  state.dusk=true; enterScene('tentin'); run(5); state.texts=[]; draw(); fs.writeFileSync('/tmp/b98-candles.png', canvas.toBuffer('image/png'));
+  console.log('b98 shots written');
+}
 if (process.env.B92) {                             // build 92: the lantern (and feather) on the hero in the dark woods
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.adventure; state.inv.lantern=true; gainGear('feather',true); state.title=null; enterScene('w1'); state.cut=null; state.enemies=[]; run(10); state.texts=[]; state.title=null; draw();

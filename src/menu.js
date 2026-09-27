@@ -128,6 +128,7 @@ const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood:
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
 // grid places for pack cells: a new section starts a new row (with its name above it)
 function packLayout(cells, cols) {
+  if (cells.length && cells[0].col != null) { const n = [0, 0, 0]; return cells.map(c => ({ c: c.col, r: n[c.col]++ })); }   // Craft: columns, a row each
   const out = []; let r = 0, c = 0, sec;
   cells.forEach((cell, i) => { if (i && (c >= cols || cell.sec !== sec)) { r++; c = 0; } sec = cell.sec; out.push({ r, c, head: c === 0 && cell.sec && (i === 0 || cells[i - 1].sec !== cell.sec) ? cell.sec : null }); c++; });
   return out;
@@ -255,6 +256,15 @@ function updatePack() {
     return;
   }
   if (!cells.length) { m.focus = 'tabs'; return; }
+  if (tab === 'Craft' && cells[0] && cells[0].col != null) {           // columns: left / right move across, keeping the row as near as possible
+    const L = packLayout(cells, cols), cur = L[m.sel] || { c: 0, r: 0 };
+    const hop = d => { for (let c = cur.c + d; c >= 0 && c <= 2; c += d) { const col = L.map((q, i) => [q, i]).filter(([q]) => q.c === c); if (col.length) { m.sel = col[Math.min(cur.r, col.length - 1)][1]; sfx.tock(); return; } } };
+    if (pressedNow.left) hop(-1); if (pressedNow.right) hop(1);
+    if (pressedNow.down) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r + 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } }
+    if (pressedNow.up) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r - 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } else { m.focus = 'tabs'; sfx.tock(); } }
+    if (pressedNow.act) craftCellAct(cell);
+    return;
+  }
   if (pressedNow.left) mv(-1);
   if (pressedNow.right) mv(1);
   {                                                     // up and down go by rows (sections start new rows)
@@ -441,6 +451,8 @@ const BOOK_PAGES = () => [
   { title: 'Fighting', bits: [['slash', `Tap ${K.act.toUpperCase()}: slash.`], ['stab', `Hold ${K.act.toUpperCase()}, let go: stab!`], ['pound', `Jump, then ${K.act.toUpperCase()}: POUND.`]] },
   { title: 'Growing', bits: [['seed', 'Seed + dirt = snacks later.'], ['compost', 'Acorns in the dirt: compost!'], ['sprout', 'Wait. Then pull.']] },
   { title: 'Making', bits: [['mat', `${K.menu.toUpperCase()}, Craft: thing + thing = ?`], ['glue', 'Fluff + fluff = glue.'], ['mark', 'Camp pieces go on the X.']] },
+  { title: 'Pip\'s map', map: true },
+  { title: 'Still to map', todo: true },
   { title: 'Tired?', bits: [['zzz', 'Low vigor: slow and floppy.'], ['fire', 'Sit by the fire.'], ['snack', 'Eat something!']] },
 ];
 const BOOK = { get length() { return BOOK_PAGES().length; } };

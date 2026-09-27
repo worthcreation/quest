@@ -92,6 +92,7 @@ const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
 // handful of phrasings, used in turn, never the same one twice running; the wait grows a little each time.
 function remindNow(sc, h) {                          // the current tutorial step's nag, phrased its way, at a spot that helps
   const s = tutorialStep(); if (!s || !s.remind || (s.scene && s.scene !== sc.id && s.id !== 'rabbits')) return null;
+  if (s.say && TUT.saidAt(s.id) == null) return null;       // no nagging about a step before Pip has introduced it
   const lines = s.remind().filter(Boolean); if (!lines.length) return null;
   const n = (state.remind && state.remind.n) || 0;
   return { key: s.id, at: s.remindAt ? s.remindAt(n) : (s.spot ? s.spot() : null), lines };
@@ -124,7 +125,8 @@ function pipSay(key, text, at, sight = 7, site = null) {
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
 // place has given what it can, or what's still missing. Said again only when the answer changes.
-const CAMP_NEED = { stone: 2, stick: 2, fluff: 3 };   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
+const CAMP_NEED = { stone: 5, stick: 6, fluff: 4 };   // ring: 5 stones + tinder (2 sticks); bench: 2 frames, each 2 sticks + glue (2 fluff)
+// (was 2 / 2 / 3 before build 98)   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
 function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
 function needWords(miss) {
   const w = { stone: n => `${n} smooth stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
@@ -158,7 +160,7 @@ function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
   state.tutStep = s ? s.id : null;
   if (!s || heldText() || p.visit) return;
-  if (sc.id === 'camp' && s.scene !== 'camp' && !s.hold) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
+  if (sc.id === 'camp' && ['sticks', 'stones', 'fluff', 'sword', 'rabbits'].includes(s.id)) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
     const line = campMarkLine(), b = campMark(), key = 'tut-camp|' + line;
     if (line && b && !tips[key]) { state.pipTalkT = -99; pipSay(key, line, [b.fx * W, b.fy * H], 40, { x: b.fx * W, y: b.fy * H, r: 7 }); }
     return;
@@ -174,6 +176,7 @@ function tutorialTalk(sc, p, h) {
     if (!pipSay(key, line, at && Math.hypot(at[0] - p.x, at[1] - p.y) > UNIT * 1.2 ? at : null, 40, at ? { x: at[0], y: at[1], r: 9 } : null)) return;
     if (s.once) tips[s.once] = true;
   }
+  (state.inv.tutAt = state.inv.tutAt || {})[s.id] = state.playTime || 0;
   if (s.id === 'tada') state.inv.story = STORY.gather;
   if (s.after) s.after();
 }
@@ -194,6 +197,7 @@ function updatePip(dt) {
   const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
   if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
   if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
+  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the tent, out of camp)
   if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
@@ -209,7 +213,10 @@ function updatePip(dt) {
   // never standing still: waiting up ahead (or at his garden post) he paces and potters about the spot
   const pot = k => [Math.cos(state.time * 0.8 + k) * UNIT * 0.7 + Math.cos(state.time * 1.9 + k * 2) * UNIT * 0.2, Math.sin(state.time * 1.1 + k) * UNIT * 0.4];
   let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
-  if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }   // Pip's post is the garden (a reminder can take him off it)
+  if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }
+  const TL = !p.visit && tutorialLead(sc);            // the tour: walk to the door / the flap / the way out, and slip out of sight there
+  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; p.show = false; } }
+  if (!TL && state.tutWait && !p.visit) { const w = state.tutWait; tx = w[0]; ty = w[1]; }   // Pip's post is the garden (a reminder can take him off it)
   // Early on, if you don't follow, Pip goes on ahead: after a while he walks right off the screen, then pops back in
   // from that side to hurry you up, and heads off again. Only when there's somewhere to lead you (the way to camp,
   // or the way on while gathering).
@@ -252,6 +259,11 @@ function updatePip(dt) {
     const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
+  }
+  if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, p.x, p.y) && p.show) {   // the wind shoves Pip too
+    const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
+    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) say(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff', size: 0.9 }); }
+    if (state.gustPhase !== 'blow') p.windT = 0;
   }
   const offRoad = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'away');
   if (!offRoad) { collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.5); }   // (heading off the screen: no clamping)

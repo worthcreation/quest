@@ -30,14 +30,14 @@ const bk=WORLD.tentin.feat.book; h.x=bk[0]*W; h.y=bk[1]*H+UNIT*0.9; run(3); pres
 h.x=W*0.5; h.y=H-UNIT*0.6; state.keys.arrowdown=true; run(6); state.keys.arrowdown=false; run(40); console.log('out the flap ->', state.scene);
 // gather: stones by the water, sticks in the forest, fluff in the windy field
 for (const id of ['riverbank','start','f1','f2']) { enterScene(id); run(20); h=state.hero; for (const it of state.items.filter(i=>['stone','stick','fluff'].includes(i.type))) { h.x=it.x; h.y=it.y; run(3); press('f'); } run(60*3); }
-console.log('gathered', JSON.stringify(rawOf())); const topUp=3-(rawOf().fluff||0); rawOf().fluff=3; console.log('   + '+topUp+' tuft(s) from rabbits on the second field (build 86: fluff blows about, the rest comes from rabbits)');
+console.log('gathered', JSON.stringify(rawOf())); const topUp=4-(rawOf().fluff||0); rawOf().fluff=4; console.log('   + '+topUp+' tuft(s) from rabbits on the second field (build 98: camp takes 4; fluff blows about, the rest comes from rabbits)');
 // craft and build
 enterScene('camp'); run(10); toggleMenu(); state.menu.tab=PACK_TABS.indexOf('Craft'); state.menu.focus='grid';
 const putOn = k => { const cells=craftCells(); state.menu.sel=cells.findIndex(c=>c.raw===k); press('f'); };
 const combine = () => { state.menu.sel=0; press('f'); };
-putOn('fluff'); putOn('fluff'); combine(); console.log('glue', rawOf().glue, '| slots', state.inv.craftSlots);
-putOn('stone'); putOn('stone'); putOn('stick'); combine(); putOn('stick'); putOn('glue'); putOn('fluff'); combine(); console.log('fire ring', rawOf().firering, 'workbench', rawOf().benchkit); toggleMenu();
-h=state.hero; for (const b of WORLD.camp.feat.buildSpots) { h.x=b.fx*W; h.y=b.fy*H+UNIT*(b.r+0.5); run(3); press('f'); run(60); }
+putOn('fluff'); putOn('fluff'); combine(); putOn('fluff'); putOn('fluff'); combine(); console.log('glue', rawOf().glue, '| slots', craftSlots());
+putOn('stick'); putOn('stick'); combine(); putOn('stick'); putOn('stick'); putOn('glue'); combine(); putOn('stick'); putOn('stick'); putOn('glue'); combine(); console.log('tinder', rawOf().tinder, 'bench frames', rawOf().benchframe); toggleMenu();
+h=state.hero; for (const b of WORLD.camp.feat.buildSpots) for (let i=0;i<3;i++) { h.x=b.fx*W; h.y=b.fy*H+UNIT*(b.r+0.5); run(3); press('f'); run(40); }   // stones, then tinder; frame, frame
 run(60*5); console.log('camp done', campDone(), '| story', state.inv.story, '| Pip now heads for', pipExit(WORLD.camp) && pipExit(WORLD.camp).to);
 console.log('--- what Pip said ---'); log.forEach(l=>console.log('  '+l));
 console.log('errs', errs2);

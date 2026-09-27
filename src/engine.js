@@ -47,6 +47,7 @@ function enterScene(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
+  state.pipGone = null;                              // Pip is wherever the new screen puts him
   syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
   state.atk = null; state.hold = { on: false, t: 0, charged: false }; state.aim.on = false;
@@ -120,8 +121,9 @@ function enterScene(id, fx, fy) {
   if (pipWithYou()) placePipNearHero();
   const bossAlive = id === 'c7' && !rt.bossDead;
   const tense = sc.area === 'woods' && state.inv.pipTaken && !state.inv.sword;
-  setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : sc.music);
-  setAmbience(sc.amb);
+  const night = state.dusk && ['camp', 'tentin', 'start', 'meadow', 'riverbank'].includes(id);   // after camp's set up: twilight around home
+  setMusic(bossAlive ? 'cave2' : tense ? 'sinister' : night ? 'twilight' : sc.music);
+  setAmbience(night ? 'night' : sc.amb);
   refreshButtons();
 }
 
@@ -216,6 +218,11 @@ function update(dt) {
   state.frameDt = dt;
   readPresses();
   updateQuests();
+  coachUpdate();                                     // coached steps move on as you do them, menus included
+  if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
+    state.nightT = state.time + 0.35 + Math.random() * 0.9;
+    if (Math.random() < 0.06) sfx.owl((Math.random() - 0.5) * 1.4); else sfx.cricket((Math.random() - 0.5) * 1.6);
+  }
   if (state.time - (state.slotT || -9) > 0.25) { state.slotT = state.time; tidySlots(); }
   // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
   if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
@@ -232,6 +239,7 @@ function update(dt) {
   if (sc.gusts) updateWind(dt, sc);
   if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
   if (sc.amb === 'marsh') ambLevel(0.05);
+  if (amb && amb.type === 'night') ambLevel(0.025);
   if (sc.river) ambLevel(0.07 + 0.08 * Math.max(0, 1 - Math.min(...sc.river.pts.map(p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H))) / (UNIT * 12)), 2200);   // rushing water, louder near it
   if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
   updateGas(dt);

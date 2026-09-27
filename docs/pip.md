@@ -9,5 +9,8 @@ Pip is company and a guide, never a wall of text.
 - Reminders: with no progress for ~16 s (a little longer each time) he walks to something that helps and says it a new way, never the same line twice running.
 - He talks about what he is standing near (camp marks, the robin, a patch, a stick you need) and keeps lines short.
 - No crafting talk before the lesson (two tufts of fluff in hand).
+- Arriving at camp he gives a tour: the fire mark, the bench mark, then the lean-to, which he goes into; follow him in and he shows you the book, the chest and the bed; then he heads out and off to the glade, calling you along. Each stop waits until you come over (or a few seconds pass).
+- Scenes that open mid-conversation start with an ellipsis ("...no, LISTEN", "...and THAT'S why").
+- The wind pushes Pip just like you, and he says so.
 
 Code: pip.js (behaviour), tutorial.js (every early-game line, in order, plus PIP_LINES for the rest).

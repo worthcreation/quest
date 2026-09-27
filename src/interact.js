@@ -98,8 +98,8 @@ function interactBook(sc, h, rt, nearPull) {
 function interactBuild(sc, h, rt, nearPull) {
   for (const b of sc.feat.buildSpots || []) {
     if (campBuilt(b.piece) || !pressedNow.act || Math.hypot(h.x - b.fx * W, h.y - b.fy * H) > UNIT * (b.r + 0.9)) continue;
-    if ((rawOf()[PIECE_OF[b.piece]] || 0) > 0) { placePiece(b); return true; }
-    say(`The ${RAW[PIECE_OF[b.piece]].toLowerCase()} goes here.`, b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2 }); return true;
+    const line = setCampPart(b);
+    say(line || (b.piece === 'fire' ? `The fire ring goes here: ${CAMP_PARTS.fire.stones} smooth stones, then tinder.` : `The bench goes here: two frames.`), b.fx * W, b.fy * H - UNIT, { key: 'spot', life: 2.2 }); return true;
   }
 }
 function interactCampfire(sc, h, rt, nearPull) {
@@ -236,7 +236,7 @@ function findInteractable() {
   }
   if (f.fire && sc.id === 'camp' && campBuilt('fire')) add(f.fire[0] * W, f.fire[1] * H, 'Rest', 1.7);
   if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
-  for (const b of f.buildSpots || []) if (!campBuilt(b.piece) && (rawOf()[PIECE_OF[b.piece]] || 0) > 0) add(b.fx * W, b.fy * H, 'Build', b.r + 0.9);
+  for (const b of f.buildSpots || []) if (!campBuilt(b.piece)) { const r0 = rawOf(), P = campParts(); const v = b.piece === 'fire' ? (P.stones < CAMP_PARTS.fire.stones && r0.stone ? 'Set stones' : P.stones >= CAMP_PARTS.fire.stones && r0.tinder ? 'Add tinder' : r0.firering ? 'Build' : null) : (r0.benchframe ? 'Set frame' : r0.benchkit ? 'Build' : null); if (v) add(b.fx * W, b.fy * H, v, b.r + 0.9); }
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);

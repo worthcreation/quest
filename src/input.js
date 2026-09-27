@@ -143,6 +143,16 @@ const CAVE_LOOP = [
   [61,0],[0,0],[0,0],[0,0],[62,0],[0,0],[0,0],[0,0],
 ];
 const MUSIC = {
+  twilight: {                    // after the camp's done: slow, low and warm, with space between the notes
+    step: 60 / 66 / 2, shift: 0, shimmer: true,
+    lead: { type: 'sine', vol: 0.07, len: 3.2 }, bass: { type: 'sine', vol: 0.1, len: 5 },
+    loop: [
+      [64,40],[0,0],[0,0],[67,0],[0,0],[0,0], [71,45],[0,0],[0,0],[69,0],[0,0],[0,0],
+      [67,43],[0,0],[0,0],[64,0],[0,0],[0,0], [62,38],[0,0],[0,0],[0,0],[0,0],[0,0],
+      [64,40],[0,0],[0,0],[67,0],[0,0],[71,0], [72,45],[0,0],[0,0],[71,0],[0,0],[0,0],
+      [67,43],[0,0],[0,0],[69,0],[0,0],[67,0], [64,40],[0,0],[0,0],[0,0],[0,0],[0,0],
+    ],
+  },
   forest: {
     step: 60 / 92 / 2, shift: 0, shimmer: true,
     lead: { type: 'triangle', vol: 0.10, len: 1.6 }, bass: { type: 'sine', vol: 0.14, len: 3.2 },
@@ -261,6 +271,7 @@ function setAmbience(type) {
   if (type === 'falls') { f.type = 'lowpass'; f.frequency.value = 900; }
   if (type === 'marsh') { f.type = 'lowpass'; f.frequency.value = 260; }
   if (type === 'rain') { f.type = 'highpass'; f.frequency.value = 1800; }
+  if (type === 'night') { f.type = 'lowpass'; f.frequency.value = 420; }   // a soft breeze under the crickets
   g.gain.value = 0.0001;
   src.connect(f).connect(g).connect(master);
   src.start();
@@ -275,6 +286,8 @@ function ambLevel(v, freq) {
 
 // sound effects
 const sfx = {
+  cricket(pan) { const f = 4100 + Math.random() * 500; for (let i = 0; i < 3; i++) tone(f, i * 0.055, 0.035, { type: 'sine', vol: 0.025, attack: 0.004, pan, dest: musicGain }); },
+  owl(pan) { tone(392, 0, 0.35, { type: 'sine', vol: 0.05, attack: 0.08, to: 370, pan, dest: musicGain }); tone(349, 0.45, 0.55, { type: 'sine', vol: 0.045, attack: 0.1, to: 330, pan, dest: musicGain }); },
   drip(pan) { const f = 1400 + Math.random() * 900; tone(f, 0, 0.12, { type: 'sine', vol: 0.07, attack: 0.002, to: f * 0.4, pan, dest: musicGain }); tone(f, 0.28, 0.1, { type: 'sine', vol: 0.02, attack: 0.002, to: f * 0.4, pan: -pan, dest: musicGain }); },
   fall()   { [784, 659, 523, 392, 311, 233].forEach((f, i) => tone(f, i * 0.12, 0.3, { type: 'triangle', vol: 0.12 })); },
   growl()  { noise(0, 1.1, { vol: 0.35, freq: 260, q: 4 }); tone(70, 0, 1.0, { type: 'sawtooth', vol: 0.07, attack: 0.15, to: 48 }); },

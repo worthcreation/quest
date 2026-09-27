@@ -28,9 +28,9 @@ const QUESTS = [
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
-    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(2, c.stick)}/2, rabbit fluff ${Math.min(3, c.fluff)}/3.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 2 && c.fluff >= 3; } },
-    { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
-    { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(5, c.stone)}/5, sticks ${Math.min(6, c.stick)}/6, rabbit fluff ${Math.min(4, c.fluff)}/4.`; }, done: () => { const c = campHave(); return c.stone >= 5 && c.stick >= 6 && c.fluff >= 4; } },
+    { id: 'fire', name: 'Build the fire ring', line: () => `Set ${CAMP_PARTS.fire.stones} smooth stones in the ring (${campParts().stones} so far), then tinder: two sticks on the mat.`, done: () => campBuilt('fire') },
+    { id: 'bench', name: 'Build the bench', line: () => `Two frames (${campParts().frames} set): each two sticks and rabbit glue, made on the mat.`, done: () => campBuilt('bench') },
   ] },
   { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
     { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },

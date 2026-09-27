@@ -281,7 +281,7 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of ['stick', 'stick', 'stick', 'stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
+  for (const t of Array(10).fill('stick')) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
 
@@ -313,7 +313,7 @@ function genWorld() {
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
-    [0.25, 0.45, 0.65].forEach(t => {
+    [0.15, 0.27, 0.39, 0.51, 0.63, 0.75].forEach(t => {        // six smooth stones along the bank: the ring takes five
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
       const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1], cx = (ax + (bx - ax) * u2) * W, cy = (ay + (by - ay) * u2) * H;
       const vx = (bx - ax) * W, vy = (by - ay) * H, l = Math.hypot(vx, vy) || 1, nx = vy / l, ny = -vx / l, s2 = (nx + ny > 0 ? 1 : -1);   // the normal pointing to the south-east bank
@@ -473,7 +473,7 @@ function genWorld() {
   const FIELD = [
     { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
     { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 1 },
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
+    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 2, south: [0.2, 0.8] },
     { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
     { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
     { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },

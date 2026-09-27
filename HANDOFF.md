@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 97, 27 Sep 2026)
+# Quest: handoff notes (as of build 98, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,29 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 98: camp built piece by piece, the camp tour, coached steps, craft columns, twilight
+- Camp parts (craft.js): CAMP_PARTS (fire: 5 stones then tinder; bench: 2 frames), campParts() in rtFor('camp').flags.parts,
+  setCampPart(b) at a mark sets what you carry. Recipes: tinder (stick + stick), benchframe (stick + stick + glue);
+  the old firering / benchkit recipes are gone (an old save still holding one sets it whole). CAMP_NEED 5/6/4; riverbank
+  6 stones, glade 10 sticks, f2 2 rabbits. drawBuildSpots shows the ring's five places and the bench's two frames.
+- The camp tour (tutorial.js, steps tour-fire .. tour-exit): Pip walks to each mark and says a line, then the lean-to;
+  step.lead walks him to the door / the flap / the camp exit and he slips out of sight (state.pipGone, cleared on scene
+  change). Stops are done once said and you came near (TUT.followed) or 9 s pass. Finished steps latch in
+  inv.tutDone. Jumping in (tada flagged but never said) skips the tour (TUT.noTour).
+- Coached steps (tutorial.js COACH, startCoach, coachUpdate in update, drawCoach over everything): the wooden sword
+  after the lesson, tinder once the ring's stones are set, glue + frames once the fire is lit. Each step stays pinned
+  until its done() is true, menus included.
+- Craft tab in three columns (craftCells col 0/1/2, drawCraftColumns, column navigation in updatePack): Make, Materials,
+  Made (greyed record).
+- Book: a fixed pill under it ("← → turn pages · F close") and "7-8 of 9" above; two new pages: Pip's map (drawBookMap:
+  walked places inked and named, next-door places dashed "?", arrows off the page for what's beyond) and Still to map
+  (mapTodo: half-seen places plus rumours of the pool, the peaks, the digging).
+- Twilight: after camp, around home, MUSIC.twilight and ambience 'night' (soft breeze), crickets and an occasional owl
+  (sfx.cricket / sfx.owl, scheduled in update), candles flickering in the lean-to at dusk (drawCandles).
+- speechPages keeps a leading ellipsis. Pip is pushed by gusts (and sometimes says so).
+- Tests: camp-tour (new); opening, gathering, camp-talk updated for the new camp. 49 of 49.
+- To design next (Ross): what the workbench and fire can be upgraded into, and what bigger crafting happens there.
 
 ## Build 97: what F does, one handler per thing
 - interact() (interact.js) is now a driver over INTERACTIONS, an ordered list of handlers, each about one kind of
