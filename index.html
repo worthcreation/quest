@@ -2240,6 +2240,7 @@ function slamDown() {
     say(`${K.act} now to spin into a whirlwind`, h.x, h.y + UNIT * 1.8, { key: 'pcombo', tip: 'poundchain', life: 3 });
   }
   if (state.bird) scareBird(h.x, h.y, 6);
+  if (state.bird) flushBird(h.x, h.y);                 // a stomp by the nest tree sends the robin bursting out of its hole
   scareFlock(h.x, h.y, 6);
   shakeTreesAround(h, UNIT * 2.6);                                               // the thump knocks acorns loose
 }
@@ -2733,6 +2734,13 @@ function perchPoint(i) { const p = WORLD.meadow.feat.perches[i]; return [p[0] * 
 function hollowPoint() { const p = WORLD.meadow.feat.perches[0]; return [p[0] * W, p[1] * H - UNIT * 0.9]; }
 function makeBird() { return { mode: 'home', p: 0, x: hollowPoint()[0], y: hollowPoint()[1], z: 0, vx: 0, vy: 0, t: rr(1, 3), gx: 0, gy: 0 }; }
 function flyTo(b, gx, gy, z0, z1, dur, then) { Object.assign(b, { sx: b.x, sy: b.y, gx, gy, z0, z1, t: dur, dur, mode: 'glide', then }); }
+function flushBird(x, y) {
+  const b = state.bird, [hx, hy] = hollowPoint();
+  if (!b || b.mode !== 'home' || Math.hypot(hx - x, hy + UNIT * 0.9 - y) > UNIT * 3.5) return;
+  b.x = hx; b.y = hy; b.mode = 'perch';               // out of the hole it comes...
+  spark(hx, hy, 'rgba(160,120,80,.9)', 8, 2);
+  scareBird(hx, hy, 1);                               // ...in a flap of feathers, maybe dropping a seed
+}
 function scareBird(x, y, range) {
   const b = state.bird;
   if (!b || b.mode !== 'perch' || Math.hypot(b.x - x, b.y - y) > UNIT * range) return;
@@ -3605,6 +3613,7 @@ function updatePip(dt) {
     const plot = f.plots && f.plots[0], b = state.bird, seeds = inv.bag.seed || 0;
     if (plot) pipSay('plots', 'I like to sprinkle seeds in this rich dirt. You can grow all kinds of stuff!', P(plot));
     if (!seeds && b && b.mode === 'perch') pipSay('robin-lesson', 'But first, seeds. Over here! Run at the robin and it drops one. Go on!', [b.x, b.y + UNIT], 12);
+    if (!seeds && b && b.mode === 'home') { p.robinHide = (p.robinHide || 0) + 1 / 60; if (p.robinHide > 5) pipSay('stomp', `It's hiding in its tree! Jump and stomp, ${K.jump} then ${K.act}, right by the trunk.`, [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.5], 12); } else if (b) p.robinHide = 0;
     if (seeds && inv.firstBirdSeed) pipSay('firstseed', 'See? A seed! Now pop it in the rich soil.', plot ? P(plot) : null);
     const planted0 = (rt.flags.plots || []).filter(p => p.s === 1).length;
     if (planted0 === 1 && !seeds) pipSay('again', 'One more! The robin always comes back.', b ? [b.x, b.y + UNIT] : null, 12);
@@ -5621,7 +5630,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 55';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 56';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
