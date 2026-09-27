@@ -768,7 +768,7 @@ const INTRO_LINES = [
 function updateIntro(dt) {
   const c = state.intro, p = state.pip, h = state.hero;
   if (!c) return;
-  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = STORY.garden; };
+  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = Math.max(state.inv.story || 0, STORY.garden); };   // never winds the story back
   if (state.scene !== 'riverbank') { finish(); return; }
   if (!c.gone) {
     // while talking, Pip can't stand still: little wanders around the bank near where you started, pausing now and then
@@ -876,7 +876,7 @@ function pipSay(key, text, at, sight = 7, site = null) {
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
 // place has given what it can, or what's still missing. Said again only when the answer changes.
-const CAMP_NEED = { stone: 2, stick: 3, fluff: 2 };
+const CAMP_NEED = { stone: 2, stick: 2, fluff: 3 };   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
 function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
 function needWords(miss) {
   const w = { stone: n => `${n} smooth stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
@@ -1025,12 +1025,12 @@ function updatePip(dt) {
       if (b) {
         const at = P([b.fx, b.fy]), NAME = { fire: 'fire ring', bench: 'workbench' }, n = k => raw[k] || 0;
         const glueOK = n('glue') >= 1 || n('fluff') >= 2;
-        const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 2 - n('stick'), [n('glue') ? 'glue' : 'fluff for glue']: n('glue') ? 0 : 2 - n('fluff') };
-        const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}${v > 1 && !k.startsWith('fluff') ? 's' : ''}`);
+        const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 1 - n('stick'), 'fluff': (n('glue') ? 1 : 3) - n('fluff') };
+        const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
         let key, line;
         if (n(PIECE_OF[pc]) > 0) { key = 'set'; line = `Set the ${NAME[pc]} down right here!`; }
         else if (!miss.length && pc === 'bench' && !n('glue')) { key = 'glue'; line = `Glue first: two fluff on the Craft mat (${K.menu.toUpperCase()}).`; }
-        else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: two sticks and glue (${K.menu.toUpperCase()}).`; }
+        else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: a stick, glue and fluff (${K.menu.toUpperCase()}).`; }
         else { key = 'need-' + miss.join(','); line = `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`; }
         pipSay('camp-' + pc + '-' + key, line, at, 14, { x: at[0], y: at[1], r: 7 });
       }
@@ -1045,6 +1045,11 @@ function updatePip(dt) {
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
     if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
+    const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
+    if (!blade && fluffNeed && (raw.stick || 0) >= 3) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
+    if (sc.id === 'f1' && fluffNeed) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
+    if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
+    if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
     if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');

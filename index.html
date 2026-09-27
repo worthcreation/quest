@@ -336,7 +336,7 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of ['stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees
+  for (const t of ['stick', 'stick', 'stick', 'stick', 'stick', 'stick', 'stick']) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
 
@@ -563,7 +563,7 @@ function genWorld() {
       sc.spawns.push({ type: 'rabbit', fx: p[0], fy: p[1] });
     }
     for (let t = 0; t < 90; t++) { const fx = rng(), fy = rng(); if (!inRects(F.chasms, fx, fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.6, 1.3), ph: rng() * 6 }); }
-    if (i <= 2) for (let t = 0; t < (i === 1 ? 3 : 2); t++) { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.4], 0.6); item(sc, { type: 'fluff', fx: q[0], fy: q[1] }); }   // rabbit fluff snagged on the grass
+    if (i === 1) for (let t = 0; t < 2; t++) { const q = freeSpot(sc, [0.2, 0.8, 0.35, 0.65], 0.6); item(sc, { type: 'fluff', fx: q[0], fy: q[1] }); }   // at most two tufts lying about, and the wind moves them; the rest is on the rabbits next door. rabbit fluff snagged on the grass
     // rock banks: out in the ravines to hop across on, and slabs on the banks; the wind can't move you on rock
     sc.rocks = [];
     sc.rockCols = F.chasms.map(() => rng());                                 // where each ravine's rock column stands, fixed per seed
@@ -786,7 +786,7 @@ const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
 function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
 // step, silk, horn are levelled relics (0 = not found, up to 3)
 // seeds: vegetable seeds (turnip, carrot, pepper, squash) grow that vegetable; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: { bag: { turnipseed: 2 }, acorns: 3 }, chestStocked: true, raw: {}, known: {}, craftSlots: 2, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
+function newInv() { return { story: 0, chest: { bag: { turnipseed: 2 }, acorns: 3 }, chestStocked: true, raw: {}, known: {}, craftSlots: 3, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
 function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
 const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
 
@@ -1576,6 +1576,12 @@ function update(dt) {
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
     h.x += h.vx * dt; h.y += h.vy * dt;
+    if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle')) {   // loose fluff blows about in the wind, and can blow clean away
+      const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
+      for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
+        it.x += w[0] * k * L() * dt; it.y += w[1] * k * L() * dt;
+        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; say('Whoosh! The wind took a tuft of fluff.', h.x, h.y - UNIT * 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
+    }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
@@ -2119,6 +2125,7 @@ function itemExists(type) {
   return Object.values(RT).some(rt => rt.items.some(i => i.type === type));
 }
 function dropFor(e) {
+  if (e.type === 'rabbit' && !campDone() && (campMissing().fluff || 0) > 0) return 'fluff';   // still short of fluff for camp: straight from the source
   for (const [t, p] of DROPS[e.type] || []) {
     if (rng() >= p) continue;
     if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
@@ -3834,7 +3841,7 @@ const INTRO_LINES = [
 function updateIntro(dt) {
   const c = state.intro, p = state.pip, h = state.hero;
   if (!c) return;
-  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = STORY.garden; };
+  const finish = () => { state.intro = null; if (p) p.show = false; state.inv.story = Math.max(state.inv.story || 0, STORY.garden); };   // never winds the story back
   if (state.scene !== 'riverbank') { finish(); return; }
   if (!c.gone) {
     // while talking, Pip can't stand still: little wanders around the bank near where you started, pausing now and then
@@ -3942,7 +3949,7 @@ function pipSay(key, text, at, sight = 7, site = null) {
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
 // place has given what it can, or what's still missing. Said again only when the answer changes.
-const CAMP_NEED = { stone: 2, stick: 3, fluff: 2 };
+const CAMP_NEED = { stone: 2, stick: 2, fluff: 3 };   // fire ring: 2 stones + a stick; bench: a stick, glue (2 fluff) and a fluff cushion
 function campMissing() { const c = campHave(), out = {}; for (const [k, n] of Object.entries(CAMP_NEED)) if (c[k] < n) out[k] = n - c[k]; return out; }
 function needWords(miss) {
   const w = { stone: n => `${n} smooth stone${n > 1 ? 's' : ''}`, stick: n => `${n} stick${n > 1 ? 's' : ''}`, fluff: n => `${n} tuft${n > 1 ? 's' : ''} of rabbit fluff` };
@@ -4091,12 +4098,12 @@ function updatePip(dt) {
       if (b) {
         const at = P([b.fx, b.fy]), NAME = { fire: 'fire ring', bench: 'workbench' }, n = k => raw[k] || 0;
         const glueOK = n('glue') >= 1 || n('fluff') >= 2;
-        const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 2 - n('stick'), [n('glue') ? 'glue' : 'fluff for glue']: n('glue') ? 0 : 2 - n('fluff') };
-        const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}${v > 1 && !k.startsWith('fluff') ? 's' : ''}`);
+        const need = pc === 'fire' ? { 'smooth stone': 2 - n('stone'), stick: 1 - n('stick') } : { stick: 1 - n('stick'), 'fluff': (n('glue') ? 1 : 3) - n('fluff') };
+        const miss = Object.entries(need).filter(([, v]) => v > 0).map(([k, v]) => k === 'fluff' ? `${v} tuft${v > 1 ? 's' : ''} of fluff` : `${v} ${k}${v > 1 ? 's' : ''}`);
         let key, line;
         if (n(PIECE_OF[pc]) > 0) { key = 'set'; line = `Set the ${NAME[pc]} down right here!`; }
         else if (!miss.length && pc === 'bench' && !n('glue')) { key = 'glue'; line = `Glue first: two fluff on the Craft mat (${K.menu.toUpperCase()}).`; }
-        else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: two sticks and glue (${K.menu.toUpperCase()}).`; }
+        else if (!miss.length) { key = 'craft'; line = pc === 'fire' ? `You've got it! Craft: two stones and a stick (${K.menu.toUpperCase()}).` : `You've got it! Craft: a stick, glue and fluff (${K.menu.toUpperCase()}).`; }
         else { key = 'need-' + miss.join(','); line = `${NAME[pc][0].toUpperCase() + NAME[pc].slice(1)} goes here. Still need ${miss.join(' and ')}.`; }
         pipSay('camp-' + pc + '-' + key, line, at, 14, { x: at[0], y: at[1], r: 7 });
       }
@@ -4111,6 +4118,11 @@ function updatePip(dt) {
     const st = nearIt('stone'), sk = nearIt('stick'), fl = nearIt('fluff');
     if (sc.id === 'riverbank' && st) pipSay('stones', 'Smooth stones! Nice flat ones.', [st.x, st.y]);
     if (sk) pipSay('sticks', 'Good sticks. Dry ones burn best.', [sk.x, sk.y]);
+    const blade = !!bladeKind(), fluffNeed = (campMissing().fluff || 0) > 0;
+    if (!blade && fluffNeed && (raw.stick || 0) >= 3) pipSay('sword-first', `Before the rabbits: three sticks make a wooden sword. Craft tab (${K.menu.toUpperCase()})!`);
+    if (sc.id === 'f1' && fluffNeed) pipSay('fluff-wind', 'Fluff blows all over in this wind. Grab it quick!');
+    if (sc.id === 'f2' && fluffNeed && !blade) pipSay('rabbit-sword', 'Rabbits have plenty of fluff. They won\'t hand it over! Make a wooden sword first.');
+    if (sc.id === 'f2' && fluffNeed && blade) pipSay('rabbit-go', 'Rabbit! Get that fluff straight from the source!', state.enemies.find(e => e.type === 'rabbit') ? [state.enemies.find(e => e.type === 'rabbit').x, state.enemies.find(e => e.type === 'rabbit').y] : null, 12);
     if (fl) pipSay('fluff', 'Rabbit fluff! Don\'t ask the rabbits. They won\'t tell you.', [fl.x, fl.y]);
     if ((raw.stick || 0) >= 3 && (inv.craftSlots || 2) >= 3 && !inv.sword && !(inv.woodsword > 0) && pipSay('woodsword', `Three sticks lashed together make a sword! Well, a wooden one. It won't last long, but it's a start. (${K.menu.toUpperCase()}, Craft)`)) hearRecipe('woodsword');
     if (sc.id !== 'camp' && Object.keys(inv.pipTips || {}).some(k => k.startsWith('camp-'))) pipSay('pound', 'Try pounding around in different places. You never know what you might knock loose!');
@@ -6559,7 +6571,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 85';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 86';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -7345,7 +7357,7 @@ const RAW = { stick: 'Stick', stone: 'Smooth stone', fluff: 'Rabbit fluff', glue
 const RECIPES = [
   { out: 'glue', kind: 'raw', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
   { out: 'firering', kind: 'piece', in: ['stone', 'stone', 'stick'], line: 'smooth stones in a ring, kindling in the middle', piece: 'fire' },
-  { out: 'benchkit', kind: 'piece', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
+  { out: 'benchkit', kind: 'piece', in: ['stick', 'glue', 'fluff'], line: 'a stick plank, glued, with a fluff cushion. Fancy.', piece: 'bench' },
   { out: 'woodsword', kind: 'weapon', in: ['stick', 'stick', 'stick'], line: 'three sticks lashed into a sword. It splinters as you use it.', needs: () => !(state.inv.woodsword > 0) },
   { out: 'stonecharm', kind: 'wear', in: ['stone', 'stone', 'glue'], line: 'a flat smooth stone on a loop of glue-stiff fluff. Worn on the chest.' },
   { out: 'mitts', kind: 'wear', in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
@@ -7576,7 +7588,7 @@ function campHave() {                                    // raw counted with wha
   const raw = rawOf(), inv = state.inv, known = inv.known || {};
   const ring = campBuilt('fire') || (raw.firering || 0) > 0, bench = campBuilt('bench') || (raw.benchkit || 0) > 0;
   const glue = bench || (raw.glue || 0) > 0 || !!known.glue;
-  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 2 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) };
+  return { stone: (raw.stone || 0) + (ring ? 2 : 0), stick: (raw.stick || 0) + (ring ? 1 : 0) + (bench ? 1 : 0), fluff: (raw.fluff || 0) + (glue ? 2 : 0) + (bench ? 1 : 0) };
 }
 // what each quest amounts to, said in the banner when it's done
 const QUEST_DID = {
@@ -7601,7 +7613,7 @@ const QUESTS = [
   } },
   { id: 'camp', name: 'Set up camp', icon: 'firering', start: () => storyAt('tocamp'), steps: [
     { id: 'follow', name: 'Follow Pip to the camp spot', line: () => 'North of the glade. Pip knows the way.', done: () => storyAt('gather') },
-    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(3, c.stick)}/3, rabbit fluff ${Math.min(2, c.fluff)}/2.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 3 && c.fluff >= 2; } },
+    { id: 'gather', name: 'Gather for the camp', line: () => { const c = campHave(); return `Smooth stones ${Math.min(2, c.stone)}/2, sticks ${Math.min(2, c.stick)}/2, rabbit fluff ${Math.min(3, c.fluff)}/3.`; }, done: () => { const c = campHave(); return c.stone >= 2 && c.stick >= 2 && c.fluff >= 3; } },
     { id: 'fire', name: 'Build the fire ring', line: () => 'Craft it on the mat (pack, Craft tab), then set it on the marks at camp.', done: () => campBuilt('fire') },
     { id: 'bench', name: 'Build the bench', line: () => 'Two sticks and rabbit glue. Set it on the marks at camp.', done: () => campBuilt('bench') },
   ] },

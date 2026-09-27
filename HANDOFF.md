@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 85, 27 Sep 2026)
+# Quest: handoff notes (as of build 86, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 86 in short
+- Fluff: only the first field (f1) has any lying about, two tufts mid-screen, and loose fluff blows with the gusts (p3,
+  gentle 0.01 / blow 0.035 x L per s) and is lost if it leaves the screen ("Whoosh! The wind took a tuft of fluff.").
+  The second field's rabbit is the source: while camp is short of fluff, a rabbit always drops fluff (dropFor).
+- Camp now needs 3 fluff: the workbench is a stick, glue and a fluff cushion (RECIPES benchkit), so CAMP_NEED is
+  stone 2, stick 2, fluff 3; campHave, the camp quest line and Pip's bench lines follow.
+- Wooden sword first: craft slots start at 3 (newInv), the glade has 7 sticks (camp 2 + sword 3 + spares), and Pip
+  says "Before the rabbits: three sticks make a wooden sword" once you have 3 sticks and no blade, plus field lines
+  (f1: grab the fluff before it blows; f2: make a sword first / get it straight from the source).
+- The opening's finish() can no longer wind the story back to the garden.
+- Tests: t86; t56 tops fluff up to 3 and builds the new bench. Open: about 1 run in 8 of t56 ends with story 1 (garden)
+  after the camp is done; no reset, no intro restart and no story write was caught in 10 instrumented runs. Worth a look.
 
 ## Build 85 in short
 - Crops are pulled up: at a ripe patch you hold F (interact, state.cropPull) and the crop rises and shakes out of the

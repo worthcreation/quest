@@ -299,6 +299,12 @@ function update(dt) {
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
     h.x += h.vx * dt; h.y += h.vy * dt;
+    if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle')) {   // loose fluff blows about in the wind, and can blow clean away
+      const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
+      for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
+        it.x += w[0] * k * L() * dt; it.y += w[1] * k * L() * dt;
+        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; say('Whoosh! The wind took a tuft of fluff.', h.x, h.y - UNIT * 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
+    }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
@@ -842,6 +848,7 @@ function itemExists(type) {
   return Object.values(RT).some(rt => rt.items.some(i => i.type === type));
 }
 function dropFor(e) {
+  if (e.type === 'rabbit' && !campDone() && (campMissing().fluff || 0) > 0) return 'fluff';   // still short of fluff for camp: straight from the source
   for (const [t, p] of DROPS[e.type] || []) {
     if (rng() >= p) continue;
     if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
