@@ -23,6 +23,7 @@
   .abtn { position: fixed; border-radius: 50%; font-weight: bold; opacity: .85; }
   #act  { right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(40px + env(safe-area-inset-bottom, 0px)); width: 76px; height: 76px; font-size: 1.5rem; }
   #dash { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
+  #slotd { right: calc(190px + env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); width: 52px; height: 52px; font-size: .8rem; }
   #eat  { right: calc(34px + env(safe-area-inset-right, 0px)); bottom: calc(128px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .8rem; }
   #jump { right: calc(26px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px)); width: 64px; height: 64px; font-size: .85rem; }
   #throw { right: calc(112px + env(safe-area-inset-right, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; font-size: .75rem; }
@@ -47,6 +48,7 @@
 <button id="throw" class="abtn hidden">throw</button>
 <button id="dash" class="abtn hidden">dash</button>
 <button id="eat" class="abtn hidden">eat</button>
+<button id="slotd" class="abtn hidden">D</button>
 <button id="fire" class="abtn hidden">fire</button>
 <button id="menubtn" class="abtn">&#9776;</button>
 <div id="start"><div>tap to begin</div><small id="startHint"></small></div>
@@ -61,12 +63,12 @@ const lightCv = document.createElement('canvas');
 const lctx = lightCv.getContext('2d');
 const TOUCH = window.matchMedia('(pointer: coarse)').matches;
 // Keys are remappable from the menu. K holds the on-screen names used in hints.
-const DEFAULT_KEYS = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', act: 'f', jump: ' ', swap: 'r', dash: 'a', eat: 's', fire: 'e', menu: 'm' };
-const ACTION_NAMES = { up: 'Move up', down: 'Move down', left: 'Move left', right: 'Move right', act: 'Use weapon / grab / talk / throw', jump: 'Jump', swap: 'Swap weapon', dash: 'Dodge', eat: 'Eat', fire: 'Marsh fire', menu: 'Menu' };
+const DEFAULT_KEYS = { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', act: 'f', jump: ' ', swap: 'r', dash: 'a', eat: 's', slotd: 'd', fire: 'e', menu: 'm' };
+const ACTION_NAMES = { up: 'Move up', down: 'Move down', left: 'Move left', right: 'Move right', act: 'Use weapon / grab / talk / throw', jump: 'Jump', swap: 'Swap weapon', dash: 'Slot A (dodge)', eat: 'Slot S (eat)', slotd: 'Slot D (plant)', fire: 'Marsh fire', menu: 'Menu' };
 const K = {};
 function keyName(k) { return { ' ': 'Space', arrowup: '\u2191', arrowdown: '\u2193', arrowleft: '\u2190', arrowright: '\u2192', escape: 'Esc', enter: 'Enter' }[k] || (k.length === 1 ? k.toUpperCase() : k); }
 function refreshK() {
-  if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', swap: 'swap', dash: 'dodge', eat: 'eat', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
+  if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', swap: 'swap', dash: 'dodge', eat: 'eat', slotd: 'D', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
   else { const m = (state && state.settings && state.settings.keys) || DEFAULT_KEYS; for (const a in DEFAULT_KEYS) K[a] = keyName(m[a]); K.l = K.left; K.r = K.right; K.u = K.up; }
 }
 var state;
@@ -841,6 +843,7 @@ bindHold(document.getElementById('jump'), 'btnjump');
 bindHold(document.getElementById('throw'), 'btnswap');
 bindHold(document.getElementById('dash'), 'btndash');
 bindHold(document.getElementById('eat'), 'btneat');
+bindHold(document.getElementById('slotd'), 'btnslotd');
 bindHold(document.getElementById('fire'), 'btnfire');
 document.getElementById('menubtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state.started && !state.won) toggleMenu(); });
 canvas.addEventListener('pointerdown', e => {
@@ -856,6 +859,7 @@ const held = {
   swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,
   eat:   () => kk('eat') || !!state.keys.btneat,
+  slotd: () => kk('slotd') || !!state.keys.btnslotd,
   fire:  () => kk('fire') || !!state.keys.btnfire,
   up:    () => kk('up') || !!state.keys.arrowup,
   down:  () => kk('down') || !!state.keys.arrowdown,
@@ -878,8 +882,8 @@ function inputVector() {
 }
 function refreshButtons() {
   const inv = state.inv;
-  document.getElementById('dash').classList.toggle('hidden', !inv.step);
-  document.getElementById('dash').textContent = 'dodge';
+  { const sl = slotsOf(), lab = s => !s ? '' : s.kind === 'ability' ? (s.id === 'dodge' ? 'dodge' : 'fire') : s.kind === 'food' ? 'eat' : s.kind === 'seed' ? 'plant' : s.id;
+    for (const [id, k] of [['dash', 'a'], ['eat', 's'], ['slotd', 'd']]) { const el = document.getElementById(id); if (!el) continue; el.classList.toggle('hidden', !sl[k] || (k === 'a' && sl.a.kind === 'ability' && sl.a.id === 'dodge' && !inv.step)); el.textContent = lab(sl[k]); } }
   document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
   document.getElementById('throw').classList.toggle('hidden', !(inv.sword || inv.acorns || inv.food.length));
@@ -3363,20 +3367,13 @@ function advanceTalk() {
 // =====================================================================
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
-  if (pressedNow.dash && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
+  let wantDodge = false;
+  for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  if (wantDodge && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
     h.dashT = inv.step >= 3 ? 0.22 : 0.18; h.dashCool = inv.step >= 2 ? 0.5 : 0.85; h.invuln = Math.max(h.invuln, inv.step >= 3 ? 0.45 : 0.3);
     h.vx = h.fx * 1.2 * L(); h.vy = h.fy * 1.2 * L();
     state.dodged = false;
     sfx.dash();
-  }
-  if (pressedNow.eat && inv.food.length) {
-    if (h.vig >= maxVig()) sayHero('Not hungry right now.', { life: 1.5 });
-    else {
-      const miss = 1 - h.vig / maxVig(), auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
-      const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
-      const pickF = order.find(f => inv.food.includes(f)) || inv.food[0];
-      eatFood(pickF);
-    }
   }
   // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
   // R: tap swaps weapons; hold opens the quick-select wheel (the world slows), point and let go
@@ -3417,7 +3414,7 @@ function updateAbilities(dt) {
   } else state.aim.on = false;
   // marsh fire: breathe out gas while held, spark it on release
   const fh = state.fireHold;
-  if (inv.fire && held.fire() && !state.carry && !state.pull.grip) {
+  if (inv.fire && (held.fire() || slotHeld('fire')) && !state.carry && !state.pull.grip) {
     if (!fh.on) { fh.on = true; fh.emit = 0; fh.t = 0; sfx.hiss(); }
     fh.t = (fh.t || 0) + dt;
     if (h.vig > 0.3) {
@@ -4054,12 +4051,12 @@ function packCells(tab) {
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
-    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }] });
-    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }] });
+    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: (state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }]).concat(slotActs({ kind: 'weapon', id: 'sword' })) });
+    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: (state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }]).concat(slotActs({ kind: 'weapon', id: 'acorn' })) });
     cells.push({ icon: 'seed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
-    if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark` });
-    for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1] });
+    if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
+    for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
     if (inv.scalp) cells.push({ icon: 'scalp', name: 'Stalker cap', line: 'falling things bounce off' });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
@@ -4067,12 +4064,12 @@ function packCells(tab) {
   if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
     const fav = inv.favFood === f;
     cells.push({ icon: f, name: f[0].toUpperCase() + f.slice(1), count: inv.food.filter(x => x === f).length, star: fav, line: FOOD_INFO[f],
-      acts: [{ label: 'Eat', fn: () => { state.menu = null; eatFood(f); } }, { label: fav ? 'Stop eating first' : `Eat first (${K.eat})`, fn: () => { inv.favFood = fav ? null : f; } }, drop(f, () => inv.food.splice(inv.food.indexOf(f), 1))] });
+      acts: [{ label: 'Eat', fn: () => { state.menu = null; eatFood(f); } }, { label: fav ? 'Stop eating first' : 'Eat first', fn: () => { inv.favFood = fav ? null : f; } }, ...slotActs({ kind: 'food', id: f }), drop(f, () => inv.food.splice(inv.food.indexOf(f), 1))] });
   }
   if (tab === 'Seeds') for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) {
     const fav = inv.favSeed === k;
     cells.push({ icon: k, name: SEEDS[k].name, count: inv.bag[k], star: fav, line: SEEDS[k].yields ? `grows ${MATS[SEEDS[k].yields[0]]}` : 'grows the local food',
-      acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, drop(k, () => inv.bag[k]--)] });
+      acts: [{ label: fav ? 'Stop planting first' : 'Plant first', fn: () => { inv.favSeed = fav ? null : k; } }, ...slotActs({ kind: 'seed', id: k }), drop(k, () => inv.bag[k]--)] });
   }
   if (tab === 'Materials') for (const k of Object.keys(MATS)) if (inv.mats[k] > 0) cells.push({ icon: k === 'ember' ? 'ember' : k, name: MATS[k], count: inv.mats[k], line: `for ${MAT_USE[k] || 'crafting'}` });
   if (tab === 'Quests' && ARENA) {
@@ -5467,24 +5464,20 @@ function drawHUD() {
   for (let d = 1; d <= inv.depth; d++) { const xx = x0 + len * baseVig(d - 1) / mv; ctx.beginPath(); ctx.moveTo(xx, y0); ctx.lineTo(xx, y0 + hgt); ctx.stroke(); }
   ctx.font = `bold ${Math.round(hgt * 0.95)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3';
   ctx.fillText(`vigor ${Math.ceil(h.vig)}/${mv}`, x0 + 4, y0 + hgt * 0.85);
-  // only what you have equipped, beside the bar: the sword or acorns; then any effect that's running out
-  let x = x0 + len + 12 + s * 0.6, y = y0 + hgt / 2;
-  const slot = (type, label, bar, small) => {
-    const k = small ? 0.75 : 1;
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6 * k, y - s * 0.6 * k, s * 1.2 * k, s * 1.2 * k);
+  // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
+  let x = drawSlotBar(x0, y0 + hgt + s * 0.95, len, s), y = y0 + hgt + s * 0.95;
+  const eff = (type, bar) => {
+    const k = 0.7; ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(x - s * 0.6 * k, y - s * 0.6 * k, s * 1.2 * k, s * 1.2 * k);
     drawItemIcon(type, x, y, s * 0.8 * k);
-    if (label) { ctx.font = `bold ${Math.round(s * 0.42)}px "Courier New", monospace`; ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.fillText(label, x, y + s * 0.95); ctx.textAlign = 'left'; }
-    if (bar != null) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k, 3); ctx.fillStyle = '#c9f27a'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k * bar, 3); }
-    x += s * 1.45 * k;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k, 3); ctx.fillStyle = '#c9f27a'; ctx.fillRect(x - s * 0.5 * k, y + s * 0.58 * k, s * k * bar, 3);
+    x += s * 1.0;
   };
-  if (state.equip === 'acorn' && inv.acorns > 0) slot('acorn', `x${inv.acorns}`);
-  else if (inv.sword) slot('sword');
-  if (inv.lumin > 0) slot('lumin', null, Math.min(1, inv.lumin / 45), true);
-  if (inv.pepper > 0) slot('pepper', null, Math.min(1, inv.pepper / 90), true);
-  if (inv.fishBuff > 0) slot('fish', null, Math.min(1, inv.fishBuff / 180), true);
-  if (inv.slime > 0) slot('slime', null, inv.slime / 25, true);
-  if (inv.carrotBuff > 0) slot('carrot', null, inv.carrotBuff / 15, true);
-  if (inv.squashBuff > 0) slot('squash', null, inv.squashBuff / 20, true);
+  if (inv.lumin > 0) eff('lumin', Math.min(1, inv.lumin / 45));
+  if (inv.pepper > 0) eff('pepper', Math.min(1, inv.pepper / 90));
+  if (inv.fishBuff > 0) eff('fish', Math.min(1, inv.fishBuff / 180));
+  if (inv.slime > 0) eff('slime', inv.slime / 25);
+  if (inv.carrotBuff > 0) eff('carrot', inv.carrotBuff / 15);
+  if (inv.squashBuff > 0) eff('squash', inv.squashBuff / 20);
   const need = 25 * Math.pow(1.35, inv.tlevel);
   ctx.fillStyle = 'rgba(184,242,138,.6)'; ctx.fillRect(x0, y0 + hgt + 1, len * Math.min(1, inv.xp / need), 2);
   const boss = state.enemies.find(e => e.type === 'warden' && e.mode !== 'dormant' && e.mode !== 'talk' && !e.dead);
@@ -5493,7 +5486,7 @@ function drawHUD() {
     ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(bx - 2, by - 2, bw + 4, 12);
     ctx.fillStyle = boss.enraged ? '#e0603a' : '#6fc3f5'; ctx.fillRect(bx, by, bw * Math.max(0, boss.hp / boss.maxHp), 8);
   }
-  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.2 };   // text keeps out of here
+  state.hudRect = { x: 0, y: 0, w: Math.max(len + 24, x + s * 0.2), h: y0 + hgt + s * 1.8 };   // text keeps out of here
   drawArenaBanner();
   drawRapidsHud();
 }
@@ -5735,7 +5728,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 60';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 61';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6742,6 +6735,102 @@ function drawShroomRipples(x, y, u, found, key) {
 }
 
 // =====================================================================
+// Quick slots: A, S, D and F, shown under the vigor bar in that order. F is your weapon. A, S and D hold
+// whatever you put there: an ability, a food, a seed, or the other weapon. By default A dodges (once you
+// can), S eats, D plants.
+// =====================================================================
+const SLOT_KEYS = ['a', 's', 'd'];
+const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd' };
+function slotsOf() {
+  const inv = state.inv;
+  if (!inv.slots) inv.slots = { a: null, s: { kind: 'food', id: 'auto' }, d: { kind: 'seed', id: 'auto' } };
+  if (!inv.slots.a && inv.step) inv.slots.a = { kind: 'ability', id: 'dodge' };
+  return inv.slots;
+}
+function autoFood() {
+  const inv = state.inv, h = state.hero, miss = 1 - h.vig / maxVig();
+  const auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
+  const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
+  return order.find(f => inv.food.includes(f)) || inv.food[0] || null;
+}
+function autoSeed() {
+  const inv = state.inv;
+  if (inv.favSeed && inv.bag[inv.favSeed] > 0) return inv.favSeed;
+  return ['seed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
+}
+// what a slot shows right now: an icon, and a count if it has one
+function slotShow(s) {
+  const inv = state.inv;
+  if (!s) return null;
+  if (s.kind === 'food') { const f = s.id === 'auto' ? autoFood() : s.id; return f ? { icon: f, n: inv.food.filter(x => x === f).length || null, dim: !inv.food.includes(f) } : { icon: 'carrot', dim: true }; }
+  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'seed', dim: true }; }
+  if (s.kind === 'weapon') return { icon: s.id, n: s.id === 'acorn' ? inv.acorns : null, dim: s.id === 'acorn' ? !(inv.acorns > 0) : !inv.sword };
+  if (s.kind === 'ability') return { icon: s.id === 'dodge' ? 'step' : 'fire', dim: s.id === 'dodge' ? !inv.step : !inv.fire };
+  return null;
+}
+function plantHere(kind) {
+  const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
+  if (!sc.feat.plots || !kind) return false;
+  const plots = rt.flags.plots || (rt.flags.plots = sc.feat.plots.map(() => ({ s: 0, t: 0, lv: sc.feat.plotLv || 0 })));
+  let best = -1, bd = UNIT * 1.3;
+  sc.feat.plots.forEach(([fx, fy], i) => { const d = Math.hypot(h.x - fx * W, h.y - fy * H); if (d < bd && !plots[i].s) { bd = d; best = i; } });
+  if (best < 0) return false;
+  const p = plots[best], [px, py] = sc.feat.plots[best];
+  state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
+  sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
+  say(`${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
+  return true;
+}
+// press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
+function useSlot(k) {
+  const s = slotsOf()[k], inv = state.inv, h = state.hero;
+  if (!s) return null;
+  if (s.kind === 'ability') return s.id;                                 // 'dodge' or 'fire' (fire is held)
+  if (s.kind === 'food') {
+    const f = s.id === 'auto' ? autoFood() : s.id;
+    if (!f || !inv.food.includes(f)) { sayHero('Nothing to eat in that slot.', { life: 1.4 }); return null; }
+    if (h.vig >= maxVig()) { sayHero('Not hungry right now.', { life: 1.5 }); return null; }
+    eatFood(f); return null;
+  }
+  if (s.kind === 'seed') {
+    const kind = s.id === 'auto' ? autoSeed() : s.id;
+    if (!kind || !(inv.bag[kind] > 0)) { sayHero('No seeds of that kind.', { life: 1.4 }); return null; }
+    if (!plantHere(kind)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 });
+    return null;
+  }
+  if (s.kind === 'weapon') {
+    if (s.id === 'acorn' && !(inv.acorns > 0)) { sayHero('No acorns.', { life: 1.2 }); return null; }
+    if (s.id === 'sword' && !inv.sword) return null;
+    state.equip = s.id; state.active = s.id; sfx.tock(); return null;
+  }
+  return null;
+}
+const slotHeld = id => SLOT_KEYS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
+// "put in slot" actions for pack cells
+function slotActs(entry) {
+  return SLOT_KEYS.map(k => ({ label: `Slot ${K[SLOT_ACTION[k]] || k.toUpperCase()}`, fn: () => { slotsOf()[k] = entry; } }));
+}
+// the bar under the vigor display: A S D F, centred beneath it
+function drawSlotBar(x0, y0, len, s) {
+  const slots = slotsOf(), inv = state.inv, keys = [...SLOT_KEYS, 'f'], gap = s * 0.35, w = keys.length * s * 1.2 + (keys.length - 1) * gap;
+  let x = x0 + len / 2 - w / 2 + s * 0.6;
+  x = Math.max(x0 + s * 0.6, x);
+  const y = y0;
+  for (const k of keys) {
+    const show = k === 'f' ? (state.equip === 'acorn' && inv.acorns > 0 ? { icon: 'acorn', n: inv.acorns } : inv.sword ? { icon: 'sword' } : null) : slotShow(slots[k]);
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+    ctx.strokeStyle = 'rgba(255,227,138,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+    if (show) { ctx.globalAlpha = show.dim ? 0.35 : 1; drawItemIcon(show.icon, x, y, s * 0.78); ctx.globalAlpha = 1; }
+    ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
+    ctx.fillText((k === 'f' ? K.act : (K[SLOT_ACTION[k]] || k)).toUpperCase().slice(0, 5), x - s * 0.55, y - s * 0.3);   // the key, top left
+    if (show && show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
+    ctx.textAlign = 'left';
+    x += s * 1.2 + gap;
+  }
+  return x;
+}
+
+// =====================================================================
 // Drawing
 // =====================================================================
 // ---------- shared pieces ----------
@@ -7215,6 +7304,10 @@ function layoutTexts() {
     const lh = fs * 1.3, bh = lines.length * lh + TEXT.pad * 1.4, bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + TEXT.pad * 2.4;
     const wx = t.follow ? h.x : t.x, wy = t.follow ? h.y - h.z - UNIT * 1.1 : t.y;
     const [ax, ay] = toScreen(wx, wy);
+    if (t.pos && t.pos.w === bw) {                    // already placed: it stays exactly there
+      const b = { t, x: t.pos.x, y: t.pos.y, drawY: t.pos.y, w: bw, h: bh, lines, size: fs, lh };
+      boxes.push(b); placed.push(b); continue;
+    }
     const x = Math.max(8, Math.min(W - bw - 8, ax - bw / 2));
     const pref = ay - bh;                             // above the thing it talks about
     let best = null, bestCost = Infinity;
@@ -7229,11 +7322,8 @@ function layoutTexts() {
       if (!hit) break;
     }
     if (!best || bestCost >= 1e6) { t.ly = null; continue; }      // no clear room right now: better unseen than unreadable
-    // glide toward the chosen spot, but never through another box
-    let y = t.ly == null ? best.y : t.ly + (best.y - t.ly) * 0.35;
-    const glide = { x: best.x, y, w: bw, h: bh };
-    if (Math.abs(y - best.y) > bh * 3 || placed.some(p => overlaps(glide, p, 2)) || res.some(p => overlaps(glide, p, 0))) y = best.y;
-    t.ly = y;
+    const y = best.y;
+    t.pos = { x: best.x, y, w: bw };                  // fixed from now on
     const b = { t, x: best.x, y, drawY: y, w: bw, h: bh, lines, size: fs, lh };
     boxes.push(b); placed.push(b);
   }
