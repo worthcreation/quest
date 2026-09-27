@@ -287,7 +287,7 @@ function genWorld() {
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
   // inside Pip's tent: a bedroll, a chest for storage, and Pip's book of rules and training on a crate
   const tentin = add(newScene({ id: 'tentin', area: 'indoor', msg: '', music: 'forest', amb: 'none', floor: '#6e5a3e', heroStart: [0.5, 0.8], speed: 0.4 }));
-  tentin.feat.tentRoom = true;
+  tentin.feat.tentRoom = true; tentin.placeName = 'Pip\'s Lean-to';
   tentin.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'camp', arrive: [0.33, 0.33 + 1.9 * UNIT / H] }];
   for (const side of ['n', 'w', 'e']) edgeWall(tentin, side, 'wall', 1.0, [], 1.2);
   edgeWall(tentin, 's', 'wall', 1.0, [[0.4, 0.6]], 1.2);
@@ -387,7 +387,7 @@ function genWorld() {
   decoFlowers(farbank, 40);
 
   // ---------------- Old Wick's shack: one room, a smell, a letter, a few seeds ----------------
-  const shack = add(newScene({ id: 'shack', area: 'indoor', msg: 'It smells of pipe smoke, wet wool and old fish.', music: 'forest', amb: 'none', floor: '#6b4e32', heroStart: [0.5, 0.8], speed: 0.4 }));
+  const shack = add(newScene({ id: 'shack', area: 'indoor', placeName: 'Old Wick\'s Shack', msg: 'It smells of pipe smoke, wet wool and old fish.', music: 'forest', amb: 'none', floor: '#6b4e32', heroStart: [0.5, 0.8], speed: 0.4 }));
   shack.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'riverbank', arrive: [0.12, 0.13 + 1.6 * UNIT / H] }];
   for (const side of ['n', 'w', 'e']) edgeWall(shack, side, 'wall', 1.0, [], 1.2);
   edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
@@ -1284,9 +1284,10 @@ function enterScene(id, fx, fy) {
   state.enterT = state.time;
 
   let titled = false;
-  if (state.area !== sc.area) {
-    state.area = sc.area; titled = true;
-    showTitle(AREA_NAMES[sc.area], null, 'area', 2.8);
+  const place = sc.placeName || AREA_NAMES[sc.area];
+  if (state.area !== place) {
+    state.area = place; titled = true;
+    showTitle(place, null, 'area', 2.8);
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
@@ -3616,10 +3617,10 @@ function updatePip(dt) {
   }
   if (sc.id === 'camp') {
     const spot = p2 => (f.buildSpots || []).find(b => b.piece === p2);
-    if (inv.story === STORY.tocamp) { if (pipSay('tada', 'TA-DA! Best spot in the whole world. I already put the tent up, look!')) inv.story = STORY.gather; }
+    if (inv.story === STORY.tocamp) { if (pipSay('tada', 'TA-DA! Best spot in the whole world. I built us a lean-to! It mostly stays up.')) inv.story = STORY.gather; }
     else if (storyAt('gather') && !campDone()) {
       pipSay('shopping', 'We still need a fire ring and a bench. River stones from the riverbank, sticks from the forest, and rabbit fluff from the windy fields down south. For glue. Trust me.');
-      pipSay('tentin', 'Oh, and go look inside the tent. I left my book in there.', P([0.33, 0.33]));
+      pipSay('tentin', 'Go on, crawl inside the lean-to. My book\'s in there.', P([0.33, 0.33]));
       for (const pc of ['fire', 'bench']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, 'Set it down on the marks, right here.', P([spot(pc).fx, spot(pc).fy]));
       if (campBuilt('fire') && !campBuilt('bench')) pipSay('fireok', 'A real fire! Now the bench: two sticks and some of that glue.');
     } else if (campDone()) { if (!storyAt('adventure')) inv.story = STORY.adventure; pipSay('campdone', 'Home base! Now... treasure. The woods are past the glade, come on!'); }
@@ -5017,12 +5018,22 @@ function drawSolid(s) {
       ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
       ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
       break;
-    case 'tent':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#b5864a'; ctx.beginPath(); ctx.moveTo(x - r, y + u * 0.5); ctx.lineTo(x, y - r * 0.9); ctx.lineTo(x + r, y + u * 0.5); ctx.fill();
-      ctx.fillStyle = '#8a6334'; ctx.beginPath(); ctx.moveTo(x, y - r * 0.9); ctx.lineTo(x + r, y + u * 0.5); ctx.lineTo(x + r * 0.2, y + u * 0.5); ctx.fill();
-      ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.25, y + u * 0.5); ctx.lineTo(x, y - r * 0.1); ctx.lineTo(x + r * 0.25, y + u * 0.5); ctx.fill();
+    case 'tent': {                                     // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
+      const jj = k => Math.sin(k * 12.9898) * 0.5;
+      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
+      for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
+        const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
+        ctx.strokeStyle = k % 4 === 1 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#7a5c3a'; ctx.lineWidth = u * (0.1 + 0.03 * jj(k + 2));
+        ctx.beginPath(); ctx.moveTo(bx, y + u * 0.5); ctx.lineTo(bx + jj(k + 5) * u * 0.25, y + u * 0.5 - len); ctx.stroke();
+      }
+      ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(x + r * 0.15, y - r * 0.65); ctx.lineTo(x + r * 0.95, y - r * 0.6); ctx.lineTo(x + r * 1.0, y + u * 0.2); ctx.lineTo(x + r * 0.2, y + u * 0.3); ctx.fill();   // the blanket
+      ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.3); ctx.lineTo(x + r * 0.97, y - r * 0.28); ctx.stroke();
+      ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.moveTo(x - r * 1.05, y - r * 0.62); ctx.lineTo(x + r * 1.08, y - r * 0.7); ctx.stroke();   // crossbar, a bit crooked
+      ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - r * 1.0, y + u * 0.5); ctx.lineTo(x - r * 1.0, y - r * 0.75); ctx.moveTo(x + r * 1.03, y + u * 0.5); ctx.lineTo(x + r * 1.06, y - r * 0.8); ctx.stroke();   // forked uprights
+      ctx.fillStyle = '#5f8a3a'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x - r * 0.6 + k * r * 0.25, y - r * 0.6 + jj(k) * 4, u * 0.2, u * 0.08, jj(k + 1), 0, 6.28); ctx.fill(); }   // leafy branches on top
       break;
+    }
     case 'bramble':                                // storm-piled thorns
       ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 2.5;
       for (let i = 0; i < 5; i++) { const a = i * 1.3 + s.fy * 20; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3, r * (0.5 + i * 0.1), a, a + 3.5); ctx.stroke(); }
@@ -5493,14 +5504,11 @@ function drawActionHint() {
   state.actionHint = it;
   if (!it) return;
   const [sx, sy] = toScreen(it.x, it.y), z = state.cam.ez, u = UNIT * z, t = state.time;
-  const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, u * 1.3);
-  g.addColorStop(0, `rgba(255,240,170,${0.28 + 0.12 * Math.sin(t * 4)})`); g.addColorStop(1, 'rgba(255,240,170,0)');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, u * 1.3, 0, 6.28); ctx.fill();
-  for (let i = 0; i < 3; i++) {                        // three little four-point sparkles circling it
-    const a = t * 1.6 + i * 2.09, rr_ = u * 0.9, x = sx + Math.cos(a) * rr_, y = sy + Math.sin(a) * rr_ * 0.6 - u * 0.3, k = (0.5 + 0.5 * Math.sin(t * 5 + i * 2)) * u * 0.22 + u * 0.06;
-    ctx.fillStyle = 'rgba(255,248,200,.95)';
-    ctx.beginPath(); ctx.moveTo(x, y - k); ctx.lineTo(x + k * 0.25, y - k * 0.25); ctx.lineTo(x + k, y); ctx.lineTo(x + k * 0.25, y + k * 0.25); ctx.lineTo(x, y + k); ctx.lineTo(x - k * 0.25, y + k * 0.25); ctx.lineTo(x - k, y); ctx.lineTo(x - k * 0.25, y - k * 0.25); ctx.closePath(); ctx.fill();
-  }
+  ctx.strokeStyle = `rgba(255,236,160,${0.55 + 0.2 * Math.sin(t * 3)})`; ctx.lineWidth = 1.5;   // a thin ring on the ground: this one
+  ctx.beginPath(); ctx.ellipse(sx, sy + u * 0.3, u * 0.75, u * 0.28, 0, 0, 6.28); ctx.stroke();
+  const k = (0.5 + 0.5 * Math.sin(t * 2.5)) * u * 0.1 + u * 0.03, tx = sx + u * 0.45, ty = sy - u * 0.55;   // one small twinkle
+  ctx.fillStyle = 'rgba(255,248,210,.9)'; ctx.beginPath(); ctx.moveTo(tx, ty - k); ctx.lineTo(tx + k * 0.25, ty); ctx.lineTo(tx, ty + k); ctx.lineTo(tx - k * 0.25, ty); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx - k, ty); ctx.lineTo(tx, ty + k * 0.25); ctx.lineTo(tx + k, ty); ctx.lineTo(tx, ty - k * 0.25); ctx.closePath(); ctx.fill();
   if (state.settings.labels === false) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.46)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
@@ -5613,7 +5621,7 @@ function drawRadial() {
   ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 54';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 55';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6502,15 +6510,32 @@ function drawOldJetty(sc) {
   ctx.fillStyle = '#4a3a28'; for (const px of [u * 0.1, len - u * 0.1]) for (const py of [-wid / 2 - 2, wid / 2 - 4]) ctx.fillRect(px - 3, py, 6, 6);
   ctx.restore();
 }
-// the tent, from the inside: canvas walls, a bedroll, a chest, and Pip's book on a crate
+// the lean-to, from the inside: a leaning wall of mismatched sticks and a blanket, daylight through every crack
 function drawTentRoom() {
-  const u = UNIT;
-  ctx.fillStyle = '#6e5a3e'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#b86a52'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.lineTo(W * 0.8, H * 0.2); ctx.lineTo(W * 0.2, H * 0.2); ctx.fill();   // canvas overhead
-  ctx.fillStyle = '#a05a44'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W * 0.2, H * 0.2); ctx.lineTo(W * 0.2, H); ctx.lineTo(0, H); ctx.fill(); ctx.beginPath(); ctx.moveTo(W, 0); ctx.lineTo(W * 0.8, H * 0.2); ctx.lineTo(W * 0.8, H); ctx.lineTo(W, H); ctx.fill();
-  ctx.strokeStyle = 'rgba(60,30,20,.35)'; ctx.lineWidth = 2; for (let k = 1; k < 5; k++) { ctx.beginPath(); ctx.moveTo(W * 0.2 * k / 5, H * 0.2 * k / 5); ctx.lineTo(W * 0.2 * k / 5, H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(W - W * 0.2 * k / 5, H * 0.2 * k / 5); ctx.lineTo(W - W * 0.2 * k / 5, H); ctx.stroke(); }
-  ctx.fillStyle = '#5a4a38'; ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.6, W * 0.22, H * 0.18, 0, 0, 6.28); ctx.fill();   // rug
-  ctx.fillStyle = 'rgba(255,240,200,.25)'; ctx.fillRect(W * 0.42, H - u * 1.2, W * 0.16, u * 1.2);                       // light at the flap
+  const u = UNIT, t = state.time, j = k => Math.sin(k * 12.9898) * 0.5;
+  ctx.fillStyle = '#5e4a32'; ctx.fillRect(0, 0, W, H);                                                   // packed dirt floor
+  for (let k = 0; k < 40; k++) { ctx.fillStyle = 'rgba(40,28,16,.25)'; ctx.beginPath(); ctx.ellipse(((k * 0.618) % 1) * W, ((k * 0.377) % 1) * H, u * 0.25, u * 0.1, k, 0, 6.28); ctx.fill(); }
+  const top = H * 0.3;                                                                                    // the slanted wall overhead: sticks of every length, a few crooked
+  for (let k = 0; k < 26; k++) {
+    const x = (k + 0.5) / 26 * W, w = W / 26 - 3 + j(k) * 5, len = top + j(k + 3) * u * 0.6;
+    ctx.save(); ctx.translate(x, 0); ctx.rotate(j(k + 7) * 0.06);
+    ctx.fillStyle = k % 5 === 2 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#765838'; ctx.fillRect(-w / 2, -4, w, len + 4);
+    ctx.restore();
+  }
+  ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(W * 0.55, 0); ctx.lineTo(W * 0.92, 0); ctx.lineTo(W * 0.88, top * 0.8); ctx.lineTo(W * 0.6, top * 0.95); ctx.fill();   // Pip's old blanket, flung over one end
+  ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W * 0.57, top * 0.3); ctx.lineTo(W * 0.9, top * 0.25); ctx.moveTo(W * 0.58, top * 0.6); ctx.lineTo(W * 0.89, top * 0.55); ctx.stroke();
+  ctx.fillStyle = '#4e3a24'; ctx.fillRect(0, top - u * 0.15, W, u * 0.3);                                // the crossbar it all leans on
+  ctx.strokeStyle = '#c9b070'; ctx.lineWidth = 2; for (let k = 1; k < 6; k++) { const x = W * k / 6; ctx.beginPath(); ctx.moveTo(x - 6, top - u * 0.15); ctx.lineTo(x + 6, top + u * 0.15); ctx.moveTo(x + 6, top - u * 0.15); ctx.lineTo(x - 6, top + u * 0.15); ctx.stroke(); }   // lashings
+  for (let k = 0; k < 7; k++) {                                                                           // light through the cracks, falling across the floor
+    const x = W * (0.08 + k * 0.13 + j(k + 11) * 0.03);
+    if (x > W * 0.55 && x < W * 0.92) continue;                                                             // not through the blanket
+    const a = 0.1 + 0.06 * Math.sin(t * 0.7 + k), wdt = u * (0.12 + 0.1 * (k % 2));
+    const g = ctx.createLinearGradient(0, top, 0, H * 0.95); g.addColorStop(0, `rgba(255,236,180,${a + 0.08})`); g.addColorStop(1, 'rgba(255,236,180,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x + wdt, top); ctx.lineTo(x + wdt + u * 1.6, H * 0.95); ctx.lineTo(x + u * 1.2, H * 0.95); ctx.fill();
+    ctx.fillStyle = `rgba(255,240,190,${a + 0.12})`; ctx.fillRect(x, top - u * 0.2, wdt, u * 0.2);      // the bright gap itself
+    for (let m = 0; m < 3; m++) { const p = ((t * 0.05 + m * 0.33 + k * 0.1) % 1), dx = x + wdt * 0.5 + p * u * 1.4, dy = top + p * (H * 0.6); ctx.fillStyle = 'rgba(255,245,210,.5)'; ctx.fillRect(dx + Math.sin(t + m) * 3, dy, 2, 2); }   // dust drifting in the beam
+  }
+  ctx.fillStyle = 'rgba(255,240,200,.18)'; ctx.fillRect(W * 0.38, H - u * 1.1, W * 0.24, u * 1.1);        // the open side, where you crawled in
 }
 
 // =====================================================================
