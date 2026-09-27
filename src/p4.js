@@ -524,12 +524,12 @@ const AI = {
       case 'descend':
         e.x += (e.lx - e.x) * (1 - Math.exp(-10 * dt)); e.y += (e.ly - e.y) * (1 - Math.exp(-10 * dt));
         e.hgt = Math.max(0, e.t / 0.9);
-        if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !state.inv.scalp) { e.parried = true; e.hgt = 0; parry(e); break; }
+        if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !wears('cap')) { e.parried = true; e.hgt = 0; parry(e); break; }
         if (e.t <= 0) {
           e.hgt = 0;
           spark(e.x, e.y, '#4b3558', 8, 3);
           if (dist < UNIT * 1.1 && h.z < UNIT * 0.5) {
-            if (state.inv.scalp) {
+            if (wears('cap')) {
               sfx.boing(); e.mode = 'stunned'; e.t = 1.6;
               zoomPulse(h.x, h.y, 'parry');
               say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 });
@@ -634,7 +634,7 @@ function updateHazards(dt) {
       }
       if (state.whirl && Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 1.6) endWhirl('knocked');
       if (Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 0.4 && h.z < UNIT * 0.5) {
-        if (state.inv.scalp) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
+        if (wears('cap')) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
         else hurtHero(1, z.x, z.y);
       }
     }

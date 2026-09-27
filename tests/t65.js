@@ -56,8 +56,8 @@ while(spoken().length){ press('f'); run(5); }
 // robin: turnip seeds
 let tries=0; const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return false; tries++; const b=state.bird; walkTo(b.x, b.y+UNIT*1.2); run(30); const sd=state.items.find(i=>i.type==='turnipseed'); if(sd){ walkTo(sd.x, sd.y); run(5); return true;} return false; };
 tryRobin(); console.log('18 first startle drops turnip seeds:', state.inv.bag.turnipseed, 'firstBirdSeed', state.inv.firstBirdSeed, 'items', state.items.map(i=>i.type).join(','), '| no plain seed item', !state.items.some(i=>i.type==='seed'));
-const plantOne=()=>{ const rt=rtFor('meadow'), plots=WORLD.meadow.feat.plots; const j=plots.findIndex((q,ix)=>!((rt.flags.plots||[])[ix]||{}).s); const q=plots[j]; walkTo(q[0]*W,q[1]*H); run(3); while(spoken().length){ press('f'); run(5); } press('d'); run(30); };
-plantOne(); console.log('19 planted with D:', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, 'seed kind', (rtFor('meadow').flags.plots||[]).find(p=>p.s)?.seed);
+const plantOne=()=>{ const rt=rtFor('meadow'), plots=WORLD.meadow.feat.plots; const j=plots.findIndex((q,ix)=>!((rt.flags.plots||[])[ix]||{}).s); const q=plots[j]; walkTo(q[0]*W,q[1]*H); run(3); while(spoken().length){ press('f'); run(5); } press(seedSlotKey()||'f'); run(30); };
+plantOne(); console.log('19 planted with the seed slot key ('+(seedSlotKey()||'-')+'):', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length, 'seed kind', (rtFor('meadow').flags.plots||[]).find(p=>p.s)?.seed);
 while ((state.inv.bag.turnipseed||0)===0 && tries<40) { tryRobin(); run(60); }
 plantOne(); run(30);
 console.log('20 two planted, story to camp:', (rtFor('meadow').flags.plots||[]).filter(p=>p.s===1).length===2, state.inv.story===STORY.tocamp, '| tries', tries);

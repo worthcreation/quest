@@ -33,7 +33,7 @@ function eatFood(food) {
   inv.food.splice(i, 1);
   sfx.munch(); zoomPulse(h.x, h.y, 'tap');
   const [lo, hi] = foodRange(food), perk = cropLevel(food) >= 3;
-  let amt = lo + Math.random() * (hi - lo);
+  let amt = (lo + Math.random() * (hi - lo)) * (wears('mitts') ? 1.25 : 1);
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
   if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
     inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
@@ -78,35 +78,110 @@ function drawShroomRipples(x, y, u, found, key) {
 // whatever you put there: an ability, a food, a seed, or the other weapon. By default A dodges (once you
 // can), S eats, D plants.
 // =====================================================================
-const SLOT_KEYS = ['a', 's', 'd'];
-const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd' };
+// =====================================================================
+// Slots: A S D F. Whatever sits in a slot, that key uses it. Anything can go in any slot. F is also the
+// dynamic action: when there's something to do right here (talk, plant, lift, read) F does that first,
+// otherwise it uses what's in the F slot. Slots start empty and draw nothing. New things you pick up drop
+// into an empty slot on their own (weapons into F first); a full bar is never overwritten, you're pointed
+// to R instead. One list of what can be slotted (slotOptions) feeds the wheel, the pack and auto-equip.
+// =====================================================================
+const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
+const ALL_SLOTS = ['a', 's', 'd', 'f'];
+const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
+const slotLabel = k => (K[SLOT_ACTION[k]] || k).toUpperCase().slice(0, 5);
+const sameEntry = (x, y) => !!x && !!y && x.kind === y.kind && x.id === y.id;
 function slotsOf() {
   const inv = state.inv;
-  if (!inv.slots) inv.slots = { a: null, s: { kind: 'food', id: 'auto' }, d: { kind: 'seed', id: 'auto' } };
-  if (!inv.slots.a && inv.step) inv.slots.a = { kind: 'ability', id: 'dodge' };
+  if (!inv.slots) inv.slots = { a: null, s: null, d: null, f: null };
+  if (inv.slotV !== 2) {                                 // older saves: 'auto' slots become what they showed, F takes the weapon
+    const sl = inv.slots;
+    for (const k of SLOT_KEYS) { const s = sl[k]; if (s && s.id === 'auto') sl[k] = s.kind === 'food' ? (oldAutoFood() ? { kind: 'food', id: oldAutoFood() } : null) : (oldAutoSeed() ? { kind: 'seed', id: oldAutoSeed() } : null); }
+    if (!('f' in sl) || !sl.f) sl.f = inv.sword ? { kind: 'weapon', id: 'sword' } : inv.acorns > 0 ? { kind: 'weapon', id: 'acorn' } : null;
+    inv.slotV = 2;
+  }
   return inv.slots;
 }
-function autoFood() {
-  const inv = state.inv, h = state.hero, miss = 1 - h.vig / maxVig();
-  const auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
-  const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
-  return order.find(f => inv.food.includes(f)) || inv.food[0] || null;
-}
-function autoSeed() {
+function oldAutoFood() { const inv = state.inv; return ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'].find(f => inv.food.includes(f)) || null; }
+function oldAutoSeed() { const inv = state.inv; return Object.keys(SEEDS).find(k => inv.bag[k] > 0) || null; }
+// how many of a slotted thing you have (abilities and the sword: 1 or 0)
+function entryCount(e) {
   const inv = state.inv;
-  if (inv.favSeed && inv.bag[inv.favSeed] > 0) return inv.favSeed;
-  return ['turnipseed', 'carrotseed', 'pepperseed', 'squashseed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
+  if (!e) return 0;
+  if (e.kind === 'food') return inv.food.filter(x => x === e.id).length;
+  if (e.kind === 'seed') return inv.bag[e.id] || 0;
+  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : inv.sword ? 1 : 0;
+  if (e.kind === 'ability') return e.id === 'dodge' ? (inv.step ? 1 : 0) : e.id === 'fire' ? (inv.fire ? 1 : 0) : e.id === 'flare' ? (wears('embercharm') ? 1 : 0) : 0;
+  return 0;
 }
-// what a slot shows right now: an icon, and a count if it has one
+const ABILITY_NAME = { dodge: 'Dodge', fire: 'Marsh fire', flare: 'Flare' };
+const ABILITY_ICON = { dodge: 'step', fire: 'fire', flare: 'ember' };
+function entryInfo(e) {
+  if (e.kind === 'food') return { icon: e.id, name: e.id[0].toUpperCase() + e.id.slice(1), verb: 'Eat' };
+  if (e.kind === 'seed') return { icon: e.id, name: SEEDS[e.id].name, verb: 'Plant' };
+  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : 'Acorns', verb: '' };
+  return { icon: ABILITY_ICON[e.id], name: ABILITY_NAME[e.id], verb: '' };
+}
+// everything you could put in a slot right now, in a steady order: weapons, abilities, food, seeds
+function slotOptions() {
+  const inv = state.inv, o = [];
+  if (inv.sword) o.push({ kind: 'weapon', id: 'sword' });
+  if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn' });
+  for (const id of ['dodge', 'fire', 'flare']) if (entryCount({ kind: 'ability', id })) o.push({ kind: 'ability', id });
+  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
+  for (const f of [...new Set(inv.food)]) if (!o.some(e => e.kind === 'food' && e.id === f)) o.push({ kind: 'food', id: f });
+  for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) o.push({ kind: 'seed', id: k });
+  return o;
+}
+const consumableOptions = () => slotOptions().filter(e => e.kind === 'food' || e.kind === 'seed');
+function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(sl[k], e)) || null; }
+// put something in a slot: it leaves any other slot it was in; null empties the slot
+function setSlot(k, e) {
+  const sl = slotsOf();
+  if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
+  sl[k] = e ? { kind: e.kind, id: e.id } : null;
+  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
+  refreshButtons();
+}
+// the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
+function syncEquip() {
+  const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
+  if (!ws.some(e => e.id === state.equip)) state.equip = ws.length ? (sl.f && sl.f.kind === 'weapon' && entryCount(sl.f) ? sl.f.id : ws[0].id) : (inv.sword ? 'sword' : null);
+}
+// a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
+function tidySlots() {
+  if (!state.inv || !state.started) return;
+  const inv = state.inv, sl = slotsOf(), seen = inv.slotSeen || (inv.slotSeen = {});
+  let changed = false;
+  for (const k of ALL_SLOTS) if (sl[k] && !entryCount(sl[k])) { delete seen[sl[k].kind + ':' + sl[k].id]; sl[k] = null; changed = true; }
+  for (const key of Object.keys(seen)) { const [kind, id] = key.split(':'); if (!entryCount({ kind, id })) delete seen[key]; }
+  for (const e of slotOptions()) {
+    const key = e.kind + ':' + e.id;
+    if (seen[key]) continue;
+    seen[key] = true;
+    if (slotOf(e)) continue;
+    const order = e.kind === 'weapon' ? ['f', 'a', 's', 'd'] : ['a', 's', 'd'];
+    const k = order.find(j => !sl[j]);
+    if (k) { setSlot(k, e); changed = true; }
+    else if (!state.tipsSeen.slotsFull && !ARENA && !PUZZLE) {        // never overwrite: show the way to swap instead
+      state.tipsSeen.slotsFull = true;
+      sayHero(`Your slots are full. Hold ${K.swap.toUpperCase()} and press a slot key to swap, or use the pack (${K.menu.toUpperCase()}).`, { life: 5, color: '#ffe38a' });
+    }
+  }
+  syncEquip();
+  if (changed) refreshButtons();
+}
+// what a slot shows right now: an icon and a count (nothing at all when empty)
 function slotShow(s) {
-  const inv = state.inv;
-  if (!s) return null;
-  if (s.kind === 'food') { const f = s.id === 'auto' ? autoFood() : s.id; return f ? { icon: f, n: inv.food.filter(x => x === f).length || null, dim: !inv.food.includes(f) } : { icon: 'carrot', dim: true }; }
-  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'turnipseed', dim: true }; }
-  if (s.kind === 'weapon') return { icon: s.id, n: s.id === 'acorn' ? inv.acorns : null, dim: s.id === 'acorn' ? !(inv.acorns > 0) : !inv.sword };
-  if (s.kind === 'ability') return { icon: s.id === 'dodge' ? 'step' : 'fire', dim: s.id === 'dodge' ? !inv.step : !inv.fire };
-  return null;
+  if (!s || !entryCount(s)) return null;
+  const n = entryCount(s);
+  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && s.id === 'sword' || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id };
 }
+// the plant button: the slot holding seeds you have
+function seedSlotKey() {
+  const sl = slotsOf();
+  return ALL_SLOTS.find(k => sl[k] && sl[k].kind === 'seed' && entryCount(sl[k])) || null;
+}
+const seedKeyLabel = () => { const k = seedSlotKey(); return k ? slotLabel(k) : K.act; };
 function plantHere(kind) {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   if (!sc.feat.plots || !kind) return false;
@@ -120,53 +195,96 @@ function plantHere(kind) {
   say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
   return true;
 }
-// press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
-function useSlot(k) {
-  const s = slotsOf()[k], inv = state.inv, h = state.hero;
-  if (!s) return null;
-  if (s.kind === 'ability') return s.id;                                 // 'dodge' or 'fire' (fire is held)
-  if (s.kind === 'food') {
-    const f = s.id === 'auto' ? autoFood() : s.id;
-    if (!f || !inv.food.includes(f)) { sayHero('Nothing to eat in that slot.', { life: 1.4 }); return null; }
-    if (h.vig >= maxVig()) { sayHero('Not hungry right now.', { life: 1.5 }); return null; }
-    eatFood(f); return null;
-  }
-  if (s.kind === 'seed') {
-    const kind = s.id === 'auto' ? autoSeed() : s.id;
-    if (!kind || !(inv.bag[kind] > 0)) { sayHero('No seeds of that kind.', { life: 1.4 }); return null; }
-    if (!plantHere(kind)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 });
-    return null;
-  }
-  if (s.kind === 'weapon') {
-    if (s.id === 'acorn' && !(inv.acorns > 0)) { sayHero('No acorns.', { life: 1.2 }); return null; }
-    if (s.id === 'sword' && !inv.sword) return null;
-    state.equip = s.id; state.active = s.id; sfx.tock(); return null;
-  }
+// use one thing: the same path for a slot key, the wheel, and F when F holds a consumable
+function useEntry(e) {
+  const inv = state.inv, h = state.hero;
+  if (!e || !entryCount(e)) return null;
+  if (e.kind === 'food') { if (h.vig >= maxVig() && !(e.id === 'turnip' && inv.vigBonus < 40)) { sayHero('Not hungry right now.', { life: 1.5 }); return null; } eatFood(e.id); return null; }
+  if (e.kind === 'seed') { if (!plantHere(e.id)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 }); return null; }
+  if (e.kind === 'weapon') { state.equip = e.id; state.active = e.id; return null; }
+  if (e.kind === 'ability') { if (e.id === 'flare') { flare(); return null; } return e.id; }   // 'dodge' / 'fire' run with movement
   return null;
 }
-const slotHeld = id => SLOT_KEYS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
+// press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
+function useSlot(k) { return useEntry(slotsOf()[k]); }
+const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
+// a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
+function slotWeaponHeld() {
+  if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
+  const sl = slotsOf();
+  for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
+  return false;
+}
 // "put in slot" actions for pack cells
 function slotActs(entry) {
-  return SLOT_KEYS.map(k => ({ label: `Slot ${K[SLOT_ACTION[k]] || k.toUpperCase()}`, fn: () => { slotsOf()[k] = entry; } }));
+  return ALL_SLOTS.map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
 }
-// the bar under the vigor display: A S D F, centred beneath it
+// the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {
-  const slots = slotsOf(), inv = state.inv, keys = [...SLOT_KEYS, 'f'], gap = s * 0.35, w = keys.length * s * 1.2 + (keys.length - 1) * gap;
-  let x = x0 + len / 2 - w / 2 + s * 0.6;
-  x = Math.max(x0 + s * 0.6, x);
+  const slots = slotsOf(), gap = s * 0.35, w = ALL_SLOTS.length * s * 1.2 + (ALL_SLOTS.length - 1) * gap;
+  let x = Math.max(x0 + s * 0.6, x0 + len / 2 - w / 2 + s * 0.6), right = x0;
   const y = y0;
-  for (const k of keys) {
-    const show = k === 'f' ? (state.equip === 'acorn' && inv.acorns > 0 ? { icon: 'acorn', n: inv.acorns } : inv.sword ? { icon: 'sword' } : null) : slotShow(slots[k]);
-    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    ctx.strokeStyle = 'rgba(255,227,138,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    if (show) { ctx.globalAlpha = show.dim ? 0.35 : 1; drawItemIcon(show.icon, x, y, s * 0.78); ctx.globalAlpha = 1; }
-    ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
-    ctx.fillText((k === 'f' ? K.act : (K[SLOT_ACTION[k]] || k)).toUpperCase().slice(0, 5), x - s * 0.55, y - s * 0.3);   // the key, top left
-    if (show && show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
-    ctx.textAlign = 'left';
+  for (const k of ALL_SLOTS) {
+    const show = slotShow(slots[k]);
+    if (show) {
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      drawItemIcon(show.icon, x, y, s * 0.78);
+      ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
+      ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
+      if (show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
+      ctx.textAlign = 'left'; right = x + s * 0.6;
+    }
     x += s * 1.2 + gap;
   }
-  return x;
+  return Math.max(right + s * 0.4, x0 + s * 0.6);
+}
+// the wheel's own ability: a ring of sparks from the ember charm
+function flare() {
+  const h = state.hero;
+  if (!spend(1)) { sayHero('Too tired.', { life: 1.2 }); return; }
+  sfx.whoosh(); state.shake = 0.15; zoomPulse(h.x, h.y, 'parry');
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28; state.fx.push({ x: h.x, y: h.y, vx: Math.cos(a) * UNIT * 5, vy: Math.sin(a) * UNIT * 5, t: 0, life: 0.45, color: i % 2 ? '#ffb04a' : '#fff0a0', size: UNIT * 0.14 }); }
+  for (const e of state.enemies) if (hittable(e) && Math.hypot(e.x - h.x, e.y - h.y) < UNIT * 2.2) { e.burn = Math.max(e.burn || 0, 1.5); damage(e, 1, 'fire', (e.x - h.x) / UNIT, (e.y - h.y) / UNIT); }
+  for (const w of state.webs) if (!w.burn && Math.hypot(w.x - h.x, w.y - h.y) < UNIT * 2.4) igniteWeb(w);
+  if (state.bird) scareBird(h.x, h.y, 3);
+}
+
+// =====================================================================
+// Things you wear: armaments, charms and flair. Chosen in the pack (Wear tab), a few at a time, and always
+// visible on you. Some change how a weapon or a food works, some give a new ability for your slots.
+// =====================================================================
+const WEAR = {
+  cap:     { name: 'Stalker cap', kind: 'armament', line: 'Things falling from above bounce off.' },
+  stonecharm: { name: 'River-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
+  mitts:   { name: 'Gardener\'s mitts', kind: 'charm', line: 'Food mends a quarter more, and turnips work twice as fast.' },
+  embercharm: { name: 'Ember charm', kind: 'charm', line: 'Acorns set things alight. Gives Flare: a ring of sparks for your slots.' },
+  feather: { name: 'Pip\'s feather', kind: 'flair', line: 'Pip found it. It does nothing. It looks great.' },
+};
+const WEAR_KIND = { armament: 'Armament', charm: 'Charm', flair: 'Flair' };
+const gearOwned = () => { const inv = state.inv, g = inv.gear || (inv.gear = []); if (inv.scalp && !g.includes('cap')) { g.push('cap'); if (!inv.worn) inv.worn = []; if (inv.worn.length < wearSlots()) inv.worn.push('cap'); } return g; };
+const wearSlots = () => 2 + (state.inv.pipSaved ? 1 : 0) + (state.inv.tortoise ? 1 : 0);
+const wears = id => gearOwned().includes(id) && (state.inv.worn || []).includes(id);
+function gainGear(id, quiet) {
+  const inv = state.inv, g = gearOwned(), worn = inv.worn || (inv.worn = []);
+  if (!g.includes(id)) g.push(id);
+  const put = worn.length < wearSlots() && !worn.includes(id);
+  if (put) worn.push(id);
+  if (!quiet) { sfx.shing(); showTitle(WEAR[id].name, `${WEAR[id].line}${put ? ' Wearing it now.' : ` Wear it from the pack (${K.menu.toUpperCase()}, Wear).`}`, 'relic', 4, true); }
+}
+function toggleWear(id) {
+  const inv = state.inv, worn = inv.worn || (inv.worn = []);
+  if (worn.includes(id)) { worn.splice(worn.indexOf(id), 1); return 'off'; }
+  if (worn.length >= wearSlots()) return 'full';
+  worn.push(id); return 'on';
+}
+// on the hero, every worn thing shows: drawn over the body at (x, top of head y), u = one tile
+function drawWorn(x, top, pw, ph, u) {
+  const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
+  if (worn.includes('feather')) { ctx.save(); ctx.translate(x - side * pw * 0.25, top); ctx.rotate(-side * 0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, -u * 0.22, u * 0.07, u * 0.24, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -u * 0.44); ctx.stroke(); ctx.restore(); }
+  if (worn.includes('stonecharm')) { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x, top + ph * 0.42, u * 0.09, u * 0.07, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - pw * 0.3, top + ph * 0.3); ctx.lineTo(x, top + ph * 0.36); ctx.lineTo(x + pw * 0.3, top + ph * 0.3); ctx.stroke(); }
+  if (worn.includes('mitts')) { ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(x + sx * pw * 0.52, top + ph * 0.66, u * 0.1, 0, 6.28); ctx.fill(); } }
+  if (worn.includes('embercharm')) { const g = 0.6 + 0.4 * Math.sin(state.time * 5); ctx.fillStyle = `rgba(255,${150 + 60 * g},60,${0.7 + 0.3 * g})`; ctx.beginPath(); ctx.arc(x + side * pw * 0.28, top + ph * 0.78, u * 0.08, 0, 6.28); ctx.fill(); }
 }
 
 // ---------------- skills: quiet levels that grow with use ----------------
@@ -217,10 +335,3 @@ function steerAcorn(s, dt) {
   s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
 }
 
-// the quick slot that holds seeds (and has one to plant): planting is that button, not F
-function seedSlotKey() {
-  const slots = slotsOf(), inv = state.inv;
-  for (const k of SLOT_KEYS) { const sl = slots[k]; if (!sl || sl.kind !== 'seed') continue; const kind = sl.id === 'auto' ? autoSeed() : sl.id; if (kind && inv.bag[kind] > 0) return k; }
-  return null;
-}
-const seedKeyLabel = () => { const k = seedSlotKey(); return k ? (K[SLOT_ACTION[k]] || k).toUpperCase() : K.act; };

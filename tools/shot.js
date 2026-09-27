@@ -53,6 +53,17 @@ if (process.env.LEAN) {
   for (let k=0;k<5;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-out.png', canvas.toBuffer('image/png'));
   enterScene('tentin'); for (let k=0;k<60;k++) update(1/60); console.log('title', state.title && state.title.text); state.texts=[]; state.title=null; const b=WORLD.tentin.feat.book; state.hero.x=b[0]*W; state.hero.y=b[1]*H+UNIT*1.1; for (let k=0;k<3;k++) update(1/60); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/lean-in.png', canvas.toBuffer('image/png'));
 }
+if (process.env.B66) {                             // build 66: slot bar, the wheel (use / set a slot), the Wear tab, worn things on the hero
+  const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
+  state.started=true; state.inv.story=STORY.gather; enterScene('camp'); state.cut=null; state.intro=null; run(5);
+  state.inv.sword=true; state.inv.acorns=6; state.inv.food.push('turnip','turnip','carrot','berries'); state.inv.bag.turnipseed=3; run(30);
+  gainGear('feather',true); gainGear('embercharm',true); state.texts=[]; state.title=null; state.hero.x=W*0.5; state.hero.y=H*0.62; run(5); state.texts=[]; state.title=null;
+  draw(); fs.writeFileSync('/tmp/b66-hud.png', canvas.toBuffer('image/png'));
+  state.swapT=state.time-1; state.radial={slot:null, opts:radialOptions(), sel:1}; draw(); fs.writeFileSync('/tmp/b66-wheel.png', canvas.toBuffer('image/png'));
+  state.radial={slot:'d', opts:radialOptions('d'), sel:2}; draw(); fs.writeFileSync('/tmp/b66-assign.png', canvas.toBuffer('image/png')); state.radial=null; state.swapT=null;
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Wear'),sel:0,focus:'grid',act:0}; draw(); fs.writeFileSync('/tmp/b66-wear.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b66 shots written');
+}
 if (process.env.B65) {                             // build 65: the held opening line, Pip at the garden with the quest HUD, seeds, a quest alert, the Quests tab
   const run=n=>{ for (let k=0;k<n;k++) update(1/60); };
   const F=()=>{ state.keys.f=true; run(1); state.keys.f=false; run(30); };

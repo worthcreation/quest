@@ -57,7 +57,7 @@ canvas.addEventListener('pointerdown', e => {
 
 const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
-  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
+  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact) || slotWeaponHeld(),
   jump:  () => kk('jump') || !!state.keys.btnjump,
   swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,
@@ -71,6 +71,7 @@ const held = {
 };
 const pressedNow = {};
 function readPresses() {
+  state.slotAct = false;                            // set again below if a weapon slot key is what's pressing 'act'
   for (const k in held) { const v = held[k](); pressedNow[k] = v && !state.prevKeys[k]; state.prevKeys[k] = v; }
 }
 function inputVector() {
@@ -85,11 +86,10 @@ function inputVector() {
 }
 function refreshButtons() {
   const inv = state.inv;
-  { const sl = slotsOf(), lab = s => !s ? '' : s.kind === 'ability' ? (s.id === 'dodge' ? 'dodge' : 'fire') : s.kind === 'food' ? 'eat' : s.kind === 'seed' ? 'plant' : s.id;
-    for (const [id, k] of [['dash', 'a'], ['eat', 's'], ['slotd', 'd']]) { const el = document.getElementById(id); if (!el) continue; el.classList.toggle('hidden', !sl[k] || (k === 'a' && sl.a.kind === 'ability' && sl.a.id === 'dodge' && !inv.step)); el.textContent = lab(sl[k]); } }
-  document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
+  { const sl = slotsOf(), lab = s => !s ? '' : s.kind === 'ability' ? s.id : s.kind === 'food' ? 'eat' : s.kind === 'seed' ? 'plant' : s.id;
+    for (const [id, k] of [['dash', 'a'], ['eat', 's'], ['slotd', 'd']]) { const el = document.getElementById(id); if (!el) continue; const on = !!sl[k] && entryCount(sl[k]) > 0; el.classList.toggle('hidden', !on); el.textContent = on ? lab(sl[k]) : ''; } }
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
-  document.getElementById('throw').classList.toggle('hidden', !(inv.sword || inv.acorns || inv.food.length));
+  document.getElementById('throw').classList.toggle('hidden', !slotOptions().length);
   document.getElementById('throw').textContent = 'swap';
 }
 

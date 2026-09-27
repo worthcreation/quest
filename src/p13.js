@@ -9,24 +9,28 @@ const RECIPES = [
   { out: 'glue', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
   { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
   { out: 'benchkit', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
+  { out: 'stonecharm', wear: true, in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'mitts', wear: true, in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
+  { out: 'embercharm', wear: true, in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
 ];
 const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
-function matAvailable(k) { return (rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
+function matAvailable(k) { return (MATS[k] ? state.inv.mats[k] || 0 : rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
 function matMatch() {
   const m = (state.mat || []).slice().sort().join('+');
-  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m) || null;
+  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m && !(r.wear && gearOwned().includes(r.out)) && (!r.needs || r.needs())) || null;
 }
 function craftNow() {
   const r = matMatch(), inv = state.inv, raw = rawOf();
   if (!r) { state.mat = []; sfx.tock(); return; }
-  for (const k of r.in) raw[k]--;
-  raw[r.out] = (raw[r.out] || 0) + 1;
-  const first = !(inv.known || {})[r.out];
-  (inv.known = inv.known || {})[r.out] = true;
+  for (const k of r.in) { if (MATS[k]) inv.mats[k]--; else raw[k]--; }
+  const first = !(inv.known || {})[r.out + (r.wear ? '_w' : '')];
+  (inv.known = inv.known || {})[r.out + (r.wear ? '_w' : '')] = true;
   state.mat = [];
+  if (r.wear) { gainGear(r.out, true); sfx.forge(); state.menu && (state.menu.note = `Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); return; }
+  raw[r.out] = (raw[r.out] || 0) + 1;
   sfx.forge(); state.menu && (state.menu.note = `Made: ${RAW[r.out]}${first ? ' (new!)' : ''}`);
   if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; state.menu && (state.menu.note += '. Now you can combine three things.'); }
 }
@@ -34,6 +38,7 @@ function craftNow() {
 function craftCells() {
   const r = matMatch(), cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${RAW[r.out]}` : (state.mat || []).length ? 'Clear the mat' : 'The mat', line: r ? r.line : (state.mat || []).length ? 'that doesn\'t make anything yet' : 'pick things below to put them on the mat', mat: true }];
   for (const k of Object.keys(RAW)) if ((rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: matAvailable(k), line: RECIPES.find(x => x.out === k && x.piece) ? 'set it down on its mark at camp' : 'tap to put it on the mat', raw: k });
+  for (const k of [...new Set(RECIPES.flatMap(r => r.in))]) if (MATS[k] && (state.inv.mats[k] || 0) > 0) cells.push({ icon: k, name: MATS[k], count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   return cells;
 }
 function craftCellAct(c) {

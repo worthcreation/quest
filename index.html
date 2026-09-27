@@ -855,7 +855,7 @@ canvas.addEventListener('pointerdown', e => {
 
 const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
-  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
+  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact) || slotWeaponHeld(),
   jump:  () => kk('jump') || !!state.keys.btnjump,
   swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,
@@ -869,6 +869,7 @@ const held = {
 };
 const pressedNow = {};
 function readPresses() {
+  state.slotAct = false;                            // set again below if a weapon slot key is what's pressing 'act'
   for (const k in held) { const v = held[k](); pressedNow[k] = v && !state.prevKeys[k]; state.prevKeys[k] = v; }
 }
 function inputVector() {
@@ -883,11 +884,10 @@ function inputVector() {
 }
 function refreshButtons() {
   const inv = state.inv;
-  { const sl = slotsOf(), lab = s => !s ? '' : s.kind === 'ability' ? (s.id === 'dodge' ? 'dodge' : 'fire') : s.kind === 'food' ? 'eat' : s.kind === 'seed' ? 'plant' : s.id;
-    for (const [id, k] of [['dash', 'a'], ['eat', 's'], ['slotd', 'd']]) { const el = document.getElementById(id); if (!el) continue; el.classList.toggle('hidden', !sl[k] || (k === 'a' && sl.a.kind === 'ability' && sl.a.id === 'dodge' && !inv.step)); el.textContent = lab(sl[k]); } }
-  document.getElementById('eat').classList.toggle('hidden', !inv.food.length);
+  { const sl = slotsOf(), lab = s => !s ? '' : s.kind === 'ability' ? s.id : s.kind === 'food' ? 'eat' : s.kind === 'seed' ? 'plant' : s.id;
+    for (const [id, k] of [['dash', 'a'], ['eat', 's'], ['slotd', 'd']]) { const el = document.getElementById(id); if (!el) continue; const on = !!sl[k] && entryCount(sl[k]) > 0; el.classList.toggle('hidden', !on); el.textContent = on ? lab(sl[k]) : ''; } }
   document.getElementById('fire').classList.toggle('hidden', !inv.fire);
-  document.getElementById('throw').classList.toggle('hidden', !(inv.sword || inv.acorns || inv.food.length));
+  document.getElementById('throw').classList.toggle('hidden', !slotOptions().length);
   document.getElementById('throw').textContent = 'swap';
 }
 
@@ -1398,6 +1398,7 @@ function transitionTo(id, fx, fy, quick) {
 
 function checkEdges() {
   const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 8;
+  if (state.npcTalk) return;                          // mid-conversation: finish it first (F), then go
   if (state.intro && !state.intro.gone) return;        // the opening: the bank is yours to wander, but not to leave until Pip heads off
   for (const ex of sc.exits) {
     let at = false, along = 0;
@@ -1452,7 +1453,7 @@ function newGame() {
 // Update
 // =====================================================================
 function update(dt) {
-  if (state.radial) dt *= 0.2;                        // the quick-select wheel slows the world
+  if (state.radial) dt *= 0.05;                       // the wheel all but stops the world
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
   state.shake = Math.max(0, state.shake - dt);
@@ -1463,6 +1464,7 @@ function update(dt) {
   if (!state.started) return;
   readPresses();
   updateQuests();
+  if (state.time - (state.slotT || -9) > 0.25) { state.slotT = state.time; tidySlots(); }
   // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
   if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
   if (state.menu) { updateMenu(); return; }
@@ -1493,13 +1495,19 @@ function update(dt) {
 
   if (!state.busy) {
     // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
-    state.actUsed = interact();
+    // F is the dynamic action: what's right here comes first. A weapon slotted on A/S/D skips that and just swings.
+    state.actUsed = state.radial ? true : state.slotAct ? false : interact();
+    if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
+      const f = slotsOf().f;
+      if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
+      else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
+    }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
   }
   for (const k of ['lumin', 'slime', 'pepper', 'fishBuff', 'carrotBuff', 'squashBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
   if (inv.turnipRegen > 0) {                          // a turnip's vigor, trickling back
-    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt);
+    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt * (wears('mitts') ? 2 : 1));
     inv.turnipRegen -= give; h.vig = Math.min(maxVig(), h.vig + give);
     if (h.vig >= maxVig()) inv.turnipRegen = 0;
   }
@@ -1508,7 +1516,7 @@ function update(dt) {
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
 
   // movement
-  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
+  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
   if (h.ride && !h.ride.hop && pressedNow.act && h.z > UNIT * 0.3 && h.vig >= 0.8 && !state.carry) {   // stomp out of a gust
     h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT; state.cam.focus = null;
   }
@@ -1688,7 +1696,7 @@ function jumpGrowth() { const mv = maxVig(); return [Math.max(0, Math.min(1, (mv
 function updateJump(dt) {
   const h = state.hero, sc = sceneDef();
   if (h.ride || h.falling > 0) return;
-  if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
+  if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry) {
     // more vigor, higher and longer jumps, a little at a time; a tired hero barely leaves the ground
     const [f, g2] = jumpGrowth();
     h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
@@ -1964,7 +1972,7 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
   const h = state.hero;
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
   if (state.whirl) endWhirl('hit');
-  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty(); h.rest = state.time + 0.8; h.hurtT = state.time;
+  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty() * (wears('stonecharm') ? 0.75 : 1); h.rest = state.time + 0.8; h.hurtT = state.time;
   if (h.vig > 0 && h.vig <= 1) say('Exhausted...', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
   h.invuln = 1.2;
   sfx.hit();
@@ -2669,12 +2677,12 @@ const AI = {
       case 'descend':
         e.x += (e.lx - e.x) * (1 - Math.exp(-10 * dt)); e.y += (e.ly - e.y) * (1 - Math.exp(-10 * dt));
         e.hgt = Math.max(0, e.t / 0.9);
-        if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !state.inv.scalp) { e.parried = true; e.hgt = 0; parry(e); break; }
+        if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !wears('cap')) { e.parried = true; e.hgt = 0; parry(e); break; }
         if (e.t <= 0) {
           e.hgt = 0;
           spark(e.x, e.y, '#4b3558', 8, 3);
           if (dist < UNIT * 1.1 && h.z < UNIT * 0.5) {
-            if (state.inv.scalp) {
+            if (wears('cap')) {
               sfx.boing(); e.mode = 'stunned'; e.t = 1.6;
               zoomPulse(h.x, h.y, 'parry');
               say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 });
@@ -2779,7 +2787,7 @@ function updateHazards(dt) {
       }
       if (state.whirl && Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 1.6) endWhirl('knocked');
       if (Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 0.4 && h.z < UNIT * 0.5) {
-        if (state.inv.scalp) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
+        if (wears('cap')) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
         else hurtHero(1, z.x, z.y);
       }
     }
@@ -2993,8 +3001,8 @@ function interact() {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
       const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
-      const slotSeeds = p.s === 0 && !!seedSlotKey();
-      const have = slotSeeds ? [] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
+      const sk = seedSlotKey(), slotSeeds = p.s === 0 && !!sk && sk !== 'f';   // seeds on A/S/D: that key plants. Seeds on F: F plants them
+      const have = slotSeeds ? [] : sk === 'f' ? [slotsOf().f.id] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
       if (slotSeeds && !improve) { if (pressedNow.act) say(`${seedKeyLabel()} plants.`, px * W, py * H - UNIT, { key: 'plot', life: 1.6 }); if (!pressedNow.act) return false; return true; }
       if (p.s === 0 && !have.length && !improve && !slotSeeds) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
@@ -3059,29 +3067,32 @@ function dropRock() {                               // set down a step ahead, th
   state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.15 });
   sfx.land(); refreshButtons();
 }
-// the wheel: weapons first, then each kind of food you carry
-function radialOptions() {
-  const inv = state.inv, o = [];
-  if (inv.sword) o.push({ kind: 'weapon', id: 'sword', icon: 'sword', label: 'Sword' });
-  if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn', icon: 'acorn', label: `Acorns ${inv.acorns}` });
-  for (const f of [...new Set(inv.food)]) if (o.length < 8) o.push({ kind: 'food', id: f, icon: f, label: `${f} ${inv.food.filter(x => x === f).length}` });
-  return o;
+// The wheel (hold R): every consumable you carry, for use right now. Hold R and press A, S, D or F: everything
+// that could go in that slot; let go of R to put the highlighted one there. Both lists come from slotOptions().
+function radialOptions(slot) {
+  if (slot) return [...slotOptions(), { kind: 'none', id: 'none' }];
+  return consumableOptions();
 }
-function applyRadial(opt) {
-  const h = state.hero;
-  if (opt.kind === 'weapon') { state.equip = opt.id; state.active = opt.id; sfx.tock(); say(opt.label, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' }); }
-  else eatFood(opt.id);
+function radialLabel(o, slot) {
+  if (o.kind === 'none') return `Empty ${slotLabel(slot)}`;
+  const i = entryInfo(o), n = entryCount(o);
+  if (slot) return `${slotLabel(slot)}: ${i.name}${o.kind === 'weapon' && o.id === 'sword' || o.kind === 'ability' ? '' : ' ' + n}`;
+  return `${i.verb} ${i.name.toLowerCase()} (${n})`;
 }
+function applyRadial(r) {
+  const opt = r.opts[r.sel];
+  if (!opt) return;
+  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; say(radialLabel(opt, r.slot), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
+  else useEntry(opt);
+}
+// tap R: the F slot steps through your weapons
 function cycleEquip() {
-  const inv = state.inv, opts = [];
-  if (inv.sword) opts.push('sword');
-  if (inv.acorns > 0) opts.push('acorn');
-  if (opts.length < 2) { if (opts.length) state.equip = opts[0]; return; }
-  state.equip = opts[(opts.indexOf(state.equip) + 1) % opts.length];
-  state.active = state.equip;
-  sfx.tock();
-  const h = state.hero;
-  say(state.equip === 'sword' ? 'Sword' : `Acorns (${inv.acorns})`, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
+  const ws = slotOptions().filter(e => e.kind === 'weapon');
+  if (!ws.length) return;
+  const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
+  if (sameEntry(next, f)) return;
+  setSlot('f', next); sfx.tock();
+  const h = state.hero; say(radialLabel(next, 'f'), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
 }
 
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
@@ -3412,28 +3423,34 @@ function advanceTalk() {
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
   let wantDodge = false;
-  for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  if (!state.radial && state.swapT == null) for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  if (state.fSlotAbility === 'dodge') wantDodge = true;              // F holding the dodge
+  state.fSlotAbility = null;
   if (wantDodge && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
     h.dashT = inv.step >= 3 ? 0.22 : 0.18; h.dashCool = inv.step >= 2 ? 0.5 : 0.85; h.invuln = Math.max(h.invuln, inv.step >= 3 ? 0.45 : 0.3);
     h.vx = h.fx * 1.2 * L(); h.vy = h.fy * 1.2 * L();
     state.dodged = false;
     sfx.dash();
   }
-  // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
-  // R: tap swaps weapons; hold opens the quick-select wheel (the world slows), point and let go
+  // R: tap steps F through your weapons; hold opens the wheel of consumables (the world all but stops);
+  // while holding, A/S/D/F switches the wheel to everything that could go in that slot. Point, then let go of R.
   if (pressedNow.swap && !state.carry) state.swapT = state.time;
   if (state.swapT != null) {
     if (held.swap()) {
-      if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { opts: radialOptions(), sel: -1 };
+      const pick = ALL_SLOTS.find(k => pressedNow[SLOT_ACTION[k]]);
+      if (pick) state.radial = { slot: pick, opts: radialOptions(pick), sel: -1 };
+      else if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { slot: null, opts: radialOptions(), sel: -1 };
       if (state.radial) {
+        const R = state.radial, cur = R.slot ? R.opts.findIndex(e => sameEntry(e, slotsOf()[R.slot])) : -1;
+        if (pick && cur >= 0) R.sel = cur;                         // start on what's there now
         let x = 0, y = 0;
         if (state.radialPtr) [x, y] = state.radialPtr;
         else { if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1; }
-        if (x || y) { const n = state.radial.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); state.radial.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
+        if (x || y) { const n = R.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); R.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
       }
     } else {
       const r = state.radial;
-      if (r) { if (r.sel >= 0) applyRadial(r.opts[r.sel]); }
+      if (r) { if (r.sel >= 0) applyRadial(r); }
       else cycleEquip();
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
@@ -3532,6 +3549,7 @@ function updateShots(dt) {
       const d = Math.hypot(s.vx, s.vy) || 1;
       s.hit.add(e);
       if (!rock) skillUse('acorn', true);
+      if (!rock && wears('embercharm')) { e.burn = Math.max(e.burn || 0, 2); spark(e.x, e.y, '#ffa04a', 6, 2); }   // the ember charm lights them
       damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
@@ -3744,7 +3762,8 @@ function updatePip(dt) {
     }
     if (v.said) {
       const close = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 2.6;
-      if (close && state.time - v.said > 0.8) { p.visit = null; state.pipTalkT = state.time; }   // you came over: carry on together
+      const reading = state.texts.some(t => t.hold && t.key === 'pip');
+      if (close && state.time - v.said > 0.8 && !reading) { p.visit = null; state.pipTalkT = state.time; }   // you came over and read it: carry on together
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
         v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
       }
@@ -3792,7 +3811,7 @@ function updatePip(dt) {
       pipSay('tentin', 'Go on, crawl inside the lean-to. My book\'s in there.', P([0.33, 0.33]));
       for (const pc of ['fire', 'bench']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, 'Set it down on the marks, right here.', P([spot(pc).fx, spot(pc).fy]));
       if (campBuilt('fire') && !campBuilt('bench')) pipSay('fireok', 'A real fire! Now the bench: two sticks and some of that glue.');
-    } else if (campDone() && !storyAt('adventure') && !state.cut) { pipSay('campdone', 'Home base! We did it!'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
@@ -3998,7 +4017,7 @@ function updateChoice() {
   if (pressedNow.left) { c.sel = (c.sel + n - 1) % n; sfx.tock(); }
   if (pressedNow.right) { c.sel = (c.sel + 1) % n; sfx.tock(); }
   if (pressedNow.act) { state.choice = null; c.cb(c.sel); }
-  else if (!c.must && (pressedNow.up || pressedNow.down || pressedNow.jump)) state.choice = null;   // walking away cancels
+  else if (!c.must && (pressedNow.up || pressedNow.down || pressedNow.jump || pressedNow.slotd)) state.choice = null;   // walking away (or D) cancels
 }
 
 // ---------------- the Falls Warden has had a day ----------------
@@ -4105,7 +4124,7 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
+const PACK_TABS = ['Gear', 'Wear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
@@ -4151,15 +4170,24 @@ function packCells(tab) {
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
-    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: (state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }]).concat(slotActs({ kind: 'weapon', id: 'sword' })) });
-    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: (state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }]).concat(slotActs({ kind: 'weapon', id: 'acorn' })) });
+    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: slotActs({ kind: 'weapon', id: 'sword' }) });
+    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with their key; hold to throw harder', mark: state.equip === 'acorn', acts: slotActs({ kind: 'weapon', id: 'acorn' }) });
     cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
-    if (inv.scalp) cells.push({ icon: 'scalp', name: 'Stalker cap', line: 'falling things bounce off' });
+    if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+  }
+  if (tab === 'Wear') {                                 // armaments, charms and flair: a few at a time, all of them visible on you
+    const worn = inv.worn || [], n = wearSlots();
+    for (const id of gearOwned()) {
+      const on = worn.includes(id), W0 = WEAR[id];
+      cells.push({ icon: id === 'cap' ? 'scalp' : 'wear_' + id, name: W0.name, mark: on, line: `${WEAR_KIND[W0.kind]} \u00b7 ${W0.line} (${worn.length} of ${n} worn)`,
+        acts: [{ label: on ? 'Take off' : 'Wear', fn: () => { const r = toggleWear(id); if (r === 'full') state.menu.note = `You can wear ${n} at once. Take one off first.`; refreshButtons(); } }] });
+    }
+    if (!cells.length) cells.push({ icon: 'wear_feather', name: 'Nothing to wear yet', line: `Room for ${n}. Charms can be made on the craft mat; others turn up.` });
   }
   if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
     const fav = inv.favFood === f;
@@ -4259,8 +4287,20 @@ function menuItems() {
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
+// D backs out of anything: an action list to its grid, a grid to the tabs, the tabs (or any other screen) closes
+function menuBack() {
+  const m = state.menu;
+  sfx.tock();
+  if (m.view === 'pack') {
+    if (m.focus === 'acts') { m.focus = 'grid'; return; }
+    if (m.focus === 'grid') { m.focus = 'tabs'; return; }
+    state.lastTab = m.tab;
+  }
+  state.menu = null; state.mat = state.mat || [];
+}
 function updateMenu() {
   if (state.remap) return;
+  if (pressedNow.slotd) { menuBack(); return; }
   const m = state.menu, items = menuItems();
   if (m.view === 'pack') { updatePack(); return; }
   if (m.view === 'poses') { if (pressedNow.act) state.menu = null; return; }
@@ -5350,7 +5390,8 @@ function drawHeroBody(h, pw, ph, y, sh) {
   ctx.fillStyle = h.stun > 0 ? '#ffffff' : '#f5d06f';
   ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph);
   if (r < 0.35) { ctx.fillStyle = `rgba(60,50,80,${(0.35 - r) * 1.3})`; ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph); }
-  if (state.inv.scalp) drawScalp(h.x, y - ph / 2, UNIT);
+  if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
+  drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
   else if (state.inv.sword) drawSword(h, pw, ph, y, heroic);
 }
@@ -5897,15 +5938,20 @@ function drawRadial() {
     const a = i / n * Math.PI * 2 - Math.PI / 2, x = sx + Math.cos(a) * R, y = sy + Math.sin(a) * R, on = i === r.sel;
     ctx.fillStyle = on ? 'rgba(242,201,76,.45)' : 'rgba(20,18,26,.8)'; ctx.beginPath(); ctx.arc(x, y, s * (on ? 0.72 : 0.6), 0, 6.28); ctx.fill();
     if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 3; ctx.stroke(); }
-    if (o.kind === 'weapon' && state.equip === o.id) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 6.28); ctx.stroke(); }
-    drawItemIcon(o.icon, x, y, s * 0.75);
+    const inSlot = o.kind !== 'none' && slotOf(o);
+    if (r.slot && sameEntry(o, slotsOf()[r.slot])) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 6.28); ctx.stroke(); }
+    if (o.kind === 'none') { ctx.strokeStyle = 'rgba(253,246,227,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.28, 0, 6.28); ctx.moveTo(x - s * 0.2, y + s * 0.2); ctx.lineTo(x + s * 0.2, y - s * 0.2); ctx.stroke(); }
+    else drawItemIcon(entryInfo(o).icon, x, y, s * 0.75);
+    if (inSlot) { ctx.font = `bold ${Math.round(s * 0.3)}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a'; ctx.textAlign = 'center'; ctx.fillText(slotLabel(inSlot), x + s * 0.42, y - s * 0.38); ctx.textAlign = 'left'; }
   });
-  const sel = r.opts[r.sel];
-  ctx.textAlign = 'center'; ctx.font = `bold ${Math.round(Math.max(14, UNIT * 0.45))}px "Courier New", monospace`;
-  ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
+  const sel = r.opts[r.sel], fs = Math.round(Math.max(14, UNIT * 0.45));
+  ctx.textAlign = 'center'; ctx.font = `bold ${fs}px "Courier New", monospace`;
+  ctx.fillStyle = r.slot ? '#9fd4ff' : 'rgba(253,246,227,.75)';
+  ctx.fillText(r.slot ? `Set ${slotLabel(r.slot)}` : 'Use now', sx, sy - fs * 0.7);
+  ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 65';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 66';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }
@@ -6423,7 +6469,7 @@ function drawHeroModelInWorld(h, heroic) {
   const r = h.vig / maxVig();
   if (h.stun > 0 || r < 0.35) { ctx.fillStyle = h.stun > 0 ? 'rgba(255,255,255,.35)' : `rgba(60,50,80,${(0.35 - r) * 1.1})`; ctx.beginPath(); ctx.ellipse(h.x, footY - UNIT * 0.75, UNIT * 0.42, UNIT * 0.85, 0, 0, 6.28); ctx.fill(); }
   if (h.falling > 0) return;
-  if (state.inv.scalp) drawScalp(h.x, info.headTop + UNIT * 0.15, UNIT);
+  if (wears('cap')) drawScalp(h.x, info.headTop + UNIT * 0.15, UNIT);
   if (state.carry === 'rock') drawRock(h.x, info.headTop - UNIT * 0.2, UNIT * 0.62);
   else if (state.inv.sword && !state.atk && !state.whirl && !state.slam && !heroic && info.hand && !(state.equip === 'acorn' && state.inv.acorns > 0)) {
     // at rest the sword sits in the near hand, point down and trailing behind
@@ -6669,24 +6715,28 @@ const RECIPES = [
   { out: 'glue', in: ['fluff', 'fluff'], line: 'Pip\'s patented rabbit glue. Don\'t ask how.' },
   { out: 'firering', in: ['stone', 'stone', 'stick'], line: 'river stones in a ring, kindling in the middle', piece: 'fire' },
   { out: 'benchkit', in: ['stick', 'stick', 'glue'], line: 'sticks, stuck together. Mostly.', piece: 'bench' },
+  { out: 'stonecharm', wear: true, in: ['stone', 'stone', 'glue'], line: 'a flat river stone on a loop of glue-stiff fluff. Worn on the chest.' },
+  { out: 'mitts', wear: true, in: ['fluff', 'fluff', 'glue'], line: 'fluff mittens, green-dyed. Good for dirt.', needs: () => state.inv.harvests > 0 },
+  { out: 'embercharm', wear: true, in: ['stone', 'glue', 'ember'], line: 'an ember bloom set in a stone, still warm.' },
 ];
 const PIECE_OF = { fire: 'firering', bench: 'benchkit' };
 const campBuilt = p => !!rtFor('camp').flags['built_' + p];
 const campDone = () => ['fire', 'tent', 'bench'].every(campBuilt);
 function rawOf() { const inv = state.inv; return inv.raw || (inv.raw = {}); }
-function matAvailable(k) { return (rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
+function matAvailable(k) { return (MATS[k] ? state.inv.mats[k] || 0 : rawOf()[k] || 0) - (state.mat || []).filter(m => m === k).length; }
 function matMatch() {
   const m = (state.mat || []).slice().sort().join('+');
-  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m) || null;
+  return RECIPES.find(r => r.in.length <= (state.inv.craftSlots || 2) && r.in.slice().sort().join('+') === m && !(r.wear && gearOwned().includes(r.out)) && (!r.needs || r.needs())) || null;
 }
 function craftNow() {
   const r = matMatch(), inv = state.inv, raw = rawOf();
   if (!r) { state.mat = []; sfx.tock(); return; }
-  for (const k of r.in) raw[k]--;
-  raw[r.out] = (raw[r.out] || 0) + 1;
-  const first = !(inv.known || {})[r.out];
-  (inv.known = inv.known || {})[r.out] = true;
+  for (const k of r.in) { if (MATS[k]) inv.mats[k]--; else raw[k]--; }
+  const first = !(inv.known || {})[r.out + (r.wear ? '_w' : '')];
+  (inv.known = inv.known || {})[r.out + (r.wear ? '_w' : '')] = true;
   state.mat = [];
+  if (r.wear) { gainGear(r.out, true); sfx.forge(); state.menu && (state.menu.note = `Made: ${WEAR[r.out].name}. ${(inv.worn || []).includes(r.out) ? 'Wearing it.' : 'See the Wear tab.'}`); return; }
+  raw[r.out] = (raw[r.out] || 0) + 1;
   sfx.forge(); state.menu && (state.menu.note = `Made: ${RAW[r.out]}${first ? ' (new!)' : ''}`);
   if ((inv.craftSlots || 2) < 3) { inv.craftSlots = 3; state.menu && (state.menu.note += '. Now you can combine three things.'); }
 }
@@ -6694,6 +6744,7 @@ function craftNow() {
 function craftCells() {
   const r = matMatch(), cells = [{ icon: r ? r.out : 'mat', name: r ? `Combine: ${RAW[r.out]}` : (state.mat || []).length ? 'Clear the mat' : 'The mat', line: r ? r.line : (state.mat || []).length ? 'that doesn\'t make anything yet' : 'pick things below to put them on the mat', mat: true }];
   for (const k of Object.keys(RAW)) if ((rawOf()[k] || 0) > 0) cells.push({ icon: k, name: RAW[k], count: matAvailable(k), line: RECIPES.find(x => x.out === k && x.piece) ? 'set it down on its mark at camp' : 'tap to put it on the mat', raw: k });
+  for (const k of [...new Set(RECIPES.flatMap(r => r.in))]) if (MATS[k] && (state.inv.mats[k] || 0) > 0) cells.push({ icon: k, name: MATS[k], count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   return cells;
 }
 function craftCellAct(c) {
@@ -6989,7 +7040,7 @@ function eatFood(food) {
   inv.food.splice(i, 1);
   sfx.munch(); zoomPulse(h.x, h.y, 'tap');
   const [lo, hi] = foodRange(food), perk = cropLevel(food) >= 3;
-  let amt = lo + Math.random() * (hi - lo);
+  let amt = (lo + Math.random() * (hi - lo)) * (wears('mitts') ? 1.25 : 1);
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
   if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
     inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
@@ -7034,35 +7085,110 @@ function drawShroomRipples(x, y, u, found, key) {
 // whatever you put there: an ability, a food, a seed, or the other weapon. By default A dodges (once you
 // can), S eats, D plants.
 // =====================================================================
-const SLOT_KEYS = ['a', 's', 'd'];
-const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd' };
+// =====================================================================
+// Slots: A S D F. Whatever sits in a slot, that key uses it. Anything can go in any slot. F is also the
+// dynamic action: when there's something to do right here (talk, plant, lift, read) F does that first,
+// otherwise it uses what's in the F slot. Slots start empty and draw nothing. New things you pick up drop
+// into an empty slot on their own (weapons into F first); a full bar is never overwritten, you're pointed
+// to R instead. One list of what can be slotted (slotOptions) feeds the wheel, the pack and auto-equip.
+// =====================================================================
+const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
+const ALL_SLOTS = ['a', 's', 'd', 'f'];
+const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
+const slotLabel = k => (K[SLOT_ACTION[k]] || k).toUpperCase().slice(0, 5);
+const sameEntry = (x, y) => !!x && !!y && x.kind === y.kind && x.id === y.id;
 function slotsOf() {
   const inv = state.inv;
-  if (!inv.slots) inv.slots = { a: null, s: { kind: 'food', id: 'auto' }, d: { kind: 'seed', id: 'auto' } };
-  if (!inv.slots.a && inv.step) inv.slots.a = { kind: 'ability', id: 'dodge' };
+  if (!inv.slots) inv.slots = { a: null, s: null, d: null, f: null };
+  if (inv.slotV !== 2) {                                 // older saves: 'auto' slots become what they showed, F takes the weapon
+    const sl = inv.slots;
+    for (const k of SLOT_KEYS) { const s = sl[k]; if (s && s.id === 'auto') sl[k] = s.kind === 'food' ? (oldAutoFood() ? { kind: 'food', id: oldAutoFood() } : null) : (oldAutoSeed() ? { kind: 'seed', id: oldAutoSeed() } : null); }
+    if (!('f' in sl) || !sl.f) sl.f = inv.sword ? { kind: 'weapon', id: 'sword' } : inv.acorns > 0 ? { kind: 'weapon', id: 'acorn' } : null;
+    inv.slotV = 2;
+  }
   return inv.slots;
 }
-function autoFood() {
-  const inv = state.inv, h = state.hero, miss = 1 - h.vig / maxVig();
-  const auto = miss > 0.45 ? ['squash', 'fish', 'carrot', 'turnip', 'berries', 'pepper'] : ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'];
-  const order = inv.favFood ? [inv.favFood, ...auto.filter(f => f !== inv.favFood)] : auto;
-  return order.find(f => inv.food.includes(f)) || inv.food[0] || null;
-}
-function autoSeed() {
+function oldAutoFood() { const inv = state.inv; return ['berries', 'turnip', 'carrot', 'fish', 'squash', 'pepper'].find(f => inv.food.includes(f)) || null; }
+function oldAutoSeed() { const inv = state.inv; return Object.keys(SEEDS).find(k => inv.bag[k] > 0) || null; }
+// how many of a slotted thing you have (abilities and the sword: 1 or 0)
+function entryCount(e) {
   const inv = state.inv;
-  if (inv.favSeed && inv.bag[inv.favSeed] > 0) return inv.favSeed;
-  return ['turnipseed', 'carrotseed', 'pepperseed', 'squashseed', 'thornseed', 'emberseed', 'ironseed', 'starseed'].find(k => inv.bag[k] > 0) || null;
+  if (!e) return 0;
+  if (e.kind === 'food') return inv.food.filter(x => x === e.id).length;
+  if (e.kind === 'seed') return inv.bag[e.id] || 0;
+  if (e.kind === 'weapon') return e.id === 'acorn' ? inv.acorns : inv.sword ? 1 : 0;
+  if (e.kind === 'ability') return e.id === 'dodge' ? (inv.step ? 1 : 0) : e.id === 'fire' ? (inv.fire ? 1 : 0) : e.id === 'flare' ? (wears('embercharm') ? 1 : 0) : 0;
+  return 0;
 }
-// what a slot shows right now: an icon, and a count if it has one
+const ABILITY_NAME = { dodge: 'Dodge', fire: 'Marsh fire', flare: 'Flare' };
+const ABILITY_ICON = { dodge: 'step', fire: 'fire', flare: 'ember' };
+function entryInfo(e) {
+  if (e.kind === 'food') return { icon: e.id, name: e.id[0].toUpperCase() + e.id.slice(1), verb: 'Eat' };
+  if (e.kind === 'seed') return { icon: e.id, name: SEEDS[e.id].name, verb: 'Plant' };
+  if (e.kind === 'weapon') return { icon: e.id, name: e.id === 'sword' ? 'Sword' : 'Acorns', verb: '' };
+  return { icon: ABILITY_ICON[e.id], name: ABILITY_NAME[e.id], verb: '' };
+}
+// everything you could put in a slot right now, in a steady order: weapons, abilities, food, seeds
+function slotOptions() {
+  const inv = state.inv, o = [];
+  if (inv.sword) o.push({ kind: 'weapon', id: 'sword' });
+  if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn' });
+  for (const id of ['dodge', 'fire', 'flare']) if (entryCount({ kind: 'ability', id })) o.push({ kind: 'ability', id });
+  for (const f of ['berries', 'turnip', 'carrot', 'pepper', 'fish', 'squash']) if (inv.food.includes(f)) o.push({ kind: 'food', id: f });
+  for (const f of [...new Set(inv.food)]) if (!o.some(e => e.kind === 'food' && e.id === f)) o.push({ kind: 'food', id: f });
+  for (const k of Object.keys(SEEDS)) if (inv.bag[k] > 0) o.push({ kind: 'seed', id: k });
+  return o;
+}
+const consumableOptions = () => slotOptions().filter(e => e.kind === 'food' || e.kind === 'seed');
+function slotOf(e) { const sl = slotsOf(); return ALL_SLOTS.find(k => sameEntry(sl[k], e)) || null; }
+// put something in a slot: it leaves any other slot it was in; null empties the slot
+function setSlot(k, e) {
+  const sl = slotsOf();
+  if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
+  sl[k] = e ? { kind: e.kind, id: e.id } : null;
+  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
+  refreshButtons();
+}
+// the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
+function syncEquip() {
+  const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
+  if (!ws.some(e => e.id === state.equip)) state.equip = ws.length ? (sl.f && sl.f.kind === 'weapon' && entryCount(sl.f) ? sl.f.id : ws[0].id) : (inv.sword ? 'sword' : null);
+}
+// a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
+function tidySlots() {
+  if (!state.inv || !state.started) return;
+  const inv = state.inv, sl = slotsOf(), seen = inv.slotSeen || (inv.slotSeen = {});
+  let changed = false;
+  for (const k of ALL_SLOTS) if (sl[k] && !entryCount(sl[k])) { delete seen[sl[k].kind + ':' + sl[k].id]; sl[k] = null; changed = true; }
+  for (const key of Object.keys(seen)) { const [kind, id] = key.split(':'); if (!entryCount({ kind, id })) delete seen[key]; }
+  for (const e of slotOptions()) {
+    const key = e.kind + ':' + e.id;
+    if (seen[key]) continue;
+    seen[key] = true;
+    if (slotOf(e)) continue;
+    const order = e.kind === 'weapon' ? ['f', 'a', 's', 'd'] : ['a', 's', 'd'];
+    const k = order.find(j => !sl[j]);
+    if (k) { setSlot(k, e); changed = true; }
+    else if (!state.tipsSeen.slotsFull && !ARENA && !PUZZLE) {        // never overwrite: show the way to swap instead
+      state.tipsSeen.slotsFull = true;
+      sayHero(`Your slots are full. Hold ${K.swap.toUpperCase()} and press a slot key to swap, or use the pack (${K.menu.toUpperCase()}).`, { life: 5, color: '#ffe38a' });
+    }
+  }
+  syncEquip();
+  if (changed) refreshButtons();
+}
+// what a slot shows right now: an icon and a count (nothing at all when empty)
 function slotShow(s) {
-  const inv = state.inv;
-  if (!s) return null;
-  if (s.kind === 'food') { const f = s.id === 'auto' ? autoFood() : s.id; return f ? { icon: f, n: inv.food.filter(x => x === f).length || null, dim: !inv.food.includes(f) } : { icon: 'carrot', dim: true }; }
-  if (s.kind === 'seed') { const k = s.id === 'auto' ? autoSeed() : s.id; return k ? { icon: k, n: inv.bag[k] || null, dim: !(inv.bag[k] > 0) } : { icon: 'turnipseed', dim: true }; }
-  if (s.kind === 'weapon') return { icon: s.id, n: s.id === 'acorn' ? inv.acorns : null, dim: s.id === 'acorn' ? !(inv.acorns > 0) : !inv.sword };
-  if (s.kind === 'ability') return { icon: s.id === 'dodge' ? 'step' : 'fire', dim: s.id === 'dodge' ? !inv.step : !inv.fire };
-  return null;
+  if (!s || !entryCount(s)) return null;
+  const n = entryCount(s);
+  return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && s.id === 'sword' || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id };
 }
+// the plant button: the slot holding seeds you have
+function seedSlotKey() {
+  const sl = slotsOf();
+  return ALL_SLOTS.find(k => sl[k] && sl[k].kind === 'seed' && entryCount(sl[k])) || null;
+}
+const seedKeyLabel = () => { const k = seedSlotKey(); return k ? slotLabel(k) : K.act; };
 function plantHere(kind) {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   if (!sc.feat.plots || !kind) return false;
@@ -7076,53 +7202,96 @@ function plantHere(kind) {
   say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted.`, px * W, py * H - UNIT, { key: 'plot', life: 2 });
   return true;
 }
-// press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
-function useSlot(k) {
-  const s = slotsOf()[k], inv = state.inv, h = state.hero;
-  if (!s) return null;
-  if (s.kind === 'ability') return s.id;                                 // 'dodge' or 'fire' (fire is held)
-  if (s.kind === 'food') {
-    const f = s.id === 'auto' ? autoFood() : s.id;
-    if (!f || !inv.food.includes(f)) { sayHero('Nothing to eat in that slot.', { life: 1.4 }); return null; }
-    if (h.vig >= maxVig()) { sayHero('Not hungry right now.', { life: 1.5 }); return null; }
-    eatFood(f); return null;
-  }
-  if (s.kind === 'seed') {
-    const kind = s.id === 'auto' ? autoSeed() : s.id;
-    if (!kind || !(inv.bag[kind] > 0)) { sayHero('No seeds of that kind.', { life: 1.4 }); return null; }
-    if (!plantHere(kind)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 });
-    return null;
-  }
-  if (s.kind === 'weapon') {
-    if (s.id === 'acorn' && !(inv.acorns > 0)) { sayHero('No acorns.', { life: 1.2 }); return null; }
-    if (s.id === 'sword' && !inv.sword) return null;
-    state.equip = s.id; state.active = s.id; sfx.tock(); return null;
-  }
+// use one thing: the same path for a slot key, the wheel, and F when F holds a consumable
+function useEntry(e) {
+  const inv = state.inv, h = state.hero;
+  if (!e || !entryCount(e)) return null;
+  if (e.kind === 'food') { if (h.vig >= maxVig() && !(e.id === 'turnip' && inv.vigBonus < 40)) { sayHero('Not hungry right now.', { life: 1.5 }); return null; } eatFood(e.id); return null; }
+  if (e.kind === 'seed') { if (!plantHere(e.id)) sayHero('Stand on an empty patch of rich soil.', { life: 1.6 }); return null; }
+  if (e.kind === 'weapon') { state.equip = e.id; state.active = e.id; return null; }
+  if (e.kind === 'ability') { if (e.id === 'flare') { flare(); return null; } return e.id; }   // 'dodge' / 'fire' run with movement
   return null;
 }
-const slotHeld = id => SLOT_KEYS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
+// press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
+function useSlot(k) { return useEntry(slotsOf()[k]); }
+const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
+// a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
+function slotWeaponHeld() {
+  if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
+  const sl = slotsOf();
+  for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
+  return false;
+}
 // "put in slot" actions for pack cells
 function slotActs(entry) {
-  return SLOT_KEYS.map(k => ({ label: `Slot ${K[SLOT_ACTION[k]] || k.toUpperCase()}`, fn: () => { slotsOf()[k] = entry; } }));
+  return ALL_SLOTS.map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
 }
-// the bar under the vigor display: A S D F, centred beneath it
+// the bar under the vigor display: A S D F in fixed places; an empty slot draws nothing at all
 function drawSlotBar(x0, y0, len, s) {
-  const slots = slotsOf(), inv = state.inv, keys = [...SLOT_KEYS, 'f'], gap = s * 0.35, w = keys.length * s * 1.2 + (keys.length - 1) * gap;
-  let x = x0 + len / 2 - w / 2 + s * 0.6;
-  x = Math.max(x0 + s * 0.6, x);
+  const slots = slotsOf(), gap = s * 0.35, w = ALL_SLOTS.length * s * 1.2 + (ALL_SLOTS.length - 1) * gap;
+  let x = Math.max(x0 + s * 0.6, x0 + len / 2 - w / 2 + s * 0.6), right = x0;
   const y = y0;
-  for (const k of keys) {
-    const show = k === 'f' ? (state.equip === 'acorn' && inv.acorns > 0 ? { icon: 'acorn', n: inv.acorns } : inv.sword ? { icon: 'sword' } : null) : slotShow(slots[k]);
-    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    ctx.strokeStyle = 'rgba(255,227,138,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    if (show) { ctx.globalAlpha = show.dim ? 0.35 : 1; drawItemIcon(show.icon, x, y, s * 0.78); ctx.globalAlpha = 1; }
-    ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
-    ctx.fillText((k === 'f' ? K.act : (K[SLOT_ACTION[k]] || k)).toUpperCase().slice(0, 5), x - s * 0.55, y - s * 0.3);   // the key, top left
-    if (show && show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
-    ctx.textAlign = 'left';
+  for (const k of ALL_SLOTS) {
+    const show = slotShow(slots[k]);
+    if (show) {
+      ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      drawItemIcon(show.icon, x, y, s * 0.78);
+      ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
+      ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
+      if (show.n != null) { ctx.textAlign = 'right'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(show.n, x + s * 0.55, y + s * 0.52); }
+      ctx.textAlign = 'left'; right = x + s * 0.6;
+    }
     x += s * 1.2 + gap;
   }
-  return x;
+  return Math.max(right + s * 0.4, x0 + s * 0.6);
+}
+// the wheel's own ability: a ring of sparks from the ember charm
+function flare() {
+  const h = state.hero;
+  if (!spend(1)) { sayHero('Too tired.', { life: 1.2 }); return; }
+  sfx.whoosh(); state.shake = 0.15; zoomPulse(h.x, h.y, 'parry');
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.28; state.fx.push({ x: h.x, y: h.y, vx: Math.cos(a) * UNIT * 5, vy: Math.sin(a) * UNIT * 5, t: 0, life: 0.45, color: i % 2 ? '#ffb04a' : '#fff0a0', size: UNIT * 0.14 }); }
+  for (const e of state.enemies) if (hittable(e) && Math.hypot(e.x - h.x, e.y - h.y) < UNIT * 2.2) { e.burn = Math.max(e.burn || 0, 1.5); damage(e, 1, 'fire', (e.x - h.x) / UNIT, (e.y - h.y) / UNIT); }
+  for (const w of state.webs) if (!w.burn && Math.hypot(w.x - h.x, w.y - h.y) < UNIT * 2.4) igniteWeb(w);
+  if (state.bird) scareBird(h.x, h.y, 3);
+}
+
+// =====================================================================
+// Things you wear: armaments, charms and flair. Chosen in the pack (Wear tab), a few at a time, and always
+// visible on you. Some change how a weapon or a food works, some give a new ability for your slots.
+// =====================================================================
+const WEAR = {
+  cap:     { name: 'Stalker cap', kind: 'armament', line: 'Things falling from above bounce off.' },
+  stonecharm: { name: 'River-stone charm', kind: 'armament', line: 'Hits cost you a quarter less vigor.' },
+  mitts:   { name: 'Gardener\'s mitts', kind: 'charm', line: 'Food mends a quarter more, and turnips work twice as fast.' },
+  embercharm: { name: 'Ember charm', kind: 'charm', line: 'Acorns set things alight. Gives Flare: a ring of sparks for your slots.' },
+  feather: { name: 'Pip\'s feather', kind: 'flair', line: 'Pip found it. It does nothing. It looks great.' },
+};
+const WEAR_KIND = { armament: 'Armament', charm: 'Charm', flair: 'Flair' };
+const gearOwned = () => { const inv = state.inv, g = inv.gear || (inv.gear = []); if (inv.scalp && !g.includes('cap')) { g.push('cap'); if (!inv.worn) inv.worn = []; if (inv.worn.length < wearSlots()) inv.worn.push('cap'); } return g; };
+const wearSlots = () => 2 + (state.inv.pipSaved ? 1 : 0) + (state.inv.tortoise ? 1 : 0);
+const wears = id => gearOwned().includes(id) && (state.inv.worn || []).includes(id);
+function gainGear(id, quiet) {
+  const inv = state.inv, g = gearOwned(), worn = inv.worn || (inv.worn = []);
+  if (!g.includes(id)) g.push(id);
+  const put = worn.length < wearSlots() && !worn.includes(id);
+  if (put) worn.push(id);
+  if (!quiet) { sfx.shing(); showTitle(WEAR[id].name, `${WEAR[id].line}${put ? ' Wearing it now.' : ` Wear it from the pack (${K.menu.toUpperCase()}, Wear).`}`, 'relic', 4, true); }
+}
+function toggleWear(id) {
+  const inv = state.inv, worn = inv.worn || (inv.worn = []);
+  if (worn.includes(id)) { worn.splice(worn.indexOf(id), 1); return 'off'; }
+  if (worn.length >= wearSlots()) return 'full';
+  worn.push(id); return 'on';
+}
+// on the hero, every worn thing shows: drawn over the body at (x, top of head y), u = one tile
+function drawWorn(x, top, pw, ph, u) {
+  const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
+  if (worn.includes('feather')) { ctx.save(); ctx.translate(x - side * pw * 0.25, top); ctx.rotate(-side * 0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, -u * 0.22, u * 0.07, u * 0.24, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -u * 0.44); ctx.stroke(); ctx.restore(); }
+  if (worn.includes('stonecharm')) { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(x, top + ph * 0.42, u * 0.09, u * 0.07, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - pw * 0.3, top + ph * 0.3); ctx.lineTo(x, top + ph * 0.36); ctx.lineTo(x + pw * 0.3, top + ph * 0.3); ctx.stroke(); }
+  if (worn.includes('mitts')) { ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.arc(x + sx * pw * 0.52, top + ph * 0.66, u * 0.1, 0, 6.28); ctx.fill(); } }
+  if (worn.includes('embercharm')) { const g = 0.6 + 0.4 * Math.sin(state.time * 5); ctx.fillStyle = `rgba(255,${150 + 60 * g},60,${0.7 + 0.3 * g})`; ctx.beginPath(); ctx.arc(x + side * pw * 0.28, top + ph * 0.78, u * 0.08, 0, 6.28); ctx.fill(); }
 }
 
 // ---------------- skills: quiet levels that grow with use ----------------
@@ -7173,13 +7342,6 @@ function steerAcorn(s, dt) {
   s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp;
 }
 
-// the quick slot that holds seeds (and has one to plant): planting is that button, not F
-function seedSlotKey() {
-  const slots = slotsOf(), inv = state.inv;
-  for (const k of SLOT_KEYS) { const sl = slots[k]; if (!sl || sl.kind !== 'seed') continue; const kind = sl.id === 'auto' ? autoSeed() : sl.id; if (kind && inv.bag[kind] > 0) return k; }
-  return null;
-}
-const seedKeyLabel = () => { const k = seedSlotKey(); return k ? (K[SLOT_ACTION[k]] || k).toUpperCase() : K.act; };
 
 // =====================================================================
 // Drawing
@@ -7349,6 +7511,10 @@ function drawItemIcon(type, x, y, s) {
       ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
       ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
       break;
+    case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
+    case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
+    case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;
+    case 'wear_embercharm': { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.2); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,120,40,0.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.17, 0, 6.28); ctx.fill(); break; }
     // vegetable seeds, a small pinch of each, drawn the way the real ones look
     case 'turnipseed':                                 // tiny round beads, dark red-brown to near black, a glint on each
       for (const [ox, oy, r] of [[-0.16, 0.1, 0.11], [0.08, -0.14, 0.12], [0.18, 0.14, 0.1], [-0.04, 0.16, 0.09]]) {

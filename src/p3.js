@@ -147,6 +147,7 @@ function transitionTo(id, fx, fy, quick) {
 
 function checkEdges() {
   const sc = sceneDef(), h = state.hero, r = UNIT * 0.5 + 8;
+  if (state.npcTalk) return;                          // mid-conversation: finish it first (F), then go
   if (state.intro && !state.intro.gone) return;        // the opening: the bank is yours to wander, but not to leave until Pip heads off
   for (const ex of sc.exits) {
     let at = false, along = 0;
@@ -201,7 +202,7 @@ function newGame() {
 // Update
 // =====================================================================
 function update(dt) {
-  if (state.radial) dt *= 0.2;                        // the quick-select wheel slows the world
+  if (state.radial) dt *= 0.05;                       // the wheel all but stops the world
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
   state.shake = Math.max(0, state.shake - dt);
@@ -212,6 +213,7 @@ function update(dt) {
   if (!state.started) return;
   readPresses();
   updateQuests();
+  if (state.time - (state.slotT || -9) > 0.25) { state.slotT = state.time; tidySlots(); }
   // the action key first clears anything waiting to be read (a quest alert, someone talking); that press goes no further
   if (!state.menu && !state.choice && pressedNow.act && dismissHeld()) { pressedNow.act = false; state.dismissedAt = state.time; }
   if (state.menu) { updateMenu(); return; }
@@ -242,13 +244,19 @@ function update(dt) {
 
   if (!state.busy) {
     // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
-    state.actUsed = interact();
+    // F is the dynamic action: what's right here comes first. A weapon slotted on A/S/D skips that and just swings.
+    state.actUsed = state.radial ? true : state.slotAct ? false : interact();
+    if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
+      const f = slotsOf().f;
+      if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
+      else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
+    }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
     updateAbilities(dt);
   }
   for (const k of ['lumin', 'slime', 'pepper', 'fishBuff', 'carrotBuff', 'squashBuff']) if (inv[k] > 0) inv[k] = Math.max(0, inv[k] - dt);
   if (inv.turnipRegen > 0) {                          // a turnip's vigor, trickling back
-    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt);
+    const give = Math.min(inv.turnipRegen, Math.max(0.35, inv.turnipRegen / 8) * dt * (wears('mitts') ? 2 : 1));
     inv.turnipRegen -= give; h.vig = Math.min(maxVig(), h.vig + give);
     if (h.vig >= maxVig()) inv.turnipRegen = 0;
   }
@@ -257,7 +265,7 @@ function update(dt) {
   if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
 
   // movement
-  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || state.npcTalk || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
+  const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
   if (h.ride && !h.ride.hop && pressedNow.act && h.z > UNIT * 0.3 && h.vig >= 0.8 && !state.carry) {   // stomp out of a gust
     h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT; state.cam.focus = null;
   }
@@ -437,7 +445,7 @@ function jumpGrowth() { const mv = maxVig(); return [Math.max(0, Math.min(1, (mv
 function updateJump(dt) {
   const h = state.hero, sc = sceneDef();
   if (h.ride || h.falling > 0) return;
-  if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry && !state.npcTalk) {
+  if (pressedNow.jump && h.z <= 0 && !state.busy && !state.pull.grip && !state.carry) {
     // more vigor, higher and longer jumps, a little at a time; a tired hero barely leaves the ground
     const [f, g2] = jumpGrowth();
     h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
@@ -713,7 +721,7 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
   const h = state.hero;
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
   if (state.whirl) endWhirl('hit');
-  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty(); h.rest = state.time + 0.8; h.hurtT = state.time;
+  h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty() * (wears('stonecharm') ? 0.75 : 1); h.rest = state.time + 0.8; h.hurtT = state.time;
   if (h.vig > 0 && h.vig <= 1) say('Exhausted...', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
   h.invuln = 1.2;
   sfx.hit();

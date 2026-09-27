@@ -819,7 +819,8 @@ function drawHeroBody(h, pw, ph, y, sh) {
   ctx.fillStyle = h.stun > 0 ? '#ffffff' : '#f5d06f';
   ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph);
   if (r < 0.35) { ctx.fillStyle = `rgba(60,50,80,${(0.35 - r) * 1.3})`; ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph); }
-  if (state.inv.scalp) drawScalp(h.x, y - ph / 2, UNIT);
+  if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
+  drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
   if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
   else if (state.inv.sword) drawSword(h, pw, ph, y, heroic);
 }
@@ -1366,15 +1367,20 @@ function drawRadial() {
     const a = i / n * Math.PI * 2 - Math.PI / 2, x = sx + Math.cos(a) * R, y = sy + Math.sin(a) * R, on = i === r.sel;
     ctx.fillStyle = on ? 'rgba(242,201,76,.45)' : 'rgba(20,18,26,.8)'; ctx.beginPath(); ctx.arc(x, y, s * (on ? 0.72 : 0.6), 0, 6.28); ctx.fill();
     if (on) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 3; ctx.stroke(); }
-    if (o.kind === 'weapon' && state.equip === o.id) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 6.28); ctx.stroke(); }
-    drawItemIcon(o.icon, x, y, s * 0.75);
+    const inSlot = o.kind !== 'none' && slotOf(o);
+    if (r.slot && sameEntry(o, slotsOf()[r.slot])) { ctx.strokeStyle = '#9fd4ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 6.28); ctx.stroke(); }
+    if (o.kind === 'none') { ctx.strokeStyle = 'rgba(253,246,227,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.28, 0, 6.28); ctx.moveTo(x - s * 0.2, y + s * 0.2); ctx.lineTo(x + s * 0.2, y - s * 0.2); ctx.stroke(); }
+    else drawItemIcon(entryInfo(o).icon, x, y, s * 0.75);
+    if (inSlot) { ctx.font = `bold ${Math.round(s * 0.3)}px "Courier New", monospace`; ctx.fillStyle = '#ffe38a'; ctx.textAlign = 'center'; ctx.fillText(slotLabel(inSlot), x + s * 0.42, y - s * 0.38); ctx.textAlign = 'left'; }
   });
-  const sel = r.opts[r.sel];
-  ctx.textAlign = 'center'; ctx.font = `bold ${Math.round(Math.max(14, UNIT * 0.45))}px "Courier New", monospace`;
-  ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? (sel.kind === 'food' ? `Eat ${sel.label}` : sel.label) : 'point, then let go', sx, sy + 5);
+  const sel = r.opts[r.sel], fs = Math.round(Math.max(14, UNIT * 0.45));
+  ctx.textAlign = 'center'; ctx.font = `bold ${fs}px "Courier New", monospace`;
+  ctx.fillStyle = r.slot ? '#9fd4ff' : 'rgba(253,246,227,.75)';
+  ctx.fillText(r.slot ? `Set ${slotLabel(r.slot)}` : 'Use now', sx, sy - fs * 0.7);
+  ctx.fillStyle = '#ffe38a'; ctx.fillText(sel ? radialLabel(sel, r.slot) : r.slot ? 'point, then let go' : `point, let go \u00b7 ${ALL_SLOTS.map(slotLabel).join('/')} to set a slot`, sx, sy + fs * 0.6);
   ctx.textAlign = 'left';
 }
-const BUILD = 'build 65';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 66';                            // shown on the pause screen so you can tell which version is running
 function drawMenu() {
   const m = state.menu, items = menuItems();
   if (m.view === 'poses') { drawPoseSheet(); return; }

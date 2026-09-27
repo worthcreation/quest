@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 65, 27 Sep 2026)
+# Quest: handoff notes (as of build 66, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,35 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 66 in short (slots, wheel, wearables; all in p14 unless noted)
+- One slot model. inv.slots = {a, s, d, f}, each {kind: weapon|food|seed|ability, id} or null; inv.slotV = 2 (older saves'
+  'auto' slots convert in slotsOf). slotOptions() is the single list of what can be slotted; entryCount/entryInfo describe any
+  entry; setSlot(k, e) moves an entry (it leaves any other slot); useEntry(e) is the single "use it" path for slot keys, the
+  wheel and F. Nothing else should hand-roll food/seed/weapon lists.
+- Slots start empty and draw nothing (no box, no letter). tidySlots() (4x/s from update) clears slots whose thing ran out and
+  drops newly owned things into an empty slot (weapons F first, the rest A/S/D). A full bar is never overwritten: one tip
+  points to R and the pack (tipsSeen.slotsFull). inv.slotSeen tracks what has been offered.
+- F is the dynamic action: interact() first; if nothing is here, F uses the F slot (weapon: equips it and combat runs; other:
+  useEntry). A weapon on A/S/D: slotWeaponHeld() (inside held.act) makes that key act as the weapon key and sets
+  state.slotAct, which skips interact(). Same swing/stab/throw code for every key. syncEquip() keeps state.equip valid.
+- Seeds on A/S/D: that key plants; seeds on F: F plants (interact's plot branch). seedSlotKey() looks at all four.
+- Wheel: hold R = consumables for use now (food, seeds). Hold R + A/S/D/F = everything slottable for that slot plus "Empty";
+  let go of R to set it. Tap R steps F through weapons. World runs at 0.05x while the wheel is open. radialOptions/
+  radialLabel/applyRadial/cycleEquip in p6, drawRadial in p7.
+- Menus: D backs out (acts -> grid -> tabs -> closed; other views close; ask() choices cancel). F selects. menuBack() in p6.
+- Wearables: WEAR table (cap = Stalker cap, stonecharm, mitts, embercharm, feather), inv.gear (owned), inv.worn, wearSlots() =
+  2 (+1 Pip rescued, +1 tortoise). wears(id) is the only check effects use. Pack tab "Wear" toggles them. drawWorn() draws
+  every worn thing on the hero. Effects: cap (old scalp checks), stonecharm in hurtHero (x0.75), mitts in eatFood (x1.25) and
+  turnip regen (x2), embercharm sets burn on acorn hits (p6 updateShots) and unlocks the Flare ability (flare() in p14).
+  Sources: cap from the stalker parts as before; feather from Pip at "Home base"; the charms are craft-mat recipes
+  (RECIPES entries with wear: true; mats like ember can go on the mat; mitts need a first harvest).
+- Pip: during a pipSay visit Pip stays at the thing until you've read the line (held 'pip' text), even with you beside it.
+  Conversations (npcTalk) no longer freeze you; screen exits wait until the talk ends.
+- Tests: t66 (30 checks: empty start, auto-equip order, no overwrite + tip, each key using its slot, sword on A, food on F,
+  wheel use/assign/slowdown, tap R, D back in menus, crafting and wearing charms, stone charm damage, Flare, Pip waiting,
+  walking in conversations, old-save slots). t61 predates the empty-start slots and is stale in its expectations.
+  tools/shot.js B66=1 renders the HUD, both wheels and the Wear tab.
 
 ## Build 65 in short
 - Opening is no longer a cutscene. startIntro puts you on the bank at the jetty's foot (solids within 2.6 tiles of that spot are
@@ -81,7 +110,7 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
   Build fire ring, Build bench), then Find Pip, toad's beans, journal, Downriver, mushrooms. Quests tab (main game)
   is a list: CURRENT (newest quest first, step name, progress line, "step n of m"), then a folded "Log (n)" row,
   F toggles it, entries newest first with quest and play time. Arena keeps its zone grid in that tab.
-- Keys: arrows move, Space jump, F act/weapon, R swap (hold = wheel), A/S/D quick slots, E fire, M menu.
+- Keys: arrows move, Space jump, F act + F slot, R tap = next weapon in F / hold = wheel (+A/S/D/F to set a slot), A/S/D slots, E fire, M menu, D back in menus.
 - Planting (build 64): the quick slot holding seeds is the plant button. seedSlotKey()/seedKeyLabel() in p14; the
   patch prompt shows that key, F on an empty patch only improves it (or says "D plants."). With no seed slot, F plants.
 - Pip while gathering (build 64): pipGatherTalk in p6 replaces "The woods are the other way" until the camp is built.

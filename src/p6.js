@@ -89,8 +89,8 @@ function interact() {
       const [px, py] = sc.feat.plots[i], d2 = Math.hypot(h.x - px * W, h.y - py * H);
       if (i !== nearestPlot) continue;
       const p = plots[i], stage = plotStage(p), crop = cropOfPlot(p, sc, i);
-      const slotSeeds = p.s === 0 && !!seedSlotKey();
-      const have = slotSeeds ? [] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
+      const sk = seedSlotKey(), slotSeeds = p.s === 0 && !!sk && sk !== 'f';   // seeds on A/S/D: that key plants. Seeds on F: F plants them
+      const have = slotSeeds ? [] : sk === 'f' ? [slotsOf().f.id] : Object.keys(SEEDS).filter(k => state.inv.bag[k] > 0);
       const next = PATCH[(p.lv || 0) + 1], improve = p.s === 0 && next && canAfford(next.cost);
       if (slotSeeds && !improve) { if (pressedNow.act) say(`${seedKeyLabel()} plants.`, px * W, py * H - UNIT, { key: 'plot', life: 1.6 }); if (!pressedNow.act) return false; return true; }
       if (p.s === 0 && !have.length && !improve && !slotSeeds) say(`${patchOf(p).name}. Birds and gremlins drop seeds; rarer seeds come from tougher things.`, px * W, py * H - UNIT, { key: 'plot', tip: 'plot', life: 2.5 });
@@ -155,29 +155,32 @@ function dropRock() {                               // set down a step ahead, th
   state.items.push({ type: 'bigrock', x: h.x + h.fx * UNIT * 0.9, y: h.y + h.fy * UNIT * 0.9 + UNIT * 0.15 });
   sfx.land(); refreshButtons();
 }
-// the wheel: weapons first, then each kind of food you carry
-function radialOptions() {
-  const inv = state.inv, o = [];
-  if (inv.sword) o.push({ kind: 'weapon', id: 'sword', icon: 'sword', label: 'Sword' });
-  if (inv.acorns > 0) o.push({ kind: 'weapon', id: 'acorn', icon: 'acorn', label: `Acorns ${inv.acorns}` });
-  for (const f of [...new Set(inv.food)]) if (o.length < 8) o.push({ kind: 'food', id: f, icon: f, label: `${f} ${inv.food.filter(x => x === f).length}` });
-  return o;
+// The wheel (hold R): every consumable you carry, for use right now. Hold R and press A, S, D or F: everything
+// that could go in that slot; let go of R to put the highlighted one there. Both lists come from slotOptions().
+function radialOptions(slot) {
+  if (slot) return [...slotOptions(), { kind: 'none', id: 'none' }];
+  return consumableOptions();
 }
-function applyRadial(opt) {
-  const h = state.hero;
-  if (opt.kind === 'weapon') { state.equip = opt.id; state.active = opt.id; sfx.tock(); say(opt.label, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' }); }
-  else eatFood(opt.id);
+function radialLabel(o, slot) {
+  if (o.kind === 'none') return `Empty ${slotLabel(slot)}`;
+  const i = entryInfo(o), n = entryCount(o);
+  if (slot) return `${slotLabel(slot)}: ${i.name}${o.kind === 'weapon' && o.id === 'sword' || o.kind === 'ability' ? '' : ' ' + n}`;
+  return `${i.verb} ${i.name.toLowerCase()} (${n})`;
 }
+function applyRadial(r) {
+  const opt = r.opts[r.sel];
+  if (!opt) return;
+  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; say(radialLabel(opt, r.slot), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
+  else useEntry(opt);
+}
+// tap R: the F slot steps through your weapons
 function cycleEquip() {
-  const inv = state.inv, opts = [];
-  if (inv.sword) opts.push('sword');
-  if (inv.acorns > 0) opts.push('acorn');
-  if (opts.length < 2) { if (opts.length) state.equip = opts[0]; return; }
-  state.equip = opts[(opts.indexOf(state.equip) + 1) % opts.length];
-  state.active = state.equip;
-  sfx.tock();
-  const h = state.hero;
-  say(state.equip === 'sword' ? 'Sword' : `Acorns (${inv.acorns})`, h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
+  const ws = slotOptions().filter(e => e.kind === 'weapon');
+  if (!ws.length) return;
+  const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
+  if (sameEntry(next, f)) return;
+  setSlot('f', next); sfx.tock();
+  const h = state.hero; say(radialLabel(next, 'f'), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
 }
 
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
@@ -508,28 +511,34 @@ function advanceTalk() {
 function updateAbilities(dt) {
   const h = state.hero, inv = state.inv;
   let wantDodge = false;
-  for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  if (!state.radial && state.swapT == null) for (const k of SLOT_KEYS) if (pressedNow[SLOT_ACTION[k]] && !state.actUsed) { const r = useSlot(k); if (r === 'dodge') wantDodge = true; }
+  if (state.fSlotAbility === 'dodge') wantDodge = true;              // F holding the dodge
+  state.fSlotAbility = null;
   if (wantDodge && inv.step && h.dashCool <= 0 && !h.ride && !state.pull.grip && !state.carry && spend(inv.step >= 3 ? 0.6 : 1.2)) {
     h.dashT = inv.step >= 3 ? 0.22 : 0.18; h.dashCool = inv.step >= 2 ? 0.5 : 0.85; h.invuln = Math.max(h.invuln, inv.step >= 3 ? 0.45 : 0.3);
     h.vx = h.fx * 1.2 * L(); h.vy = h.fy * 1.2 * L();
     state.dodged = false;
     sfx.dash();
   }
-  // R swaps between the sword and acorns (a carried rock takes both hands, so no swapping then)
-  // R: tap swaps weapons; hold opens the quick-select wheel (the world slows), point and let go
+  // R: tap steps F through your weapons; hold opens the wheel of consumables (the world all but stops);
+  // while holding, A/S/D/F switches the wheel to everything that could go in that slot. Point, then let go of R.
   if (pressedNow.swap && !state.carry) state.swapT = state.time;
   if (state.swapT != null) {
     if (held.swap()) {
-      if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { opts: radialOptions(), sel: -1 };
+      const pick = ALL_SLOTS.find(k => pressedNow[SLOT_ACTION[k]]);
+      if (pick) state.radial = { slot: pick, opts: radialOptions(pick), sel: -1 };
+      else if (!state.radial && state.time - state.swapT > 0.22 && radialOptions().length) state.radial = { slot: null, opts: radialOptions(), sel: -1 };
       if (state.radial) {
+        const R = state.radial, cur = R.slot ? R.opts.findIndex(e => sameEntry(e, slotsOf()[R.slot])) : -1;
+        if (pick && cur >= 0) R.sel = cur;                         // start on what's there now
         let x = 0, y = 0;
         if (state.radialPtr) [x, y] = state.radialPtr;
         else { if (held.up()) y -= 1; if (held.down()) y += 1; if (held.left()) x -= 1; if (held.right()) x += 1; }
-        if (x || y) { const n = state.radial.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); state.radial.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
+        if (x || y) { const n = R.opts.length, a = (Math.atan2(y, x) + Math.PI / 2 + Math.PI * 2) % (Math.PI * 2); R.sel = Math.round(a / (Math.PI * 2 / n)) % n; }
       }
     } else {
       const r = state.radial;
-      if (r) { if (r.sel >= 0) applyRadial(r.opts[r.sel]); }
+      if (r) { if (r.sel >= 0) applyRadial(r); }
       else cycleEquip();
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
@@ -628,6 +637,7 @@ function updateShots(dt) {
       const d = Math.hypot(s.vx, s.vy) || 1;
       s.hit.add(e);
       if (!rock) skillUse('acorn', true);
+      if (!rock && wears('embercharm')) { e.burn = Math.max(e.burn || 0, 2); spark(e.x, e.y, '#ffa04a', 6, 2); }   // the ember charm lights them
       damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
@@ -840,7 +850,8 @@ function updatePip(dt) {
     }
     if (v.said) {
       const close = Math.hypot(h.x - p.x, h.y - p.y) < UNIT * 2.6;
-      if (close && state.time - v.said > 0.8) { p.visit = null; state.pipTalkT = state.time; }   // you came over: carry on together
+      const reading = state.texts.some(t => t.hold && t.key === 'pip');
+      if (close && state.time - v.said > 0.8 && !reading) { p.visit = null; state.pipTalkT = state.time; }   // you came over and read it: carry on together
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
         v.call = state.time; say('Over here!', p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
       }
@@ -888,7 +899,7 @@ function updatePip(dt) {
       pipSay('tentin', 'Go on, crawl inside the lean-to. My book\'s in there.', P([0.33, 0.33]));
       for (const pc of ['fire', 'bench']) if ((raw[PIECE_OF[pc]] || 0) > 0 && !campBuilt(pc)) pipSay('place-' + pc, 'Set it down on the marks, right here.', P([spot(pc).fx, spot(pc).fy]));
       if (campBuilt('fire') && !campBuilt('bench')) pipSay('fireok', 'A real fire! Now the bench: two sticks and some of that glue.');
-    } else if (campDone() && !storyAt('adventure') && !state.cut) { pipSay('campdone', 'Home base! We did it!'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
+    } else if (campDone() && !storyAt('adventure') && !state.cut) { if (pipSay('campdone', 'Home base! We did it! Here, I found this feather. It\'s for you.')) gainGear('feather'); if (!p.duskT) p.duskT = state.time; if (state.time - p.duskT > 3) startDusk(); }
     if (campDone() && f.shroom && near(...f.shroom, 4.5)) pipSay('shroom', 'That mushroom hums at night.', P(f.shroom));
   }
   if (storyAt('gather') && !campDone()) {                // out gathering: Pip spots the good stuff
@@ -1094,7 +1105,7 @@ function updateChoice() {
   if (pressedNow.left) { c.sel = (c.sel + n - 1) % n; sfx.tock(); }
   if (pressedNow.right) { c.sel = (c.sel + 1) % n; sfx.tock(); }
   if (pressedNow.act) { state.choice = null; c.cb(c.sel); }
-  else if (!c.must && (pressedNow.up || pressedNow.down || pressedNow.jump)) state.choice = null;   // walking away cancels
+  else if (!c.must && (pressedNow.up || pressedNow.down || pressedNow.jump || pressedNow.slotd)) state.choice = null;   // walking away (or D) cancels
 }
 
 // ---------------- the Falls Warden has had a day ----------------
@@ -1201,7 +1212,7 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
+const PACK_TABS = ['Gear', 'Wear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'System'];
 const SYSTEM_ITEMS = () => [
   ['resume', 'Resume'],
   ...(PUZZLE && state.puzzle ? [['retry', `Retry: ${state.puzzle.p.name}`], ['hub', 'Back to the puzzles']] : []),
@@ -1247,15 +1258,24 @@ function packCells(tab) {
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
   if (tab === 'Gear') {
-    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: (state.equip === 'sword' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'sword'; state.active = 'sword'; } }]).concat(slotActs({ kind: 'weapon', id: 'sword' })) });
-    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with F; hold to throw harder', mark: state.equip === 'acorn', acts: (state.equip === 'acorn' ? [] : [{ label: 'Equip', fn: () => { state.equip = 'acorn'; state.active = 'acorn'; } }]).concat(slotActs({ kind: 'weapon', id: 'acorn' })) });
+    if (inv.sword) cells.push({ icon: 'sword', name: inv.up.edge >= 3 ? 'Sword' : 'Rusty sword', line: `slash ${1 + 0.5 * inv.up.edge}, stab ${2 + 0.5 * inv.up.temper}`, mark: state.equip === 'sword', acts: slotActs({ kind: 'weapon', id: 'sword' }) });
+    if (inv.acorns) cells.push({ icon: 'acorn', name: 'Acorns', count: inv.acorns, line: 'throw with their key; hold to throw harder', mark: state.equip === 'acorn', acts: slotActs({ kind: 'weapon', id: 'acorn' }) });
     cells.push({ icon: 'turnipseed', name: `Farming level ${farmLevel()}`, line: `seeds come back ${Math.round(farmLevel() * 6)}% more often` });
     if (inv.rod) cells.push({ icon: 'rod', name: 'Old Wick\'s rod', line: 'cast where fish rise' });
     if (inv.fire) cells.push({ icon: 'fire', name: 'Marsh fire', line: `hold ${K.fire} to breathe, let go to spark`, acts: slotActs({ kind: 'ability', id: 'fire' }) });
     for (const k of ['step', 'silk', 'horn']) if (inv[k]) cells.push({ icon: k, name: RELICS[k].name, pips: inv[k], line: RELICS[k].levels[inv[k] - 1], acts: k === 'step' ? slotActs({ kind: 'ability', id: 'dodge' }) : [] });
-    if (inv.scalp) cells.push({ icon: 'scalp', name: 'Stalker cap', line: 'falling things bounce off' });
+    if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+  }
+  if (tab === 'Wear') {                                 // armaments, charms and flair: a few at a time, all of them visible on you
+    const worn = inv.worn || [], n = wearSlots();
+    for (const id of gearOwned()) {
+      const on = worn.includes(id), W0 = WEAR[id];
+      cells.push({ icon: id === 'cap' ? 'scalp' : 'wear_' + id, name: W0.name, mark: on, line: `${WEAR_KIND[W0.kind]} \u00b7 ${W0.line} (${worn.length} of ${n} worn)`,
+        acts: [{ label: on ? 'Take off' : 'Wear', fn: () => { const r = toggleWear(id); if (r === 'full') state.menu.note = `You can wear ${n} at once. Take one off first.`; refreshButtons(); } }] });
+    }
+    if (!cells.length) cells.push({ icon: 'wear_feather', name: 'Nothing to wear yet', line: `Room for ${n}. Charms can be made on the craft mat; others turn up.` });
   }
   if (tab === 'Food') for (const f of [...new Set(inv.food)]) {
     const fav = inv.favFood === f;
@@ -1355,8 +1375,20 @@ function menuItems() {
   if (m.view === 'keys') return ACTIONS.map(a => `${ACTION_NAMES[a]}: ${state.remap === a ? 'press a key...' : keyName(state.settings.keys[a])}`).concat('Reset to defaults', 'Back');
   return ['Back'];
 }
+// D backs out of anything: an action list to its grid, a grid to the tabs, the tabs (or any other screen) closes
+function menuBack() {
+  const m = state.menu;
+  sfx.tock();
+  if (m.view === 'pack') {
+    if (m.focus === 'acts') { m.focus = 'grid'; return; }
+    if (m.focus === 'grid') { m.focus = 'tabs'; return; }
+    state.lastTab = m.tab;
+  }
+  state.menu = null; state.mat = state.mat || [];
+}
 function updateMenu() {
   if (state.remap) return;
+  if (pressedNow.slotd) { menuBack(); return; }
   const m = state.menu, items = menuItems();
   if (m.view === 'pack') { updatePack(); return; }
   if (m.view === 'poses') { if (pressedNow.act) state.menu = null; return; }
