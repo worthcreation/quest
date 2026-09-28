@@ -63,6 +63,12 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B139) {                            // build 139: the five climb screens
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.climbReturn='meadow';
+  for (const id of ['climb1','climb2','climb3','climb4','climb5']) { enterScene(id); state.cut=null; run(20); state.texts=[]; state.title=null; state.scrolls=[]; if (state.climb.kind==='side') { state.climb.px=0.9; state.climb.py=state.climb.ledges[4][2]; run(40); } draw(); fs.writeFileSync('/tmp/b139-'+id+'.png', canvas.toBuffer('image/png')); }
+  console.log('b139 written');
+}
 if (process.env.B138) {                            // build 138: the climb prototype, in the game
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb1'); state.cut=null; run(5); state.texts=[]; state.title=null;

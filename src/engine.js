@@ -96,7 +96,7 @@ function enterScene(id, fx, fy) {
   }
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
-  state.climb = id === 'climb1' ? newClimb() : null;
+  state.climb = CLIMBS[id] ? newClimb(id) : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 138, 28 Sep 2026)
+# Quest: handoff notes (as of build 139, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,21 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 139: five climb screens, in a chain
+- climb.js is data-driven now: CLIMBS[id] = { name, kind: 'trail' | 'side', cam {f, horizon, camH}, mirror, cx(z),
+  hw(z), islands [[x from centre, z, r]], start [dx, z], goalZ, next }. Trail screens share one engine and painter;
+  mirror flips the view (and the arrow keys) so the climb can run the other way.
+  - climb1 The wind trail (as build 138).
+  - climb2 Stepping stones: a wide chasm (5 tiles), mirrored, five grass-topped islands to hop.
+  - climb3 The switchbacks: the chasm zigzags tightly (period 10) and narrows to under a tile in places.
+  - climb4 The steep way: a high camera looking nearly straight down; mirrored.
+  - climb5 The last ledges: a side view. Ledges climb to the right with gaps; arrows walk, Space jumps; the wind blows
+    down the mountain against you; fall and you're back on the last ledge you stood on (1 vigor). The far ranges drift
+    slower (parallax); the valley below.
+  Each ends at a red flag and moves you on; the last drops you into the crags (peak1).
+- Testing: "Try the climb (all five, in a row)", plus "just: <name>" for each of the other four.
+- Test climb covers all five. 62 of 62. tools/shot.js B139=1.
 
 ## Build 138: the climb prototype (a new kind of screen)
 - src/climb.js (in ORDER after highlands), scene 'climb1', reached from System > Testing > "Try the climb (prototype)";
