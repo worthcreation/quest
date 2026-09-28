@@ -324,7 +324,7 @@ function update(dt) {
     }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
-  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
+  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); clampCorridor(h, UNIT * 0.42); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
   updateJump(dt);
 
@@ -385,6 +385,15 @@ function train(amount) {
   }
 }
 
+// on the mountain path the sides are rock: keep to the way
+function clampCorridor(a, r) {
+  const sc = sceneDef(); if (!sc || !sc.corridor) return false;
+  const [l, rt] = corridorSpan(sc, a.y / H), x0 = l * W + r, x1 = rt * W - r;
+  if (x0 > x1) { a.x = (l + rt) / 2 * W; return true; }
+  if (a.x < x0) { a.x = x0; a.vx = Math.max(0, a.vx || 0); return true; }
+  if (a.x > x1) { a.x = x1; a.vx = Math.min(0, a.vx || 0); return true; }
+  return false;
+}
 function clampTo(a, r) {
   let wall = false;
   if (a.x < r) { a.x = r; a.vx = Math.max(0, a.vx); wall = true; }
@@ -557,7 +566,9 @@ function layoutRavineRocks(sc) {
   sc.rocks = sc.rocks.filter(r => !r.island);
   sc.chasms.forEach((c, i) => {
     const inOther = (fx, fy) => sc.chasms.some((o, j) => j !== i && fx >= o[0] && fx <= o[2] && fy >= o[1] && fy <= o[3]);
-    const lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
+    const cs = corridorSpan(sc, (c[1] + c[3]) / 2), m = UNIT * 0.7 / W;
+    let lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
+    if (sc.corridor) { lo = Math.max(c[0] + 0.02, cs[0] + m); hi = Math.min(c[2] - 0.02, cs[1] - m); if (lo > hi) lo = hi = (cs[0] + cs[1]) / 2; }   // on the mountain path: the rocks stand on the way itself
     // a clear run: solid ground above and below, nothing standing in the way of the hops
     const blocked = (fx, fy) => sc.solids.some(s => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT);
     let fx = null;

@@ -63,6 +63,12 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B133) {                            // build 133: the mountain path screens
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; state.pip=null;
+  for (const id of ['f2','f3','f4','f6']) { enterScene(id); state.cut=null; state.enemies=[]; state.pip=null; const [a,b]=corridorSpan(sceneDef(),0.1); state.hero.x=(a+b)/2*W; state.hero.y=H*0.1; run(6); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b133-'+id+'.png', canvas.toBuffer('image/png')); }
+  console.log('b133 written');
+}
 if (process.env.B131) {                            // build 131: broken ravine edges; boulders turning craggy up the fields; the Map's diagonal climb
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.tortoise=true; state.pip=null;

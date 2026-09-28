@@ -266,6 +266,33 @@ function crag(sc, id, at, size, extra = {}) {
   const tint = ['#8a8478', '#7f7a72', '#8c8272', '#77807e', '#857c70'][Math.floor(rng() * 5)];
   sc.solids.push(solid(at[0], at[1], size / 2, 'crag', null, { bar: id, size, hp: size, tint, ...extra })); claim(sc, at[0], at[1], size / 2 + 0.6);
 }
+// The mountain path: a way two to four tiles wide that runs diagonally from the north opening to the south one,
+// its sides wandering and bitten into; beyond it on both sides, the mountain. Returns [left, right] as fractions of W.
+function corridorSpan(sc, fy) {
+  const c = sc.corridor; if (!c) return [0, 1];
+  const e = Math.min(1, Math.max(0, fy)), k = e * e * (3 - 2 * e), s = c.seed;
+  const mid = c.n + (c.s - c.n) * k + (fy > 0.08 && fy < 0.92 ? Math.sin(fy * 7 + s) * 0.035 : 0);
+  const hw = (1.8 + 0.35 * Math.sin(fy * 11 + s * 1.7) + 0.15 * Math.sin(fy * 29 + s)) * UNIT / W;                // never under 2 tiles across (bites included), up to about 4.5
+  const bite = t => (Math.sin(fy * 41 + s * t) > 0.72 ? 0.3 : 0) * UNIT / W;                                        // here and there the rock bites in
+  return [Math.max(0.03, mid - hw + bite(2.3)), Math.min(0.97, mid + hw - bite(3.1))];
+}
+const inCorridor = (sc, fx, fy, pad = 0) => { const [a, b] = corridorSpan(sc, fy); return fx > a + pad && fx < b - pad; };
+function fitToCorridor(sc) {
+  // on the mountain path every ravine runs right across the way (the mountain hides its ends), and ravines that would
+  // touch merge into one, so the way down is always a string of crossings: never a dead end
+  sc.chasms = (sc.chasms || []).map(c => [0, c[1], 1, c[3]]).sort((a, b) => a[1] - b[1]).reduce((out, c) => { const l = out[out.length - 1]; if (l && c[1] <= l[3] + 0.02) l[3] = Math.max(l[3], c[3]); else out.push(c); return out; }, []);
+  const into = (fx, fy, pad = 0.02) => { const [a, b] = corridorSpan(sc, fy); return Math.max(a + pad, Math.min(b - pad, fx)); };
+  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && !inCorridor(sc, s.fx, s.fy, -(s.r * UNIT / W))));   // the mountain takes the side boulders
+  const nearDrop = s => (sc.chasms || []).some(c => s.fy > c[1] - 0.16 && s.fy < c[3] + 0.16);
+  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && nearDrop(s)));                                       // and the path is clear where it meets a ravine
+  sc.feat.updrafts = (sc.feat.updrafts || []).map(([x, y]) => [into(x, y, 0.04), y]);
+  sc.feat.plants = (sc.feat.plants || []).map(([x, y]) => [into(x, y, 0.03), y]);
+  sc.spawns.forEach(sp => { sp.fx = into(sp.fx, sp.fy, 0.03); });
+  sc.initItems.forEach(it => { it.fx = into(it.fx, it.fy, 0.03); });
+  sc.deco = sc.deco.filter(d => !d.fy || inCorridor(sc, d.fx, d.fy));
+  const pts = []; for (let k = 0; k <= 16; k++) { const fy = k / 16, [a, b] = corridorSpan(sc, fy); pts.push([(a + b) / 2, fy]); }
+  sc.paths = [pts];                                  // the worn track runs down the middle of the way
+}
 function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -562,7 +589,10 @@ function genWorld() {
       id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: ['#7d9a4c', '#7b9550', '#789055', '#768a5a', '#74845f', '#727f64', '#707a69'][k], speed: 0.45, accel: 8,
       gusts: F.extra ? F.gusts.concat(F.extra) : F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
     }));
-    const south = F.end ? null : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
+    const pass = i >= 2 && !F.end;                     // the mountain path proper: a diagonal way between mountain walls
+    const nMid = (north[0] + north[1]) / 2;
+    const south = F.end ? null : pass ? gapAt(nMid < 0.5 ? rr(0.64, 0.8) : rr(0.2, 0.36), 0.08) : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
+    if (pass) sc.corridor = { n: nMid, s: (south[0] + south[1]) / 2, seed: rng() * 100 };
     sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
     if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'f' + (i + 1) });
     const nPt = edgePoint('n', (north[0] + north[1]) / 2);
@@ -591,6 +621,7 @@ function genWorld() {
     const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
     sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
     if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
+    if (sc.corridor) fitToCorridor(sc);                // everything that belongs on the path is on the path
     if (south) north = south;
   });
 
@@ -2098,7 +2129,7 @@ function update(dt) {
     }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
-  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
+  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); clampCorridor(h, UNIT * 0.42); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
   updateJump(dt);
 
@@ -2159,6 +2190,15 @@ function train(amount) {
   }
 }
 
+// on the mountain path the sides are rock: keep to the way
+function clampCorridor(a, r) {
+  const sc = sceneDef(); if (!sc || !sc.corridor) return false;
+  const [l, rt] = corridorSpan(sc, a.y / H), x0 = l * W + r, x1 = rt * W - r;
+  if (x0 > x1) { a.x = (l + rt) / 2 * W; return true; }
+  if (a.x < x0) { a.x = x0; a.vx = Math.max(0, a.vx || 0); return true; }
+  if (a.x > x1) { a.x = x1; a.vx = Math.min(0, a.vx || 0); return true; }
+  return false;
+}
 function clampTo(a, r) {
   let wall = false;
   if (a.x < r) { a.x = r; a.vx = Math.max(0, a.vx); wall = true; }
@@ -2331,7 +2371,9 @@ function layoutRavineRocks(sc) {
   sc.rocks = sc.rocks.filter(r => !r.island);
   sc.chasms.forEach((c, i) => {
     const inOther = (fx, fy) => sc.chasms.some((o, j) => j !== i && fx >= o[0] && fx <= o[2] && fy >= o[1] && fy <= o[3]);
-    const lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
+    const cs = corridorSpan(sc, (c[1] + c[3]) / 2), m = UNIT * 0.7 / W;
+    let lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
+    if (sc.corridor) { lo = Math.max(c[0] + 0.02, cs[0] + m); hi = Math.min(c[2] - 0.02, cs[1] - m); if (lo > hi) lo = hi = (cs[0] + cs[1]) / 2; }   // on the mountain path: the rocks stand on the way itself
     // a clear run: solid ground above and below, nothing standing in the way of the hops
     const blocked = (fx, fy) => sc.solids.some(s => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT);
     let fx = null;
@@ -3312,7 +3354,7 @@ function updateEnemies(dt) {
     if (ground && !escaping) bump = collideSolids(e, e.r * 0.85);
     const lunging = e.mode === 'lunge' || e.mode === 'charge';
     if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
-    if (!escaping) bump = clampTo(e, e.r) || bump;
+    if (!escaping) bump = clampTo(e, e.r) || clampCorridor(e, e.r) || bump;
     const scn = sceneDef();
     if (ground && !escaping && e.type !== 'warden' && (scn.chasms || scn.river || scn.deep) && isChasm(e.x, e.y)) {
       const carried = ['dart', 'charge', 'lunge', 'flee'].includes(e.mode) || state.time - (e.hitT || -9) < 0.8 || (e.panicT || 0) > 0;
@@ -6952,6 +6994,7 @@ function drawScene(sc) {
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
   drawMiniShrooms(sc);                                   // little mushrooms in the damp and dark places
+  if (sc.corridor) drawMountainSides(sc);                // the mountain path: rock rising on either side of the way
   if (sc.feat.trapdoor) { const [tx, ty] = sc.feat.trapdoor, u = UNIT; ctx.fillStyle = '#4a3420'; ctx.fillRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.arc(tx * W + u * 0.35, ty * H, u * 0.07, 0, 6.28); ctx.fill(); }   // Wick's trapdoor
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
@@ -8131,7 +8174,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 132';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 133';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8206,7 +8249,9 @@ function layoutLedges(sc) {
   const R = mulberry32(((sc.ledgeSeed || 0.5) * 1e9) >>> 0), bands = [];
   for (let k = 0; k + 1 < edges.length; k++) { const a = edges[k], b = edges[k + 1]; if (b - a > 0.06 && !(sc.chasms || []).some(c => (a + b) / 2 > c[1] && (a + b) / 2 < c[3] && c[0] <= 0.01 && c[2] >= 0.99)) bands.push((a + b) / 2); }
   for (const fy of bands) for (let i = 0; i < 5; i++) {
-    const fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04, x = fx * W, y = fy * H;
+    let fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04;
+    if (sc.corridor) { if (i > 1) continue; const [a, b] = corridorSpan(sc, fy); fx = a + (b - a) * (i ? 0.72 : 0.28); }   // on the mountain path: two ledges across the way
+    const x = fx * W, y = fy * H;
     if (isChasm(x, y, UNIT * 0.85)) continue;
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
     sc.rocks.push({ fx, fy, r: 0.8, ledge: true });
@@ -8276,6 +8321,33 @@ function drawWindPath(sc) {
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
 // a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the
 // lips, smaller and darker toward the middle, where it's deepest and furthest from you
+// the mountain on either side of the path: dark rock with a broken, bitten edge, rough stones heaped along it, and the
+// rock face catching less light the further it is from the way (drawn once per screen and size, then stamped)
+const MTN_CACHE = {};
+function drawMountainSides(sc) {
+  const key = sc.id + '|' + Math.round(W) + 'x' + Math.round(H);
+  let img = MTN_CACHE[key];
+  if (img === undefined) { img = null; try { const cv = document.createElement('canvas'); cv.width = Math.ceil(W); cv.height = Math.ceil(H); const g = cv.getContext && cv.getContext('2d'); if (g && g.fillRect && g.beginPath) { paintMountainSides(g, sc); img = cv; } } catch (e) { img = null; } MTN_CACHE[key] = img; }
+  if (img) ctx.drawImage(img, 0, 0); else paintMountainSides(ctx, sc);
+}
+function paintMountainSides(g, sc) {
+  const step = UNIT * 0.3, rows = Math.ceil(H / step), L = [], R = [];
+  for (let i = 0; i <= rows; i++) { const y = Math.min(H, i * step), [a, b] = corridorSpan(sc, y / H), jag = (i % 2 ? 1 : -1) * UNIT * 0.08; L.push([a * W + jag, y]); R.push([b * W - jag, y]); }
+  const side = (pts, x0) => { g.beginPath(); g.moveTo(x0, 0); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(x0, H); g.closePath(); };
+  for (const [pts, x0, dir] of [[L, 0, 1], [R, W, -1]]) {
+    const gr = g.createLinearGradient(x0, 0, x0 + dir * W * 0.4, 0); gr.addColorStop(0, '#1e1b1a'); gr.addColorStop(1, '#3e3934');
+    side(pts, x0); g.fillStyle = gr; g.fill();
+    g.save(); side(pts, x0); g.clip();
+    let s = Math.abs(Math.floor((sc.corridor.seed + x0) * 977)) % 233280 + 5; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    for (let k = 0; k < 110; k++) {                                                           // rough stones heaped along the foot of the rock, fading back into shadow
+      const [px, py] = pts[Math.floor(rnd() * pts.length)], back = rnd() * UNIT * 4.5, x = px - dir * back, sh = Math.round(120 - back / (UNIT * 4.5) * 80);
+      const c = [sh, sh - 5, sh - 12].map(v => Math.max(10, v)), hx = a => '#' + a.map(v => v.toString(16).padStart(2, '0')).join('');
+      drawJagged(x, py + (rnd() - 0.5) * UNIT, UNIT * (0.35 + rnd() * 0.55) * (1 - back / (UNIT * 9)), x * 0.3 + py * 0.7, [hx(c), hx(c.map(v => v + 14)), hx(c.map(v => Math.max(0, v - 16)))], null, g);
+    }
+    g.restore();
+    g.strokeStyle = 'rgba(20,16,14,.8)'; g.lineWidth = 3; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();   // the broken edge
+  }
+}
 const RAVINE_CACHE = {};
 function drawRavineStones(X0, Y0, X1, Y1, seed) {           // drawn once into a picture per ravine (they don't move), then just stamped
   const key = [X0, Y0, X1, Y1, UNIT].map(v => Math.round(v)).join(',');
@@ -8291,14 +8363,14 @@ function paintRavineStones(g, X0, Y0, X1, Y1, seed) {
   const w = X1 - X0, hgt = Y1 - Y0, u = UNIT;
   let s = Math.abs(Math.floor(seed * 1000)) % 233280 + 1; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   g.fillStyle = '#0e0c0e'; g.fillRect(X0, Y0, w, hgt);
-  const layers = 6, toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+  const layers = 8, toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
   for (let L = layers - 1; L >= 0; L--) {                            // deepest first, so the nearer stones sit on top
     const d = L / (layers - 1), inset = Math.min(w, hgt) * 0.5 * d * 0.92, wide = w > hgt;
     const x0 = X0 + inset * (wide ? 0.15 : 1), x1 = X1 - inset * (wide ? 0.15 : 1), y0 = Y0 + inset * (wide ? 1 : 0.15), y1 = Y1 - inset * (wide ? 1 : 0.15);
     if (x1 <= x0 || y1 <= y0) continue;
-    const shade = Math.round(128 - d * 104), base = [shade, shade - 6, shade - 14].map(v => Math.max(8, v));
-    const cols = [toHex(base), toHex(base.map(v => v + 14)), toHex(base.map(v => v - 18))], r0 = u * (0.75 - d * 0.42);
-    const n = Math.min(140, Math.ceil(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.2)) + 2);
+    const shade = Math.round(140 - Math.pow(d, 0.8) * 124), base = [shade, shade - 6, shade - 14].map(v => Math.max(6, v));
+    const cols = [toHex(base), toHex(base.map(v => v + 14)), toHex(base.map(v => v - 18))], r0 = u * (1.0 * Math.pow(1 - d, 1.4) + 0.12);   // big at the lips, pebbles far down
+    const n = Math.min(260, Math.ceil(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.2)) + 2);
     for (let i = 0; i < n; i++) { const cx = x0 + rnd() * (x1 - x0), cy = y0 + rnd() * (y1 - y0); drawJagged(cx, cy, r0 * (0.7 + rnd() * 0.6), cx * 0.37 + cy * 0.11, cols, null, g); }
     g.fillStyle = `rgba(6,5,8,${0.12 + d * 0.1})`; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // the dark gathering below
   }

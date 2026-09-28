@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 132, 27 Sep 2026)
+# Quest: handoff notes (as of build 133, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 133: the mountain path
+- f2 to f6 (the climb, not f1 or the tortoise's f7) are now a mountain path: sc.corridor {n, s, seed}; the south
+  opening sits on the far side from the north one, so the way runs diagonally. corridorSpan(sc, fy) (world.js) gives
+  its sides: a smooth diagonal, wandering, 2 to about 4.5 tiles across, with bites taken out. Beyond it, the mountain:
+  drawMountainSides/paintMountainSides (draw.js, cached per screen) draw dark rock with rough stones heaped along the
+  foot, fading into shadow, and a broken edge. clampCorridor (engine.js) keeps you and every creature on the way.
+- fitToCorridor: every ravine on the path runs right across it (touching ones merge), side boulders go, the ground by
+  each ravine is cleared, updrafts, plants, spawns and items move onto the way, and the worn track runs down its middle.
+  Rock columns and landing ledges are laid out on the way itself (two ledges per bank).
+- Ravine depth: eight layers of stones, big (a tile) at the lips down to pebbles at the bottom, much darker below.
+- 59 of 59. tools/shot.js B133=1.
 
 ## Build 132: lumpy stones; the zigzag soil line
 - drawRock (draw.js) draws a lumpy, irregular stone (seven bumps joined by curves, a lit top, a couple of pits) from a

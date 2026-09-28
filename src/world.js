@@ -209,6 +209,33 @@ function crag(sc, id, at, size, extra = {}) {
   const tint = ['#8a8478', '#7f7a72', '#8c8272', '#77807e', '#857c70'][Math.floor(rng() * 5)];
   sc.solids.push(solid(at[0], at[1], size / 2, 'crag', null, { bar: id, size, hp: size, tint, ...extra })); claim(sc, at[0], at[1], size / 2 + 0.6);
 }
+// The mountain path: a way two to four tiles wide that runs diagonally from the north opening to the south one,
+// its sides wandering and bitten into; beyond it on both sides, the mountain. Returns [left, right] as fractions of W.
+function corridorSpan(sc, fy) {
+  const c = sc.corridor; if (!c) return [0, 1];
+  const e = Math.min(1, Math.max(0, fy)), k = e * e * (3 - 2 * e), s = c.seed;
+  const mid = c.n + (c.s - c.n) * k + (fy > 0.08 && fy < 0.92 ? Math.sin(fy * 7 + s) * 0.035 : 0);
+  const hw = (1.8 + 0.35 * Math.sin(fy * 11 + s * 1.7) + 0.15 * Math.sin(fy * 29 + s)) * UNIT / W;                // never under 2 tiles across (bites included), up to about 4.5
+  const bite = t => (Math.sin(fy * 41 + s * t) > 0.72 ? 0.3 : 0) * UNIT / W;                                        // here and there the rock bites in
+  return [Math.max(0.03, mid - hw + bite(2.3)), Math.min(0.97, mid + hw - bite(3.1))];
+}
+const inCorridor = (sc, fx, fy, pad = 0) => { const [a, b] = corridorSpan(sc, fy); return fx > a + pad && fx < b - pad; };
+function fitToCorridor(sc) {
+  // on the mountain path every ravine runs right across the way (the mountain hides its ends), and ravines that would
+  // touch merge into one, so the way down is always a string of crossings: never a dead end
+  sc.chasms = (sc.chasms || []).map(c => [0, c[1], 1, c[3]]).sort((a, b) => a[1] - b[1]).reduce((out, c) => { const l = out[out.length - 1]; if (l && c[1] <= l[3] + 0.02) l[3] = Math.max(l[3], c[3]); else out.push(c); return out; }, []);
+  const into = (fx, fy, pad = 0.02) => { const [a, b] = corridorSpan(sc, fy); return Math.max(a + pad, Math.min(b - pad, fx)); };
+  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && !inCorridor(sc, s.fx, s.fy, -(s.r * UNIT / W))));   // the mountain takes the side boulders
+  const nearDrop = s => (sc.chasms || []).some(c => s.fy > c[1] - 0.16 && s.fy < c[3] + 0.16);
+  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && nearDrop(s)));                                       // and the path is clear where it meets a ravine
+  sc.feat.updrafts = (sc.feat.updrafts || []).map(([x, y]) => [into(x, y, 0.04), y]);
+  sc.feat.plants = (sc.feat.plants || []).map(([x, y]) => [into(x, y, 0.03), y]);
+  sc.spawns.forEach(sp => { sp.fx = into(sp.fx, sp.fy, 0.03); });
+  sc.initItems.forEach(it => { it.fx = into(it.fx, it.fy, 0.03); });
+  sc.deco = sc.deco.filter(d => !d.fy || inCorridor(sc, d.fx, d.fy));
+  const pts = []; for (let k = 0; k <= 16; k++) { const fy = k / 16, [a, b] = corridorSpan(sc, fy); pts.push([(a + b) / 2, fy]); }
+  sc.paths = [pts];                                  // the worn track runs down the middle of the way
+}
 function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -505,7 +532,10 @@ function genWorld() {
       id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: ['#7d9a4c', '#7b9550', '#789055', '#768a5a', '#74845f', '#727f64', '#707a69'][k], speed: 0.45, accel: 8,
       gusts: F.extra ? F.gusts.concat(F.extra) : F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
     }));
-    const south = F.end ? null : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
+    const pass = i >= 2 && !F.end;                     // the mountain path proper: a diagonal way between mountain walls
+    const nMid = (north[0] + north[1]) / 2;
+    const south = F.end ? null : pass ? gapAt(nMid < 0.5 ? rr(0.64, 0.8) : rr(0.2, 0.36), 0.08) : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
+    if (pass) sc.corridor = { n: nMid, s: (south[0] + south[1]) / 2, seed: rng() * 100 };
     sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
     if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'f' + (i + 1) });
     const nPt = edgePoint('n', (north[0] + north[1]) / 2);
@@ -534,6 +564,7 @@ function genWorld() {
     const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
     sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
     if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
+    if (sc.corridor) fitToCorridor(sc);                // everything that belongs on the path is on the path
     if (south) north = south;
   });
 

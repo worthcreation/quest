@@ -89,6 +89,7 @@ function drawScene(sc) {
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
   drawMiniShrooms(sc);                                   // little mushrooms in the damp and dark places
+  if (sc.corridor) drawMountainSides(sc);                // the mountain path: rock rising on either side of the way
   if (sc.feat.trapdoor) { const [tx, ty] = sc.feat.trapdoor, u = UNIT; ctx.fillStyle = '#4a3420'; ctx.fillRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.arc(tx * W + u * 0.35, ty * H, u * 0.07, 0, 6.28); ctx.fill(); }   // Wick's trapdoor
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
@@ -1268,7 +1269,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 132';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 133';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -1343,7 +1344,9 @@ function layoutLedges(sc) {
   const R = mulberry32(((sc.ledgeSeed || 0.5) * 1e9) >>> 0), bands = [];
   for (let k = 0; k + 1 < edges.length; k++) { const a = edges[k], b = edges[k + 1]; if (b - a > 0.06 && !(sc.chasms || []).some(c => (a + b) / 2 > c[1] && (a + b) / 2 < c[3] && c[0] <= 0.01 && c[2] >= 0.99)) bands.push((a + b) / 2); }
   for (const fy of bands) for (let i = 0; i < 5; i++) {
-    const fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04, x = fx * W, y = fy * H;
+    let fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04;
+    if (sc.corridor) { if (i > 1) continue; const [a, b] = corridorSpan(sc, fy); fx = a + (b - a) * (i ? 0.72 : 0.28); }   // on the mountain path: two ledges across the way
+    const x = fx * W, y = fy * H;
     if (isChasm(x, y, UNIT * 0.85)) continue;
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
     sc.rocks.push({ fx, fy, r: 0.8, ledge: true });
@@ -1413,6 +1416,33 @@ function drawWindPath(sc) {
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
 // a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the
 // lips, smaller and darker toward the middle, where it's deepest and furthest from you
+// the mountain on either side of the path: dark rock with a broken, bitten edge, rough stones heaped along it, and the
+// rock face catching less light the further it is from the way (drawn once per screen and size, then stamped)
+const MTN_CACHE = {};
+function drawMountainSides(sc) {
+  const key = sc.id + '|' + Math.round(W) + 'x' + Math.round(H);
+  let img = MTN_CACHE[key];
+  if (img === undefined) { img = null; try { const cv = document.createElement('canvas'); cv.width = Math.ceil(W); cv.height = Math.ceil(H); const g = cv.getContext && cv.getContext('2d'); if (g && g.fillRect && g.beginPath) { paintMountainSides(g, sc); img = cv; } } catch (e) { img = null; } MTN_CACHE[key] = img; }
+  if (img) ctx.drawImage(img, 0, 0); else paintMountainSides(ctx, sc);
+}
+function paintMountainSides(g, sc) {
+  const step = UNIT * 0.3, rows = Math.ceil(H / step), L = [], R = [];
+  for (let i = 0; i <= rows; i++) { const y = Math.min(H, i * step), [a, b] = corridorSpan(sc, y / H), jag = (i % 2 ? 1 : -1) * UNIT * 0.08; L.push([a * W + jag, y]); R.push([b * W - jag, y]); }
+  const side = (pts, x0) => { g.beginPath(); g.moveTo(x0, 0); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(x0, H); g.closePath(); };
+  for (const [pts, x0, dir] of [[L, 0, 1], [R, W, -1]]) {
+    const gr = g.createLinearGradient(x0, 0, x0 + dir * W * 0.4, 0); gr.addColorStop(0, '#1e1b1a'); gr.addColorStop(1, '#3e3934');
+    side(pts, x0); g.fillStyle = gr; g.fill();
+    g.save(); side(pts, x0); g.clip();
+    let s = Math.abs(Math.floor((sc.corridor.seed + x0) * 977)) % 233280 + 5; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    for (let k = 0; k < 110; k++) {                                                           // rough stones heaped along the foot of the rock, fading back into shadow
+      const [px, py] = pts[Math.floor(rnd() * pts.length)], back = rnd() * UNIT * 4.5, x = px - dir * back, sh = Math.round(120 - back / (UNIT * 4.5) * 80);
+      const c = [sh, sh - 5, sh - 12].map(v => Math.max(10, v)), hx = a => '#' + a.map(v => v.toString(16).padStart(2, '0')).join('');
+      drawJagged(x, py + (rnd() - 0.5) * UNIT, UNIT * (0.35 + rnd() * 0.55) * (1 - back / (UNIT * 9)), x * 0.3 + py * 0.7, [hx(c), hx(c.map(v => v + 14)), hx(c.map(v => Math.max(0, v - 16)))], null, g);
+    }
+    g.restore();
+    g.strokeStyle = 'rgba(20,16,14,.8)'; g.lineWidth = 3; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();   // the broken edge
+  }
+}
 const RAVINE_CACHE = {};
 function drawRavineStones(X0, Y0, X1, Y1, seed) {           // drawn once into a picture per ravine (they don't move), then just stamped
   const key = [X0, Y0, X1, Y1, UNIT].map(v => Math.round(v)).join(',');
@@ -1428,14 +1458,14 @@ function paintRavineStones(g, X0, Y0, X1, Y1, seed) {
   const w = X1 - X0, hgt = Y1 - Y0, u = UNIT;
   let s = Math.abs(Math.floor(seed * 1000)) % 233280 + 1; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   g.fillStyle = '#0e0c0e'; g.fillRect(X0, Y0, w, hgt);
-  const layers = 6, toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+  const layers = 8, toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
   for (let L = layers - 1; L >= 0; L--) {                            // deepest first, so the nearer stones sit on top
     const d = L / (layers - 1), inset = Math.min(w, hgt) * 0.5 * d * 0.92, wide = w > hgt;
     const x0 = X0 + inset * (wide ? 0.15 : 1), x1 = X1 - inset * (wide ? 0.15 : 1), y0 = Y0 + inset * (wide ? 1 : 0.15), y1 = Y1 - inset * (wide ? 1 : 0.15);
     if (x1 <= x0 || y1 <= y0) continue;
-    const shade = Math.round(128 - d * 104), base = [shade, shade - 6, shade - 14].map(v => Math.max(8, v));
-    const cols = [toHex(base), toHex(base.map(v => v + 14)), toHex(base.map(v => v - 18))], r0 = u * (0.75 - d * 0.42);
-    const n = Math.min(140, Math.ceil(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.2)) + 2);
+    const shade = Math.round(140 - Math.pow(d, 0.8) * 124), base = [shade, shade - 6, shade - 14].map(v => Math.max(6, v));
+    const cols = [toHex(base), toHex(base.map(v => v + 14)), toHex(base.map(v => v - 18))], r0 = u * (1.0 * Math.pow(1 - d, 1.4) + 0.12);   // big at the lips, pebbles far down
+    const n = Math.min(260, Math.ceil(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.2)) + 2);
     for (let i = 0; i < n; i++) { const cx = x0 + rnd() * (x1 - x0), cy = y0 + rnd() * (y1 - y0); drawJagged(cx, cy, r0 * (0.7 + rnd() * 0.6), cx * 0.37 + cy * 0.11, cols, null, g); }
     g.fillStyle = `rgba(6,5,8,${0.12 + d * 0.1})`; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // the dark gathering below
   }
