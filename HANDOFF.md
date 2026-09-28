@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 149, 28 Sep 2026)
+# Quest: handoff notes (as of build 150, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 150: the tile grid in perspective on the climb
+- With System > Show tiles on, the climb screens draw their own grid (drawClimbTiles): one-tile squares laid on the
+  ground and shrinking into the distance; blue over the ravine, green on islands, gold under you; the ravine's width
+  (in tiles) labelled at each narrow point; mid-jump, how far you've jumped so far. The flat screen grid is skipped on
+  the climb (it meant nothing there).
 
 ## Build 149: the shadow leads, never trails
 - The shadow is now your current position plus a smoothed offset toward the landing (c.shox/c.shoz eased in the update;

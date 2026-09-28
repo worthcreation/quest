@@ -63,6 +63,12 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B150) {                            // build 150: the tile grid on the climb, in perspective
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.climbReturn='meadow'; state.settings.tiles=true;
+  for (const id of ['climb1','climb2']) { enterScene(id); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b150-'+id+'.png', canvas.toBuffer('image/png')); }
+  state.settings.tiles=false; console.log('b150 written');
+}
 if (process.env.B145) {                            // build 145: mid-jump, the shadow ahead at the landing
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb2'); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[];

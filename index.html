@@ -1390,7 +1390,7 @@ function updateClimb(dt) {
   const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
-  if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
+  if (pressedNow.jump && !c.air) { c.jumpFrom = [c.x, c.z]; c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
   if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
   if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
     const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
@@ -1436,10 +1436,32 @@ function drawClimb() {
     }
     ctx.fillStyle = `rgba(0,0,0,${c.air ? 0.38 : 0.25})`; ctx.beginPath(); ctx.ellipse(sx0, sy0, sw, sw * 0.28, 0, 0, 6.28); ctx.fill();
   }
+  if (state.settings.tiles) drawClimbTiles(c, d);                                   // System > Show tiles: the grid laid on the ground, in perspective
   if (MOUNTAIN) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(8, H - 30, 330, 22); ctx.fillStyle = '#fdf6e3'; ctx.font = '13px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(`shadow lead ${SHADOW.lead.toFixed(2)} [ ]  follow ${SHADOW.follow.toFixed(0)} - =`, 14, H - 14); }
   ctx.save(); ctx.globalAlpha = 1 - sink; ctx.fillStyle = heroColor(); const ss = s * (1 - sink * 0.6); ctx.fillRect(px - ss / 2, py - ss, ss, ss); ctx.restore();
   { const z = d.goalZ - 0.2, x = d.cx(z) - d.hw(z) - 1.2, [fx, fy] = climbProj(x, climbSlopeY(-(d.hw(z) + 1.2)), z); ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - UNIT * 1.6); ctx.stroke(); ctx.fillStyle = '#e05a4a'; ctx.beginPath(); ctx.moveTo(fx, fy - UNIT * 1.6); ctx.lineTo(fx + UNIT * 0.8, fy - UNIT * 1.35); ctx.lineTo(fx, fy - UNIT * 1.1); ctx.fill(); }
   drawFx();
+}
+// the tile grid for the climb: one-tile squares on the ground, shrinking into the distance like everything else.
+// Blue over the ravine, green on an island, gold under you; a width readout at each crossing's narrowest point.
+function drawClimbTiles(c, d) {
+  ctx.save(); ctx.lineWidth = 1;
+  const x0 = Math.floor(d.cx(10) - 9), x1 = Math.ceil(d.cx(10) + 9), cellAt = (x, z) => onClimbIsland(x, z) ? 'isl' : overChasm(x, z) ? 'gap' : 'ok';
+  for (let z = 40; z > 3.4; z -= 1) {
+    const zb = Math.max(3.4, z - 1);
+    for (let x = x0; x < x1; x++) {
+      const k = cellAt(x + 0.5, z - 0.5), me = c && Math.floor(c.x) === x && Math.ceil(c.z) === z;
+      const q = [climbProj(x, 1.5, z), climbProj(x + 1, 1.5, z), climbProj(x + 1, 1.5, zb), climbProj(x, 1.5, zb)];
+      ctx.beginPath(); q.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
+      ctx.fillStyle = me ? 'rgba(255,215,90,.45)' : k === 'gap' ? 'rgba(80,140,255,.25)' : k === 'isl' ? 'rgba(120,230,120,.3)' : 'rgba(255,255,255,.04)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.stroke();
+    }
+  }
+  // how wide the ravine is at its narrow points (in tiles), so jumps can be tuned by the numbers
+  ctx.font = 'bold 12px "Courier New", monospace'; ctx.textAlign = 'center';
+  for (let z = 5; z < 30; z += 0.1) { const w = d.hw(z) * 2, wa = d.hw(z - 0.1) * 2, wb = d.hw(z + 0.1) * 2; if (w < wa && w <= wb && w < 3) { const [sx, sy] = climbProj(d.cx(z), 1.5, z); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(sx - 24, sy - 22, 48, 16); ctx.fillStyle = '#fdf6e3'; ctx.fillText(w.toFixed(1) + ' t', sx, sy - 10); } }
+  if (c && c.air) { const [sx, sy] = climbProj(c.x, 1.5, c.z); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(sx - 34, sy + 6, 68, 16); ctx.fillStyle = '#fdf6e3'; ctx.fillText('jump ' + ((c.jumpFrom ? Math.hypot(c.x - c.jumpFrom[0], c.z - c.jumpFrom[1]) : 0)).toFixed(1) + ' t', sx, sy + 18); }
+  ctx.restore();
 }
 function paintClimb(g, d) {
   const horizon = H * d.cam.horizon, f = H * d.cam.f, P = (x, y, z) => climbProj(x, y, z, d);
@@ -7225,7 +7247,7 @@ function draw() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   drawRideVignette();
-  if (state.settings.tiles) drawTiles();
+  if (state.settings.tiles && !state.climb) drawTiles();   // (the climb draws its own grid, in perspective)
   drawActionHint();
   drawHUD();
   drawRadial();
@@ -8450,7 +8472,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 149';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 150';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
