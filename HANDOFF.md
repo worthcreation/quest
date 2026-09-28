@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 150, 28 Sep 2026)
+# Quest: handoff notes (as of build 151, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,11 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 151: tiles that follow the real edges
+- The climb's tile grid colours each tile in quarters (halves far off), each quarter tested on its own, so the blue
+  and green follow the true edge instead of whole tiles flipping on their centre point. The exact collision edges
+  (both ravine lips, every island rim) are drawn over it as bright cyan lines: that line is where you fall.
 
 ## Build 150: the tile grid in perspective on the climb
 - With System > Show tiles on, the climb screens draw their own grid (drawClimbTiles): one-tile squares laid on the

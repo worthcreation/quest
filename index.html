@@ -1450,13 +1450,22 @@ function drawClimbTiles(c, d) {
   for (let z = 40; z > 3.4; z -= 1) {
     const zb = Math.max(3.4, z - 1);
     for (let x = x0; x < x1; x++) {
-      const k = cellAt(x + 0.5, z - 0.5), me = c && Math.floor(c.x) === x && Math.ceil(c.z) === z;
+      const me = c && Math.floor(c.x) === x && Math.ceil(c.z) === z, N = z < 14 ? 4 : 2;       // each tile is coloured in quarters (halves far off), so its colour follows the real edge
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const ax = x + i / N, bx = x + (i + 1) / N, az = z - j / N * (z - zb), bz = z - (j + 1) / N * (z - zb), k = cellAt((ax + bx) / 2, (az + bz) / 2);
+        if (k === 'ok' && !me) continue;
+        const q = [climbProj(ax, 1.5, az), climbProj(bx, 1.5, az), climbProj(bx, 1.5, bz), climbProj(ax, 1.5, bz)];
+        ctx.beginPath(); q.forEach(([a, b], n) => n ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
+        ctx.fillStyle = me ? 'rgba(255,215,90,.45)' : k === 'gap' ? 'rgba(80,140,255,.25)' : 'rgba(120,230,120,.3)'; ctx.fill();
+      }
       const q = [climbProj(x, 1.5, z), climbProj(x + 1, 1.5, z), climbProj(x + 1, 1.5, zb), climbProj(x, 1.5, zb)];
-      ctx.beginPath(); q.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
-      ctx.fillStyle = me ? 'rgba(255,215,90,.45)' : k === 'gap' ? 'rgba(80,140,255,.25)' : k === 'isl' ? 'rgba(120,230,120,.3)' : 'rgba(255,255,255,.04)'; ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.stroke();
+      ctx.beginPath(); q.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath(); ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.stroke();
     }
   }
+  // the true edges, exactly as the game tests them: the ravine's two lips and each island's rim, as bright lines
+  ctx.strokeStyle = 'rgba(120,255,255,.9)'; ctx.lineWidth = 2;
+  for (const s of [-1, 1]) { ctx.beginPath(); for (let z = 40, i = 0; z > 3.4; z -= 0.2, i++) { const [a, b] = climbProj(d.cx(z) + s * d.hw(z), 1.5, z); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); } ctx.stroke(); }
+  for (const [ix, iz, r] of d.islands || []) { ctx.beginPath(); for (let k = 0; k <= 24; k++) { const a = k / 24 * 6.28, [sx, sy] = climbProj(d.cx(iz) + ix + Math.cos(a) * r, 1.5, iz + Math.sin(a) * r); k ? ctx.lineTo(sx, sy) : ctx.moveTo(sx, sy); } ctx.stroke(); }
   // how wide the ravine is at its narrow points (in tiles), so jumps can be tuned by the numbers
   ctx.font = 'bold 12px "Courier New", monospace'; ctx.textAlign = 'center';
   for (let z = 5; z < 30; z += 0.1) { const w = d.hw(z) * 2, wa = d.hw(z - 0.1) * 2, wb = d.hw(z + 0.1) * 2; if (w < wa && w <= wb && w < 3) { const [sx, sy] = climbProj(d.cx(z), 1.5, z); ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(sx - 24, sy - 22, 48, 16); ctx.fillStyle = '#fdf6e3'; ctx.fillText(w.toFixed(1) + ' t', sx, sy - 10); } }
@@ -8472,7 +8481,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 150';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 151';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
