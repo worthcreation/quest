@@ -63,6 +63,63 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.MOCK4) {                           // a still: a mountainside built from the game's own assets, scaled and turned
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('f3'); state.cut=null; state.enemies=[]; state.pip=null; run(3);
+  const h=state.hero; h.x=W*0.55; h.y=H*0.55; state.enemies=[makeEnemy('rabbit', W*0.42, H*0.28, 0), makeEnemy('rabbit', W*0.38, H*0.86, 0)]; state.enemies.forEach(e=>{ e.mode='idle'; e.t=99; });
+  let s=99; const rnd=()=>(s=(s*9301+49297)%233280)/233280; const u=UNIT;
+  const path=pts=>{ ctx.beginPath(); pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.closePath(); };
+  // 1. the depths: the ravine-stone painter, pushed dark and small (the deepest layers only), over black-green
+  ctx.fillStyle='#0f120d'; ctx.fillRect(0,0,W,H);
+  for (let L=0;L<4;L++) { const d=1-L/3, n=90+L*30, r=u*(0.08+(1-d)*0.2), base=[22+(1-d)*30, 27+(1-d)*26, 16+(1-d)*18].map(Math.round), hx=a=>'#'+a.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+    for (let i=0;i<n;i++) drawJagged(W*0.62+rnd()*W*0.4, rnd()*H, r*(0.6+rnd()*0.7), i*3.3+L, [hx(base), hx(base.map(v=>v+12)), hx(base.map(v=>v-10))]); ctx.fillStyle='rgba(6,10,4,'+(0.22*d)+')'; ctx.fillRect(W*0.6,0,W,H); }   // scaled-down crag clusters: tiny and darkest deepest
+  // 2. the island, its brown sides, its grass top with the game's tufts
+  const ic=[W*0.84,H*0.5], isl=[]; for(let k=0;k<16;k++){ const a=k/16*6.28, r=u*(1.5+Math.sin(k*2.3)*0.2+rnd()*0.2); isl.push([ic[0]+Math.cos(a)*r*1.15, ic[1]+Math.sin(a)*r*0.85]); }
+  { const bot=isl.filter(q=>q[1]>ic[1]-20).sort((a,b)=>a[0]-b[0]), drop=bot.map(([x,y])=>[x+6,y+u*2.4]); path([...bot,...drop.slice().reverse()]); ctx.fillStyle='#5a3c26'; ctx.fill(); for(let i=0;i<bot.length;i++){ const [x,y]=bot[i]; ctx.strokeStyle=i%2?'rgba(30,18,10,.6)':'rgba(140,100,64,.35)'; ctx.lineWidth=i%3?2:4; ctx.beginPath(); ctx.moveTo(x,y+6); ctx.lineTo(x+5,y+u*2.3); ctx.stroke(); } const gr=ctx.createLinearGradient(0,ic[1],0,ic[1]+u*3); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(8,6,4,.8)'); path([...bot,...drop.slice().reverse()]); ctx.fillStyle=gr; ctx.fill(); }
+  path(isl); ctx.fillStyle=sceneDef().floor; ctx.fill(); ctx.strokeStyle='#1c1208'; ctx.lineWidth=3; ctx.stroke();
+  // 3. the platform: the field floor, the game's grass, a broken brown lip and face on the right
+  const lip=[]; for(let y=-20;y<=H+20;y+=26) lip.push([W*0.67+Math.sin(y*.011)*u*0.9+Math.sin(y*.037)*u*0.4+(rnd()-.5)*20-(Math.abs(y-H*0.55)<u*2?u*0.7:0), y]);
+  { const face=lip.map(([x,y])=>[x+u*1.3+Math.sin(y*.05)*10,y]); path([...lip,...face.slice().reverse()]); ctx.fillStyle='#5a3c26'; ctx.fill(); for(let i=0;i<lip.length-1;i++){ const [ax,ay]=lip[i]; ctx.strokeStyle=i%2?'rgba(30,18,10,.6)':'rgba(140,100,64,.35)'; ctx.lineWidth=i%3?2:4; ctx.beginPath(); ctx.moveTo(ax+6,ay+4); ctx.lineTo(ax+u*1.2,ay+10); ctx.stroke(); } const gr=ctx.createLinearGradient(W*0.64,0,W*0.76,0); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(8,6,4,.7)'); path([...lip,...face.slice().reverse()]); ctx.fillStyle=gr; ctx.fill(); }
+  path([[0,-20],...lip,[0,H+20]]); ctx.fillStyle=sceneDef().floor; ctx.fill();
+  ctx.save(); path([[0,-20],...lip,[0,H+20]]); ctx.clip(); for (const d of sceneDef().deco) if (d.kind==='tuft') { const x=d.fx*W, y=d.fy*H; ctx.strokeStyle='#7f8f5a'; ctx.lineWidth=1.5; for (let i=-1;i<=1;i++){ ctx.beginPath(); ctx.moveTo(x+i*4,y); ctx.lineTo(x+i*5,y-u*0.22*d.s); ctx.stroke(); } } ctx.restore();
+  ctx.save(); path(isl); ctx.clip(); for (let i=0;i<10;i++){ const x=ic[0]+(rnd()-.5)*u*2.4, y=ic[1]+(rnd()-.5)*u*1.5; ctx.strokeStyle='#7f8f5a'; ctx.lineWidth=1.5; for (let k=-1;k<=1;k++){ ctx.beginPath(); ctx.moveTo(x+k*4,y); ctx.lineTo(x+k*5,y-u*0.2); ctx.stroke(); } } ctx.restore();
+  ctx.strokeStyle='#1c1208'; ctx.lineWidth=3; ctx.beginPath(); lip.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.stroke();
+  for(let i=0;i+1<lip.length;i++){ const [ax,ay]=lip[i],[bx,by]=lip[i+1]; ctx.fillStyle='#6d8a3e'; ctx.beginPath(); ctx.moveTo(ax-2,ay); ctx.lineTo((ax+bx)/2+12,(ay+by)/2); ctx.lineTo(bx-2,by); ctx.fill(); }
+  // 4. the mountain: not a line but a heap of crags at every scale, a few giants jutting out onto the grass, tall dark
+  //    slabs rising behind them; no single edge line, the stones themselves make the boundary
+  const baseX=y=>W*0.26+Math.sin(y*.009+1)*u*1.2+Math.sin(y*.031)*u*0.5+(y<H*0.3?(H*0.3-y)*.35:0);
+  const mass=[[-20,-30]]; for(let y=-30;y<=H+30;y+=40) mass.push([baseX(y)-u*0.8+(rnd()-.5)*u*0.6,y]); mass.push([-20,H+30]);
+  path(mass); ctx.fillStyle='#1f1c19'; ctx.fill();
+  ctx.save(); path(mass); ctx.clip();
+  { let x=-60; while (x<W*0.3) { const w=u*(0.35+rnd()*1.4), hh=6+rnd()*8, sh=22+Math.floor(rnd()*46), rgb=(a,b,c)=>'rgb('+Math.max(0,a)+','+Math.max(0,b)+','+Math.max(0,c)+')';
+      ctx.save(); ctx.translate(x+w/2, H*0.5+(rnd()-.5)*H*0.3); ctx.scale(1, hh); ctx.rotate((rnd()-.5)*0.03); drawJagged(0,0,w*0.6,x*0.7,[rgb(sh+6,sh+2,sh),rgb(sh+26,sh+22,sh+18),rgb(sh-16,sh-18,sh-20)]); ctx.restore(); x+=w*(0.6+rnd()*0.3); } }
+  for (let i=0;i<24;i++){ const cx=rnd()*W*0.3, cy=rnd()*H; ctx.strokeStyle='rgba(4,3,2,.9)'; ctx.lineWidth=1.5+rnd()*3; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+(rnd()-.5)*30, cy+u*1.5+rnd()*u*4); ctx.stroke(); }
+  ctx.restore();
+  // the crags that make the edge: stacked in tiers away from the grass, each tier bigger and higher than the one in
+  // front of it, the smallest pieces spilling onto the path, giants heaped up behind
+  const crags=[];
+  // no rows: stones scattered through the rock zone, their size growing smoothly with distance from the grass (tiny at
+  // the path's edge, giants far back and high), with jitter so nothing lines up
+  for (let i=0;i<95;i++) {
+    const y=-u*3+rnd()*(H+u*6), dist=Math.pow(rnd(),0.7)*u*5.5, k=dist/(u*5.5);         // 0 at the grass, 1 deep in
+    const r=u*(0.12+Math.pow(k,1.1)*4.4)*(0.7+rnd()*0.6);                                // sizes climb fast: a tile in, they're already big
+    crags.push([baseX(y)-dist+(rnd()-.5)*u*0.6, y-k*u*1.6+(rnd()-.5)*u*0.5, r, k]);
+  }
+  for (let i=0;i<14;i++) { const y=rnd()*H, r=u*(0.1+rnd()*0.18); crags.push([baseX(y)+u*(0.4+rnd()*1.4), y, r, 0]); }   // and stray little ones out on the grass
+  crags.sort((a,b)=>(b[3]-a[3])||(a[1]-b[1]));                                                                         // deepest first, the small front ones last
+  for (const [cx,cy,r,tier] of crags) { const sh=Math.round(118-tier*70+(r/u)*3);
+    ctx.fillStyle='rgba(0,0,0,'+(0.3-tier*0.2)+')'; ctx.beginPath(); ctx.ellipse(cx+r*0.15,cy+r*0.45,r*1.05,r*0.42,0,0,6.28); ctx.fill();
+    const hx=a=>'#'+a.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join(''); ctx.save(); ctx.translate(cx,cy); ctx.scale(0.8,1.5+tier*0.9); drawJagged(0,0,r,cx*0.37+cy*0.11,[hx([sh,sh-4,sh-8]),hx([sh+24,sh+20,sh+14]),hx([sh-24,sh-26,sh-28])]); ctx.restore();   // taller than wide, more so the higher they stand
+    if (r>u*1.2) { ctx.strokeStyle='rgba(20,16,12,.55)'; ctx.lineWidth=2; for (let k=0;k<3;k++){ const ox=(k-1)*r*0.35+(rnd()-.5)*r*0.2; ctx.beginPath(); ctx.moveTo(cx+ox, cy-r*(1.2+tier*0.8)); ctx.lineTo(cx+ox+(rnd()-.5)*r*0.15, cy+r*(0.9+tier*0.6)); ctx.stroke(); } }   // seams running up the big ones
+    if (tier<0.25 && r>u*0.35) drawSoilLine(cx, cy+r*0.45, r*2.0, Math.max(u*0.08, r*0.13), cx); }
+  { const front=crags.filter(c=>c[3]<0.2); for (let i=0;i<10;i++){ const [cx,cy,r]=front[Math.floor(rnd()*front.length)]; ctx.strokeStyle='#7f8f5a'; ctx.lineWidth=1.5; for (let k=-1;k<=1;k++){ ctx.beginPath(); ctx.moveTo(cx+r*0.9+k*4,cy+r*0.3); ctx.lineTo(cx+r*0.9+k*5,cy+r*0.3-u*0.2); ctx.stroke(); } } }
+  // 5. the game's own things on the platform: a craggy boulder, a stone, the wind plant, the rabbits, you
+  drawJagged(W*0.36, H*0.68, u*0.8, 4.2, ['#86827a','#9a968c','#6e6a62']); drawSoilLine(W*0.36, H*0.68+u*0.36, u*1.7, u*0.13, 4);
+  drawRock(W*0.5, H*0.32, u*0.5, 8.1); drawGustGrass(W*0.3, H*0.42, sceneDef());
+  for (const e of state.enemies) drawEnemy(e); drawHero();
+  ctx.setLineDash([8,10]); ctx.strokeStyle='rgba(255,240,200,.55)'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(h.x+u*0.6,h.y-u*0.3); ctx.quadraticCurveTo(W*0.72,H*0.38,ic[0]-u*0.9,ic[1]); ctx.stroke(); ctx.setLineDash([]);
+  fs.writeFileSync('/mnt/user-data/outputs/mountain-mockup-4.png', canvas.toBuffer('image/png')); console.log('mock4 written');
+}
 if (process.env.B133) {                            // build 133: the mountain path screens
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; state.pip=null;

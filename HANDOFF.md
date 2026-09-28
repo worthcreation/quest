@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 135, 27 Sep 2026)
+# Quest: handoff notes (as of build 136, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,22 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 136: the mountainside, built from the mockups
+- Each path screen (f2-f6) has the rock on one side and the drop on the other (corridor.rock 'L' or 'R', alternating).
+  paintMountainSides (draw.js, cached per screen) paints:
+  - the rock side: crags scattered back from the grass, tiny at its edge and growing fast into tall giants (sizes by
+    distance, drawn taller than wide so the lines run up), strays out on the grass, no internal seams, the big ones set
+    back so none leans over the way;
+  - the drop side: near-black green-brown depths full of small crags, smaller and darker deeper; a brown cliff face
+    below the broken, grass-hung lip; and islands.
+- Walking: the rock side is a wall (clampCorridor); off the drop side you fall (isChasm, unless you're on an island).
+  Creatures keep to the way on both sides. corridorSpan leaves room for the drop away from the openings (at least 30%
+  of the width), and never closes under 2.5 tiles.
+- Islands (corridor.islands, up to two per screen, clear of the rifts): a grass-topped pillar out over the drop, 1.4
+  tiles from the edge (a running jump is about 2.4), with an acorn or a stick on it. onIsland() for walking and falling.
+- Test: mountain-side (new: walking off the drop falls, a running jump lands on the island, the rock holds). 61 of 61.
+- The mockup stills are in tools/shot.js (MOCK4=1) for reference.
 
 ## Build 135: broad platforms, a narrow way now and then
 - corridorSpan is mostly broad ground now (about half the screen across, wandering, with an occasional deeper bite),

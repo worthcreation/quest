@@ -386,12 +386,13 @@ function train(amount) {
 }
 
 // on the mountain path the sides are rock: keep to the way
-function clampCorridor(a, r) {
+function clampCorridor(a, r, bothSides = false) {
   const sc = sceneDef(); if (!sc || !sc.corridor) return false;
-  const [l, rt] = corridorSpan(sc, a.y / H), x0 = l * W + r, x1 = rt * W - r;
+  const rock = sc.corridor.rock || 'B', [l, rt] = corridorSpan(sc, a.y / H), x0 = l * W + r, x1 = rt * W - r;
+  if (onIsland(sc, a.x / W, a.y / H)) return false;
   if (x0 > x1) { a.x = (l + rt) / 2 * W; return true; }
-  if (a.x < x0) { a.x = x0; a.vx = Math.max(0, a.vx || 0); return true; }
-  if (a.x > x1) { a.x = x1; a.vx = Math.min(0, a.vx || 0); return true; }
+  if (a.x < x0 && (bothSides || rock !== 'R')) { a.x = x0; a.vx = Math.max(0, a.vx || 0); return true; }   // the rock stops you; the drop doesn't
+  if (a.x > x1 && (bothSides || rock !== 'L')) { a.x = x1; a.vx = Math.min(0, a.vx || 0); return true; }
   return false;
 }
 function clampTo(a, r) {
@@ -439,6 +440,7 @@ function isChasm(x, y, pad = 0) {
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
+  if (sc.corridor && sc.corridor.rock && !onIsland(sc, fx, fy)) { const [l, rt] = corridorSpan(sc, fy); if (sc.corridor.rock === 'L' ? fx > rt + px : fx < l - px) return true; }   // off the edge
   return sc.chasms.some(c => { const [x0, y0, x1, y1] = c; if (sc.vista) return fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py;
     const [a0, a1] = chasmSpan(c, x0 === 0 && x1 === 1 || (x1 - x0) >= (y1 - y0) ? fx : fy);
     return (x1 - x0) >= (y1 - y0) ? fx > x0 - px && fx < x1 + px && fy > a0 - py && fy < a1 + py : fy > y0 - py && fy < y1 + py && fx > a0 - px && fx < a1 + px; });

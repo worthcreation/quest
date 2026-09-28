@@ -151,7 +151,7 @@ function updateEnemies(dt) {
     if (ground && !escaping) bump = collideSolids(e, e.r * 0.85);
     const lunging = e.mode === 'lunge' || e.mode === 'charge';
     if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
-    if (!escaping) bump = clampTo(e, e.r) || clampCorridor(e, e.r) || bump;
+    if (!escaping) bump = clampTo(e, e.r) || clampCorridor(e, e.r, true) || bump;
     const scn = sceneDef();
     if (ground && !escaping && e.type !== 'warden' && (scn.chasms || scn.river || scn.deep) && isChasm(e.x, e.y)) {
       const carried = ['dart', 'charge', 'lunge', 'flee'].includes(e.mode) || state.time - (e.hitT || -9) < 0.8 || (e.panicT || 0) > 0;

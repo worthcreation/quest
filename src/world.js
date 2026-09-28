@@ -220,8 +220,13 @@ function corridorSpan(sc, fy) {
   if (c.pinch != null) { const d = Math.abs(fy - c.pinch), k2 = Math.max(0, 1 - d / 0.09); hw = hw * (1 - k2) + (1.25 * UNIT / W) * k2; }   // never under 2.5 tiles
   if (fy < 0.06 || fy > 0.94) hw = Math.max(hw, 0.1);                                                                   // room at the openings
   const bite = t => (Math.sin(fy * 41 + s * t) > 0.8 && (c.pinch == null || Math.abs(fy - c.pinch) > 0.12) ? 0.9 : 0) * UNIT / W;   // here and there the rock bites in
-  return [Math.max(0.03, mid - hw + bite(2.3)), Math.min(0.97, mid + hw - bite(3.1))];
+  let lo = Math.max(0.03, mid - hw + bite(2.3)), hi = Math.min(0.97, mid + hw - bite(3.1));
+  if (c.rock) { const m = Math.min(1, Math.max(0, (Math.min(fy, 1 - fy) - 0.08) / 0.12));     // away from the openings, leave room for the drop and its islands
+    if (c.rock === 'L') hi = Math.min(hi, hi * (1 - m) + 0.7 * m); else lo = Math.max(lo, lo * (1 - m) + 0.3 * m);
+    if (hi - lo < 2.5 * UNIT / W) { if (c.rock === 'L') lo = hi - 2.5 * UNIT / W; else hi = lo + 2.5 * UNIT / W; } }
+  return [lo, hi];
 }
+const onIsland = (sc, fx, fy) => ((sc.corridor && sc.corridor.islands) || []).some(q => ((fx - q.fx) / q.rx) ** 2 + ((fy - q.fy) / q.ry) ** 2 < 1);
 const inCorridor = (sc, fx, fy, pad = 0) => { const [a, b] = corridorSpan(sc, fy); return fx > a + pad && fx < b - pad; };
 function fitToCorridor(sc) {
   // on the mountain path every ravine runs right across the way (the mountain hides its ends), and ravines that would
@@ -234,7 +239,7 @@ function fitToCorridor(sc) {
   sc.feat.updrafts = (sc.feat.updrafts || []).map(([x, y]) => [into(x, y, 0.04), y]);
   sc.feat.plants = (sc.feat.plants || []).map(([x, y]) => [into(x, y, 0.03), y]);
   sc.spawns.forEach(sp => { sp.fx = into(sp.fx, sp.fy, 0.03); });
-  sc.initItems.forEach(it => { it.fx = into(it.fx, it.fy, 0.03); });
+  sc.initItems.forEach(it => { if (!onIsland(sc, it.fx, it.fy)) it.fx = into(it.fx, it.fy, 0.03); });
   sc.deco = sc.deco.filter(d => !d.fy || inCorridor(sc, d.fx, d.fy));
   const pts = []; for (let k = 0; k <= 16; k++) { const fy = k / 16, [a, b] = corridorSpan(sc, fy); pts.push([(a + b) / 2, fy]); }
   sc.paths = [pts];                                  // the worn track runs down the middle of the way
@@ -544,7 +549,7 @@ function genWorld() {
     const pass = i >= 2 && !F.end;                     // the mountain path proper: a diagonal way between mountain walls
     const nMid = (north[0] + north[1]) / 2;
     const south = F.end ? null : pass ? gapAt(nMid < 0.5 ? rr(0.64, 0.8) : rr(0.2, 0.36), 0.08) : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
-    if (pass) sc.corridor = { n: nMid, s: (south[0] + south[1]) / 2, seed: rng() * 100 };
+    if (pass) sc.corridor = { n: nMid, s: (south[0] + south[1]) / 2, seed: rng() * 100, rock: i % 2 ? 'L' : 'R' };   // the mountain rises on one side; the other drops away
     sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
     if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'f' + (i + 1) });
     const nPt = edgePoint('n', (north[0] + north[1]) / 2);
@@ -573,6 +578,17 @@ function genWorld() {
     const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
     sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
     if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
+    if (sc.corridor) {                                 // islands out over the drop, each a short jump from the edge
+      const c = sc.corridor, drop = c.rock === 'L' ? 1 : -1; c.islands = [];
+      for (const fy of [0.2, 0.34, 0.53, 0.66, 0.84]) {
+        if (c.islands.length >= 2 || c.islands.some(q => Math.abs(q.fy - fy) < 0.25)) continue;
+        if (F.chasms.some(ch => fy > ch[1] - 0.06 && fy < ch[3] + 0.06)) continue;
+        const [a, b] = corridorSpan(sc, fy), edge = drop > 0 ? b : a, rx = 1.35 * UNIT / W, ry = 1.1 * UNIT / H, gap = 1.4 * UNIT / W;   // a running jump clears the gap
+        const fx = edge + drop * (gap + rx); if (fx - rx < 0.02 || fx + rx > 0.98) continue;
+        c.islands.push({ fx, fy, rx, ry });
+        item(sc, { type: rng() < 0.5 ? 'acorn' : 'stick', fx, fy });                  // something waiting out there
+      }
+    }
     if (sc.corridor) {                                 // one narrow way per screen, on solid ground between the rifts
       const edges = [0.18].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.82]).sort((a, b) => a - b), gaps = [];
       for (let q = 0; q + 1 < edges.length; q += 2) if (edges[q + 1] - edges[q] > 0.12) gaps.push((edges[q] + edges[q + 1]) / 2);
