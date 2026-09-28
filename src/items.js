@@ -3,6 +3,22 @@
 // Pulling things free: hold F, rock left/right, pull up
 // =====================================================================
 // a thrown rock (or a swing, or a stomp) against a breakable stone: tough stones take several good hits, and not every hit counts
+// a thrown rock against a boulder (crag): every hit counts, and it takes as many as it is tiles across. Only that
+// boulder breaks: it falls to pieces, and one piece is a rock you can pick up and throw at the next.
+function hitCrag(o) {
+  const rt = rtFor(state.scene), key = 'hits_' + o.bar, hp = o.hp || 1;
+  rt.flags[key] = (rt.flags[key] || 0) + 1;
+  if (rt.flags[key] >= hp) {
+    const x = o.x, y = o.y, r = o.r;
+    for (let i = 0; i < 18 + (o.size || 1) * 6; i++) { const a = Math.random() * 6.28, v = UNIT * (1.5 + Math.random() * 4); state.fx.push({ x: x + Math.cos(a) * r * 0.4, y: y + Math.sin(a) * r * 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v - UNIT * 2, t: 0, life: 0.6 + Math.random() * 0.5, color: i % 3 ? (o.tint || '#8a8478') : '#5a5048', size: UNIT * (0.1 + Math.random() * 0.18) }); }
+    breakBarrier(o.bar, 'rock');
+    state.items.push(freeItemSpot({ type: 'bigrock', x: x + UNIT * 0.3, y: y + r * 0.5 }));   // a piece big enough to throw
+    state.shake = 0.35 + (o.size || 1) * 0.05; sfx.crash();
+  } else {
+    sfx.crash(); state.shake = 0.12; spark(o.x, o.y - o.r * 0.2, '#9a948a', 8, 2);
+    say(`Cracking! ${hp - rt.flags[key]} more.`, o.x, o.y - o.r - UNIT * 0.4, { key: 'stonehit', life: 1.4 });
+  }
+}
 function hitStone(o, force) {
   const rt = rtFor(state.scene), cs = sceneDef().solids.find(s => s.bar === o.bar && s.kind === 'cracked') || sceneDef().solids.find(s => s.bar === o.bar), S = cs && cs.stone && STONES[cs.stone];
   const dur = S ? S.dur : 1, key = 'hits_' + o.bar;

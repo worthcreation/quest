@@ -108,7 +108,7 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); }]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); ctx.save(); ctx.translate(state.pip.x, py + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-state.pip.x, -(py + UNIT * 0.5)); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); ctx.restore(); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -651,6 +651,19 @@ function drawSolid(s) {
       ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
       break;
     case 'wall': break;                                // the room draws its own walls
+    case 'crag': {
+      const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
+      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
+      if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
+      drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
+      ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
+      let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
+      const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
+      for (let c = 0; c < cracks; c++) { const a = rnd() * 6.28, l = r * (0.35 + rnd() * 0.5) * (0.6 + k * 0.6); ctx.lineWidth = 1.5 + k * 2; ctx.beginPath(); let cx = x + Math.cos(a) * r * 0.15, cy = y - r * 0.15 + Math.sin(a) * r * 0.1; ctx.moveTo(cx, cy);
+        for (let seg = 0; seg < 3; seg++) { cx += Math.cos(a + (rnd() - 0.5) * 0.9) * l / 3; cy += Math.sin(a + (rnd() - 0.5) * 0.9) * l / 3 * 0.8; ctx.lineTo(cx, cy); } ctx.stroke(); }
+      ctx.lineCap = 'butt';
+      break;
+    }
     case 'cracked': {
       if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
       const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
@@ -757,6 +770,7 @@ function drawSolid(s) {
 }
 
 // ---------------- characters ----------------
+const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
 function drawPerson(x, y, color, z, dim = 0) {
   ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + UNIT * 0.45, UNIT * 0.55, UNIT * 0.2, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = color; ctx.fillRect(x - UNIT / 2, y - z - UNIT / 2, UNIT, UNIT);
@@ -824,6 +838,8 @@ function drawHeroBody(h, pw, ph, y, sh) {
 }
 // the steel blade on its own (honing level given), so the stump sword and the sword in hand look the same
 // a big rough stone: an irregular outline of flat facets (seeded so it holds still), a lit face and a shadowed face
+// a colour a little lighter (+) or darker (-)
+function shade(hex, d) { const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, Math.min(255, v + d)); return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`; }
 function drawJagged(x, y, r, seed, [mid, lit, dark], tint) {
   let s = Math.abs(Math.floor(seed * 1000)) % 233280; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const n = 9, pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.28 + (rnd() - 0.5) * 0.35, rr = r * (0.78 + rnd() * 0.32); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.82]); }
@@ -1152,7 +1168,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 112';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 113';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

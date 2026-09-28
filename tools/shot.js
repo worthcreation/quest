@@ -56,6 +56,14 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B113) {                            // build 113: single boulders (w1 exit, practice), a 4-tile one cracked 3 times, the cave stone, the bramble cluster, Pip at 60%
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; state.dusk=false;
+  enterScene('w1'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null; state.pip={x:state.hero.x+UNIT*1.2,y:state.hero.y,show:true,follow:true}; draw(); fs.writeFileSync('/tmp/b113-w1.png', canvas.toBuffer('image/png'));
+  rtFor('w1').flags.hits_crack1=3; draw(); fs.writeFileSync('/tmp/b113-cracked.png', canvas.toBuffer('image/png'));
+  enterScene('w3'); state.enemies=[]; state.pip=null; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b113-w3.png', canvas.toBuffer('image/png'));
+  console.log('b113 written');
+}
 if (process.env.B112) {                            // build 112: Gear columns (with what you wear), Status cards, a cracked stone
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sword=true; inv.woodsword=6; inv.acorns=5; inv.fire=true; inv.step=1; inv.up.edge=1; inv.rod=true; gainGear('feather',true); gainGear('stonecharm',true); state.title=null; state.scrolls=[];

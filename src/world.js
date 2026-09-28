@@ -204,6 +204,11 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
 function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 // breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
+// a single breakable boulder: size in tiles (1-5) is its width and the number of rock hits it takes; its colour varies
+function crag(sc, id, at, size, extra = {}) {
+  const tint = ['#8a8478', '#7f7a72', '#8c8272', '#77807e', '#857c70'][Math.floor(rng() * 5)];
+  sc.solids.push(solid(at[0], at[1], size / 2, 'crag', null, { bar: id, size, hp: size, tint, ...extra })); claim(sc, at[0], at[1], size / 2 + 0.6);
+}
 function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -405,48 +410,42 @@ function genWorld() {
     const keep = [];
     if (last) {
       const sword = [rr(0.55, 0.7), pick([0.28, 0.72])];
-      sc.feat.cave = [0.86, 1 - sword[1]]; claim(sc, ...sc.feat.cave, 2.6); claim(sc, ...sword, 2.4);
+      sc.feat.cave = [0.86, 1 - sword[1]]; claim(sc, ...sword, 2.4);
       pullable(sc, { id: 'sword', kind: 'sword', fx: sword[0], fy: sword[1], need: 6 });
       sc.solids.push(solid(sword[0], sword[1], 0.55, 'stump'));
       sc.feat.sword = sword;
       sc.paths = [makePath(wPt, [sword[0] - 0.06, sword[1]], 2), makePath([sword[0], sword[1]], sc.feat.cave, 1)];
       keep.push([...sword, 2.2], [...sc.feat.cave, 3.2]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
-    // rock puzzles on the way to the sword, one more idea each screen
-    if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
-                                                     // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
-      barrier(sc, 'crack1', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);   // tight against the edge, past both ends of the opening
-      const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
+    // Rock puzzles on the way to the sword. Every obstacle is ONE boulder standing on its own ('crag'): 1 to 5 tiles
+    // across, one good rock hit per tile to break it, cracking more with each hit. Breaking one boulder breaks only
+    // that boulder, and it leaves a rock behind to throw at the next.
+    const exitCrag = (id, size) => { const cy = (east[0] + east[1]) / 2, at = [1 - 0.55 * UNIT / W, cy]; crag(sc, id, at, size); return at; };   // set right in the opening, against the edge
+    if (i === 1) {                                   // a big boulder in the way out; a rock to dig up; two little boulders to practise on
+      const k = exitCrag('crack1', 4);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
-      for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.7, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
-      sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
-      keep.push([...k, 3], [...r, 2.5]);
+      for (const [n, sz] of [['knockA', 1], ['knockB', 1]]) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); crag(sc, n, q, sz); keep.push([...q, 1.6]); }
+      sc.paths.push(makePath(wPt, r, 1), makePath(r, [k[0] - 0.12, k[1]], 1));
+      keep.push([...k, 3.5], [...r, 2.5]);
     }
-    if (i === 2) {                                   // one row of big boulders across the way on; its keystone sits out front
-      barrier(sc, 'crack2', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);
-      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null);
-      const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
+    if (i === 2) {                                   // a bigger boulder in the way on (the ambush comes when it breaks); a 2-tile one on the way
+      const k = exitCrag('crack2', 4);
+      const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
       sc.feat.hole = [1.04, (east[0] + east[1]) / 2];     // where the gremlins come from and go: off the east edge, deeper into the dark
-      for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.7, pickStone()); keep.push([...q, 1.6]); }
-      sc.paths.push(makePath(wPt, r, 1), makePath(r, [p[0] - 0.12, p[1]], 1));
-      keep.push([...p, 7], [...r, 2.5]);
+      { const q = freeSpot(sc, [0.3, 0.6, 0.15, 0.85], 2.2, [[...wPt, 4], [...r, 3], [...k, 6]]); crag(sc, 'knockD', q, 2); keep.push([...q, 2.2]); }
+      sc.paths.push(makePath(wPt, r, 1), makePath(r, [k[0] - 0.14, k[1]], 1));
+      keep.push([...k, 3.5], [...r, 2.5]);
     }
-    if (last) {                                      // thorns ring the sword; the only rock that can break them is penned in
+    if (last) {                                      // the sword in the old stump, under a cluster of brambles; a 2-tile boulder sits on the best rock
       const sw = sc.feat.sword;
-      ringBarrier(sc, 'swordthorns', 'bramble', sw[0], sw[1], 1.8, 0.55);
-      const pen = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 3, [[...wPt, 4], [...sw, 5]]);
-      const gapAng = Math.atan2((sw[1] - pen[1]) * H, (sw[0] - pen[0]) * W);
-      stoneRing(sc, pen, 1.5, gapAng, 0.75);
-      const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
-      barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.85);
-      pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
-      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null);
-      const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
+      for (const [dx, dy, rU] of [[0, -0.25, 0.75], [-0.55, 0.2, 0.65], [0.55, 0.2, 0.65], [0, 0.55, 0.6]]) sc.solids.push(solid(sw[0] + dx * UNIT / W, sw[1] + dy * UNIT / H, rU, 'bramble', null, { bar: 'swordthorns' }));
+      const p = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2.6, [[...wPt, 4], [...sw, 5]]); crag(sc, 'crack3', p, 2);
+      const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...p, 4], [...wPt, 2], [...sw, 4]]);
       pullable(sc, { id: 'rock3b', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
-      sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, [pen[0] + Math.cos(gapAng) * 0.08, pen[1] + Math.sin(gapAng) * 0.1], 0), makePath(pen, sw, 1));
-      keep.push([...pen, 3.2], [...p, 2.5], [...r, 2.5], [...sw, 3.5]);
+      sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, sw, 1));
+      keep.push([...p, 2.6], [...r, 2.5], [...sw, 3.5]);
     }
     scatter(sc, 12 + i * 8, 'tree', 0.8, 1.3, 1.25 - i * 0.05, keep, [0.08, 0.92, 0.1, 0.9], 'deep');
     sc.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(sc, [0.15, 0.85, 0.15, 0.85], 0.8); claim(sc, q[0], q[1], 0.6); return q; });
@@ -455,8 +454,7 @@ function genWorld() {
     decoFlowers(sc, 8);
     if (last) {                                      // the cave mouth, heaped over with boulders; the gremlins slip between them
       const cv = sc.feat.cave;
-      ringBarrier(sc, 'cave', 'wedge', cv[0], cv[1], 1.7, 0.8);
-      const kk = sc.solids.filter(s => s.bar === 'cave').sort((a, b) => a.fx - b.fx)[0]; if (kk) { kk.kind = 'cracked'; kk.r = 1.0; kk.stone = pickStone(); }   // the loose one, facing you: break it and the heap comes down
+      crag(sc, 'cave', [cv[0], cv[1] + 0.3 * UNIT / H], 4, { gap: true });   // one great stone over the mouth; a narrow gap beside it, too small for you
       sc.feat.glimpse = { to: cv, line: 'HELP! They\'re squeezing through the rocks!' };
     }
     // sun dapples drift through the canopy; one always wanders over the sword

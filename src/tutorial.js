@@ -142,14 +142,14 @@ const PIP_LINES = [
   { key: 'map-start', scene: 'start', when: () => storyAt('adventure'), text: 'Glade: big rock, brambles. On the map!' },
   // the woods: practice stones, the wedged boulders, the mud
   { key: 'practice', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'knockA') && !broken('w1', 'knockA') && !broken('w1', 'knockB'),
-    at: sc => { const k = sc.solids.find(s => s.bar === 'knockA'); return [k.fx * W, k.fy * H]; }, text: 'See the cracked stones? Practise on those. Heave a rock and let it fly!' },
+    at: sc => { const k = sc.solids.find(s => s.bar === 'knockA'); return [k.fx * W, k.fy * H]; }, text: 'Little boulders! Practise on those. Heave a rock and let it fly!' },
   { key: 'gate', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'crack1' && s.kind === 'cracked'), sight: 12,
     at: sc => { const k = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'); return [k.fx * W, k.fy * H]; }, text: 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.' },
   { key: 'opened', scene: 'w1', when: () => broken('w1', 'crack1'), text: 'CRASH! Onward!' },
-  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, cracked stones, a very suspicious tree.' },
+  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, big and small, a very suspicious tree.' },
   { key: 'map-w2', scene: 'w2', text: 'Last blank corner of the map! Past these boulders, and it\'s done.' },
-  { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
-    text: 'That cracked stone is holding the whole pile up. Hit it square with a rock!' },
+  { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2'); return k ? [k.fx * W - UNIT * 2.5, k.fy * H] : null; },
+    text: 'Another big one in the way. Keep hitting it; it cracks a bit more each time.' },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------

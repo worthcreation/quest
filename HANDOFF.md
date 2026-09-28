@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 112, 27 Sep 2026)
+# Quest: handoff notes (as of build 113, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,24 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 113: forest boulders, one at a time
+- New solid 'crag' (world.js crag(sc, id, at, size)): ONE boulder, 1 to 5 tiles across, a varied grey/brown colour,
+  hp = size. hitCrag (items.js) counts every thrown-rock hit, shows "Cracking! n more." and draws more and longer
+  cracks each hit; the last hit breaks it into flying pieces, and one piece is a throwable rock left at its foot.
+  Only that boulder breaks (its bar id is its own). A rock that bounces off lands where you can reach it
+  (freeItemSpot). Sword swings don't break them.
+- The woods now: w1 exit boulder (4 tiles, crack1) set in the opening against the edge, two 1-tile practice boulders;
+  w2 exit boulder (4 tiles, crack2; breaking it starts the ambush), one 2-tile boulder; w3: the sword in the stump
+  under a cluster of four brambles (a thrown rock clears them), a 2-tile boulder, and ONE 4-tile stone over the cave
+  mouth (crag 'cave', gap: true) with a narrow dark gap beside it that gremlins squeeze through. No rings, rows,
+  keystones or pens remain in the woods (the old stoneRing/ringBarrier/keystone helpers are still defined for
+  elsewhere but unused here).
+- Exits now only take you through the opening itself (checkEdges checks along within a..b, +-0.04), so a boulder
+  sized a bit bigger than its opening is enough to block it. Collision for crags is 1.15 x their size.
+- Pip is drawn at 60% of your size (PIP_SIZE, feet on the same ground line).
+- Pip's woods lines match (little boulders to practise on; big ones take a few hits; each breaking one leaves a rock).
+- Tests: hole and stones rewritten for single boulders. 54 of 54.
 
 ## Build 112: gear in columns (wear folded in), Status as cards, rusty steel everywhere, three mat places
 - The Wear tab is gone; the Gear tab has three columns: Weapons & tools | Abilities (and upgrades) | Wearing (every

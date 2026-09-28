@@ -9,7 +9,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -28,7 +28,7 @@ function breakBarrier(bar, how) {
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
     if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
-  if (bar === 'cave') { say('The heap comes down: a cave, going deep into the hill!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3.5 }); }
+  if (bar === 'cave') { say('The great stone falls to pieces: a cave, going deep into the hill!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3.5 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
@@ -85,7 +85,7 @@ function enterScene(id, fx, fy) {
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
-  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => say('They slipped between those boulders. Break the cracked one!', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
+  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => say('They squeezed past that big stone. Break it! Big ones take a few hits.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
   if (sc.feat.glimpse && !rt.flags.glimpse && state.inv.pipTaken && !state.inv.pipSaved && state.started) {
     // Pip, carried off by gremlins, always just ahead of you
     rt.flags.glimpse = true;
@@ -160,6 +160,7 @@ function checkEdges() {
     if (ex.side === 'w') { at = h.x <= r && held.left(); along = h.y / H; }
     if (ex.side === 'e') { at = h.x >= W - r && held.right(); along = h.y / H; }
     if (!at) continue;
+    if (along < ex.a - 0.04 || along > ex.b + 0.04) continue;   // only through the opening itself, not anywhere along that edge
     if (ex.locked && ex.locked()) return;
     if (Array.isArray(ex.arrive)) { transitionTo(ex.to, ex.arrive[0], ex.arrive[1], true); return; }   // doors put you back at the door
     if (ex.arrive === 'sinkhole') {
@@ -384,7 +385,7 @@ function clampTo(a, r) {
 function collideSolids(a, r) {
   let hit = null;
   for (const o of state.solids) {
-    if (a.type === 'gremlin' && o.kind === 'wedge' && !o.small) continue;   // gremlins slip between the cracks of the big boulders
+    if (a.type === 'gremlin' && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;   // gremlins slip through gaps you can't
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -459,7 +460,7 @@ function updateFeatures(dt) {
   const sc = sceneDef(), h = state.hero, f = sc.feat, rt = rtFor(sc.id);
   if (f.cave) {                                          // the cave mouth: heaped with boulders until you break the loose one
     const sx = f.cave[0] * W, sy = f.cave[1] * H, d = Math.hypot(h.x - sx, h.y - sy), open = !!rt.flags.cave;
-    if (!open && d < UNIT * 4.5) say('Boulders heaped over something dark. One of them is cracked.', sx, sy - UNIT * 2.2, { key: 'cave', tip: 'cave' });
+    if (!open && d < UNIT * 5) say('A great stone over something dark. They squeezed through the gap beside it.', sx, sy - UNIT * 2.6, { key: 'cave', tip: 'cave' });
     if (open && d < UNIT * 0.8) { say('Into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
   }
   if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {

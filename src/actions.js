@@ -166,7 +166,8 @@ function updateShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.vz -= s.g * dt; s.z += s.vz * dt; s.spin += dt * 12;
     let done = s.z <= 0 || s.x < -UNIT || s.x > W + UNIT || s.y < -UNIT || s.y > H + UNIT;
     if (rock && s.z <= 0) {                             // a rock that comes down on a stone, brambles, a burrow or a buried rock
-      for (const o of state.solids) if (o.bar && ['cracked', 'bramble', 'burrow'].includes(o.kind) && Math.hypot(o.x - s.x, o.y - s.y) < o.r + UNIT * 0.45) { if (o.kind === 'bramble') breakBarrier(o.bar, 'rock'); else hitStone(o, s.force); break; }
+      for (const o of state.solids) if (o.bar && o.kind === 'crag' && Math.hypot(o.x - s.x, o.y - s.y) < o.r + UNIT * 0.45) { hitCrag(o); done = true; break; }
+      if (!done) for (const o of state.solids) if (o.bar && ['cracked', 'bramble', 'burrow'].includes(o.kind) && Math.hypot(o.x - s.x, o.y - s.y) < o.r + UNIT * 0.45) { if (o.kind === 'bramble') breakBarrier(o.bar, 'rock'); else hitStone(o, s.force); break; }
       knockRocks(s.x, s.y, UNIT * 1.2);
     }
     for (const e of state.enemies) {
@@ -183,6 +184,7 @@ function updateShots(dt) {
       if (s.z > UNIT * (o.bar ? 3 : ['tree', 'deadtree'].includes(o.kind) ? 2.6 : o.kind === 'stone' ? 0.45 : 0.7)) continue;   // trees and thickets stand tall; ring stones are low
       if (Math.hypot(o.x - s.x, o.y - s.y) > o.r + UNIT * 0.2) continue;
       if (rock && o.bar && o.kind === 'bramble') breakBarrier(o.bar, 'rock');
+      else if (rock && o.bar && o.kind === 'crag') hitCrag(o);
       else if (rock && o.bar && (o.kind === 'cracked' || o.kind === 'burrow')) hitStone(o, s.force);
       else if (o.kind === 'tree') { state.treeShake[o.key] = state.time; sfx.rustle(); if (rock || rng() < 0.35) dropAcorn(o); if (!rock) sfx.tock(); }
       else if (!rock) sfx.tock();
@@ -194,7 +196,7 @@ function updateShots(dt) {
       state.shots.splice(i, 1);
       if (rock && inMud(s.x, s.y)) sinkRock(s.x, s.y);     // short of the mark and into the mud: stuck
       else if (rock && earthen(s.x, s.y) && Math.random() < 0.2) sinkRock(s.x, s.y, 'earth');   // or it digs into soft ground
-      else if (rock) { state.items.push({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }); sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
+      else if (rock) { state.items.push(freeItemSpot({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }));   /* bounced off a boulder: it lands at the foot, where you can reach it */ sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
       if (state.scene === 'w3' && rock && !broken('w3', 'swordthorns')) say('Thorns. A thrown rock broke the last lot.', s.x, s.y - UNIT, { key: 'rockhint3', life: 2.5, tip: 'rockhint3' });
