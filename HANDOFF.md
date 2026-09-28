@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 128, 27 Sep 2026)
+# Quest: handoff notes (as of build 129, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,15 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 129: the riverbank boulder takes a thrown rock; boulders sit in the ground
+- The riverbank boulder (stonecrag, 2 tiles) no longer breaks to a pound: it takes two thrown-rock hits. A heavy stone
+  is stuck in the ground nearby (pullable 'riverrock', early: true, so it isn't locked before the adventure): pound
+  beside it to loosen it, hold F, rock it, pull it up, throw. Pip walks you through it in three lines (stone-crag,
+  stone-loosen, stone-throw). A rock that bounces off a boulder never buries itself (s.bounced), so you can throw it
+  again.
+- Every crag is drawn sunk into the ground: the floor colour banked up round its foot with a wavy dirt rim and clods.
+- Test woods-gremlins updated (pound does nothing; loosen, pull, two throws, six stones). 59 of 59.
 
 ## Build 128: the High Reaches freeze found and fixed; stone-filled ravines; the valley up close
 - The freeze: hit a mantis (or anything new) and it's stunned; when the stun ends, resumeMode looked up a table that

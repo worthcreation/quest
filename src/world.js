@@ -330,8 +330,11 @@ function genWorld() {
   {                                                   // a boulder by the water, full of smooth stones: pound beside it (the robin taught you) until it breaks
     const pts = riverbank.river.pts, t = 0.82, seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), [ax, ay] = pts[seg], [bx, by] = pts[seg + 1];
     const q = freeSpot(riverbank, [Math.max(0.15, ax - 0.1), Math.min(0.9, ax + 0.12), Math.max(0.3, ay + 0.06), Math.min(0.9, ay + 0.22)], 1.4);
-    crag(riverbank, 'stonecrag', q, 2, { pound: true, drops: { stone: 3 } });
+    crag(riverbank, 'stonecrag', q, 2, { drops: { stone: 3 } });             // two good hits with a thrown rock
     riverbank.feat.stoneCrag = q;
+    const r = freeSpot(riverbank, [0.25, 0.85, 0.45, 0.9], 1.4, [[...q, 4]]);    // ...and a heavy stone stuck in the ground nearby, to throw at it
+    pullable(riverbank, { id: 'riverrock', kind: 'rock', fx: r[0], fy: r[1], need: 3, early: true });
+    riverbank.feat.riverRock = r;
   }
   decoFlowers(riverbank, 30);
 

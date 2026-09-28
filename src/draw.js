@@ -671,6 +671,13 @@ function drawSolid(s) {
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
       if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
       drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
+      { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
+        ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.25, by + r * 0.5);
+        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3; ctx.lineTo(xx, by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04); }
+        ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
+        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
+        ctx.fillStyle = 'rgba(74,56,34,.6)'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x - r * 0.9 + i * r * 0.45, by + r * 0.08 + (i % 2) * r * 0.05, r * 0.05, 0, 6.28); ctx.fill(); } }   // clods
       ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
       let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
       const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
@@ -1251,7 +1258,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 128';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 129';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

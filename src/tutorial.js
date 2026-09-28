@@ -116,6 +116,7 @@ function campMarkLine() {
 // Pip's other lines: flavour and the woods. Each: a key (said once), where (scene), when it applies, the words,
 // optionally where Pip walks to say it (at) and how near you must be for that (sight). Order is priority.
 // ---------------------------------------------------------------------------------------------------------------
+const tipSaid = k => !!((state.inv.pipTips || {})[k]);
 const PIP_LINES = [
   { key: 'compost', when: () => state.inv.acorns > 0 && !storyAt('adventure') && state.inv.quests && state.inv.quests.garden && state.inv.quests.garden.done != null,
     text: 'Get enough of those acorns, and you can make some awesome compost!' },
@@ -129,7 +130,12 @@ const PIP_LINES = [
   // short of stones on the riverbank: the boulder by the water has more inside
   { key: 'stone-crag', scene: 'riverbank', when: sc => storyAt('gather') && campMissing().stone > 0 && sc.solids.some(s => s.bar === 'stonecrag') && !broken('riverbank', 'stonecrag') && !state.items.some(i => i.type === 'stone'),
     at: sc => { const q = sc.feat.stoneCrag; return [q[0] * W - UNIT * 1.6, q[1] * H]; }, sight: 12,
-    text: () => `Still short! That boulder by the water is full of smooth stones. Jump and ${TUT.F()}: pound right next to it!` },
+    text: () => `Still short! That boulder by the water is full of smooth stones. We need something heavy to throw at it...` },
+  { key: 'stone-loosen', scene: 'riverbank', when: sc => tipSaid('stone-crag') && !broken('riverbank', 'stonecrag') && !rtFor('riverbank').pulled.has('riverrock') && !state.carry,
+    at: sc => { const q = sc.feat.riverRock; return [q[0] * W + UNIT * 1.4, q[1] * H]; }, sight: 12,
+    text: () => `That one! Stuck in the ground. Pound beside it to loosen it, then hold ${TUT.F()}, rock it, and pull it up!` },
+  { key: 'stone-throw', scene: 'riverbank', when: () => state.carry === 'rock' && !broken('riverbank', 'stonecrag'),
+    text: () => `Now throw it at the boulder! Hold ${TUT.F()} to aim, let go to throw.` },
   // the first ripe turnip: Pip shows you how to pull it up (how many rocks depends on your farming)
   { key: 'pull-turnip', scene: 'meadow', when: () => !state.inv.harvests && ((rtFor('meadow').flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3),
     at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,

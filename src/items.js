@@ -32,7 +32,7 @@ function hitStone(o, force) {
 // buried rocks have to be knocked loose before you can rock them out
 // the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
 // no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
-function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
+function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !pl.early && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {

@@ -5,8 +5,18 @@ run(5); state.intro=null; state.texts=[]; const inv=state.inv, h=state.hero;
 // 1. the riverbank: three stones lying about, the rest in a boulder you pound apart
 inv.story=STORY.gather; enterScene('riverbank'); state.enemies=[]; run(5);
 console.log('1 stones lying on the riverbank:', state.items.filter(i=>i.type==='stone').length, '| the boulder by the water:', state.solids.filter(s=>s.bar==='stonecrag').map(s=>s.size+' tiles').join(''));
-const c=state.solids.find(s=>s.bar==='stonecrag'); let pounds=0; while(!broken('riverbank','stonecrag') && pounds<5){ h.x=c.x-c.r-UNIT*0.9; h.y=c.y; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40); pounds++; }
-console.log('   pounded apart after', pounds, 'pounds | stones now lying there:', state.items.filter(i=>i.type==='stone').length);
+const c=state.solids.find(s=>s.bar==='stonecrag');
+// pounding by it does nothing now; it takes a thrown rock
+h.x=c.x-c.r-UNIT*0.9; h.y=c.y; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40);
+console.log('   a pound beside the boulder breaks it?', broken('riverbank','stonecrag'));
+// the stuck stone nearby: stomp to loosen, hold F, rock, pull up
+const rk=WORLD.riverbank.feat.riverRock; h.x=rk[0]*W-UNIT*1.2; h.y=rk[1]*H; h.fx=1; h.fy=0; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40);
+const loose=!!rtFor('riverbank').flags.knocked_riverrock; h.x=rk[0]*W-UNIT*1.2; h.y=rk[1]*H; run(3);
+state.keys.f=true; run(5); for(let i=0;i<8;i++){ state.keys[i%2?'arrowright':'arrowleft']=true; run(2); state.keys.arrowleft=state.keys.arrowright=false; run(4); } state.keys.arrowup=true; run(2); state.keys.arrowup=false; run(4); state.keys.f=false; run(10);
+console.log('   stuck stone: loosened', loose, '| carrying it', state.carry);
+let throws=0; const throwAtC=()=>{ if(!state.carry){ const it=state.items.find(i=>i.type==='bigrock'); if(!it) return false; h.x=it.x-UNIT*0.8; h.y=it.y; run(2); press('f'); run(3); } const cc=state.solids.find(s=>s.bar==='stonecrag'); if(!cc) return false; const side=cc.x>W/2?-1:1; h.x=cc.x+side*(cc.r+UNIT*3); h.y=cc.y; h.fx=-side; h.fy=0; run(2); state.keys.f=true; for(let k=0;k<90;k++){ run(1); const [lx,ly]=rockLanding(h); if (Math.hypot(lx-cc.x,ly-cc.y)<cc.r*0.4) break; } state.keys.f=false; run(90); throws++; return true; };
+while(!broken('riverbank','stonecrag') && throws<6 && throwAtC()) {}
+console.log('   broken after', throws, 'throws | smooth stones lying there:', state.items.filter(i=>i.type==='stone').length);
 // 2. the first woods screen: a gremlin peeks from behind the way-out boulder, and ducks away when you come
 inv.story=STORY.adventure; inv.sword=true; state.pip=null; enterScene('w1'); state.enemies=[]; run(3); const pk=WORLD.w1.feat.peek;
 const before=!rtFor('w1').flags.peekGone; h.x=pk[0]*W-UNIT*5; h.y=pk[1]*H+UNIT*2; run(30); console.log('2 peeking at first:', before, '| ducked when you came close:', !!rtFor('w1').flags.peekGone);
