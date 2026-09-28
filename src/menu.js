@@ -70,11 +70,10 @@ const SETTINGS_ITEMS = () => [
 ];
 const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
-const PACK_TABS = ['Gear', 'Wear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Status', 'System'];
+const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Status', 'System'];
 // a tab shows only once there's something behind it
 function tabShown(t) {
   const inv = state.inv;
-  if (t === 'Wear') return gearOwned().length > 0;
   if (t === 'Food') return inv.food.length > 0;
   if (t === 'Seeds') return Object.values(inv.bag || {}).some(n => n > 0);
   if (t === 'Materials') return packCells('Materials').length > 0;
@@ -178,9 +177,15 @@ function packCells(tab) {
     if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
-    const SEC = c => ['sword', 'woodsword', 'acorn', 'thornwrap', 'emberoil'].includes(c.icon) ? 'Weapons' : ['fire', 'step', 'silk', 'horn', 'ember'].includes(c.icon) ? 'Abilities' : ['rod', 'journal'].includes(c.icon) ? 'Tools' : 'Upgrades';
-    const ORD = ['Weapons', 'Abilities', 'Upgrades', 'Tools'];
-    cells.forEach(c => { c.sec = SEC(c); }); cells.sort((a, b) => ORD.indexOf(a.sec) - ORD.indexOf(b.sec));
+    // three columns: weapons & tools | abilities & upgrades | what you wear (the old Wear tab lives here now)
+    const COL = c => ['sword', 'woodsword', 'acorn', 'thornwrap', 'emberoil', 'rod', 'journal'].includes(c.icon) ? 0 : 1;
+    cells.forEach(c => { c.col = COL(c); c.desc = c.desc || c.line; }); cells.sort((a, b) => a.col - b.col);
+    const worn = inv.worn || [], nW = wearSlots();
+    for (const id of gearOwned()) {
+      const on = worn.includes(id), W0 = WEAR[id];
+      cells.push({ col: 2, icon: id === 'cap' ? 'scalp' : 'wear_' + id, name: W0.name, mark: on, desc: on ? 'worn' : W0.line, line: `${WEAR_KIND[W0.kind]} \u00b7 ${W0.line} (${worn.length} of ${nW} worn)`,
+        acts: [{ label: on ? 'Take off' : 'Wear', fn: () => { const r = toggleWear(id); if (r === 'full') state.menu.note = `You can wear ${nW} at once. Take one off first.`; refreshButtons(); } }] });
+    }
   }
   if (tab === 'Wear') {                                 // armaments, charms and flair: a few at a time, all of them visible on you
     const worn = inv.worn || [], n = wearSlots();
@@ -262,13 +267,13 @@ function updatePack() {
     return;
   }
   if (!cells.length) { m.focus = 'tabs'; return; }
-  if (tab === 'Craft' && cells[0] && cells[0].col != null) {           // columns: left / right move across, keeping the row as near as possible
+  if (cells[0] && cells[0].col != null) {                             // columns (Craft, Gear): left / right move across, keeping the row as near as possible
     const L = packLayout(cells, cols), cur = L[m.sel] || { c: 0, r: 0 };
     const hop = d => { for (let c = cur.c + d; c >= 0 && c <= 2; c += d) { const col = L.map((q, i) => [q, i]).filter(([q]) => q.c === c); if (col.length) { m.sel = col[Math.min(cur.r, col.length - 1)][1]; sfx.tock(); return; } } };
     if (pressedNow.left) hop(-1); if (pressedNow.right) hop(1);
     if (pressedNow.down) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r + 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } }
     if (pressedNow.up) { const nx = L.findIndex((q, i) => q.c === cur.c && q.r === cur.r - 1); if (nx >= 0) { m.sel = nx; sfx.tock(); } else { m.focus = 'tabs'; sfx.tock(); } }
-    if (pressedNow.act) craftCellAct(cell);
+    if (pressedNow.act) { if (tab === 'Craft') craftCellAct(cell); else if (cell && cell.acts && cell.acts.length) { m.focus = 'acts'; m.act = 0; sfx.tock(); } }
     return;
   }
   if (pressedNow.left) mv(-1);

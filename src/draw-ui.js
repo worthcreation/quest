@@ -143,10 +143,9 @@ function drawItemIcon(type, x, y, s) {
       for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
       ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
       break;
-    case 'sword':
+    case 'sword':                                         // the old sword: grey steel, rust and all (never the wooden one's colour)
+      ctx.save(); ctx.rotate(-0.8 - Math.PI / 2); ctx.translate(-s * 0.1, 0); drawSteelBlade(s * 0.62, s * 0.12, Math.min(3, state.inv.up.edge || 0)); ctx.restore();
       ctx.save(); ctx.rotate(-0.8);
-      ctx.fillStyle = bladeColor(); ctx.fillRect(-s * 0.05, -s * 0.5, s * 0.1, s * 0.62);
-      ctx.beginPath(); ctx.moveTo(-s * 0.05, -s * 0.5); ctx.lineTo(0, -s * 0.6); ctx.lineTo(s * 0.05, -s * 0.5); ctx.fill();
       ctx.fillStyle = '#6b4a2a'; ctx.fillRect(-s * 0.2, s * 0.1, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.04, s * 0.17, s * 0.08, s * 0.25);
       ctx.restore(); break;
     case 'letter':
@@ -1043,29 +1042,14 @@ function drawPack(m, x, y, pw, fs) {
     }
     return;
   }
-  if (tab === 'Status') {                              // everything about you that grows, read-only
-    let yy = y + fs * 0.4; const lx = px + 14, vx = px + pwide * 0.42;
-    for (const r of statusRows()) {
-      if (yy > H - fs * 3) break;
-      if (r[0] === 'head') { yy += fs * 0.5; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(fs * 0.9)}px Georgia, serif`; ctx.fillText(r[1], lx, yy + fs * 0.8); yy += fs * 1.3; continue; }
-      ctx.textAlign = 'left'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillStyle = '#d8d0c0'; ctx.fillText(r[1], lx + fs, yy + fs * 0.8);
-      if (r[0] === 'skill') {
-        const bw = pwide * 0.3, bh = fs * 0.45; ctx.fillStyle = '#fdf6e3'; ctx.fillText(`level ${r[2]} of ${r[3]}`, vx, yy + fs * 0.8);
-        const bx = vx + fs * 8; ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx, yy + fs * 0.4, bw, bh); ctx.fillStyle = '#c9a2ff'; ctx.fillRect(bx, yy + fs * 0.4, bw * (r[2] >= r[3] ? 1 : r[4]), bh);
-      } else { ctx.fillStyle = '#fdf6e3'; const ls = wrap(r[2], pwide - (vx - px) - 14); ls.forEach((l, k) => ctx.fillText(l, vx, yy + fs * 0.8 + k * fs * 1.05)); yy += (ls.length - 1) * fs * 1.05; }
-      yy += fs * 1.25;
-    }
-    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`;
-    drawTipMarquee(fs);
-    return;
-  }
+  if (tab === 'Status') { drawStatusCards(px, y, pwide, fs); drawTipMarquee(fs); return; }   // cards, not a wall of text
   if (tab === 'Craft') y += drawCraftMat(px, y + fs * 0.6, pwide, fs) + fs * 1.2;
   const cells = packCells(tab);
   let cs = Math.max(52, Math.min(76, UNIT * 1.7)), gap = 8, cols = Math.max(3, Math.floor((pwide + gap) / (cs + gap)));
   m.cols = cols;
   let gx = px + (pwide - (cols * (cs + gap) - gap)) / 2;
   if (!cells.length) { ctx.fillStyle = 'rgba(253,246,227,.55)'; ctx.fillText({ Food: 'No food. Farms, rabbits and fish.', Seeds: 'No seeds. Birds, gremlins and fish drop them.', Materials: 'No materials yet. Grow them from seeds.', Gear: 'Nothing yet.' }[tab] || '', W / 2, y + fs * 2); }
-  if (tab === 'Craft' && cells.length && cells[0].col != null) { drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_); }
+  if (cells.length && cells[0].col != null) { drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_, tab === 'Gear' ? ['Weapons & tools', 'Abilities', 'Wearing'] : ['Make', 'Materials', 'Made']); }
   else {
   let LAY = packLayout(cells, cols), headH = cells.some(c => c.sec) ? fs * 1.1 : 0;
   {                                                    // sections take room: shrink the cells until everything clears the detail panel
@@ -1263,9 +1247,50 @@ function drawBook(m) {
 const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'f2', 'f3'];
 const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', f2: 'Field', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
 // Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
-function drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_) {
-  const colW = pwide / 3, rh = Math.max(30, Math.min(40, fs * 2.1)), gap = 5, limit = H - fs * 8.6, is = rh * 0.72;
-  ['Make', 'Materials', 'Made'].forEach((t, c) => { ctx.textAlign = 'left'; ctx.fillStyle = c === 2 ? 'rgba(255,227,138,.4)' : 'rgba(255,227,138,.85)'; ctx.font = `bold ${Math.round(fs * 0.75)}px Georgia, serif`; ctx.fillText(t, px + c * colW + 6, y + fs * 0.2); });
+// Status as cards: you at the top (vigor), then one card per skill: a coloured strip, the name and level pips, a
+// progress bar, and two short lines, now and next. Upgrades are a row of small badges at the bottom.
+function drawStatusCards(px, y, pwide, fs) {
+  const inv = state.inv, h = state.hero, u = fs;
+  ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  // you
+  const mv = maxVig(); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(px, y, pwide, u * 2.4);
+  ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(u * 0.95)}px Georgia, serif`; ctx.fillText('Vigor', px + u, y + u * 1.55);
+  const bx = px + u * 6, bw = pwide * 0.45; ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx, y + u * 0.8, bw, u * 0.8); ctx.fillStyle = '#b8f28a'; ctx.fillRect(bx, y + u * 0.8, bw * Math.max(0, h.vig) / mv, u * 0.8);
+  ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(u * 0.8)}px "Courier New", monospace`; ctx.fillText(`${Math.ceil(h.vig)} / ${mv}${inv.depth ? `   depth ${inv.depth}` : ''}`, bx + bw + u, y + u * 1.5);
+  y += u * 3;
+  // skill cards, two across
+  const cards = [['acorn', 'Acorns', '#c9a2ff'], ['sword', 'Sword', '#9fd0ff'], ['gather', 'Gathering', '#b8f28a']].map(([id, name, col]) => {
+    const s = skillOf(id), max = SKILLS[id].steps.length, need = SKILLS[id].steps[s.lvl], prev = SKILLS[id].steps[s.lvl - 1] || 0, prog = s.n + s.hits * 2;
+    return { name, col, lvl: s.lvl, max, k: need ? Math.max(0, Math.min(1, (prog - prev) / (need - prev))) : 1, now: SKILL_INFO[id](s.lvl), next: s.lvl < max ? SKILL_INFO[id](s.lvl + 1) : 'mastered' };
+  });
+  const fl = farmLevel(); cards.push({ name: 'Farming', col: '#ffcf7a', lvl: fl, max: 5, k: ((Object.values(inv.cropXp || {}).reduce((a, b) => a + b, 0)) % 6) / 6, now: SKILL_INFO.farm(fl), next: SKILL_INFO.farm(fl + 1) });
+  const gap = u * 0.8, cw = (pwide - gap) / 2, ch = u * 5.2;
+  cards.forEach((c, i) => {
+    const cx = px + (i % 2) * (cw + gap), cy = y + Math.floor(i / 2) * (ch + gap);
+    if (cy + ch > H - u * 3) return;
+    ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(cx, cy, cw, ch); ctx.fillStyle = c.col; ctx.fillRect(cx, cy, 4, ch);
+    ctx.fillStyle = '#fdf6e3'; ctx.font = `bold ${Math.round(u * 0.95)}px Georgia, serif`; ctx.fillText(c.name, cx + u, cy + u * 1.35);
+    const pip = Math.min(u * 0.55, (cw * 0.45) / Math.max(c.max, 1));
+    for (let k = 0; k < Math.min(c.max, 12); k++) { ctx.fillStyle = k < c.lvl ? c.col : 'rgba(255,255,255,.15)'; ctx.beginPath(); ctx.arc(cx + cw - u * 0.8 - (Math.min(c.max, 12) - 1 - k) * pip * 1.25, cy + u * 1.05, pip * 0.42, 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(cx + u, cy + u * 1.8, cw - u * 2, u * 0.32); ctx.fillStyle = c.col; ctx.fillRect(cx + u, cy + u * 1.8, (cw - u * 2) * c.k, u * 0.32);
+    ctx.font = `${Math.round(u * 0.72)}px "Courier New", monospace`;
+    const fit = t => { let s = t; while (ctx.measureText(s).width > cw - u * 4.2 && s.length > 4) s = s.slice(0, -2) + '\u2026'; return s; };
+    ctx.fillStyle = 'rgba(255,227,138,.8)'; ctx.fillText('now', cx + u, cy + u * 3.1); ctx.fillStyle = '#fdf6e3'; ctx.fillText(fit(c.now), cx + u * 3.2, cy + u * 3.1);
+    ctx.fillStyle = 'rgba(216,208,192,.6)'; ctx.fillText('next', cx + u, cy + u * 4.35); ctx.fillText(fit(c.next), cx + u * 3.2, cy + u * 4.35);
+  });
+  y += Math.ceil(cards.length / 2) * (ch + gap);
+  // upgrades: small badges
+  const ups = FORGE.filter(f => f.relic ? inv[f.k] : inv.up[f.k]).map(f => `${f.name} ${'I'.repeat(f.relic ? inv[f.k] : inv.up[f.k])}`);
+  if (inv.step) ups.push(`${RELICS.step.name} ${'I'.repeat(inv.step)}`);
+  if (ups.length && y < H - u * 4) {
+    ctx.font = `${Math.round(u * 0.72)}px "Courier New", monospace`; let bx2 = px;
+    for (const t of ups) { const w = ctx.measureText(t).width + u * 1.2; if (bx2 + w > px + pwide) break; ctx.fillStyle = 'rgba(255,227,138,.14)'; ctx.fillRect(bx2, y, w, u * 1.5); ctx.fillStyle = '#ffe38a'; ctx.fillText(t, bx2 + u * 0.6, y + u * 1.05); bx2 += w + u * 0.5; }
+  }
+  ctx.restore();
+}
+function drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_, heads) {
+  const hasDesc = cells.some(c => c.desc), colW = pwide / 3, rh = hasDesc ? Math.max(40, Math.min(52, fs * 2.8)) : Math.max(30, Math.min(40, fs * 2.1)), gap = 5, limit = H - fs * 8.6, is = Math.min(rh * 0.72, 34);
+  heads.forEach((t, c) => { ctx.textAlign = 'left'; ctx.fillStyle = c === 2 ? 'rgba(255,227,138,.4)' : 'rgba(255,227,138,.85)'; ctx.font = `bold ${Math.round(fs * 0.75)}px Georgia, serif`; ctx.fillText(t, px + c * colW + 6, y + fs * 0.2); });
   const n = [0, 0, 0], y0 = y + fs * 0.7;
   cells.forEach((cl, i) => {
     const c = cl.col, r = n[c]++, x = px + c * colW + 4, yy = y0 + r * (rh + gap), w = colW - 10, sel = i === m.sel && m.focus !== 'tabs';
@@ -1276,7 +1301,12 @@ function drawCraftColumns(m, cells, px, y, pwide, fs, hits, rr_) {
     drawItemIcon(cl.icon, x + rh / 2, yy + rh / 2, is * 0.8);
     ctx.fillStyle = cl.mat ? '#b8f28a' : '#fdf6e3'; ctx.font = `${cl.mat ? 'bold ' : ''}${Math.round(fs * 0.78)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     let label = cl.name; while (ctx.measureText(label).width > w - rh - (cl.count ? fs * 1.6 : 6) && label.length > 4) label = label.slice(0, -2) + '\u2026';
-    ctx.fillText(label, x + rh + 2, yy + rh / 2 + 1);
+    if (cl.desc) {                                                    // name on top, a short note under it
+      ctx.fillText(label, x + rh + 2, yy + rh * 0.33);
+      ctx.fillStyle = cl.mark ? '#b8f28a' : 'rgba(216,208,192,.75)'; ctx.font = `${Math.round(fs * 0.62)}px "Courier New", monospace`;
+      let d = cl.desc; while (ctx.measureText(d).width > w - rh - 6 && d.length > 4) d = d.slice(0, -2) + '\u2026';
+      ctx.fillText(d, x + rh + 2, yy + rh * 0.72);
+    } else ctx.fillText(label, x + rh + 2, yy + rh / 2 + 1);
     if (cl.count != null && cl.count > 0) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffe38a'; ctx.fillText(cl.count, x + w - 6, yy + rh / 2 + 1); }
     if (cl.grey) { ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + w - 18, yy + rh / 2); ctx.lineTo(x + w - 13, yy + rh / 2 + 5); ctx.lineTo(x + w - 6, yy + rh / 2 - 5); ctx.stroke(); }
     ctx.textBaseline = 'alphabetic'; ctx.globalAlpha = 1;

@@ -653,9 +653,8 @@ function drawSolid(s) {
     case 'wall': break;                                // the room draws its own walls
     case 'cracked': {
       if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
-      drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64']);   // big, faceted, rough: nothing like a smooth throwing stone
       const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
-      if (ST) { ctx.fillStyle = ST.tint; ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.ellipse(x, y - r * 0.1, r * 0.95, r * 0.75, 0, 0, 6.28); ctx.fill(); ctx.globalAlpha = 1; }
+      drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64'], ST && ST.tint);   // big, faceted, rough: nothing like a smooth throwing stone
       if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
       ctx.strokeStyle = 'rgba(30,22,14,.85)'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.7); ctx.lineTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x - r * 0.12, y + r * 0.05); ctx.lineTo(x + r * 0.15, y + r * 0.45); ctx.moveTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x + r * 0.45, y - r * 0.2); ctx.stroke();
@@ -825,10 +824,11 @@ function drawHeroBody(h, pw, ph, y, sh) {
 }
 // the steel blade on its own (honing level given), so the stump sword and the sword in hand look the same
 // a big rough stone: an irregular outline of flat facets (seeded so it holds still), a lit face and a shadowed face
-function drawJagged(x, y, r, seed, [mid, lit, dark]) {
+function drawJagged(x, y, r, seed, [mid, lit, dark], tint) {
   let s = Math.abs(Math.floor(seed * 1000)) % 233280; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const n = 9, pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.28 + (rnd() - 0.5) * 0.35, rr = r * (0.78 + rnd() * 0.32); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.82]); }
   ctx.fillStyle = mid; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill();
+  if (tint) { ctx.globalAlpha = 0.42; ctx.fillStyle = tint; ctx.fill(); ctx.globalAlpha = 1; }   // a stone kind's colour, on the stone's own shape
   ctx.fillStyle = lit; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 5; i <= 8; i++) ctx.lineTo(pts[i % n][0], pts[i % n][1]); ctx.lineTo(pts[0][0], pts[0][1]); ctx.closePath(); ctx.fill();   // the top-left faces catch the light
   ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 1; i <= 3; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fill();
   ctx.strokeStyle = 'rgba(40,34,28,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.stroke();
@@ -1152,7 +1152,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 111';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 112';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

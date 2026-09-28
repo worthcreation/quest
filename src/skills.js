@@ -38,12 +38,12 @@ function gatherGain(t) { skillUse('gather'); if (tierOf(t) >= 2) { skillUse('gat
 // what each level of a skill does, for the Status tab ("now" and "next") and the level-up scroll
 const roman = n => ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][n] || String(n);
 const SKILL_NAME = { acorn: 'Acorns', sword: 'Sword', gather: 'Gathering', dodge: 'Dodging', farm: 'Farming' };
-const SKILL_INFO = {
-  acorn: L => `acorns stray up to ${ACORN_SPREAD[Math.min(L, 4)]}\u00b0; they curve toward varmints ${['barely', 'a little', 'fairly well', 'well', 'sharply'][Math.min(L, 4)]}`,
-  sword: L => `(steel sword) whirlwind ${(1.2 + 0.45 * L).toFixed(1)} s, hits x${(0.7 + 0.1 * L).toFixed(1)}, rest ${8 - 1.5 * L} s; lunge x${(0.8 + 0.1 * L).toFixed(1)}`,
-  gather: L => { const at = (need, base) => L < need ? 'not yet' : L >= 12 ? 'anywhere' : `${(0.8 + (L - need) * 1.2 + base).toFixed(1)} tiles`; return `reach ${(PICK_R + L * 0.3).toFixed(1)} tiles; things come to you: common ${at(3, 0)}, uncommon ${at(6, 0.5)}, rare ${at(9, 0.5)}`; },
-  dodge: L => `quicker on your feet (level ${L})`,
-  farm: L => `crops come up after ${CROP_ROCKS[Math.min(L, CROP_ROCKS.length - 1)] || 'just'} ${CROP_ROCKS[Math.min(L, CROP_ROCKS.length - 1)] ? 'rocks' : 'F'}; seeds come back ${L * 6}% more often`,
+const SKILL_INFO = {                                     // short: one line on a Status card
+  acorn: L => `aim within ${ACORN_SPREAD[Math.min(L, 4)]}\u00b0, ${['barely homes', 'homes a little', 'homes well', 'homes better', 'homes hard'][Math.min(L, 4)]}`,
+  sword: L => `spin ${(1.2 + 0.45 * L).toFixed(1)}s \u00b7 lunge x${(0.8 + 0.1 * L).toFixed(1)}`,
+  gather: L => { const c = L < 3 ? 0 : L >= 12 ? 99 : 0.8 + (L - 3) * 1.2; return `reach ${(PICK_R + L * 0.3).toFixed(1)} \u00b7 ${c >= 99 ? 'everything comes' : c ? `things come from ${c.toFixed(1)}` : 'nothing comes yet'}`; },
+  dodge: L => `quicker on your feet`,
+  farm: L => { const n = CROP_ROCKS[Math.min(L, CROP_ROCKS.length - 1)]; return `${n ? n + ' rocks to pull' : 'pull with a tap'} \u00b7 seeds +${L * 6}%`; },
 };
 function skillOf(id) { const inv = state.inv, sk = inv.skill || (inv.skill = {}); return sk[id] || (sk[id] = { n: 0, hits: 0, lvl: 0 }); }
 function skillLevel(id) { return skillOf(id).lvl; }

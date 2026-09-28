@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 111, 27 Sep 2026)
+# Quest: handoff notes (as of build 112, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,21 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 112: gear in columns (wear folded in), Status as cards, rusty steel everywhere, three mat places
+- The Wear tab is gone; the Gear tab has three columns: Weapons & tools | Abilities (and upgrades) | Wearing (every
+  wearable you own; F on one to wear or take off). Each row is the icon, the name and a short note under it (c.desc,
+  drawn by drawCraftColumns, which now takes column headers and serves Craft and Gear). Column navigation works for
+  any tab whose cells carry col.
+- Status is drawn as cards (drawStatusCards): a vigor bar across the top, then two-across cards for Acorns, Sword,
+  Gathering and Farming: coloured strip, name, level pips, a progress bar, "now" and "next" in one short line each
+  (SKILL_INFO rewritten short). Upgrades are small badges underneath. statusRows() remains for tests.
+- The steel sword icon (Gear screen, slots) is drawn with drawSteelBlade (rust and all). At the sword reveal, the
+  moment you take it the old sword goes on F and into your hand (setSlot + equip), so the hold-up is the steel blade.
+- A stone kind's tint is laid on the jagged stone itself (drawJagged tint) instead of a round blob over it, which
+  was reading as an old smooth rock underneath.
+- craftSlots() is 3, full stop (the bench no longer adds a fourth).
+- 54 of 54. tools/shot.js B112=1.
 
 ## Build 111: the woods reworked: no mud, the ambush, the cave heap
 - No mud pits anywhere in the woods (world.js no longer pushes sc.mud). A thrown rock can still bury itself in soft

@@ -1,6 +1,6 @@
 # Crafting
 
-- The craft mat is in the pack (Craft tab) and works anywhere. Three places from the start; a fourth once the workbench stands.
+- The craft mat is in the pack (Craft tab) and works anywhere. Three places. (More may come much later.)
 - Field crafting makes camp pieces, small charms, the wooden sword (three sticks), blade coatings (thorn wrap, ember oil) and food (mash, salad, trail mix). Big blade upgrades happen at the workbench, where diver silk and charger horn are worked in.
 - Learning: by trying things, from Pip, and from journal pages. Known recipes list under Recipes; F lays one out and jumps to Combine. The mat says when you're one thing short, and when a made thing feels like it could take one more.
 - The lesson: given once, at two tufts of fluff, as pages that wait for F. Before it, nobody mentions crafting.

@@ -160,7 +160,7 @@ function updateCut(dt) {
     if (at(0.6)) sfx.crash();
     if (at(1.5)) sfx.hum && sfx.hum();
     if (at(2.4)) { sfx.shing(); state.flash = 0.25; }
-    if (at(TAKE)) { state.inv.sword = true; sfx.fanfare(); zoomPulse(h.x, h.y, 'boss'); state.flash = 0.5; }
+    if (at(TAKE)) { state.inv.sword = true; setSlot('f', { kind: 'weapon', id: 'sword' }); state.equip = 'sword'; sfx.fanfare(); zoomPulse(h.x, h.y, 'boss'); state.flash = 0.5; }   // held up high: the old steel, not the sticks
     h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
     if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }

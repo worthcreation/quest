@@ -56,6 +56,16 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B112) {                            // build 112: Gear columns (with what you wear), Status cards, a cracked stone
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sword=true; inv.woodsword=6; inv.acorns=5; inv.fire=true; inv.step=1; inv.up.edge=1; inv.rod=true; gainGear('feather',true); gainGear('stonecharm',true); state.title=null; state.scrolls=[];
+  setSkillLevel('sword',1); setSkillLevel('gather',2); inv.cropXp={turnip:8};
+  enterScene('start'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.scrolls=[];
+  state.menu={view:'pack',tab:0,sel:0,focus:'grid',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b112-gear.png', canvas.toBuffer('image/png'));
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Status'),sel:0,focus:'tabs',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b112-status.png', canvas.toBuffer('image/png')); state.menu=null;
+  enterScene('w1'); run(3); const k=sceneDef().solids.find(s=>s.bar==='knockA'); state.hero.x=k.fx*W-UNIT*2; state.hero.y=k.fy*H; run(3); state.texts=[]; draw(); fs.writeFileSync('/tmp/b112-stone.png', canvas.toBuffer('image/png'));
+  console.log('b112 written');
+}
 if (process.env.B111) {                            // build 111: w2's one row of boulders, the w3 cave heap, the heap broken open, a buried rock popping
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; state.dusk=false;

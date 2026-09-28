@@ -44,7 +44,7 @@ function takeStock(k) { const inv = state.inv; if (MATS[k]) inv.mats[k]--; else 
 function matAvailable(k) { return stockOf(k) - (state.mat || []).filter(m => m === k).length; }
 const sortedKey = a => a.slice().sort().join('+');
 // the craft mat always has three places; a fourth opens once the workbench stands at camp, more later
-function craftSlots() { return Math.max(3, state.inv.craftSlots || 0, campBuilt('bench') ? 4 : 0); }
+function craftSlots() { return 3; }                      // three places; more come later (not yet)
 function recipeOK(r) { return r.in.length <= craftSlots() && !(r.kind === 'wear' && gearOwned().includes(r.out)) && (!r.needs || r.needs()); }
 function matMatch() { const m = sortedKey(state.mat || []); return RECIPES.find(r => sortedKey(r.in) === m && recipeOK(r)) || null; }
 // is `a` what `b` would be with one thing taken away?
