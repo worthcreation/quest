@@ -1384,7 +1384,7 @@ function updateClimb(dt) {
   const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
-  if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
+  if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
   if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
@@ -1412,7 +1412,7 @@ function drawClimb() {
     let sx0 = gx, sy0 = gy, sw = s * 0.8;
     if (c.air) {
       const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
-      const lead = Math.min(1, 0.55 + (c.airT || 0) * 1.2), [tx, ty] = climbProj(lx, overChasm(lx, lz) ? -3 : 1.5, lz), [cx0, cy0] = climbProj(c.x, overChasm(c.x, c.z) ? -3 : 1.5, c.z);
+      const u0 = Math.min(1, (c.airT || 0) / ((c.airDur || 0.74) * 0.75)), lead = u0 * u0 * (3 - 2 * u0), /* it sets off from under you and glides to the landing spot, arriving a little before you do */ [tx, ty] = climbProj(lx, overChasm(lx, lz) ? -3 : 1.5, lz), [cx0, cy0] = climbProj(c.x, overChasm(c.x, c.z) ? -3 : 1.5, c.z);
       sx0 = cx0 + (tx - cx0) * lead; sy0 = cy0 + (ty - cy0) * lead; sw = 0.8 * 0.55 * H * d.cam.f / (c.z + (lz - c.z) * lead);
       const apex = c.vh * c.vh / 28 + c.h, hk = Math.max(0, Math.min(1, c.h / Math.max(0.3, c.vh > 0 ? apex : (c.peakH || apex))));
       sw *= 0.2 + 0.8 * (1 - hk) * (1 - hk);                                            // tiny at the top of the jump, growing as you come down
@@ -8433,7 +8433,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 146';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 147';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
