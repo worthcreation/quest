@@ -23,7 +23,10 @@ enterScene('climb2'); run(5);
     for(const k of ['arrowleft','arrowright','arrowup','arrowdown']) state.keys[k]=false; run(12); path.push(c2.fall>0?'fell':'ok'); if(c2.fall>0) run(70); }
   console.log('2b stepping stones, the whole path:', path.join(' '), '| across:', climbSide(c2.x,c2.z)<-climbHw(c2.z)); }
 enterScene('climb2'); run(5);
-for (const id of ['climb3','climb4']) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
+{ enterScene('climb3'); run(5); const c3=state.climb, d3=climbDef(); c3.gust.t=999; c3.x=1.6; let t=0, falls=0; state.keys.arrowdown=true;
+  while(state.scene==='climb3' && t<60*40){ if(!c3.air && d3.gap(c3.x, c3.z-0.5)){ state.keys[' ']=true; run(1); state.keys[' ']=false; } run(1); t++; if(c3.fall>0 && c3.fall<0.03) falls++; } state.keys.arrowdown=false;
+  console.log('3 the broken meadow: straight down through the narrow place, jumping each rift: falls', falls, '->', state.scene); }
+for (const id of ['climb4']) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
 // 5. the side view: run right and jump now and then; reach the top, out into the crags
 c=state.climb; let t=0; state.keys.arrowright=true; while(state.scene==='climb5' && t<60*60){ if(!c.air && t%50===0){ state.keys[' ']=true; run(2); state.keys[' ']=false; } run(1); t++; } state.keys.arrowright=false;
 console.log('5 side view: after', (t/60).toFixed(1), 's ->', state.scene);

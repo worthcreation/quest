@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 151, 28 Sep 2026)
+# Quest: handoff notes (as of build 152, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 152: climb3 is a broken meadow
+- climb3 ('The broken meadow') replaces the switchbacks: open ground seen from higher up (camH 7.5), with four rifts
+  running across the way (edges wander; the third is wide except for a narrow place near x 1.6), three chasms (ovals),
+  and a short ravine running down at an angle. A screen can now be defined by gap(x, z) instead of a centre-line
+  ravine; paintGapField draws any such field (grass cells, dark floors, the far wall of each hole toward you, side
+  walls, crisp lips). Finish anywhere past goalZ (goalAny). Test climb: straight down through the narrow place,
+  jumping each rift, gets across without a fall. 62 of 62.
 
 ## Build 151: tiles that follow the real edges
 - The climb's tile grid colours each tile in quarters (halves far off), each quarter tested on its own, so the blue
