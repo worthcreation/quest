@@ -12,7 +12,7 @@ function interactLantern(sc, h) {
   const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
   collect({ type: 'lantern', x, y }); return true;
 }
-const INTERACTIONS = [interactTalk, interactLantern, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+const INTERACTIONS = [interactTalk, interactLantern, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -461,6 +461,7 @@ function updateFishing(dt) {
 // ---------------- conversations ----------------
 function npcLines(n) {
   const inv = state.inv, rt = rtFor(state.scene);
+  if (n.kind === 'worm') return wormLines();
   if (n.kind === 'toad') {
     if (inv.fire) return { lines: ['Go on then. Light up the dark.', 'And mind the wind. It hates wind.', 'Oh, and keep your embers dry. Dried in a pouch, they feed the spark.'].concat(inv.pipSaved ? ['And stay off those purple mushroom spores. Last time I sniffed a pile of them I woke up in a cave.'] : []), then: () => learnRecipe('pouch', 'The toad taught you to keep embers.') };
     if (inv.beans >= BEANS) return { lines: ['My lunch! Every last bean!', 'Now stand back. Way back.'], then: startToadCut };

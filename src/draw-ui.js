@@ -274,6 +274,8 @@ function drawGlints(it, hsh) {
 }
 // ---------- enemies ----------
 function drawEnemy(e) {
+  if (e.type === 'hawk') { drawHawk(e); return; }
+  if (e.type === 'mantis') { drawMantis(e); return; }
   const alpha = e.mode === 'dead' ? Math.max(0, e.t / 0.9) : 1;
   const scale = e.mode === 'dead' ? 0.5 + 0.5 * alpha : 1;
   const white = e.flash > 0;
@@ -627,6 +629,7 @@ function drawReadOn(x, y, size) {
 // Every place so far (meadow, glade, riverbank, forest, marsh, swamp, camp, the hollows) is the first region, the Vale:
 // a green cloth ribbon with notched tails, gold trim and leaf sprigs. A new region adds its own theme here.
 const REGION_THEME = {
+  high: { cloth: '#3a5a86', cloth2: '#5a7eae', edge: '#223a5a', trim: '#f0e0b0', leaf: '#cfe4f4', text: ['#fffaf0', '#f4e0a8', '#c89a4e'], ink: '#1a2a3a', sprig: 'leaf' },
   vale: { cloth: '#2f5a2a', cloth2: '#447e3a', edge: '#1d3a1a', trim: '#e8c86a', leaf: '#8cc05a', text: ['#fff8d8', '#f2d27a', '#c8942e'], ink: '#1f2a12', sub: '#e8f4d8' },
   other: { cloth: '#3a3f55', cloth2: '#545b78', edge: '#22263a', trim: '#c8d0e8', leaf: '#a0a8c8', text: ['#ffffff', '#d8def0', '#9aa4c8'], ink: '#10131f', sub: '#e8ecf8' },
 };

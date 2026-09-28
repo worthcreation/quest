@@ -56,6 +56,13 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B114) {                            // build 114: the High Reaches
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sawHighTitle=true; state.pip=null;
+  for (const id of ['hr1','hr2','hr3']) { enterScene(id); state.cut=null; state.pip=null; if (id!=='hr2') state.enemies=state.enemies.filter(e=>e.type!=='mantis'); state.hero.x=W*0.45; state.hero.y=H*0.7; run(40); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b114-'+id+'.png', canvas.toBuffer('image/png')); }
+  state.highTitle={t:2}; draw(); fs.writeFileSync('/tmp/b114-title.png', canvas.toBuffer('image/png')); state.highTitle=null;
+  console.log('b114 written');
+}
 if (process.env.B113) {                            // build 113: single boulders (w1 exit, practice), a 4-tile one cracked 3 times, the cave stone, the bramble cluster, Pip at 60%
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; state.dusk=false;

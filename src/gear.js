@@ -372,6 +372,7 @@ function toggleWear(id) {
 // on the hero, every worn thing shows: drawn over the body at (x, top of head y), u = one tile
 function drawWorn(x, top, pw, ph, u) {
   const worn = (state.inv.worn || []).filter(wears), side = state.hero.side || 1;
+  drawBeetleOnHero(x, top, pw, ph);                  // the red beetle, clambering about
   if (state.inv.lantern) {                           // the candle lantern, hanging at your side, flickering
     const f = 0.85 + 0.15 * Math.sin(state.time * 11), lx = x - side * pw * 0.62, ly = top + ph * 0.62;
     ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(lx, ly - u * 0.2); ctx.lineTo(lx, ly - u * 0.08); ctx.stroke();

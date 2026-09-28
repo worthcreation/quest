@@ -522,14 +522,14 @@ function genWorld() {
   const CRAGS = [
     { id: 'peak1', msg: 'The grass gives out. Only stone from here up.', ravines: [0.28], cliffs: [[0.47, 0.42, 1]], from: 'w' },
     { id: 'peak2', msg: 'Cliffs and cracks all the way up', ravines: [0.2, 0.58], cliffs: [[0.4, 0.35, 1], [0.76, 0, 0.62]], from: 's' },
-    { id: 'peak3', msg: 'The summit. Something huge circles overhead.', ravines: [0.72], cliffs: [], from: 's', top: true },
+    { id: 'peak3', msg: 'The old summit. A path climbs on, into the cloud.', ravines: [0.72], cliffs: [], from: 's', top: true },
   ];
   CRAGS.forEach((C, k) => {
     const sc = add(newScene({ id: C.id, area: 'peak', depth: 8 + k, msg: C.msg, music: 'field', amb: 'wind', floor: '#8b8680', speed: 0.42, accel: 8, chasms: [] }));
     sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
     sc.exits = [];
     if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: 0.42, b: 0.58, to: CRAGS[k - 1].id });
-    if (!C.top) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: CRAGS[k + 1].id });
+    if (!C.top) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hr1' });   // the summit was never the top
     for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }
     for (const [y, x0, x1] of C.cliffs) for (let x = x0; x <= x1; x += 0.045) sc.solids.push(solid(x, y, 0.75, 'cliff'));
     const band = y => C.ravines.some(r => Math.abs(y - r) < 0.08) || C.cliffs.some(c => Math.abs(y - c[0]) < 0.06);
@@ -708,6 +708,7 @@ function genWorld() {
     if (i === 2) sc.feat.glimpse = { to: ePt, line: 'Almost there! Don\'t stop!' };
     west = east;
   }
+  genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
 
@@ -760,12 +761,12 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [5, 8], peak3: [5, 7], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [5, 8], peak3: [5, 7], hr1: [5, 6], hr2: [5, 5], hr3: [5, 4], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
   c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
   fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
   sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { peak3: 'Summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const MAP_NAMES = { hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {

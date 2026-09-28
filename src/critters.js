@@ -11,6 +11,7 @@ function makeEnemy(type, x, y, idx, poolIdx) {
     case 'diver':    return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'ceiling', t: rr(1.5, 3.5), hgt: 1 };
     case 'glowworm': return { ...b, r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6, flashCool: rr(1, 3) };
     case 'rabbit':     return { ...b, r: u * 0.45, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1) };
+    case 'hawk': case 'mantis': return makeHighCritter(type, b, u);
     case 'gremlin':  return { ...b, r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 };
     case 'thief':    return { ...b, r: u * 0.45, hp: 6, dmg: 1, mode: 'taunt', t: 1, fast: 1.45 };
     case 'lurker':   return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'submerged', t: 0, cool: rr(0.5, 2) };
@@ -137,6 +138,8 @@ function updateEnemies(dt) {
       if (e.type === 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
     }
     else if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
+    else if (e.type === 'hawk') { hawkAI(e, dt); continue; }             // flies: its own movement, no walls
+    else if (e.type === 'mantis') mantisAI(e, dx, dy, dist, ease);
     else AI[e.type](e, dx, dy, dist, ease, dt);
 
     if (e.type !== 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }

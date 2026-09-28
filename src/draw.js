@@ -26,7 +26,7 @@ function draw() {
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
   ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
   state.frameNo = (state.frameNo || 0) + 1;
-  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } }
+  if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } if (sc.feat.snorkels) drawSnorkels(sc); if (sc.feat.beetle) drawBeetleWaiting(sc); }
   ctx.restore();
   if (state.dusk && sc.area !== 'indoor') {
     const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(60,40,110,.36)'); g.addColorStop(1, 'rgba(200,100,60,.18)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // twilight
@@ -52,6 +52,7 @@ function draw() {
   if (!state.menu) { drawScroll(); drawFeed(); }
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
+  drawHighTitle();                                      // the High Reaches title card, over everything
 }
 
 // dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
@@ -81,6 +82,7 @@ function drawScene(sc) {
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
+  if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
@@ -441,7 +443,7 @@ function drawCrags(sc) {
     ctx.fillStyle = i % 3 ? 'rgba(60,56,52,.18)' : 'rgba(200,195,188,.18)'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.3, UNIT * 0.14, i, 0, 6.28); ctx.fill();
     if (i % 5 === 0) { ctx.strokeStyle = 'rgba(50,46,42,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + UNIT * 0.5, y + UNIT * 0.3); ctx.lineTo(x + UNIT * 0.7, y + UNIT * 0.8); ctx.stroke(); }
   }
-  for (const [x0, y0, x1, y1] of sc.chasms || []) {
+  for (const [x0, y0, x1, y1] of sc.vista ? [] : sc.chasms || []) {
     const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H;
     const g = ctx.createLinearGradient(0, Y0, 0, Y1); g.addColorStop(0, '#1c1a1e'); g.addColorStop(0.5, '#0c0b0e'); g.addColorStop(1, '#2a2629');
     ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
@@ -651,6 +653,7 @@ function drawSolid(s) {
       ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
       break;
     case 'wall': break;                                // the room draws its own walls
+    case 'crystalbug': drawCrystalBug(s); break;
     case 'crag': {
       const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
@@ -777,6 +780,7 @@ function drawPerson(x, y, color, z, dim = 0) {
   if (dim) { ctx.fillStyle = `rgba(40,40,60,${dim})`; ctx.fillRect(x - UNIT / 2, y - z - UNIT / 2, UNIT, UNIT); }
 }
 function drawNpc(n) {
+  if (n.kind === 'worm') { drawWormNpc(n); return; }
   const [x, y] = npcPos(n);
   if (n.kind === 'toad') {
     const c = state.cut && state.cut.type === 'toad' ? state.cut : null, sw = c ? (c.swell || 0) : 0;
@@ -1168,7 +1172,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 113';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 114';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -1312,6 +1316,7 @@ function drawWindPath(sc) {
 }
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
 function drawRavines(sc) {
+  if (sc.vista) { drawHighVista(sc); return; }          // up in the High Reaches the drops look down on the valley
   const t = state.time, u = UNIT;
   for (const [x0, y0, x1, y1] of sc.chasms || []) {
     const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H, hgt = Y1 - Y0;

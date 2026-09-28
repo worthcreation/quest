@@ -47,6 +47,8 @@ function enterScene(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
+  if (id === 'hr3' && !state.inv.sawHighTitle) { state.inv.sawHighTitle = true; state.highTitle = { t: 0 }; }   // above the clouds for the first time
+  state.grab = null; state.vistaBirds = [];
   state.pipGone = null;                              // Pip is wherever the new screen puts him
   syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
@@ -220,7 +222,8 @@ function update(dt) {
   readPresses();
   updateQuests();
   if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
-  coachUpdate();                                     // coached steps move on as you do them, menus included
+  coachUpdate();
+  if (!state.menu) updateBeetle(dt);                                     // coached steps move on as you do them, menus included
   if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
     state.nightT = state.time + 0.35 + Math.random() * 0.9;
     if (Math.random() < 0.06) sfx.owl((Math.random() - 0.5) * 1.4); else sfx.cricket((Math.random() - 0.5) * 1.6);
@@ -276,14 +279,15 @@ function update(dt) {
   }
   if (h.vig > maxVig()) h.vig = maxVig();
   const mv = maxVig();
-  if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * (inv.squashBuff > 0 ? 2 : 1) * dt);
+  if (state.time - h.rest > 1.2 && h.vig < mv) h.vig = Math.min(mv, h.vig + (0.45 + mv * 0.05) * 0.55 * (inv.squashBuff > 0 ? 2 : 1) * dt);   // slow on its own (build 114): food and friends are the quick way
 
   // movement
   const locked = h.stun > 0 || state.busy || state.pull.grip || h.ride || h.falling > 0 || (state.fish && !pressedNow.left && !pressedNow.right && !pressedNow.up && !pressedNow.down);
   if (h.ride && !h.ride.hop && pressedNow.act && h.z > UNIT * 0.3 && h.vig >= 0.8 && !state.carry) {   // stomp out of a gust
     h.ride = null; h.vx = 0; h.vy = 0; h.vz = 0; h.airDist = 99 * UNIT; state.cam.focus = null;
   }
-  if (h.ride) updateRide(dt);
+  if (updateGrab(dt)) { /* carried by a hawk */ }
+  else if (h.ride) updateRide(dt);
   else if (h.falling > 0) updateFall(dt);
   else if (h.dashT > 0) {
     h.dashT -= dt;

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 113, 27 Sep 2026)
+# Quest: handoff notes (as of build 114, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,21 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 114: the High Reaches (first pass)
+- New file src/highlands.js (in ORDER after world): genHighlands(S, add) builds hr1-hr3 north of peak3 (peak3 gained a
+  north exit); sc.vista marks the drops, drawn by drawHighVista (drawValleyBelow / drawCloudSea: haze, forest, river,
+  clouds below, rising bird dots) and drawLedgeLips, called from drawScene after the ground. Falling off a drop is a
+  normal chasm fall.
+- Creatures: 'hawk' (hawkAI: circle, dive, strike or grab; updateGrab carries you, F lets go, drop over a chasm sends
+  you a screen lower), 'mantis' (mantisAI). makeEnemy delegates both to makeHighCritter. Solid 'crystalbug' (grand /
+  tormented, some twitch) drawn by drawCrystalBug. Worm npc (drawWormNpc, wormLines); snorkels and tunnels.
+- The red crystal beetle: feat.beetle on hr2, interactBeetle (F) sets inv.beetle; updateBeetle each frame (vigor near
+  crystal or wind, feeds you when low); drawBeetleOnHero in drawWorn.
+- The title card: state.highTitle on first arrival at hr3 (drawHighTitle, last in draw; F skips).
+- Region 'high' banner theme. MAP_LAYOUT hr1-3 at [5,6]..[5,4]; MAP_NAMES.
+- Vigor rest regen x0.55 (engine.js).
+- Design: docs/high-reaches.md. Test: high-reaches. 55 of 55. tools/shot.js B114=1.
 
 ## Build 113: forest boulders, one at a time
 - New solid 'crag' (world.js crag(sc, id, at, size)): ONE boulder, 1 to 5 tiles across, a varied grey/brown colour,
