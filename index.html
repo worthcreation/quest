@@ -1357,9 +1357,11 @@ const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const s = c
 function newClimb(id) {
   const d = CLIMBS[id] || CLIMBS.climb1;
   if (d.kind === 'side') return newSideClimb();
+  setTimeout(climbTip, 400);
   return { kind: 'trail', x: d.cx(d.start[1]) + d.start[0], z: d.start[1], vx: 0, vz: 0, h: 0, vh: 0, air: false, fall: 0, safe: null,
     gust: { phase: 'calm', t: 2.5, dir: 1 }, done: false, bg: null, bgKey: '' };
 }
+function climbTip() { if (!(state.inv.pipTips || {})['climb-shadow']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-shadow'] = true; showScroll('Pay attention to your shadow', 'In the air, it shows where you\'ll land.'); } }
 function climbFinish(c) {
   const d = climbDef(); c.done = true; sfx.fanfare();
   showScroll(d.name, d.next === 'peak1' ? 'Over the top, and into the crags.' : 'Onward and upward.');
@@ -1382,7 +1384,8 @@ function updateClimb(dt) {
   const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
-  if (pressedNow.jump && !c.air) { c.air = true; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
+  if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
+  if (c.air) c.airT = (c.airT || 0) + dt;
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
@@ -1405,9 +1408,16 @@ function drawClimb() {
   if (a) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 16; i++) { const z = 5 + ((i * 3.1 + state.time * 9) % 40), x = d.cx(z) + (i % 4 - 1.5) * 2.2 + gs.dir * ((state.time * 3 + i) % 2), [sx, sy] = climbProj(x, 2.2, z), l = 70 * 5 / z, dir = (d.mirror ? -1 : 1) * gs.dir; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * l * 0.5, sy - l * 0.3, sx + dir * l, sy - l * 0.1); ctx.stroke(); } }
   const f = H * d.cam.f, ground = climbGround(c.x, c.z), s = 0.55 * f / c.z;
   const sink = c.fall > 0 ? c.fall / 0.9 : 0, [gx, gy] = climbProj(c.x, ground, c.z), [px, py] = climbProj(c.x, ground + c.h - sink * 4, c.z);
-  if (!sink) { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(gx, gy, s * 0.8 * (1 - Math.min(0.6, c.h / 3)), s * 0.22, 0, 0, 6.28); ctx.fill(); }
-  if (c.air) { const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9)), ok = !overChasm(lx, lz), [rx, ry] = climbProj(lx, 1.5, lz), rs = 0.5 * f / lz;
-    ctx.strokeStyle = ok ? 'rgba(184,242,138,.9)' : 'rgba(255,110,90,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(rx, ry, rs, rs * 0.3, 0, 0, 6.28); ctx.stroke(); }   // where you'll land
+  if (!sink) {                                                                      // your shadow: in the air it runs ahead to where you'll come down (it tells the truth a moment early)
+    let sx0 = gx, sy0 = gy, sw = s * 0.8;
+    if (c.air) {
+      const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
+      const lead = Math.min(1, 0.55 + (c.airT || 0) * 1.2), [tx, ty] = climbProj(lx, overChasm(lx, lz) ? -3 : 1.5, lz), [cx0, cy0] = climbProj(c.x, overChasm(c.x, c.z) ? -3 : 1.5, c.z);
+      sx0 = cx0 + (tx - cx0) * lead; sy0 = cy0 + (ty - cy0) * lead; sw = 0.8 * 0.55 * H * d.cam.f / (c.z + (lz - c.z) * lead);
+      if (overChasm(lx, lz)) sw *= 0.6;                                                  // over the drop it falls far below: small and faint
+    }
+    ctx.fillStyle = `rgba(0,0,0,${c.air ? 0.38 : 0.25})`; ctx.beginPath(); ctx.ellipse(sx0, sy0, sw, sw * 0.28, 0, 0, 6.28); ctx.fill();
+  }
   ctx.save(); ctx.globalAlpha = 1 - sink; ctx.fillStyle = heroColor(); const ss = s * (1 - sink * 0.6); ctx.fillRect(px - ss / 2, py - ss, ss, ss); ctx.restore();
   { const z = d.goalZ - 0.2, x = d.cx(z) - d.hw(z) - 1.2, [fx, fy] = climbProj(x, climbSlopeY(-(d.hw(z) + 1.2)), z); ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - UNIT * 1.6); ctx.stroke(); ctx.fillStyle = '#e05a4a'; ctx.beginPath(); ctx.moveTo(fx, fy - UNIT * 1.6); ctx.lineTo(fx + UNIT * 0.8, fy - UNIT * 1.35); ctx.lineTo(fx, fy - UNIT * 1.1); ctx.fill(); }
   drawFx();
@@ -8421,7 +8431,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 144';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 145';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

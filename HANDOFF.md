@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 144, 28 Sep 2026)
+# Quest: handoff notes (as of build 145, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 145: your shadow is the aim
+- The landing ring is gone. In the air your shadow runs ahead of you to where you'll come down (it leads at 55% the
+  moment you jump and reaches the landing spot quickly; climb.js drawClimb). Over the drop it's drawn far below, small
+  and faint, so a bad jump shows at once. The first climb screen you reach shows a scroll: "Pay attention to your
+  shadow. In the air, it shows where you'll land."
 
 ## Build 144: stepping stones that work
 - climb2's islands are round now (the same size in depth as across; they were squashed in depth, so lining up was
