@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 153, 28 Sep 2026)
+# Quest: handoff notes (as of build 154, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 154: climb4 is the windy crossing
+- climb4 ('The windy crossing') replaces the steep way. A gap field (like climb3) with three wide rifts across the way
+  and six bare islands out in them (islands are simply ground inside the gap shape), and seven big rocks on the banks
+  (d.boulders [x, z, r]: solid, drawn with drawJagged and the soil line, depth-sorted around you).
+- d.windy: the gusts blow across the way (dir left or right, shown by the streaks), warn for 1.4 s, blow for 2 s and
+  hard (6.5 on the ground, 9 in the air), with 3.5-5 s calms. Out in the open, a gust pushes you off an island or over
+  an edge. Standing just downwind of a big rock (within its depth and about 1.5 tiles of its far side) you're
+  sheltered and don't move; "sheltered" shows over you. The first warning shows a scroll: "Get behind a big rock, on
+  the side away from the wind!"
+- Tests: climb covers blown off a bare island vs sheltered behind a rock (didn't move); the side-view bot keeps its
+  vigor topped up (falls now cost the screen). 62 of 62. tools/shot.js B154=1.
 
 ## Build 153: worn out on a climb, start the screen over
 - The faint cutscene never ran on climb screens (the climb takes over the update), so running out of vigor left a black

@@ -1352,7 +1352,15 @@ const CLIMBS = {
               if (z > 15.4 && z < 18.0) { const lx = 4.5 - (18 - z) * 0.9; if (Math.abs(x - lx) < 0.55) return true; }   // a short ravine running down at an angle
               return false;
             } },
-  climb4: { name: 'The steep way', kind: 'trail', cam: { f: 0.9, horizon: 0.08, camH: 7.5 }, mirror: true, cx: z => 2.2 * tri(z, 16, 3), hw: ZIG4.hw, band: ZIG4.band, start: [2.6, 16], goalZ: 5.2, next: 'climb5' },
+  climb4: { name: 'The windy crossing', kind: 'trail', cam: { f: 0.8, horizon: 0.1, camH: 7.5 }, cx: () => 0, hw: () => 0, start: [0, 22.4], goalZ: 4.8, goalAny: true, next: 'climb5',
+            windy: true,                                                                   // gusts strong enough to blow you off: hide behind the big rocks
+            boulders: [[-1.2, 21.2, 1.0], [2.6, 16.4, 1.05], [-3.2, 16.1, 0.95], [-0.8, 11.0, 1.1], [3.4, 10.6, 0.9], [1.4, 6.2, 1.0], [-3.6, 5.8, 0.9]],
+            gap: (x, z) => {
+              if (Math.abs(x) > 9) return true;
+              for (const [ix, iz, r] of [[-2.2, 18.9, 0.95], [2.8, 19.0, 0.85], [0.4, 13.7, 1.0], [-3.8, 13.6, 0.8], [-2.6, 8.4, 0.85], [2.4, 8.4, 0.85]]) if (Math.hypot(x - ix, z - iz) < r) return false;   // islands out in the rifts (bare: nowhere to hide)
+              for (const [z0, z1, ph] of [[17.4, 20.4, 0.7], [12.1, 15.3, 1.9], [7.1, 9.7, 3.1]]) { const a = z0 + 0.25 * Math.sin(x * 0.8 + ph), b = z1 + 0.25 * Math.sin(x * 1.2 + ph * 2); if (z > a && z < b) return true; }
+              return false;
+            } },
   climb5: { name: 'The last ledges', kind: 'side', next: 'peak1' },
 };
 const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb1;
@@ -1396,11 +1404,12 @@ function updateClimb(dt) {
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
   const d = climbDef(), h = state.hero, g = c.gust; g.t -= dt;
-  if (g.t <= 0) { if (g.phase === 'calm') { g.phase = 'warn'; g.t = 0.9; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = 1.6; } else { g.phase = 'calm'; g.t = 2 + Math.random() * 2.5; } }
+  if (g.t <= 0) { const wy = d.windy; if (g.phase === 'calm') { g.phase = 'warn'; g.t = wy ? 1.4 : 0.9; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); if (wy && !(state.inv.pipTips || {})['climb-hide']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-hide'] = true; showScroll('Here it comes', 'Get behind a big rock, on the side away from the wind!'); } } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = wy ? 2.0 : 1.6; } else { g.phase = 'calm'; g.t = wy ? 3.5 + Math.random() * 1.5 : 2 + Math.random() * 2.5; } }
   if (c.fall > 0) { c.fall += dt; if (c.fall > 0.9) { c.fall = 0; [c.x, c.z] = c.safe || [d.cx(d.start[1]) + d.start[0], d.start[1]]; c.h = 0; c.air = false; c.vx = c.vz = 0; hurtHero(1, 0, 0, { force: true }); } return; }
   const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
-  if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
+  c.sheltered = d.windy && (d.boulders || []).some(([bx, bz, r]) => Math.abs(bz - c.z) < r * 1.05 && (bx - c.x) * g.dir < 0 && Math.abs(bx - c.x) < r + 1.5);   // a big rock between you and the wind
+  if (g.phase === 'blow' && !c.sheltered) { if (d.windy) { const push = c.air ? 9 : 6.5; c.vx += g.dir * push * dt * 1.4; c.vz += push * dt * 0.25; } else { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; } }
   if (pressedNow.jump && !c.air) { c.jumpFrom = [c.x, c.z]; c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
   if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
   if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
@@ -1416,6 +1425,7 @@ function updateClimb(dt) {
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
   // (no crags for now: the ledges are platforms in the air, and off any edge you fall)
+  for (const [bx, bz, r] of d.boulders || []) { const dx = c.x - bx, dz = c.z - bz, dd = Math.hypot(dx, dz) || 0.001, mn = r + 0.3; if (dd < mn && c.h < 1.2) { c.x = bx + dx / dd * mn; c.z = bz + dz / dd * mn; } }   // the big rocks are solid
   if (c.air) { c.h += c.vh * dt; c.vh -= 14 * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
   if (!c.air) { if (overChasm(c.x, c.z)) { c.fall = 0.01; sfx.fall(); return; } c.safe = [c.x, c.z]; }
   if (!c.air && c.z <= d.goalZ && (d.goalAny || climbSide(c.x, c.z) < -climbHw(c.z))) climbFinish(c);
@@ -1433,6 +1443,9 @@ function drawClimb() {
   const gs = c.gust, a = gs.phase === 'blow' ? 0.7 : gs.phase === 'warn' ? 0.25 : 0;
   if (a) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 16; i++) { const z = 5 + ((i * 3.1 + state.time * 9) % 40), x = d.cx(z) + (i % 4 - 1.5) * 2.2 + gs.dir * ((state.time * 3 + i) % 2), [sx, sy] = climbProj(x, 2.2, z), l = 70 * 5 / z, dir = (d.mirror ? -1 : 1) * gs.dir; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * l * 0.5, sy - l * 0.3, sx + dir * l, sy - l * 0.1); ctx.stroke(); } }
   const f = H * d.cam.f, ground = climbGround(c.x, c.z), s = 0.55 * f / c.z;
+  const rock = ([bx, bz, r]) => { const [rx, ry] = climbProj(bx, 1.5, bz), rs = r * f / bz; ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(rx + rs * 0.2, ry, rs * 1.1, rs * 0.35, 0, 0, 6.28); ctx.fill(); ctx.save(); ctx.translate(rx, ry - rs * 0.9); ctx.scale(1, 1.25); drawJagged(0, 0, rs, bx * 3 + bz, ['#8a857c', '#a09a90', '#6e6a62']); ctx.restore(); drawSoilLine(rx, ry - rs * 0.05, rs * 2, Math.max(2, rs * 0.12), bx); };
+  const far = (d.boulders || []).filter(b => b[1] > c.z), near = (d.boulders || []).filter(b => b[1] <= c.z);
+  far.sort((a, b) => b[1] - a[1]).forEach(rock);
   const sink = c.fall > 0 ? c.fall / 0.9 : 0, [gx, gy] = climbProj(c.x, ground, c.z), [px, py] = climbProj(c.x, ground + c.h - sink * 4, c.z);
   if (!sink) {                                                                      // your shadow: in the air it runs ahead to where you'll come down (it tells the truth a moment early)
     let sx0 = gx, sy0 = gy, sw = s * 0.8;
@@ -1450,6 +1463,8 @@ function drawClimb() {
   if (state.settings.tiles) drawClimbTiles(c, d);                                   // System > Show tiles: the grid laid on the ground, in perspective
   if (MOUNTAIN) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(8, H - 30, 330, 22); ctx.fillStyle = '#fdf6e3'; ctx.font = '13px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(`shadow lead ${SHADOW.lead.toFixed(2)} [ ]  follow ${SHADOW.follow.toFixed(0)} - =`, 14, H - 14); }
   ctx.save(); ctx.globalAlpha = 1 - sink; ctx.fillStyle = heroColor(); const ss = s * (1 - sink * 0.6); ctx.fillRect(px - ss / 2, py - ss, ss, ss); ctx.restore();
+  near.sort((a, b) => b[1] - a[1]).forEach(rock);                                    // rocks nearer than you are drawn over you
+  if (c.sheltered && c.gust.phase !== 'calm') { const [hx, hy] = climbProj(c.x, climbGround(c.x, c.z) + c.h, c.z); ctx.fillStyle = 'rgba(184,242,138,.9)'; ctx.font = 'bold 13px "Courier New", monospace'; ctx.textAlign = 'center'; ctx.fillText('sheltered', hx, hy - s * 1.4); }
   { const z = d.goalZ - 0.2, x = d.cx(z) - d.hw(z) - 1.2, [fx, fy] = climbProj(x, climbSlopeY(-(d.hw(z) + 1.2)), z); ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - UNIT * 1.6); ctx.stroke(); ctx.fillStyle = '#e05a4a'; ctx.beginPath(); ctx.moveTo(fx, fy - UNIT * 1.6); ctx.lineTo(fx + UNIT * 0.8, fy - UNIT * 1.35); ctx.lineTo(fx, fy - UNIT * 1.1); ctx.fill(); }
   drawFx();
 }
@@ -8524,7 +8539,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 153';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 154';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

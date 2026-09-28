@@ -26,9 +26,16 @@ enterScene('climb2'); run(5);
 { enterScene('climb3'); run(5); const c3=state.climb, d3=climbDef(); c3.gust.t=999; c3.x=1.6; let t=0, falls=0; state.keys.arrowdown=true;
   while(state.scene==='climb3' && t<60*40){ if(!c3.air && d3.gap(c3.x, c3.z-0.5)){ state.keys[' ']=true; run(1); state.keys[' ']=false; } run(1); t++; if(c3.fall>0 && c3.fall<0.03) falls++; } state.keys.arrowdown=false;
   console.log('3 the broken meadow: straight down through the narrow place, jumping each rift: falls', falls, '->', state.scene); }
-for (const id of ['climb4']) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
+{ enterScene('climb4'); run(5); const c4=state.climb, d4=climbDef();
+  // out on a bare island when the gust blows: off you go
+  c4.x=0.4; c4.z=13.7; c4.vx=c4.vz=0; c4.gust.phase='blow'; c4.gust.t=2; c4.gust.dir=1; let blown=false; for(let k=0;k<100;k++){ run(1); if(c4.fall>0) blown=true; } run(80);
+  // tucked behind a big rock on the downwind side: you stay put
+  const [bx,bz,br]=d4.boulders[3]; c4.x=bx+br+0.5; c4.z=bz; c4.vx=c4.vz=0; c4.fall=0; c4.gust.phase='blow'; c4.gust.t=2; c4.gust.dir=1; const x0=c4.x; run(100);
+  console.log('4 the windy crossing: caught on a bare island in a gust -> blown off', blown, '| behind a big rock -> moved', Math.abs(c4.x-x0).toFixed(2), 'tiles, sheltered', !!c4.sheltered || Math.abs(c4.x-x0)<0.3); }
+enterScene('climb5'); run(5);
+for (const id of []) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
 // 5. the side view: run right and jump now and then; reach the top, out into the crags
-c=state.climb; let t=0; state.keys.arrowright=true; while(state.scene==='climb5' && t<60*60){ if(!c.air && t%50===0){ state.keys[' ']=true; run(2); state.keys[' ']=false; } run(1); t++; } state.keys.arrowright=false;
+c=state.climb; let t=0; state.keys.arrowright=true; while(state.scene==='climb5' && t<60*120){ state.hero.vig=maxVig(); if(!c.air && t%50===0){ state.keys[' ']=true; run(2); state.keys[' ']=false; } run(1); t++; } state.keys.arrowright=false;
 console.log('5 side view: after', (t/60).toFixed(1), 's ->', state.scene);
 console.log('BUILD', BUILD, '| errs', errs);
 `);
