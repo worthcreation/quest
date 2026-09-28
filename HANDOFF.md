@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 141, 28 Sep 2026)
+# Quest: handoff notes (as of build 142, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 142: just the green platforms
+- To prove the concept, the trail screens drop the crags and the distant grey peaks: only the green ledges, their brown
+  faces (the ravine side and the outer side), crisp dark edges on both, over the valley. Off any edge you fall (the
+  ravine, or a ledge's outer edge, including where a ledge runs out past a crossing), back to your last safe spot.
+  The crag painter (crag()) is still in climb.js, unused.
 
 ## Build 141: test links for the climb and any screen
 - ?mountain starts straight on climb1 (no creator, no opening; story set to the adventure with the tortoise's blessing,

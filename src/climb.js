@@ -43,7 +43,7 @@ function climbProj(x, y, z, d = climbDef()) {
 }
 const climbSide = (x, z) => x - climbCx(z);
 const onClimbIsland = (x, z, d = climbDef()) => (d.islands || []).some(([ix, iz, r]) => Math.hypot(x - (d.cx(iz) + ix), (z - iz) * 1.2) < r);
-const overChasm = (x, z) => Math.abs(climbSide(x, z)) < climbHw(z) && !onClimbIsland(x, z);
+const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const s = climbSide(x, z), a = Math.abs(s); return a < climbHw(z) || a > climbHw(z) + climbBand(z, s < 0 ? 'L' : 'R'); };   // the ravine, or off a ledge's outer edge
 
 function newClimb(id) {
   const d = CLIMBS[id] || CLIMBS.climb1;
@@ -77,9 +77,7 @@ function updateClimb(dt) {
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.6, c.z / 8);
   c.z = Math.max(4, Math.min(40, c.z));
-  { const side = climbSide(c.x, c.z), S = side < 0 ? 'L' : 'R', hw = climbHw(c.z), b = climbBand(c.z, S), reach = hw + b;   // the crags beyond each ledge are walls
-    if (!c.air && !onClimbIsland(c.x, c.z) && Math.abs(side) > hw && b < 0.4) c.z = pz;                                       // closed ahead: cross here
-    const s2 = climbSide(c.x, c.z), r2 = climbHw(c.z) + climbBand(c.z, s2 < 0 ? 'L' : 'R'); if (s2 < -r2) c.x = climbCx(c.z) - r2; if (s2 > r2) c.x = climbCx(c.z) + r2; }
+  // (no crags for now: the ledges are platforms in the air, and off any edge you fall)
   if (c.air) { c.h += c.vh * dt; c.vh -= 14 * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
   if (!c.air) { if (overChasm(c.x, c.z)) { c.fall = 0.01; sfx.fall(); return; } c.safe = [c.x, c.z]; }
   if (!c.air && c.z <= d.goalZ && climbSide(c.x, c.z) < -climbHw(c.z)) climbFinish(c);
@@ -109,7 +107,7 @@ function paintClimb(g, d) {
   const mix = (a, b, t) => '#' + [0, 2, 4].map(i => Math.round(parseInt(a.substr(1 + i, 2), 16) * (1 - t) + parseInt(b.substr(1 + i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
   const mw = x => d.mirror ? W - x : x;
   let gr = g.createLinearGradient(0, 0, 0, horizon + 40); gr.addColorStop(0, '#9cc4e4'); gr.addColorStop(1, '#dfeaf0'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  if (horizon > H * 0.12) { quad([[mw(W * 0.45), horizon + 30], [mw(W * 0.62), horizon - H * 0.24], [mw(W * 0.7), horizon - H * 0.19], [mw(W * 0.84), horizon + 30]], '#9a948e');
+  if (false) { quad([[mw(W * 0.45), horizon + 30], [mw(W * 0.62), horizon - H * 0.24], [mw(W * 0.7), horizon - H * 0.19], [mw(W * 0.84), horizon + 30]], '#9a948e');
     quad([[mw(W * 0.58), horizon - H * 0.19], [mw(W * 0.62), horizon - H * 0.24], [mw(W * 0.66), horizon - H * 0.2], [mw(W * 0.63), horizon - H * 0.19]], '#eef2f5');
     quad([[mw(W * 0.1), horizon + 30], [mw(W * 0.26), horizon - H * 0.1], [mw(W * 0.4), horizon + 30]], '#aaa6a2'); }
   g.fillStyle = '#7fa36a'; g.fillRect(0, horizon - 8, W, 60);
@@ -117,7 +115,7 @@ function paintClimb(g, d) {
   for (let i = 0; i < 70; i++) { const x = (i * 0.618 % 1) * W, y = horizon + 60 + (i * 0.377 % 1) * (H - horizon); g.fillStyle = 'rgba(60,90,55,.5)'; g.beginPath(); g.arc(x, y, 3 + (y - horizon) * 0.02, 0, 6.28); g.fill(); }
   const HAZE = '#c8d6de', step = 0.15, wh = 1.5; let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const isl = (d.islands || []).map(([ix, iz, r]) => ({ x: d.cx(iz) + ix, z: iz, r, drawn: false }));
-  const lipL = [], lipR = [], band = (z, S) => d.band ? d.band(z, S) : 3.2;
+  const lipL = [], lipR = [], lipOL = [], lipOR = [], band = (z, S) => d.band ? d.band(z, S) : 3.2;
   const crag = (x0, x0b, dir, z, z2, side, haze) => {                             // the crags beyond a ledge: a rough rock wall rising, stepping back
     const bump = k => wh + 1.6 + 1.1 * Math.abs(Math.sin(k * 1.7 + side)) + 0.5 * Math.abs(Math.sin(k * 4.3)), hTop = bump(z), hTop2 = bump(z2);
     quad([P(x0 + dir * 6, hTop + 1.6, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b + dir * 6, hTop2 + 1.6, z2)], haze(Math.floor(z * 1.5) % 3 ? '#8a857c' : '#817c74'));   // the rock above, stepping back and up
@@ -127,7 +125,9 @@ function paintClimb(g, d) {
     const z2 = z - step, t = Math.min(1, (z - 3) / 55) ** 0.8, haze = col => mix(col, HAZE, t * 0.75);
     const L1 = d.cx(z) - d.hw(z), R1 = d.cx(z) + d.hw(z), L2 = d.cx(z2) - d.hw(z2), R2 = d.cx(z2) + d.hw(z2);
     const bL = band(z, 'L'), bR = band(z, 'R'), bL2 = band(z2, 'L'), bR2 = band(z2, 'R');
-    crag(L1 - bL, L2 - bL2, -1, z, z2, 1, haze); crag(R1 + bR, R2 + bR2, 1, z, z2, 2, haze);                   // crags beyond the ledges
+    { const oL = L1 - bL, oL2 = L2 - bL2, oR = R1 + bR, oR2 = R2 + bR2;                                          // (no crags for now) the ledges' outer edges drop away too
+      quad([P(oL, wh, z), P(oL, -3, z), P(oL2, -3, z2), P(oL2, wh, z2)], haze('#5a4028')); quad([P(oR, wh, z), P(oR, -3, z), P(oR2, -3, z2), P(oR2, wh, z2)], haze('#7a5a3c'));
+      lipOL.push(P(oL, wh, z)); lipOR.push(P(oR, wh, z)); }
     quad([P(L1 - bL, wh, z), P(L1, wh, z), P(L2, wh, z2), P(L2 - bL2, wh, z2)], haze(Math.floor(z) % 2 ? '#7d9a5c' : '#779456'));   // the ledges: level grass
     quad([P(R1, wh, z), P(R1 + bR, wh, z), P(R2 + bR2, wh, z2), P(R2, wh, z2)], haze(Math.floor(z) % 2 ? '#7d9a5c' : '#779456'));
     quad([P(L1, -3, z), P(R1, -3, z), P(R2, -3, z2), P(L2, -3, z2)], haze('#161a12'));
@@ -142,14 +142,15 @@ function paintClimb(g, d) {
       quad(top, haze('#7d9a5c')); g.strokeStyle = haze('#2a1c10'); g.lineWidth = 2.5; g.beginPath(); top.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke();
     }
   }
+  for (const o of [lipOL, lipOR]) { g.strokeStyle = '#1c1208'; g.lineWidth = 3; g.beginPath(); o.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }   // the outer edges, crisp too
   for (const lip of [lipL, lipR]) {                                                  // the ravine's edge, drawn crisp: a dark line, a light grass rim
     g.lineJoin = 'round'; g.strokeStyle = '#1c1208'; g.lineWidth = 3; g.beginPath(); lip.forEach(([[x, y]], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
     g.strokeStyle = 'rgba(190,220,150,.55)'; g.lineWidth = 1.5; g.beginPath(); lip.forEach(([[x, y]], i) => i ? g.lineTo(x, y - 2) : g.moveTo(x, y - 2)); g.stroke(); }
   { const z = 3.3, L = d.cx(z) - d.hw(z), R = d.cx(z) + d.hw(z), bL = band(z, 'L'), bR = band(z, 'R'), [lx, ly] = P(L, -3, z), [rx, ry] = P(R, -3, z), [ltx, lty] = P(L, wh, z), [rtx, rty] = P(R, wh, z), [lox] = P(L - bL, wh, z), [rox] = P(R + bR, wh, z);
     const ex = d.mirror ? W : 0, fx = d.mirror ? 0 : W;
-    quad([[lox, lty], [ltx, lty], [ltx, H], [lox, H]], '#7d9a5c'); quad([[ex, lty - 60], [lox, lty], [lox, H], [ex, H]], '#6c6760');
+    quad([[lox, lty], [ltx, lty], [ltx, H], [lox, H]], '#7d9a5c');
     quad([[ltx, lty], [lx, ly], [lx, H], [ltx, H]], '#7a5a3c'); quad([[lx, ly], [rx, ry], [rx, H], [lx, H]], '#11140e'); quad([[rx, ry], [rtx, rty], [rtx, H], [rx, H]], '#5a4028');
-    quad([[rtx, rty], [rox, rty], [rox, H], [rtx, H]], '#7d9a5c'); quad([[rox, rty], [fx, rty - 60], [fx, H], [rox, H]], '#6c6760'); }
+    quad([[rtx, rty], [rox, rty], [rox, H], [rtx, H]], '#7d9a5c'); }
 }
 
 // ---------- the side view: the mountain seen side on, ledges climbing to the right, the valley far below ----------
