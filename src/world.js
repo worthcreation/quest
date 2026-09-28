@@ -611,7 +611,7 @@ function genWorld() {
     edgeWall(sc, 'n', 'deadtree', 1.0, i === 1 ? [[0, 0.34]] : [], 1.9, 'bog');
     edgeWall(sc, 's', 'deadtree', 1.0, i === 2 ? [[0.4, 0.6]] : [], 1.9, 'bog');
     if (i === 2) sc.exits.push({ side: 's', a: 0.4, b: 0.6, to: 'sw1' });
-    if (last) barrier(sc, 'reeds', 'reeds', 0.95, 0.34, 0.95, 0.66, 0.7);
+    if (last) barrier(sc, 'reeds', 'reeds', 0.95, 0.3, 0.95, 0.7, 0.9);   // a thick wall of them across the way on
     const wPt = edgePoint('w', (west[0] + west[1]) / 2), ePt = edgePoint('e', (east[0] + east[1]) / 2);
     sc.paths = [makePath(wPt, ePt, 2)];
     const npcSpot = i === 2 ? [rr(0.4, 0.6), rr(0.3, 0.7)] : null;

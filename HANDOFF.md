@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 118, 27 Sep 2026)
+# Quest: handoff notes (as of build 119, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 119: menacing reeds
+- The reed wall at the marsh's end (solid 'reeds', burned away by marsh fire) is drawn as a wall of great dark reeds:
+  nine thick stalks each (dark at the foot, olive at the top), saw-edged blades bowing out, black bulrush heads with
+  spikes, a dark mass at their feet, a few thorns catching the light. The wall is taller and wider (rU 0.9, 0.3-0.7).
+- Marsh and swamp reed clumps are thicker too: four stalks, a serrated blade, a bulrush head, a shadow.
 
 ## Build 118: one Pip; vigor layers by opacity
 - drawPip(x, y, {side, bound}) (draw.js) is the only way Pip is drawn: following you, as an npc (camp, the cave), in
