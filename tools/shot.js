@@ -63,6 +63,15 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B126) {                            // build 126: the icon belt and the Map as miniatures
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.pipSaved=true; inv.shrooms={camp:true,w2:true,foot:true}; inv.spores=4; inv.sword=true; inv.food.push('turnip');
+  for (const id of ['riverbank','start','meadow','camp','f1','f2','w1','w2','shack','ford','farbank','foot','f3']) state.seen[id]=true;
+  enterScene('start'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Map'),sel:0,focus:'tabs',act:0,note:''}; draw(); state.menu.focus='grid'; state.menu.sel=state.menu.mapIds.indexOf('w2'); draw(); fs.writeFileSync('/tmp/b126-map.png', canvas.toBuffer('image/png'));
+  state.menu={view:'pack',tab:0,sel:0,focus:'grid',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b126-gear.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b126 written');
+}
 if (process.env.B123) {                            // build 123: the High Reaches card, close then pulling back; Gear with everything
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sawHighTitle=true; enterScene('hr3'); state.cut=null; state.enemies=[]; state.pip=null; run(3); state.texts=[]; state.title=null;

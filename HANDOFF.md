@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 125, 27 Sep 2026)
+# Quest: handoff notes (as of build 126, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 126: the pack's icon belt; the Map as pages of places
+- The pack's tabs are an icon belt (drawTabIcon, draw-ui.js): Gear a sword, Craft the mat, Food a turnip, Seeds a seed,
+  Materials a stick, Quests a scroll, Map Pip's journal, Status you (your colour and a vigor sliver), System a cog. The
+  tab you're on shows its short name under the belt (TAB_TITLE; Status reads "You").
+- The Map: a page for every place you've been (mapPages, shown once you've been anywhere past the first screen), each a
+  tiny picture of the place (sceneMini, cached: floor, river, drops, paths, trees and rocks, the mushroom), laid out as
+  they join. Places with a traveler's mushroom you've found glow purple; you're a square in your colour. Arrows move to
+  the nearest page that way; the place's name shows under the pages. Nothing is said about spores until the spores
+  answer you (sporesAwake: after the rescue): then a purple page shows its cost as dots and your count, and F jumps.
+  No explanatory text on the page.
+- Test spores-map updated. 57 of 57. tools/shot.js B126=1.
 
 ## Build 125: Pip teaches, the pinned note only in the pack, slots that flash
 - The pinned coach note draws only while the pack is open (where Pip can't talk). Out in the world, each coach step is

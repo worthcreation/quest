@@ -4,11 +4,11 @@ begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw()
 run(5); state.intro=null; state.texts=[]; const inv=state.inv, h=state.hero; inv.story=STORY.adventure; inv.pipSaved=true; state.pip=null;
 // 1. the Map tab appears once a mushroom is found, and lists them with costs
 console.log('1 Map tab before any mushroom:', tabShown('Map'));
-inv.shrooms={camp:true, w2:true, foot:true}; inv.spores=6; enterScene('camp'); run(5);
+inv.shrooms={camp:true, w2:true, foot:true}; inv.spores=6; for (const id of ['camp','w2','foot','start','meadow','w1']) state.seen[id]=true; enterScene('camp'); run(5);
 console.log('   after three:', tabShown('Map'), '|', sporeCells().map(c=>c.name+(c.mark?' (here)':' '+c.count)).join(', '));
 // 2. F at the camp mushroom opens it; travel from there
 const f=WORLD.camp.feat.shroom; h.x=f[0]*W; h.y=f[1]*H+UNIT*1.2; run(3); state.texts=[]; press('f'); console.log('2 F at a mushroom opens:', state.menu&&PACK_TABS[state.menu.tab]);
-const i=sporeCells().findIndex(c=>c.name===SHROOM_NAMES.w2); state.menu.sel=i; state.menu.focus='grid'; press('f'); press('f'); for(let k=0;k<120 && state.scene==='camp';k++) run(1); console.log('   travelled to', state.scene, '| spores left', inv.spores);
+draw(); const i=(state.menu.mapIds||[]).indexOf('w2'); state.menu.sel=i; state.menu.focus='grid'; press('f'); for(let k=0;k<120 && state.scene==='camp';k++) run(1); console.log('   travelled to', state.scene, '| spores left', inv.spores);
 // 3. each traveler's mushroom looks different
 console.log('3 looks:', Object.entries(SHROOM_LOOKS).map(([k,v])=>k+':'+v.cap+'/'+v.mark).join(' '));
 // 4. little mushrooms, and Wick's cellar

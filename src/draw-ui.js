@@ -1003,20 +1003,21 @@ function drawPack(m, x, y, pw, fs) {
   const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
   const rr_ = (x0, y0, w0, h0, r0) => { ctx.beginPath(); ctx.moveTo(x0 + r0, y0); ctx.arcTo(x0 + w0, y0, x0 + w0, y0 + h0, r0); ctx.arcTo(x0 + w0, y0 + h0, x0, y0 + h0, r0); ctx.arcTo(x0, y0 + h0, x0, y0, r0); ctx.arcTo(x0, y0, x0 + w0, y0, r0); ctx.closePath(); };
   const pwide = Math.min(W - 24, 680), px = (W - pwide) / 2;
-  // tabs: only the ones with something behind them, each as wide as its word (the font shrinks to fit the row)
+  // the icon belt: one picture per tab; the one you're on says its name underneath
   const chips = PACK_TABS.map((t, i) => [t, i]).filter(([t]) => tabShown(t));
-  let tfs = Math.round(fs * 0.8), cws;
-  for (;;) { ctx.font = `${tfs}px "Courier New", monospace`; cws = chips.map(([t]) => ctx.measureText(t).width + tfs * 1.4); if (cws.reduce((a, b) => a + b, 0) + chips.length * 4 <= pwide || tfs <= 9) break; tfs--; }
-  ctx.textAlign = 'center';
-  const th = fs * 1.9, tot = cws.reduce((a, b) => a + b, 0) + (chips.length - 1) * 4; let cx = px + (pwide - tot) / 2;
-  chips.forEach(([label, i], k) => {
-    const cw = cws[k], on = m.tab === i, foc = on && m.focus === 'tabs';
-    ctx.fillStyle = on ? 'rgba(242,201,76,.25)' : 'rgba(255,255,255,.06)'; rr_(cx, y - th * 0.75, cw, th, 6); ctx.fill();
-    if (foc) { ctx.strokeStyle = '#ffe38a'; ctx.lineWidth = 2; ctx.stroke(); }
-    ctx.fillStyle = on ? '#ffe38a' : '#d8d0c0'; ctx.fillText(label, cx + cw / 2, y + fs * 0.1);
-    const x0 = cx; hits.push({ x: x0, y: y - th * 0.75, w: cw, h: th, fn: () => { m.tab = i; m.sel = 0; m.focus = 'grid'; } });
-    cx += cw + 4;
+  const cs0 = Math.min(fs * 2.6, (pwide - (chips.length - 1) * 8) / chips.length), th = cs0;
+  let cx = px + (pwide - (chips.length * cs0 + (chips.length - 1) * 8)) / 2;
+  chips.forEach(([label, i]) => {
+    const on = m.tab === i, foc = on && m.focus === 'tabs';
+    ctx.fillStyle = on ? 'rgba(242,201,76,.28)' : 'rgba(255,255,255,.07)'; rr_(cx, y - th * 0.75, cs0, th, 10); ctx.fill();
+    if (foc || on) { ctx.strokeStyle = foc ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = foc ? 2.5 : 1.5; ctx.stroke(); }
+    ctx.save(); ctx.globalAlpha = on ? 1 : 0.7; drawTabIcon(label, cx + cs0 / 2, y - th * 0.75 + th / 2, cs0 * 0.62); ctx.restore();
+    hits.push({ x: cx, y: y - th * 0.75, w: cs0, h: th, fn: () => { m.tab = i; m.sel = 0; m.focus = 'grid'; } });
+    cx += cs0 + 8;
   });
+  ctx.textAlign = 'center'; ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(fs * 0.9)}px Georgia, serif`;
+  ctx.fillText(TAB_TITLE[tab] || tab, W / 2, y + th * 0.25 + fs * 0.9);
+  y += fs * 1.6;
   y += th * 0.9;
   const areaH = H - y - fs * 7.5;
   if (tab === 'System') {                              // save, load, controls and settings as a plain list
@@ -1086,33 +1087,7 @@ function drawPack(m, x, y, pw, fs) {
     drawTipMarquee(fs);
     return;
   }
-  if (tab === 'Map') {
-    // the spores: every mushroom you've found, a row of places to jump to, under the map
-    const sc2 = sporeCells(), rowH = sc2.length ? fs * 3.2 : 0;
-    if (sc2.length) {
-      const cw = Math.min(pwide / Math.max(3, sc2.length), fs * 9), x0 = px + (pwide - cw * sc2.length) / 2, ry = H - fs * 8.6 - rowH;
-      ctx.textAlign = 'left'; ctx.fillStyle = '#c9a2ff'; ctx.font = `bold ${Math.round(fs * 0.8)}px Georgia, serif`; ctx.fillText(`Spore travel \u00b7 ${state.inv.spores} spores`, x0, ry - fs * 0.4);
-      sc2.forEach((c, i) => { const x = x0 + i * cw, sel = i === m.sel && m.focus !== 'tabs';
-        ctx.fillStyle = sel ? 'rgba(201,162,255,.25)' : c.mark ? 'rgba(184,242,138,.12)' : 'rgba(255,255,255,.06)'; rr_(x + 3, ry, cw - 6, rowH - 6, 8); ctx.fill();
-        if (sel) { ctx.strokeStyle = '#c9a2ff'; ctx.lineWidth = 2; ctx.stroke(); }
-        drawItemIcon('spore', x + fs * 1.2, ry + rowH / 2 - 3, fs * 1.4);
-        ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'left'; let nm = c.name; while (ctx.measureText(nm).width > cw - fs * 2.8 && nm.length > 4) nm = nm.slice(0, -2) + '\u2026'; ctx.fillText(nm, x + fs * 2.2, ry + rowH * 0.42);
-        ctx.fillStyle = c.mark ? '#b8f28a' : '#c9a2ff'; ctx.fillText(c.mark ? 'here' : `${c.count} spores`, x + fs * 2.2, ry + rowH * 0.72);
-        hits.push({ x: x + 3, y: ry, w: cw - 6, h: rowH - 6, fn: () => { m.sel = i; m.focus = 'grid'; } }); });
-      ctx.textAlign = 'center';
-    }
-    if (state.inv.journal >= 3) {
-      const aw = pwide, ah = Math.min(areaH + fs * 4 - rowH, aw * 13 / 15 * 0.8);
-      drawJournalMap(px, y, aw, ah, fs);
-      ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
-      ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${Object.keys(MAP_LAYOUT).length} places \u00b7 you are at ${MAP_NAMES[state.scene] || state.scene}`, W / 2, y + ah + fs * 1.2);
-    } else {
-      drawItemIcon('journal', W / 2, y + fs * 3, fs * 3);
-      ctx.fillStyle = '#d8d0c0'; ctx.fillText('Pip\'s maps are in Pip\'s journal.', W / 2, y + fs * 6);
-    }
-    if (sc2.length) { const c = m.focus !== 'tabs' ? sc2[m.sel] : null; if (c) { ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(state.menu.note || c.line, W / 2, H - fs * 7.4); } }
-    return;
-  }
+  if (tab === 'Map') { drawMapPages(m, px, y, pwide, areaH, fs, hits); return; }
   if (tab === 'Status') { drawStatusCards(px, y, pwide, fs); drawTipMarquee(fs); return; }   // cards, not a wall of text
   if (tab === 'Craft') y += drawCraftMat(px, y + fs * 0.6, pwide, fs) + fs * 1.2;
   const cells = packCells(tab);
@@ -1320,6 +1295,70 @@ const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: '
 // Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
 // Status as cards: you at the top (vigor), then one card per skill: a coloured strip, the name and level pips, a
 // progress bar, and two short lines, now and next. Upgrades are a row of small badges at the bottom.
+// the pack's icon belt: a small picture for each tab, and its short title
+const TAB_TITLE = { Gear: 'Gear', Craft: 'Craft', Food: 'Food', Seeds: 'Seeds', Materials: 'Materials', Quests: 'Quests', Map: 'Map', Status: 'You', System: 'System' };
+function drawTabIcon(tab, x, y, s) {
+  const ic = { Gear: 'sword', Craft: 'mat', Food: 'turnip', Seeds: 'turnipseed', Materials: 'stick', Map: 'journal' }[tab];
+  if (ic) { drawItemIcon(ic, x, y, s); return; }
+  ctx.save(); ctx.translate(x, y); ctx.lineCap = 'round';
+  if (tab === 'Quests') {                                   // a scroll
+    ctx.fillStyle = '#e8d8b0'; ctx.fillRect(-s * 0.32, -s * 0.36, s * 0.64, s * 0.72); ctx.fillStyle = '#c9b48a'; ctx.fillRect(-s * 0.38, -s * 0.42, s * 0.76, s * 0.1); ctx.fillRect(-s * 0.38, s * 0.32, s * 0.76, s * 0.1);
+    ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 1.5; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, k * s * 0.14); ctx.lineTo(s * 0.2, k * s * 0.14); ctx.stroke(); }
+  } else if (tab === 'Status') {                           // you, in your colour, with a little vigor bar
+    ctx.fillStyle = heroColor(); ctx.fillRect(-s * 0.26, -s * 0.36, s * 0.52, s * 0.52);
+    ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(-s * 0.36, s * 0.26, s * 0.72, s * 0.12); ctx.fillStyle = '#b8f28a'; ctx.fillRect(-s * 0.36, s * 0.26, s * 0.72 * Math.max(0, state.hero.vig) / maxVig(), s * 0.12);
+  } else if (tab === 'System') {                           // a cog
+    ctx.fillStyle = '#b8b0a0'; for (let k = 0; k < 8; k++) { ctx.save(); ctx.rotate(k * Math.PI / 4); ctx.fillRect(-s * 0.07, -s * 0.42, s * 0.14, s * 0.18); ctx.restore(); }
+    ctx.beginPath(); ctx.arc(0, 0, s * 0.28, 0, 6.28); ctx.fill(); ctx.fillStyle = '#2a2420'; ctx.beginPath(); ctx.arc(0, 0, s * 0.11, 0, 6.28); ctx.fill();
+  }
+  ctx.restore();
+}
+// The Map: a page for every place you've been, each a tiny picture of that place, laid out the way they join up. Places
+// with a traveler's mushroom you've found glow purple; once the spores answer you, F on one takes you there.
+const MINI_CACHE = {};
+function sceneMini(id, w, h) {
+  const key = id + '|' + Math.round(w) + 'x' + Math.round(h); if (MINI_CACHE[key]) return MINI_CACHE[key];
+  const sc = WORLD[id]; let cv; try { cv = document.createElement('canvas'); cv.width = Math.max(8, Math.round(w)); cv.height = Math.max(6, Math.round(h)); } catch (e) { return null; }
+  const g = cv.getContext && cv.getContext('2d'); if (!g || !g.fillRect) return null;
+  const sx = cv.width, sy = cv.height, u = sx / (W / UNIT);
+  g.fillStyle = sc.floor || '#4a7a4a'; g.fillRect(0, 0, sx, sy);
+  if (sc.river && sc.river.pts) { g.strokeStyle = '#4a86b0'; g.lineWidth = Math.max(2, u * 1.6); g.beginPath(); sc.river.pts.forEach(([x, y], i) => i ? g.lineTo(x * sx, y * sy) : g.moveTo(x * sx, y * sy)); g.stroke(); }
+  for (const [x0, y0, x1, y1] of sc.chasms || []) { g.fillStyle = sc.vista ? '#b8d4ec' : '#141214'; g.fillRect(x0 * sx, y0 * sy, (x1 - x0) * sx, (y1 - y0) * sy); }
+  for (const pa of sc.paths || []) { const pts = pa.pts || pa; if (!Array.isArray(pts)) continue; g.strokeStyle = 'rgba(200,180,130,.35)'; g.lineWidth = Math.max(1, u * 0.8); g.beginPath(); pts.forEach((q, i) => { if (!Array.isArray(q)) return; i ? g.lineTo(q[0] * sx, q[1] * sy) : g.moveTo(q[0] * sx, q[1] * sy); }); g.stroke(); }
+  for (const s of sc.solids || []) {
+    const col = { tree: '#2a4a26', deadtree: '#4a3a2a', boulder: '#7a7670', cliff: '#6a6660', wall: '#4a3420', crag: '#8a8478', bramble: '#4a3a1a', reeds: '#2e3a1c', stone: '#8a8a80', tent: '#8a4a3a', campfire: '#6a4a2a', cavewall: '#2a2630', stalagmite: '#3a3440' }[s.kind];
+    if (!col) continue; g.fillStyle = col; g.beginPath(); g.arc(s.fx * sx, s.fy * sy, Math.max(1, s.r * u), 0, 6.28); g.fill();
+  }
+  if (sc.feat.shroom) { g.fillStyle = '#b48af0'; g.beginPath(); g.arc(sc.feat.shroom[0] * sx, sc.feat.shroom[1] * sy, Math.max(2, u * 0.9), 0, 6.28); g.fill(); }
+  return (MINI_CACHE[key] = cv);
+}
+function mapPages() { return Object.keys(MAP_LAYOUT).filter(id => state.seen[id] && WORLD[id]); }
+function sporesAwake() { return !!state.inv.pipSaved; }
+function drawMapPages(m, px, y, pwide, areaH, fs, hits) {
+  const ids = mapPages(); if (!ids.length) return;
+  const xs = ids.map(id => MAP_LAYOUT[id][0]), ys = ids.map(id => MAP_LAYOUT[id][1]), c0 = Math.min(...xs), r0 = Math.min(...ys), cols = Math.max(...xs) - c0 + 1, rows = Math.max(...ys) - r0 + 1;
+  const gap = 4, cw = Math.min((pwide - gap * (cols - 1)) / cols, ((areaH + fs * 2) - gap * (rows - 1)) / rows * (W / H)), ch = cw * H / W;
+  const ox = px + (pwide - (cols * cw + (cols - 1) * gap)) / 2;
+  m.mapIds = ids; if (m.sel >= ids.length) m.sel = 0;
+  const here = state.scene === 'tentin' ? 'camp' : state.scene === 'cellar' ? 'shack' : state.scene;
+  ids.forEach((id, i) => {
+    const [cx, cy] = MAP_LAYOUT[id], x = ox + (cx - c0) * (cw + gap), yy = y + (cy - r0) * (ch + gap), sel = i === m.sel && m.focus !== 'tabs';
+    const img = sceneMini(id, cw, ch);
+    if (img) ctx.drawImage(img, x, yy, cw, ch); else { ctx.fillStyle = WORLD[id].floor || '#4a7a4a'; ctx.fillRect(x, yy, cw, ch); }
+    const purple = WORLD[id].feat.shroom && state.inv.shrooms[id];
+    if (purple) { ctx.fillStyle = `rgba(180,138,240,${0.18 + 0.1 * Math.sin(state.time * 2 + i)})`; ctx.fillRect(x, yy, cw, ch); ctx.strokeStyle = '#b48af0'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, yy + 1, cw - 2, ch - 2); }
+    if (id === here) { ctx.fillStyle = heroColor(); const hs = Math.max(4, cw * 0.12); ctx.fillRect(x + cw / 2 - hs / 2, yy + ch / 2 - hs / 2, hs, hs); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(x + cw / 2 - hs / 2, yy + ch / 2 - hs / 2, hs, hs); }
+    if (sel) { ctx.strokeStyle = purple ? '#e0c8ff' : '#ffe38a'; ctx.lineWidth = 3; ctx.strokeRect(x - 2, yy - 2, cw + 4, ch + 4); }
+    hits.push({ x, y: yy, w: cw, h: ch, fn: () => { m.sel = i; m.focus = 'grid'; } });
+  });
+  // under the pages: the place's name; and, once the spores answer you, what a jump there costs
+  const sid = m.focus !== 'tabs' ? ids[m.sel] : here, sy2 = y + rows * (ch + gap) + fs * 1.2;
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.85)}px Georgia, serif`; ctx.fillText(MAP_NAMES[sid] || SHROOM_NAMES[sid] || AREA_NAMES[WORLD[sid] && WORLD[sid].area] || sid, W / 2, sy2);
+  if (sporesAwake() && WORLD[sid] && WORLD[sid].feat.shroom && state.inv.shrooms[sid] && sid !== here) {
+    const cost = sporeCost(sid, here); ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillStyle = state.inv.spores >= cost ? '#c9a2ff' : 'rgba(201,162,255,.5)';
+    ctx.fillText(`${'\u25cf'.repeat(Math.min(cost, 8))}  (${state.inv.spores})`, W / 2, sy2 + fs * 1.2);
+  }
+}
 function drawStatusCards(px, y, pwide, fs) {
   const inv = state.inv, h = state.hero, u = fs;
   ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';

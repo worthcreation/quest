@@ -77,7 +77,7 @@ function tabShown(t) {
   if (t === 'Food') return inv.food.length > 0;
   if (t === 'Seeds') return Object.values(inv.bag || {}).some(n => n > 0);
   if (t === 'Materials') return packCells('Materials').length > 0;
-  if (t === 'Map') return inv.journal >= 3 || Object.keys(inv.shrooms || {}).length > 0;
+  if (t === 'Map') return Object.keys(state.seen || {}).length > 1;   // a page for every place you've been
   return true;
 }
 function stepTab(i, d) { for (let k = 1; k <= PACK_TABS.length; k++) { const j = (i + d * k + PACK_TABS.length * 4) % PACK_TABS.length; if (tabShown(PACK_TABS[j])) return j; } return i; }
@@ -172,7 +172,7 @@ function sporeCells() {
   });
 }
 function packCells(tab) {
-  if (tab === 'Map') return sporeCells();
+  if (tab === 'Map') return [];                        // (the Map draws and steers its own pages)
   if (tab === 'Craft') return craftCells();
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
@@ -252,6 +252,7 @@ function updatePack() {
     if (pressedNow.act || pressedNow.down) {
       if (tab === 'System') { m.focus = 'grid'; m.sys = m.sys || 0; sfx.tock(); }
       else if (tab === 'Quests' && !ARENA) { m.focus = 'grid'; m.qsel = 0; sfx.tock(); }
+      else if (tab === 'Map' && (m.mapIds || []).length) { m.focus = 'grid'; const here = state.scene === 'tentin' ? 'camp' : state.scene; m.sel = Math.max(0, m.mapIds.indexOf(here)); sfx.tock(); }
       else if (cells.length) { m.focus = 'grid'; m.sel = Math.min(m.sel, cells.length - 1); sfx.tock(); }
     }
     return;
@@ -284,6 +285,14 @@ function updatePack() {
     if (pressedNow.right || pressedNow.down) { m.act = Math.min(acts.length - 1, m.act + 1); sfx.tock(); }
     if (pressedNow.act && acts[m.act]) { acts[m.act].fn(); sfx.pickup(); if (state.menu) { m.focus = 'grid'; const n = packCells(tab).length; m.sel = Math.min(m.sel, Math.max(0, n - 1)); if (!n) m.focus = 'tabs'; } }
     if (pressedNow.jump) m.focus = 'grid';
+    return;
+  }
+  if (tab === 'Map') {                                  // pages laid out like the land: the arrows go to the nearest page that way; F on a purple one travels
+    const ids = m.mapIds || [], cur = ids[m.sel]; if (!ids.length) { m.focus = 'tabs'; return; }
+    const d = pressedNow.left ? [-1, 0] : pressedNow.right ? [1, 0] : pressedNow.up ? [0, -1] : pressedNow.down ? [0, 1] : null;
+    if (d && cur) { const [cx, cy] = MAP_LAYOUT[cur]; let best = -1, bd = 1e9; ids.forEach((id, i) => { const [x, y] = MAP_LAYOUT[id], dx = x - cx, dy = y - cy; if (dx * d[0] + dy * d[1] <= 0) return; const dist = Math.abs(dx) + Math.abs(dy) + Math.abs(d[0] ? dy : dx) * 2; if (dist < bd) { bd = dist; best = i; } }); if (best >= 0) { m.sel = best; sfx.tock(); } else if (d[1] < 0) { m.focus = 'tabs'; sfx.tock(); } }
+    const here = state.scene === 'tentin' ? 'camp' : state.scene;
+    if (pressedNow.act && cur && sporesAwake() && WORLD[cur].feat.shroom && state.inv.shrooms[cur] && cur !== here) { const cost = sporeCost(cur, here); if (state.inv.spores >= cost) { state.menu = null; sporeJump(cur, cost); } else sfx.tock(); }
     return;
   }
   if (!cells.length) { m.focus = 'tabs'; return; }
