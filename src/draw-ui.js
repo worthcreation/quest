@@ -466,6 +466,10 @@ function drawFx() {
       const g = ctx.createLinearGradient(p.x, p.y - UNIT * 8, p.x, p.y);
       g.addColorStop(0, 'rgba(255,240,180,0)'); g.addColorStop(1, `rgba(255,240,180,${0.5 * a})`);
       ctx.fillStyle = g; ctx.fillRect(p.x - UNIT * 0.6, p.y - UNIT * 8, UNIT * 1.2, UNIT * 8);
+    } else if (p.color === 'spore') {                     // a mote of spore light: a glow and a bright core, both fading
+      const r = p.size * (0.6 + a * 0.8), g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3.5);
+      g.addColorStop(0, `rgba(210,175,255,${0.55 * a})`); g.addColorStop(1, 'rgba(210,175,255,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, r * 3.5, 0, 6.28); ctx.fill();
+      ctx.fillStyle = `rgba(245,235,255,${0.9 * a})`; ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.6, 0, 6.28); ctx.fill();
     } else if (p.color === 'rain') {
       ctx.strokeStyle = `rgba(190,210,240,${0.45 * a})`; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + p.vx * 0.02, p.y + p.vy * 0.02); ctx.stroke();

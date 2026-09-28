@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 136, 28 Sep 2026)
+# Quest: handoff notes (as of build 137, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 137: one Pip at camp; spores as light
+- Two Pips at camp after the homecoming: the scene made a following Pip beside the camp's own Pip. Now the camp Pip
+  (npc, home) is moved to the fire and does the talking, state.pip is cleared, and drawing never shows a following Pip
+  in a scene where a Pip lives (sc.npcs pip that npcHere).
+- New particle 'spore' (drawFx): a soft violet glow with a bright core, both fading. The homecoming swirl, the Hollow
+  mushroom's burst and the drifting motes from found mushrooms all use it: sparks zip away and fizzle; a few motes drift
+  about afterward (and the floaters in the Hollow). The burst no longer strews little spore pickups: 8 spores cling to
+  you (inv.spores), and Pip's line matches ("they're clinging to you already").
+- 61 of 61.
 
 ## Build 136: the mountainside, built from the mockups
 - Each path screen (f2-f6) has the rock on one side and the drop on the other (corridor.rock 'L' or 'R', alternating).

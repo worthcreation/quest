@@ -119,7 +119,7 @@ function drawScene(sc) {
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (sc.feat.peek) layer.push([sc.feat.peek[1] * H + UNIT * 0.3, () => drawPeekGremlin(sc)]);   // peeking over the boulder (sorted with it, so the boulder hides its body)
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
+  if (state.pip && state.pip.show && !sc.npcs.some(n => n.kind === 'pip' && npcHere(n)) && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -658,7 +658,7 @@ function drawSolid(s) {
       drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
       drawTravelShroom(x, y, u, found, glow, sceneDef().id);
-      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
+      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
       break;
     }
     case 'stone':
@@ -852,7 +852,7 @@ function drawTravelShroom(x, y, u, found, glow, id) {
   if (L.mark === 'spots' || L.mark === 'glowdots') [[-0.45, -0.25], [0.1, -0.45], [0.45, -0.2], [-0.1, -0.15]].forEach(([dx, dy], k) => { ctx.fillStyle = L.mark === 'glowdots' ? `rgba(160,255,220,${0.3 + 0.7 * sp(k)})` : `rgba(245,232,255,${0.3 + 0.6 * sp(k)})`; ctx.beginPath(); ctx.arc(x + dx * cw, cy + dy * u, u * 0.09, 0, 6.28); ctx.fill(); });
   if (L.mark === 'rings') for (let k = 1; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, cy - u * 0.05, cw * (1 - k * 0.3), u * (0.45 - k * 0.12), 0, Math.PI, 0); ctx.stroke(); }
   if (L.mark === 'stripes') for (let k = -2; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k + 2)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + k * cw * 0.3, cy); ctx.lineTo(x + k * cw * 0.2, cy - u * 0.24); ctx.stroke(); }
-  if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: cy, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
+  if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: cy, vx: (Math.random() - 0.5) * u * 0.2, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });   // a spore now and then, drifting up
 }
 // little mushrooms strewn about damp, dark places: clusters of two to five, each a small cap on a thin stem
 const MINI_CAPS = { woods: ['#a07a4a', '#c8a878', '#7a5a3a', '#d8c8a8'], cave: ['#8ab0a0', '#6a8a9a', '#b0a0c8', '#c8d8c0'], forest: ['#b08a5a', '#d0b890', '#a05a3a'], cellar: ['#c8b890', '#a08a6a', '#d8d0b0', '#b0a0c0'], swamp: ['#8a8a5a', '#a0a070', '#6a7a4a'] };
@@ -1269,7 +1269,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 136';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 137';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

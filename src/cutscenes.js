@@ -54,20 +54,21 @@ function updateCut(dt) {
   if (false) {
   } else if (c.type === 'sporehome') {
     const s = state.pip;
-    const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.4 + Math.random() * 2.2), x = h.x + Math.cos(a) * r, y = h.y + Math.sin(a) * r * 0.7;
-      state.fx.push({ x, y, vx: -Math.sin(a) * UNIT * 2.2 - Math.cos(a) * UNIT * 0.6, vy: Math.cos(a) * UNIT * 1.5 - UNIT * 0.8, t: 0, life: 0.9 + Math.random() * 0.8, color: ['#c9a2ff', '#b48af0', '#e8d0ff', '#8f6ad8'][i % 4], size: UNIT * (0.05 + Math.random() * 0.1) }); } };
+    const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.3 + Math.random() * 1.2), sp = UNIT * (3 + Math.random() * 5);   // sparks of spore light that zip away and fizzle out
+      state.fx.push({ x: h.x + Math.cos(a) * r, y: h.y - UNIT * 0.4 + Math.sin(a) * r * 0.7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - UNIT, t: 0, life: 0.5 + Math.random() * 0.6, color: 'spore', size: UNIT * (0.06 + Math.random() * 0.08) }); } };
     if (at(0.1)) { sfx.spores(); say('Hold on tight!', s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff' }); }
     if (c.t < 2.6) swirl(Math.min(5, 1 + Math.floor(c.t * 2)));                             // the spores gather and spin faster
-    if (c.t > 0.8 && c.t < 2.6 && Math.random() < 0.2) { sfx.spores(); state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 3, y: h.y - UNIT * 0.5, vx: 0, vy: -UNIT * 1.2, t: 0, life: 1.2, color: 'smoke', size: UNIT * 0.35 }); }   // little mushroom puffs
+    if (c.t > 0.8 && c.t < 2.6 && Math.random() < 0.12) sfx.spores();   // little mushroom puffs
     state.sporeTint = Math.min(0.85, Math.max(0, (c.t - 0.6) / 2));
     if (at(2.6)) { state.fadeTarget = 1; state.fadeRate = 5; sfx.flash(); }
     if (at(3.1)) {                                                                          // home, still twilight, by the fire
       state.dusk = true; enterScene('camp', 0.46, 0.6); state.fadeTarget = 0;
-      const f = WORLD.camp.feat.fire; state.pip = { x: (f[0] + 0.06) * W, y: (f[1] + 0.05) * H, show: true, follow: true, side: -1 };
+      const f = WORLD.camp.feat.fire, home = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home); if (home) { home.fx = f[0] + 0.06; home.fy = f[1] + 0.05; } state.pip = null;   // the Pip who lives here, by the fire (just one Pip)
       state.hero.x = (f[0] - 0.05) * W; state.hero.y = (f[1] + 0.06) * H; state.hero.side = 1;
     }
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
-    const q = state.pip;
+    const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
+    if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
     if (at(4.3)) say('Home! I\'ve never been so happy to see that tent.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
@@ -78,7 +79,7 @@ function updateCut(dt) {
       state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
     }
     if (at(8.4)) say('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(8.6)) { say('The gremlins! One of them ran off with it. Every map I ever drew is in there!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); q.hop = { t: 0, n: 3 }; }
+    if (at(8.6)) say('The gremlins! One of them ran off with it. Every map I ever drew is in there!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(8.8)) say('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(9.2)) {
       state.cut = null; state.cam.focus = null; state.sporeTint = 0;

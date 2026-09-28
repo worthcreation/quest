@@ -607,8 +607,8 @@ function burstDarkShroom() {
   refreshSceneGeometry();
   const x = f[0] * W, y = f[1] * H;
   sfx.whumpf(); sfx.spores(); state.shake = 0.5; zoomPulse(x, y, 'boss');
-  for (let i = 0; i < 40; i++) state.fx.push({ x, y: y - UNIT, vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 1.8, color: '#e8d8ff' });
-  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28, d = UNIT * (1.2 + Math.random() * 2.2); state.items.push({ type: 'spore', x: Math.max(UNIT, Math.min(W - UNIT, x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, y + Math.sin(a) * d)) }); }
+  for (let i = 0; i < 60; i++) { const a = Math.random() * 6.28, sp = UNIT * (3 + Math.random() * 7); state.fx.push({ x, y: y - UNIT, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - UNIT * 1.5, t: 0, life: 0.6 + Math.random() * 0.8, color: 'spore', size: UNIT * (0.05 + Math.random() * 0.08) }); }   // sparks of spore light zipping away, fizzling out
+  state.inv.spores = (state.inv.spores || 0) + 8;                   // the spores cling to you (no pickups strewn about)
   state.floaters = makeFloaters(8);
   say('The mushroom bursts! Spores everywhere.', x, y - UNIT * 2, { key: 'burst', life: 3 });
 }

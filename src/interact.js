@@ -493,7 +493,7 @@ function npcLines(n) {
   }
   if (n.kind === 'pip') {
     if (!broken(state.scene, 'cocoon')) return { lines: ['Mmmph! The vines! Cut me loose!'] };
-    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'And one of them ran off with my journal. Every map I ever drew is in there.', 'Wait. Look at the spores drifting off that burst mushroom...', 'I remember now! The gremlins smash a whole handful of spores at once and POP, they\'re at another mushroom. That\'s how they got me down here so fast!', 'Scoop up all you can. Then let\'s go home. I\'ll put the kettle on.'], then: startRescue };
+    return { lines: ['You came for me!', 'Those gremlins dragged me all the way down here. I think they wanted me for dinner.', 'And one of them ran off with my journal. Every map I ever drew is in there.', 'Wait. Look at the spores drifting off that burst mushroom...', 'I remember now! The gremlins smash a whole handful of spores at once and POP, they\'re at another mushroom. That\'s how they got me down here so fast!', 'Look, they\'re clinging to you already. That\'s enough to get us home. I\'ll put the kettle on.'], then: startRescue };
   }
   return { lines: ['...'] };
 }
