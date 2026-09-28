@@ -26,5 +26,5 @@ global.setTimeout=(f)=>{f()}; global.setInterval=noop; global.requestAnimationFr
 if (!global.location) global.location = { search: '?seed=' + (process.env.WORLD_SEED || '1000003') };
 // The page source, ready for the test to eval. (Each test evals it in its own scope so its globals stay local.)
 // Faster: the world layer draws every 4th frame in tests (UI, text boxes, hints and HUD still every frame). FULL_DRAW=1 restores it.
-const fast = process.env.FULL_DRAW ? src : src.replace('let DRAW_SCENE_STRIDE = 1;', 'let DRAW_SCENE_STRIDE = 4;');
+const fast = (process.env.FULL_DRAW ? src : src.replace('let DRAW_SCENE_STRIDE = 1;', 'let DRAW_SCENE_STRIDE = 4;')).replace('const TEST_MODE = false;', 'const TEST_MODE = true;');
 module.exports = { src: fast };

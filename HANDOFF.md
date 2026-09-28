@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 120, 27 Sep 2026)
+# Quest: handoff notes (as of build 121, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 121: your name and colour; no eyes for Pip; one sound per press; recent recipes
+- New game: after "tap to begin", openCreator (draw-ui.js) shows a DOM overlay: a name box and a full colour picker
+  (a hue ring round a saturation/lightness square, drag or click; arrows fine-tune), a preview square, and Begin.
+  Stored as inv.heroName / inv.heroColor (saved with the game); heroColor() colours you everywhere; Pip says your name
+  in his third opening line; the Status tab heads with your name and colour. The game ignores keys while the creator is
+  open. TEST_MODE (flipped by the test harness and shot.js) skips it. Smoke-tested in jsdom (not in the suite).
+- Pip has no eye dots (drawPip).
+- sfx: every sound is wrapped so the same one asked twice within 70 ms plays once, and the menu clicks (tock, pickup)
+  don't stack. That was the doubled confirm.
+- The Craft tab's Make column lists only the RECENT_RECIPES (2) most recently made or heard-about recipes
+  (inv.recipeT via touchRecipe); older ones still work if you lay the things out yourself.
+- 56 of 56.
 
 ## Build 120: spores on the Map tab, mushrooms everywhere damp, Wick's cellar
 - Spore travel lives on the Map tab (tabShown: journal maps or any mushroom found). sporeCells() (menu.js) lists every

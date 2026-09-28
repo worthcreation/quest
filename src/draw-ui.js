@@ -789,8 +789,55 @@ function fullscreenTip() {
   setTimeout(() => tip.classList.add('hidden'), 6000);
 }
 const canFullscreen = () => !standalone() && !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen || /iPhone|iPad|iPod/.test(navigator.userAgent));
+const TEST_MODE = false;                                // (the test harness flips this: no creator screen in tests)
+const heroColor = () => (state.inv && state.inv.heroColor) || '#f5d06f';
+const heroName = () => (state.inv && state.inv.heroName) || 'friend';
+// Who are you? A name, and a colour from a full wheel (hue round the ring, saturation and lightness in the square).
+// Shown after "tap to begin" for a new adventure; then the opening.
+function openCreator(done) {
+  const ov = document.createElement('div'); ov.id = 'creator';
+  ov.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(14,18,12,.94);z-index:50;font-family:Georgia,serif;color:#fdf6e3';
+  ov.innerHTML = `<div style="font-size:30px;font-weight:bold;color:#ffe38a">Who are you?</div>
+    <input id="crName" maxlength="14" placeholder="your name" style="font:20px Georgia,serif;padding:8px 14px;border-radius:10px;border:2px solid #ffe38a;background:#1c2218;color:#fdf6e3;text-align:center;width:240px">
+    <div style="display:flex;gap:22px;align-items:center"><canvas id="crWheel" width="300" height="300" style="touch-action:none;cursor:crosshair"></canvas>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><canvas id="crPrev" width="120" height="120"></canvas><div id="crHex" style="font:14px 'Courier New',monospace;color:#d8d0c0"></div></div></div>
+    <div style="font:13px 'Courier New',monospace;color:#b8b0a0">ring: colour \u00b7 square: how rich and how light \u00b7 arrows fine-tune</div>
+    <button id="crGo" style="font:bold 20px Georgia,serif;padding:10px 34px;border-radius:12px;border:none;background:#ffe38a;color:#1a1420;cursor:pointer">Begin</button>`;
+  document.body.appendChild(ov);
+  const wheel = ov.querySelector('#crWheel'), g = wheel.getContext('2d'), prev = ov.querySelector('#crPrev').getContext('2d'), name = ov.querySelector('#crName');
+  const C = { h: 44, s: 0.86, l: 0.7 }, R0 = 118, R1 = 146, SQ = 150;
+  const hsl = () => `hsl(${Math.round(C.h)},${Math.round(C.s * 100)}%,${Math.round(C.l * 100)}%)`;
+  const toHex = () => { const c = document.createElement('canvas').getContext('2d'); c.fillStyle = hsl(); return c.fillStyle; };
+  function paint() {
+    g.clearRect(0, 0, 300, 300);
+    for (let a = 0; a < 360; a += 1) { g.strokeStyle = `hsl(${a},90%,55%)`; g.lineWidth = R1 - R0; g.beginPath(); g.arc(150, 150, (R0 + R1) / 2, (a - 91) * Math.PI / 180, (a - 89) * Math.PI / 180); g.stroke(); }
+    const x0 = 150 - SQ / 2, y0 = 150 - SQ / 2;                                   // the square: saturation left to right, lightness top to bottom
+    for (let i = 0; i < SQ; i += 3) for (let j = 0; j < SQ; j += 3) { g.fillStyle = `hsl(${C.h},${Math.round(i / SQ * 100)}%,${Math.round(95 - j / SQ * 85)}%)`; g.fillRect(x0 + i, y0 + j, 3, 3); }
+    const ha = (C.h - 90) * Math.PI / 180; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(150 + Math.cos(ha) * (R0 + R1) / 2, 150 + Math.sin(ha) * (R0 + R1) / 2, 9, 0, 6.28); g.stroke();
+    g.beginPath(); g.arc(x0 + C.s * SQ, y0 + (95 - C.l * 100) / 85 * SQ, 7, 0, 6.28); g.stroke(); g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
+    prev.clearRect(0, 0, 120, 120); prev.fillStyle = 'rgba(0,0,0,.3)'; prev.beginPath(); prev.ellipse(62, 100, 36, 10, 0, 0, 6.28); prev.fill(); prev.fillStyle = hsl(); prev.fillRect(30, 28, 64, 64);
+    ov.querySelector('#crHex').textContent = toHex();
+  }
+  function pick(e) {
+    const r = wheel.getBoundingClientRect(), x = (e.clientX - r.left) * 300 / r.width - 150, y = (e.clientY - r.top) * 300 / r.height - 150, d = Math.hypot(x, y);
+    if (d > R0 - 6 && d < R1 + 10) C.h = (Math.atan2(y, x) * 180 / Math.PI + 90 + 360) % 360;
+    else if (Math.abs(x) <= SQ / 2 && Math.abs(y) <= SQ / 2) { C.s = (x + SQ / 2) / SQ; C.l = (95 - (y + SQ / 2) / SQ * 85) / 100; }
+    paint();
+  }
+  let dragging = false;
+  wheel.addEventListener('pointerdown', e => { dragging = true; pick(e); }); window.addEventListener('pointermove', e => { if (dragging) pick(e); }); window.addEventListener('pointerup', () => { dragging = false; });
+  const key = e => { if (e.target === name && !['ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) return;
+    if (e.key === 'ArrowLeft') C.h = (C.h + 359) % 360; if (e.key === 'ArrowRight') C.h = (C.h + 1) % 360;
+    if (e.key === 'ArrowUp') C.l = Math.min(0.95, C.l + 0.01); if (e.key === 'ArrowDown') C.l = Math.max(0.1, C.l - 0.01);
+    if (e.key === 'Enter') finish(); paint(); e.stopPropagation(); };
+  window.addEventListener('keydown', key, true);
+  function finish() { window.removeEventListener('keydown', key, true); state.inv.heroName = (name.value || '').trim().slice(0, 14) || 'friend'; state.inv.heroColor = toHex(); INTRO_LINES[2] = `We're gonna need snacks. SO many snacks. Come on, ${state.inv.heroName}! I saw some great dirt down here!`; ov.remove(); done(); }
+  ov.querySelector('#crGo').addEventListener('click', finish);
+  paint(); setTimeout(() => name.focus(), 50);
+}
 function begin() {
   if (state.started) return;
+  if (!ARENA && !PUZZLE && !state.created && typeof document !== 'undefined' && document.body && !TEST_MODE) { state.created = true; startEl.style.display = 'none'; openCreator(() => { startEl.style.display = ''; begin(); }); return; }
   if (TOUCH) goFullscreen();                         // the first tap on a phone also takes the screen
   state.started = true;
   startEl.remove();
@@ -1277,7 +1324,8 @@ function drawStatusCards(px, y, pwide, fs) {
   ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   // you
   const mv = maxVig(); ctx.fillStyle = 'rgba(255,255,255,.06)'; ctx.fillRect(px, y, pwide, u * 2.4);
-  ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(u * 0.95)}px Georgia, serif`; ctx.fillText('Vigor', px + u, y + u * 1.55);
+  ctx.fillStyle = heroColor(); ctx.fillRect(px + u * 0.6, y + u * 0.7, u, u);   // you, in your colour
+  ctx.fillStyle = '#ffe38a'; ctx.font = `bold ${Math.round(u * 0.95)}px Georgia, serif`; ctx.fillText(heroName(), px + u * 2, y + u * 1.55);
   const bx = px + u * 6, bw = pwide * 0.45; ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(bx, y + u * 0.8, bw, u * 0.8); ctx.fillStyle = '#b8f28a'; ctx.fillRect(bx, y + u * 0.8, bw * Math.max(0, h.vig) / mv, u * 0.8);
   ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(u * 0.8)}px "Courier New", monospace`; ctx.fillText(`${Math.ceil(h.vig)} / ${mv}${inv.depth ? `   depth ${inv.depth}` : ''}`, bx + bw + u, y + u * 1.5);
   y += u * 3;

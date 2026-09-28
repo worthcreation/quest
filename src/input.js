@@ -5,6 +5,7 @@
 // Space menu. R starts over at the ending.
 // =====================================================================
 window.addEventListener('keydown', e => {
+  if (typeof document !== 'undefined' && document.getElementById && document.getElementById('creator')) return;   // typing your name: the game isn't listening
   const k = e.key.toLowerCase();
   if (k.startsWith('arrow') || k === ' ') e.preventDefault();
   if (!state.started) { begin(); return; }
@@ -362,6 +363,12 @@ const sfx = {
     tone(1568, notes.length * 0.11, 0.8, { type: 'triangle', vol: 0.16 });
   },
 };
+// one press, one sound: the same sound asked for twice within 70 ms plays once, and the little menu sounds
+// (tock, pickup) don't stack on each other in the same moment
+(() => { const last = {}, UI = new Set(['tock', 'pickup']);
+  for (const k of Object.keys(sfx)) { const f = sfx[k]; if (typeof f !== 'function') continue;
+    sfx[k] = function (...a) { const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()), key = UI.has(k) ? 'ui' : k;
+      if (now - (last[key] || -1e9) < 70) return; last[key] = now; return f.apply(this, a); }; } })();
 
 function setSound(on) {
   soundOn = on;

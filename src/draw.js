@@ -849,7 +849,6 @@ function drawMiniShrooms(sc) {
 function drawPip(x, y, o = {}) {
   ctx.save(); ctx.translate(x, y + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-x, -(y + UNIT * 0.5));
   drawPerson(x, y, '#7ab8e0', 0);
-  ctx.fillStyle = '#1a2a3a'; const side = o.side || 1; for (const dx of [-0.2, 0.1]) ctx.fillRect(x + dx * UNIT * side - (side < 0 ? 3 : 0), y - UNIT * 0.15, 3, 3);   // his eyes
   if (o.bound) drawVineWrap(x, y);
   ctx.restore();
 }
@@ -886,7 +885,7 @@ function drawHero() {
   if (MODEL_ON()) { drawHeroModelInWorld(h, state.cut && state.cut.type === 'sword'); return; }
   if (h.falling > 0) {
     const k = h.falling / 0.8, s = UNIT * k;
-    ctx.fillStyle = '#f5d06f'; ctx.fillRect(h.x - s / 2, h.y - s / 2 + (1 - k) * UNIT, s, s);
+    ctx.fillStyle = heroColor(); ctx.fillRect(h.x - s / 2, h.y - s / 2 + (1 - k) * UNIT, s, s);
     return;
   }
   const blink = !state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2;
@@ -910,7 +909,7 @@ function drawHeroBody(h, pw, ph, y, sh) {
     ctx.restore();
   }
   const r = h.vig / maxVig();
-  ctx.fillStyle = h.stun > 0 ? '#ffffff' : '#f5d06f';
+  ctx.fillStyle = h.stun > 0 ? '#ffffff' : heroColor();
   ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph);
   if (r < 0.35) { ctx.fillStyle = `rgba(60,50,80,${(0.35 - r) * 1.3})`; ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph); }
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
@@ -1250,7 +1249,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 120';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 121';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

@@ -61,6 +61,7 @@ function craftNow() {
   const r = matMatch(), inv = state.inv, raw = rawOf(), m = state.menu;
   if (!r) { state.mat = []; sfx.tock(); return; }
   for (const k of r.in) takeStock(k);
+  touchRecipe(r.out);
   const key = recipeKey(r), first = !(inv.known || {})[key];
   (inv.known = inv.known || {})[key] = true;
   state.mat = [];
@@ -75,7 +76,12 @@ function craftNow() {
 }
 // recipes you can lay out: ones you've made, heard about from Pip, or read in the journal
 function recipeBook() { const inv = state.inv, known = inv.known || {}, heard = inv.heard || {}; return RECIPES.filter(r => known[recipeKey(r)] || heard[r.out]); }
-function hearRecipe(out) { const inv = state.inv, h = inv.heard || (inv.heard = {}); if (h[out]) return false; h[out] = true; return true; }
+function hearRecipe(out) { const inv = state.inv, h = inv.heard || (inv.heard = {}); touchRecipe(out); if (h[out]) return false; h[out] = true; return true; }
+// the Make column shows only the recipes you've used or heard about most recently (RECENT_RECIPES); the rest are still
+// known, and still work if you put the things on the mat yourself
+const RECENT_RECIPES = 2;
+function touchRecipe(out) { (state.inv.recipeT = state.inv.recipeT || {})[out] = (state.playTime || 0) + (state.time || 0) * 1e-6; }
+function recentRecipes() { const T = state.inv.recipeT || {}; return recipeBook().sort((a, b) => (T[b.out] || 0) - (T[a.out] || 0)).slice(0, RECENT_RECIPES); }
 // lay a known recipe on the mat and jump straight to Combine
 function layOut(r) {
   const m = state.menu, missing = r.in.filter((k, i) => stockOf(k) < r.in.filter(x => x === k).length);
@@ -91,7 +97,7 @@ function layOut(r) {
 function craftCells() {
   const r = matMatch(), mat = state.mat || [], inv = state.inv, known = inv.known || {};
   const cells = [{ col: 0, icon: r ? r.out : 'mat', name: r ? `Combine: ${outName(r)}` : mat.length ? 'Clear the mat' : 'Combine', line: matHint(), mat: true }];
-  for (const x of recipeBook()) cells.push({ col: 0, icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : ' \u00b7 heard about it'}. ${K.act} lays it out.` });
+  for (const x of recentRecipes()) cells.push({ col: 0, icon: x.out, name: outName(x), recipe: x, line: `${x.in.map(ING_NAME).join(' + ')}${known[recipeKey(x)] ? '' : ' \u00b7 heard about it'}. ${K.act} lays it out.` });
   const ings = [...new Set(RECIPES.flatMap(x => x.in))];
   for (const k of ings) if (stockOf(k) > 0) cells.push({ col: 1, icon: k, name: ING_NAME(k), count: matAvailable(k), line: 'tap to put it on the mat', raw: k });
   for (const k of ['tinder', 'benchframe', 'firering', 'benchkit']) if ((rawOf()[k] || 0) > 0 && !ings.includes(k)) cells.push({ col: 1, icon: k, name: RAW[k], count: rawOf()[k], line: 'set it in place at camp (F at its mark)', raw: k, part: true });
