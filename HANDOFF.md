@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 145, 28 Sep 2026)
+# Quest: handoff notes (as of build 146, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,10 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 146: the shadow grows as you come down
+- In the air the shadow's size follows your height: about a fifth of full size at the top of the jump, growing
+  (quadratically) to full size as you land (c.peakH tracks the jump's top).
 
 ## Build 145: your shadow is the aim
 - The landing ring is gone. In the air your shadow runs ahead of you to where you'll come down (it leads at 55% the

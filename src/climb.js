@@ -76,7 +76,7 @@ function updateClimb(dt) {
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
   if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
-  if (c.air) c.airT = (c.airT || 0) + dt;
+  if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
@@ -105,6 +105,8 @@ function drawClimb() {
       const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
       const lead = Math.min(1, 0.55 + (c.airT || 0) * 1.2), [tx, ty] = climbProj(lx, overChasm(lx, lz) ? -3 : 1.5, lz), [cx0, cy0] = climbProj(c.x, overChasm(c.x, c.z) ? -3 : 1.5, c.z);
       sx0 = cx0 + (tx - cx0) * lead; sy0 = cy0 + (ty - cy0) * lead; sw = 0.8 * 0.55 * H * d.cam.f / (c.z + (lz - c.z) * lead);
+      const apex = c.vh * c.vh / 28 + c.h, hk = Math.max(0, Math.min(1, c.h / Math.max(0.3, c.vh > 0 ? apex : (c.peakH || apex))));
+      sw *= 0.2 + 0.8 * (1 - hk) * (1 - hk);                                            // tiny at the top of the jump, growing as you come down
       if (overChasm(lx, lz)) sw *= 0.6;                                                  // over the drop it falls far below: small and faint
     }
     ctx.fillStyle = `rgba(0,0,0,${c.air ? 0.38 : 0.25})`; ctx.beginPath(); ctx.ellipse(sx0, sy0, sw, sw * 0.28, 0, 0, 6.28); ctx.fill();
