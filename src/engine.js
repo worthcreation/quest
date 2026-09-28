@@ -334,7 +334,13 @@ function update(dt) {
   }
 
   if (!state.busy && !h.ride && h.falling <= 0) { checkEdges(); updateFeatures(dt); }
-  if (!state.busy) { updateEnemies(dt); updateHazards(dt); updateShots(dt); updatePlates(false); }
+  if (!state.busy) {                                    // each part guarded: one creature's bug can't stop you moving
+    for (const [name, f] of [['enemies', updateEnemies], ['hazards', updateHazards], ['shots', updateShots]]) {
+      try { f(dt); } catch (err) { if (!(update.bad || (update.bad = {}))[name]) { update.bad[name] = true; console.error('update ' + name + ' failed (game continues):', err); }
+        if (name === 'enemies') state.enemies = state.enemies.filter(e => e && isFinite(e.x) && isFinite(e.y)).map(e => { if (!e.mode) e.mode = 'idle'; return e; }); }
+    }
+    updatePlates(false);
+  }
 
   // things on the ground wait for F (see pickUpHere), unless your gathering skill brings them to you: within their
   // auto range they drift over and are taken. Only what drifts or heals by nature is taken just by touching it.

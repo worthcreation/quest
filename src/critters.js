@@ -28,6 +28,7 @@ function hittable(e) {
 }
 function resumeMode(e) {
   const m = { thief: ['flee', 0.6], stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], gremlin: ['flee', 0.6], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
+  if (!m) { e.mode = { mantis: 'stalk', hawk: 'climb' }[e.type] || 'idle'; e.t = 1; return; }   // any creature without an entry picks itself back up (this was the High Reaches freeze)
   e.mode = m[0]; e.t = m[1];
 }
 function spark(x, y, color, n, speed) {

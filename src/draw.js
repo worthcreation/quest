@@ -461,6 +461,7 @@ function drawCrags(sc) {
     const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H;
     const g = ctx.createLinearGradient(0, Y0, 0, Y1); g.addColorStop(0, '#1c1a1e'); g.addColorStop(0.5, '#0c0b0e'); g.addColorStop(1, '#2a2629');
     ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
+    drawRavineStones(X0, Y0, X1, Y1, x0 * 29 + y0 * 13);
     ctx.fillStyle = '#6b665f';                          // jagged lips
     for (let x = X0; x < X1; x += UNIT * 0.5) { ctx.beginPath(); ctx.moveTo(x, Y0); ctx.lineTo(x + UNIT * 0.25, Y0 + UNIT * 0.18 * (1 + Math.sin(x))); ctx.lineTo(x + UNIT * 0.5, Y0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, Y1); ctx.lineTo(x + UNIT * 0.25, Y1 - UNIT * 0.15 * (1 + Math.cos(x))); ctx.lineTo(x + UNIT * 0.5, Y1); ctx.fill(); }
   }
@@ -922,14 +923,14 @@ function drawHeroBody(h, pw, ph, y, sh) {
 // a big rough stone: an irregular outline of flat facets (seeded so it holds still), a lit face and a shadowed face
 // a colour a little lighter (+) or darker (-)
 function shade(hex, d) { const n = parseInt(hex.slice(1), 16), c = v => Math.max(0, Math.min(255, v + d)); return `rgb(${c(n >> 16)},${c((n >> 8) & 255)},${c(n & 255)})`; }
-function drawJagged(x, y, r, seed, [mid, lit, dark], tint) {
+function drawJagged(x, y, r, seed, [mid, lit, dark], tint, g = ctx) {
   let s = Math.abs(Math.floor(seed * 1000)) % 233280; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const n = 9, pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.28 + (rnd() - 0.5) * 0.35, rr = r * (0.78 + rnd() * 0.32); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.82]); }
-  ctx.fillStyle = mid; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.fill();
-  if (tint) { ctx.globalAlpha = 0.42; ctx.fillStyle = tint; ctx.fill(); ctx.globalAlpha = 1; }   // a stone kind's colour, on the stone's own shape
-  ctx.fillStyle = lit; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 5; i <= 8; i++) ctx.lineTo(pts[i % n][0], pts[i % n][1]); ctx.lineTo(pts[0][0], pts[0][1]); ctx.closePath(); ctx.fill();   // the top-left faces catch the light
-  ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x, y); for (let i = 1; i <= 3; i++) ctx.lineTo(pts[i][0], pts[i][1]); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,34,28,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); pts.forEach(([px, py], i) => i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)); ctx.closePath(); ctx.stroke();
+  g.fillStyle = mid; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.closePath(); g.fill();
+  if (tint) { g.globalAlpha = 0.42; g.fillStyle = tint; g.fill(); g.globalAlpha = 1; }   // a stone kind's colour, on the stone's own shape
+  g.fillStyle = lit; g.beginPath(); g.moveTo(x, y); for (let i = 5; i <= 8; i++) g.lineTo(pts[i % n][0], pts[i % n][1]); g.lineTo(pts[0][0], pts[0][1]); g.closePath(); g.fill();   // the top-left faces catch the light
+  g.fillStyle = dark; g.beginPath(); g.moveTo(x, y); for (let i = 1; i <= 3; i++) g.lineTo(pts[i][0], pts[i][1]); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(40,34,28,.5)'; g.lineWidth = 1.5; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.closePath(); g.stroke();
 }
 function drawSteelBlade(len, w, edge) {
   ctx.fillStyle = ['#a4a8ab', '#b2b6b9', '#c2c6c9', '#d4d8db'][Math.min(3, edge)]; ctx.fillRect(0, -w / 2, len, w);
@@ -1250,7 +1251,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 127';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 128';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -1393,6 +1394,35 @@ function drawWindPath(sc) {
   ctx.beginPath(); ctx.ellipse(tgt[0], tgt[1], UNIT * (0.7 + 0.1 * Math.sin(state.time * 6)), UNIT * 0.35, 0, 0, 6.28); ctx.stroke();
 }
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
+// a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the
+// lips, smaller and darker toward the middle, where it's deepest and furthest from you
+const RAVINE_CACHE = {};
+function drawRavineStones(X0, Y0, X1, Y1, seed) {           // drawn once into a picture per ravine (they don't move), then just stamped
+  const key = [X0, Y0, X1, Y1, UNIT].map(v => Math.round(v)).join(',');
+  let img = RAVINE_CACHE[key];
+  if (img === undefined) {
+    img = null;
+    try { const cv = document.createElement('canvas'); cv.width = Math.ceil(X1 - X0); cv.height = Math.ceil(Y1 - Y0); const g = cv.getContext && cv.getContext('2d'); if (g && g.fillRect && g.beginPath) { paintRavineStones(g, 0, 0, X1 - X0, Y1 - Y0, seed); img = cv; } } catch (e) { img = null; }
+    RAVINE_CACHE[key] = img;
+  }
+  if (img) ctx.drawImage(img, X0, Y0); else paintRavineStones(ctx, X0, Y0, X1, Y1, seed);
+}
+function paintRavineStones(g, X0, Y0, X1, Y1, seed) {
+  const w = X1 - X0, hgt = Y1 - Y0, u = UNIT;
+  let s = Math.abs(Math.floor(seed * 1000)) % 233280 + 1; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  g.fillStyle = '#0e0c0e'; g.fillRect(X0, Y0, w, hgt);
+  const layers = 6, toHex = a => '#' + a.map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('');
+  for (let L = layers - 1; L >= 0; L--) {                            // deepest first, so the nearer stones sit on top
+    const d = L / (layers - 1), inset = Math.min(w, hgt) * 0.5 * d * 0.92, wide = w > hgt;
+    const x0 = X0 + inset * (wide ? 0.15 : 1), x1 = X1 - inset * (wide ? 0.15 : 1), y0 = Y0 + inset * (wide ? 1 : 0.15), y1 = Y1 - inset * (wide ? 1 : 0.15);
+    if (x1 <= x0 || y1 <= y0) continue;
+    const shade = Math.round(128 - d * 104), base = [shade, shade - 6, shade - 14].map(v => Math.max(8, v));
+    const cols = [toHex(base), toHex(base.map(v => v + 14)), toHex(base.map(v => v - 18))], r0 = u * (0.75 - d * 0.42);
+    const n = Math.min(140, Math.ceil(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.2)) + 2);
+    for (let i = 0; i < n; i++) { const cx = x0 + rnd() * (x1 - x0), cy = y0 + rnd() * (y1 - y0); drawJagged(cx, cy, r0 * (0.7 + rnd() * 0.6), cx * 0.37 + cy * 0.11, cols, null, g); }
+    g.fillStyle = `rgba(6,5,8,${0.12 + d * 0.1})`; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // the dark gathering below
+  }
+}
 function drawRavines(sc) {
   if (sc.vista) { drawHighVista(sc); return; }          // up in the High Reaches the drops look down on the valley
   const t = state.time, u = UNIT;
@@ -1401,18 +1431,8 @@ function drawRavines(sc) {
     const g = ctx.createLinearGradient(0, Y0, 0, Y1);
     g.addColorStop(0, '#3a2c1e'); g.addColorStop(0.35, '#1a140f'); g.addColorStop(0.75, '#0a0808'); g.addColorStop(1, '#231b12');
     ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, hgt);
-    const face = Math.min(hgt * 0.38, u * 1.1);           // the far wall's face, layered rock
-    for (let k = 0; k < 4; k++) { ctx.fillStyle = k % 2 ? 'rgba(120,90,60,.35)' : 'rgba(90,66,44,.35)'; ctx.fillRect(X0, Y0 + face * k / 4, X1 - X0, face / 4); }
-    ctx.strokeStyle = 'rgba(30,22,14,.45)'; ctx.lineWidth = 1;
-    for (let x = X0; x < X1; x += u * 1.3) { ctx.beginPath(); ctx.moveTo(x, Y0 + face * 0.2); ctx.lineTo(x + u * 0.2, Y0 + face * 0.7); ctx.stroke(); }
-    ctx.strokeStyle = 'rgba(120,180,200,.55)'; ctx.lineWidth = Math.max(1.5, u * 0.07);   // a stream glinting far below
-    ctx.beginPath(); for (let x = X0; x <= X1; x += u * 0.4) { const yy = Y0 + hgt * 0.78 + Math.sin(x * 0.02 + 1) * u * 0.12; x === X0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); } ctx.stroke();
-    ctx.fillStyle = 'rgba(220,240,250,.7)';
-    for (let i = 0; i < 6; i++) { const x = X0 + ((i * 0.37 + t * 0.05) % 1) * (X1 - X0); ctx.fillRect(x, Y0 + hgt * 0.78 + Math.sin(x * 0.02 + 1) * u * 0.12 - 1, 3, 2); }
-    for (let i = 0; i < 4; i++) {                          // mist drifting through
-      const x = X0 + (((i * 0.29 + t * 0.02 * (i % 2 ? 1 : -1)) % 1 + 1) % 1) * (X1 - X0), yy = Y0 + hgt * (0.45 + 0.1 * Math.sin(t * 0.5 + i));
-      ctx.fillStyle = 'rgba(200,210,215,.10)'; ctx.beginPath(); ctx.ellipse(x, yy, u * 2.2, hgt * 0.14, 0, 0, 6.28); ctx.fill();
-    }
+    drawRavineStones(X0, Y0, X1, Y1, x0 * 31 + y0 * 17);   // the hole is full of rough stones, darker the deeper they lie
+    const face = Math.min(hgt * 0.38, u * 1.1);
     ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = 1.5;         // roots dangling from the near lip
     for (let x = X0 + u * 0.7; x < X1; x += u * 2.3) { if (isChasm(x, Y0 - 4)) continue; ctx.beginPath(); ctx.moveTo(x, Y0 + 2); ctx.quadraticCurveTo(x + u * 0.2 + Math.sin(t + x) * 2, Y0 + face * 0.6, x - u * 0.05, Y0 + face * 1.1); ctx.stroke(); }
     const lip = (yy, dir) => {                              // crumbling earth and overhanging grass along each edge

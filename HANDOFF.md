@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 127, 27 Sep 2026)
+# Quest: handoff notes (as of build 128, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,20 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 128: the High Reaches freeze found and fixed; stone-filled ravines; the valley up close
+- The freeze: hit a mantis (or anything new) and it's stunned; when the stun ends, resumeMode looked up a table that
+  had no entry for mantis or hawk and threw, every frame. The loop kept running but the update died before moving you,
+  so the screen froze. resumeMode now gives any creature without an entry a sensible mode. Also, enemies, hazards and
+  shots now update inside their own guards, so one creature's bug can't stop you moving again.
+- New test scene-smoke: every scene (46), creatures woken from a stun, three seconds of walking, swinging, throwing and
+  pounding; fails on any error. It would have caught the freeze.
+- Ravines (fields and the High Crags) are filled with clusters of the woods' rough stones (drawRavineStones /
+  paintRavineStones, drawn once per ravine into a cached picture): big and lit near the lips, smaller and darker toward
+  the middle. drawJagged takes an optional context.
+- The view down from the Windy Ledge is much closer: fields, a river about a tile and a half across with sandy banks
+  and moving glints, treetops either side, light haze, big clouds drifting through, bigger rising birds.
+- 59 of 59.
 
 ## Build 127: stones in a boulder; gremlins who tease
 - Riverbank: three smooth stones lie along the bank; the rest are inside a 2-tile boulder by the water (crag

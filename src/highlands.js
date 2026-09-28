@@ -192,17 +192,26 @@ function vistaRect(sc) {
   if (sc.vista === 'both') return null;
   return null;
 }
-function drawValleyBelow(x0, y0, w, h, depth) {                   // forest and river, small and hazy, drifting slower than the ledge
-  const cx = state.cam ? state.cam.x || W / 2 : W / 2, par = (cx - W / 2) * 0.15;
+function drawValleyBelow(x0, y0, w, h, depth) {                   // the land below, close enough to read: treetops, a broad river, fields; it drifts slower than the ledge
+  const cx = state.cam ? state.cam.x || W / 2 : W / 2, par = (cx - W / 2) * 0.15, u = UNIT, t = state.time;
   ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
-  const g = ctx.createLinearGradient(0, y0, 0, y0 + h); g.addColorStop(0, '#b8d4ec'); g.addColorStop(1, '#8fb0c8'); ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);   // air
-  ctx.fillStyle = '#5a7a4a'; ctx.fillRect(x0, y0 + h * 0.35, w, h * 0.65);                                                  // the land far down
-  for (let i = 0; i < 70; i++) { const fx = ((i * 0.618) % 1), fy = 0.4 + ((i * 0.377) % 1) * 0.6; ctx.fillStyle = i % 3 ? '#3f6a3a' : '#4a7a40'; ctx.beginPath(); ctx.arc(x0 + fx * w + par, y0 + fy * h, Math.max(1.5, UNIT * 0.08 * depth), 0, 6.28); ctx.fill(); }   // forest, dot by dot
-  ctx.strokeStyle = '#7ab0d8'; ctx.lineWidth = Math.max(2, UNIT * 0.07 * depth); ctx.beginPath();                          // the river winding through
-  for (let i = 0; i <= 20; i++) { const k = i / 20, xx = x0 + w * (0.2 + 0.6 * k) + Math.sin(k * 7) * w * 0.12 + par, yy = y0 + h * (0.4 + 0.6 * k); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
-  ctx.fillStyle = 'rgba(220,235,250,.45)'; ctx.fillRect(x0, y0, w, h);                                                      // haze of distance
-  for (let i = 0; i < 5; i++) { const cxx = x0 + ((i * 0.31 + state.time * 0.004) % 1) * w * 1.3 - w * 0.15 + par * 2, cyy = y0 + h * (0.2 + i * 0.16);   // clouds drifting below you
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(cxx + j * UNIT * 0.7, cyy + Math.sin(j) * UNIT * 0.2, UNIT * (0.9 + j * 0.2), UNIT * 0.4, 0, 0, 6.28); ctx.fill(); } }
+  ctx.fillStyle = '#5f8a4a'; ctx.fillRect(x0, y0, w, h);                                                        // meadow far below
+  let s = 7331; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? 'rgba(170,160,90,.35)' : 'rgba(120,150,70,.35)'; ctx.fillRect(x0 + rnd() * w + par, y0 + rnd() * h, u * (2 + rnd() * 3), u * (1.2 + rnd() * 2)); }   // fields
+  const rx = k => x0 + w * (0.35 + 0.25 * Math.sin(k * 3.2 + 0.6)) + par, ry = k => y0 + h * k;              // the river winding down through it, about a tile and a half across
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#c8b886'; ctx.lineWidth = u * 1.9; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const k = i / 30 * 1.1 - 0.05; i ? ctx.lineTo(rx(k), ry(k)) : ctx.moveTo(rx(k), ry(k)); } ctx.stroke();   // sandy banks
+  ctx.strokeStyle = '#5a9ac4'; ctx.lineWidth = u * 1.5; ctx.stroke();
+  ctx.strokeStyle = 'rgba(220,240,255,.35)'; ctx.lineWidth = 2; ctx.setLineDash([u * 0.5, u * 0.9]); ctx.lineDashOffset = -t * u * 0.6; ctx.stroke(); ctx.setLineDash([]);   // glints on the water, moving
+  for (let i = 0; i < 90; i++) {                                                                                   // treetops: clumps of forest either side of the river
+    const k = rnd(), side = rnd() < 0.5 ? -1 : 1, off = u * (1.3 + rnd() * 5), x = rx(k) + side * off, y = ry(k) + (rnd() - 0.5) * u;
+    if (x < x0 - u || x > x0 + w + u) continue;
+    const r = u * (0.35 + rnd() * 0.3); ctx.fillStyle = 'rgba(20,40,20,.35)'; ctx.beginPath(); ctx.arc(x + r * 0.3, y + r * 0.3, r, 0, 6.28); ctx.fill();
+    ctx.fillStyle = rnd() < 0.3 ? '#3c6a34' : '#2f5a2c'; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(140,190,110,.35)'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.45, 0, 6.28); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(200,220,240,.22)'; ctx.fillRect(x0, y0, w, h);                                            // a little haze: it's a long way down
+  for (let i = 0; i < 3; i++) { const cxx = x0 + ((i * 0.41 + t * 0.006) % 1.3) * w - w * 0.15 + par * 2, cyy = y0 + h * (0.2 + i * 0.3);   // clouds drifting between you and it
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; for (let j = 0; j < 4; j++) { ctx.beginPath(); ctx.ellipse(cxx + j * u * 1.3, cyy + Math.sin(j) * u * 0.3, u * (1.6 + j * 0.3), u * 0.7, 0, 0, 6.28); ctx.fill(); } }
   drawRisingBirds(x0, y0, w, h);
   ctx.restore();
 }
@@ -211,7 +220,7 @@ function drawRisingBirds(x0, y0, w, h) {                           // tiny dots 
   if (B.length < 6 && Math.random() < 0.02) B.push({ fx: Math.random(), k: 0, sp: 0.03 + Math.random() * 0.03, ph: Math.random() * 6 });
   for (let i = B.length - 1; i >= 0; i--) {
     const b = B[i]; b.k += b.sp / 60; if (b.k > 1) { B.splice(i, 1); continue; }
-    const x = x0 + b.fx * w + Math.sin(state.time * 0.8 + b.ph) * UNIT * 0.4, y = y0 + h * (0.95 - b.k * 0.9), s = 1 + b.k * b.k * UNIT * 0.35, flap = Math.sin(state.time * 8 + b.ph);
+    const x = x0 + b.fx * w + Math.sin(state.time * 0.8 + b.ph) * UNIT * 0.4, y = y0 + h * (0.95 - b.k * 0.9), s = 2 + b.k * b.k * UNIT * 0.6, flap = Math.sin(state.time * 8 + b.ph);
     ctx.strokeStyle = `rgba(40,40,50,${0.4 + b.k * 0.5})`; ctx.lineWidth = Math.max(1, s * 0.25); ctx.beginPath(); ctx.moveTo(x - s, y - flap * s * 0.4); ctx.lineTo(x, y); ctx.lineTo(x + s, y - flap * s * 0.4); ctx.stroke();
   }
 }

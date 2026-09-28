@@ -63,6 +63,12 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B128) {                            // build 128: a field ravine full of stones, a crags ravine, the Windy Ledge's close valley
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.tortoise=true; state.pip=null;
+  for (const id of ['f3','peak2','hr1']) { enterScene(id); state.cut=null; state.enemies=[]; state.pip=null; state.hero.x=W*0.3; state.hero.y=H*0.2; run(8); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b128-'+id+'.png', canvas.toBuffer('image/png')); }
+  console.log('b128 written', WORLD.f3.chasms.length, WORLD.peak2.chasms.length);
+}
 if (process.env.B127) {                            // build 127: the riverbank boulder, the peeking gremlin, the taunter mid-leap
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; enterScene('riverbank'); state.cut=null; state.enemies=[]; state.pip=null; const c=WORLD.riverbank.feat.stoneCrag; state.hero.x=c[0]*W-UNIT*2.5; state.hero.y=c[1]*H; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b127-river.png', canvas.toBuffer('image/png'));
