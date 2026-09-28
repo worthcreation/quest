@@ -2843,6 +2843,10 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
     let kx = ax / al + 0.6 * bx / bl, ky = ay / al + 0.6 * by / bl; const kl = Math.hypot(kx, ky) || 1;
     h.vx = kx / kl * 0.9 * L(); h.vy = ky / kl * 0.9 * L(); h.stun = 0.5;
   }
+  if (h.vig <= 0 && state.climb) {                     // on a climb screen: out of vigor, the screen starts over (full vigor)
+    h.vig = maxVig(); sfx.death(); state.climb = newClimb(state.scene); state.fade = 0.6; state.fadeTarget = 0; state.fadeRate = 2;
+    showScroll('Worn out', 'Back to the start of this climb.'); return true;
+  }
   if (h.vig <= 0) {
     h.vig = 0;
     state.cut = { type: 'faint', t: 0 };
@@ -8520,7 +8524,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 152';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 153';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

@@ -714,6 +714,10 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
     let kx = ax / al + 0.6 * bx / bl, ky = ay / al + 0.6 * by / bl; const kl = Math.hypot(kx, ky) || 1;
     h.vx = kx / kl * 0.9 * L(); h.vy = ky / kl * 0.9 * L(); h.stun = 0.5;
   }
+  if (h.vig <= 0 && state.climb) {                     // on a climb screen: out of vigor, the screen starts over (full vigor)
+    h.vig = maxVig(); sfx.death(); state.climb = newClimb(state.scene); state.fade = 0.6; state.fadeTarget = 0; state.fadeRate = 2;
+    showScroll('Worn out', 'Back to the start of this climb.'); return true;
+  }
   if (h.vig <= 0) {
     h.vig = 0;
     state.cut = { type: 'faint', t: 0 };

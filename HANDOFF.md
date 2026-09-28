@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 152, 28 Sep 2026)
+# Quest: handoff notes (as of build 153, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,11 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 153: worn out on a climb, start the screen over
+- The faint cutscene never ran on climb screens (the climb takes over the update), so running out of vigor left a black
+  screen. hurtHero now checks for a climb first: vigor back to full, the screen starts over (newClimb), a quick fade
+  and a scroll ("Worn out. Back to the start of this climb."). Works for the side view too.
 
 ## Build 152: climb3 is a broken meadow
 - climb3 ('The broken meadow') replaces the switchbacks: open ground seen from higher up (camH 7.5), with four rifts
