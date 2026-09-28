@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 121, 27 Sep 2026)
+# Quest: handoff notes (as of build 122, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,15 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 122: the pound lesson comes first
+- In Pip's garden the robin starts hidden in its hollow tree and stays there (robinHiding in critters.js: meadow,
+  garden story, not yet flushed, no seeds yet). Pip's first line tells you: jump, then F in the air, pound the ground by
+  the trunk. COACH.pound pins it ("Jump (Space), then F in the air: pound the ground by the hollow tree", then "Out it
+  comes! Grab the seeds it dropped"). The pound (flushBird) sets inv.robinFlushed and the robin bursts out dropping the
+  first seeds (guaranteed as before). Only then does running at it work; reminders switch from pound tips to chase
+  tips once it's out.
+- Tests: garden and garden-robin pound by the trunk first. 56 of 56.
 
 ## Build 121: your name and colour; no eyes for Pip; one sound per press; recent recipes
 - New game: after "tap to begin", openCreator (draw-ui.js) shows a DOM overlay: a name box and a full colour picker

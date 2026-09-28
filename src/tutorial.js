@@ -29,9 +29,11 @@ const TUT = {
 const TUTORIAL = [
   { id: 'seeds', begins: () => state.inv.story >= STORY.garden, done: () => TUT.seeds() > 0 || TUT.planted() > 0 || state.inv.story > STORY.garden,
     scene: 'meadow', spot: () => gardenSpot(),
-    say: () => 'See? Great dirt! It\'ll be a garden in no time. First we need seeds. The robin drops them when you startle it. Run right at it!',
-    remind: () => ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'No seeds yet? That robin has plenty.', 'If it hides in its tree, jump and stomp by the trunk!', 'Go on, give the robin a scare!'],
-    remindAt: n => [TUT.robin(), [(TUT.robin()[0] + state.hero.x) / 2, (TUT.robin()[1] + state.hero.y) / 2], [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.2]][n % 3] },
+    say: () => `See? Great dirt! It'll be a garden in no time. First we need seeds. There's a robin hiding in that hollow tree, and robins drop seeds when they're startled. Jump, then ${TUT.F()} in the air: POUND the ground right by the trunk!`,
+    after: () => startCoach('pound'),
+    remind: () => state.inv.robinFlushed ? ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'Go on, give the robin a scare!']
+                                         : [`Jump, then ${TUT.F()} while you're in the air. Right by the trunk!`, 'It\'s still in the hollow tree. Pound the ground next to it!', `Space to jump, ${TUT.F()} to come down hard. By the tree!`],
+    remindAt: n => state.inv.robinFlushed ? [TUT.robin(), [(TUT.robin()[0] + state.hero.x) / 2, (TUT.robin()[1] + state.hero.y) / 2]][n % 2] : [hollowPoint()[0] + UNIT * 1.2, hollowPoint()[1] + UNIT * 1.2] },
   { id: 'plant', done: () => TUT.planted() >= 2 || state.inv.story > STORY.garden, scene: 'meadow', spot: () => TUT.emptyPlot() || gardenSpot(),
     say: () => TUT.planted() === 1 && !TUT.seeds() ? 'One more! The robin always comes back.' : 'Stand over here and shove them in the dirt! They love this stuff.',
     key: () => (TUT.planted() === 1 && !TUT.seeds()) ? 'again' : 'first',
@@ -174,6 +176,10 @@ const COACH = {
     { text: 'Craft tab, then tinder under Recipes', done: () => onMat('stick', 2) || rawOf().tinder > 0 || campBuilt('fire') },
     { text: `Press ${TUT.F()} on Combine`, done: () => rawOf().tinder > 0 || campBuilt('fire') },
     { text: `Close the pack, then ${TUT.F()} at the ring`, done: () => campBuilt('fire') },
+  ],
+  pound: () => [
+    { text: `Jump (${keyName(K.jump)}), then ${TUT.F()} in the air: pound the ground by the hollow tree`, done: () => !!state.inv.robinFlushed || (state.inv.bag.turnipseed || 0) > 0 },
+    { text: 'Out it comes! Grab the seeds it dropped', done: () => (state.inv.bag.turnipseed || 0) > 0 || ((rtFor('meadow').flags.plots) || []).some(q => q.s) },
   ],
   combat: () => [
     { text: `Eyes flash red? Get out of the way! Then swing (${TUT.F()}) while it's close.`, done: () => (state.inv.rabbitKills || 0) >= 1 || !TUT.fluffNeed() },

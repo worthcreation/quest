@@ -456,6 +456,7 @@ function flushBird(x, y) {
   const b = state.bird, [hx, hy] = hollowPoint();
   if (!b || b.mode !== 'home' || Math.hypot(hx - x, hy + UNIT * 0.9 - y) > UNIT * 3.5) return;
   b.x = hx; b.y = hy; b.mode = 'perch';               // out of the hole it comes...
+  if (robinHiding()) { state.inv.robinFlushed = true; sfx.fanfare && sfx.chirp(panOf(hx)); }   // the pound lesson: done
   spark(hx, hy, 'rgba(160,120,80,.9)', 8, 2);
   scareBird(hx, hy, 1);                               // ...in a flap of feathers, maybe dropping a seed
 }
@@ -474,9 +475,14 @@ function scareBird(x, y, range) {
     const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
   }
 }
+// Pip's garden lesson starts with the robin tucked away in its hollow tree. It won't come out on its own: you learn
+// to pound (jump, then F in the air) right by the trunk, and out it bursts, dropping the first seeds.
+const robinHiding = () => state.scene === 'meadow' && state.inv.story === STORY.garden && !state.inv.robinFlushed && !((state.inv.bag.turnipseed || 0) > 0);
 function updateBird(dt) {
   const b = state.bird, h = state.hero;
   b.t -= dt;
+  if (robinHiding() && b.mode !== 'home') { [b.x, b.y] = hollowPoint(); b.mode = 'home'; b.z = 0; b.t = 99; }
+  if (robinHiding()) { b.t = 99; return; }            // stays in its hole until you pound by the trunk
   if (b.mode === 'home') {                        // hidden in the hollow; pops out when it's quiet
     if (b.t <= 0 && Math.hypot(h.x - b.x, h.y - b.y) > UNIT * 5) {
       b.p = Math.floor(Math.random() * 3);

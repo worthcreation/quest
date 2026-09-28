@@ -15,7 +15,12 @@ const walkTo=(x,y,n=300)=>{ for(let k=0;k<n;k++){ const dx=x-h.x, dy=y-h.y; if(M
 let tries=0, drops=0; const _sb=scareBird; scareBird=function(x,y,r){ const b=state.bird; const was=b&&b.mode; const n0=state.items.filter(i=>i.type==='turnipseed').length; const c0=state.inv.bag.turnipseed||0; _sb(x,y,r); if (was==='perch' && state.bird.mode==='fly') console.log('  startled the robin: seed', state.items.filter(i=>i.type==='turnipseed').length>n0 || (state.inv.bag.turnipseed||0)>c0, '| story', state.inv.story, '| pip shown', !!(state.pip&&state.pip.show)); };
 const tryRobin=()=>{ for(let k=0;k<60*15 && !(state.bird && state.bird.mode==='perch');k++){ h.x=W*0.95; h.y=H*0.9; run(1); } if(!(state.bird&&state.bird.mode==='perch')) return; tries++; const b=state.bird; const s0=state.items.filter(i=>i.type==='turnipseed').length; clearHeld(); h.x=b.x; h.y=b.y+UNIT*3; run(2); walkTo(b.x, b.y+UNIT*1.2); run(30); const s1=state.items.filter(i=>i.type==='turnipseed').length; if (s1>s0) { drops++; const sd=state.items.filter(i=>i.type==='turnipseed').pop(); h.x=sd.x+UNIT*0.9; h.y=sd.y; run(2); walkTo(sd.x, sd.y); run(5); for(let i=0;i<8 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f'); press('f'); run(3); } };
 const plantOne=()=>{ const rt=rtFor('meadow'), plots=WORLD.meadow.feat.plots; const j=plots.findIndex((q,ix)=>!((rt.flags.plots||[])[ix]||{}).s); const q=plots[j]; h.x=q[0]*W; h.y=q[1]*H; run(3); clearHeld(); press('f'); if(state.choice) press('f'); run(30); };
-tryRobin(); console.log('first try: seed dropped', drops===1, '| seeds in pack', state.inv.bag.turnipseed);
+// build 122: the robin starts hidden in its hollow tree; pounding by the trunk brings it out with the first seeds
+const hollowWaits=(()=>{ run(60*4); return state.bird && state.bird.mode==='home'; })();
+{ const [hx,hy]=hollowPoint(); h.x=hx+UNIT*1.0; h.y=hy+UNIT*1.2; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40); }
+console.log('robin hiding until you pound:', hollowWaits, '| pounded by the trunk: out it came', !!state.inv.robinFlushed, '| seeds on the ground', state.items.filter(i=>i.type==='turnipseed').length);
+{ const sd=state.items.find(i=>i.type==='turnipseed'); if (sd) { h.x=sd.x+UNIT*0.9; h.y=sd.y; run(2); walkTo(sd.x, sd.y); run(5); clearHeld(); press('f'); run(3); } }
+console.log('first seeds picked up:', state.inv.bag.turnipseed);
 plantOne(); run(60*3);
 while ((state.inv.bag.turnipseed||0)===0 && tries<25) { tryRobin(); run(60*3); }
 console.log('second seed after', tries-1, 'more tries');
