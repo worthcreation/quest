@@ -12,7 +12,7 @@ function interactLantern(sc, h) {
   const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
   collect({ type: 'lantern', x, y }); return true;
 }
-const INTERACTIONS = [interactTalk, interactLantern, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+const INTERACTIONS = [interactTalk, interactLantern, interactTrapdoor, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -73,9 +73,7 @@ function interactMushroom(sc, h, rt, nearPull) {
     }
     if (d < UNIT * 1.9 && pressedNow.act && !state.inv.pipSaved) { say('It hums softly. You have no idea what to do with it.', mx * W, my * H - UNIT * 1.8, { key: 'shroom', life: 2.5 }); return true; }
     if (d < UNIT * 1.9 && pressedNow.act) {
-      const dest = travelOptions(sc.id);
-      if (!dest.length) say('No other mushrooms found yet. Each region hides one.', mx * W, my * H - UNIT * 1.4, { key: 'shroom', life: 2.5 });
-      else ask(`Travel where? (${state.inv.spores} spores)`, mx * W, my * H - UNIT * 1.2, dest.map(o => `${SHROOM_NAMES[o.id]}: ${o.cost}`).concat('Stay'), i2 => { if (i2 < dest.length) sporeJump(dest[i2].id, dest[i2].cost); });
+      openMapTab();                                   // spore travel lives on the Map tab now
       return true;
     }
   }
@@ -88,6 +86,11 @@ function interactPeople(sc, h, rt, nearPull) {
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
   }
 }
+function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick's floor, down to his cellar
+  const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
+  sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
+}
+function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -245,6 +248,7 @@ function findInteractable() {
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
+  if (f.trapdoor) add(f.trapdoor[0] * W, f.trapdoor[1] * H, 'Go down', 1.2);
   if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }
   if (f.book) add(f.book[0] * W, f.book[1] * H, 'Read', 1.6);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);

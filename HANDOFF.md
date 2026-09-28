@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 119, 27 Sep 2026)
+# Quest: handoff notes (as of build 120, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 120: spores on the Map tab, mushrooms everywhere damp, Wick's cellar
+- Spore travel lives on the Map tab (tabShown: journal maps or any mushroom found). sporeCells() (menu.js) lists every
+  traveler's mushroom you've found with the cost from here; F on one, Travel. The map draws above the row. F at a
+  found mushroom opens the Map tab (openMapTab). Travel works from anywhere; the spore cost is from where you stand.
+- Each traveler's mushroom is its own (SHROOM_LOOKS, drawTravelShroom in draw.js): height, stem, cap (dome, cone,
+  flat, bell, frilled), shade of purple, and markings (spots, rings, stripes, glowing dots).
+- Little mushrooms (feat.minis, drawMiniShrooms): clusters strewn about woods (14), caves and hollows (16, faintly
+  glowing), swamp and marsh (8), forest screens (5); none in the open fields.
+- Old Wick's cellar: a trapdoor in the shack floor (feat.trapdoor, interactTrapdoor, hint "Go down") to 'cellar': dark
+  (sc.dim: a light pool round you, bigger with the lantern), crates and barrels, 26 clusters of mushrooms, an acorn and
+  a pepper seed. Ladder back up is the north edge.
+- Test: spores-map (new). 56 of 56. tools/shot.js B120=1.
 
 ## Build 119: menacing reeds
 - The reed wall at the marsh's end (solid 'reeds', burned away by marsh fire) is drawn as a wall of great dark reeds:

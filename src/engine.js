@@ -9,7 +9,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];

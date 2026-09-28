@@ -420,6 +420,15 @@ function genWorld() {
   edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
   shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
   item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'carrotseed', fx: 0.78, fy: 0.62 });
+  shack.feat.trapdoor = [0.5, 0.62]; claim(shack, 0.5, 0.62, 0.8);   // a trapdoor in the floor, down to the cellar
+  const cellar = add(newScene({ id: 'cellar', area: 'indoor', placeName: 'Old Wick\'s Cellar', msg: 'Damp. Dark. Something is growing down here.', music: 'marsh', amb: 'none', floor: '#3a3028', heroStart: [0.5, 0.25], speed: 0.4 }));
+  cellar.dim = 0.5;                                  // dark: your lantern (if you have it) and the glow of the mushrooms
+  cellar.exits = [{ side: 'n', a: 0.44, b: 0.56, to: 'shack', arrive: [0.5, 0.62 + 1.2 * UNIT / H] }];
+  for (const side of ['n', 'w', 'e', 's']) edgeWall(cellar, side, 'wall', 1.0, side === 'n' ? [[0.44, 0.56]] : [], 1.2);
+  cellar.solids.push(solid(0.2, 0.7, 0.8, 'crate'), solid(0.8, 0.35, 0.8, 'crate'), solid(0.78, 0.72, 0.7, 'barrel'), solid(0.3, 0.3, 0.6, 'barrel'));
+  cellar.feat.minis = [];
+  for (let t = 0; t < 26; t++) cellar.feat.minis.push([rr(0.1, 0.9), rr(0.2, 0.9), 2 + Math.floor(rng() * 4), rng(), 'cellar']);   // mushrooms everywhere, in every damp corner
+  item(cellar, { type: 'acorn', fx: 0.6, fy: 0.55 }, { type: 'pepperseed', fx: 0.4, fy: 0.8 });
 
   // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
   add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
@@ -765,6 +774,12 @@ function genWorld() {
     if (i === 2) sc.feat.glimpse = { to: ePt, line: 'Almost there! Don\'t stop!' };
     west = east;
   }
+  for (const sc of Object.values(S)) {                // little mushrooms in the damp dark places (most in the caves and deep woods)
+    const kind = sc.area === 'woods' ? 'woods' : sc.area === 'cave' || sc.area === 'hollow' ? 'cave' : sc.area === 'swamp' || sc.area === 'marsh' ? 'swamp' : sc.area === 'forest' ? 'forest' : null;
+    if (!kind || sc.feat.minis) continue;
+    const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
+    sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
+  }
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -823,7 +838,7 @@ const MAP_LAYOUT = {
   fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
   sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const MAP_NAMES = { cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {
@@ -1715,7 +1730,7 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
   state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
@@ -3690,7 +3705,7 @@ function interactLantern(sc, h) {
   const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
   collect({ type: 'lantern', x, y }); return true;
 }
-const INTERACTIONS = [interactTalk, interactLantern, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+const INTERACTIONS = [interactTalk, interactLantern, interactTrapdoor, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -3751,9 +3766,7 @@ function interactMushroom(sc, h, rt, nearPull) {
     }
     if (d < UNIT * 1.9 && pressedNow.act && !state.inv.pipSaved) { say('It hums softly. You have no idea what to do with it.', mx * W, my * H - UNIT * 1.8, { key: 'shroom', life: 2.5 }); return true; }
     if (d < UNIT * 1.9 && pressedNow.act) {
-      const dest = travelOptions(sc.id);
-      if (!dest.length) say('No other mushrooms found yet. Each region hides one.', mx * W, my * H - UNIT * 1.4, { key: 'shroom', life: 2.5 });
-      else ask(`Travel where? (${state.inv.spores} spores)`, mx * W, my * H - UNIT * 1.2, dest.map(o => `${SHROOM_NAMES[o.id]}: ${o.cost}`).concat('Stay'), i2 => { if (i2 < dest.length) sporeJump(dest[i2].id, dest[i2].cost); });
+      openMapTab();                                   // spore travel lives on the Map tab now
       return true;
     }
   }
@@ -3766,6 +3779,11 @@ function interactPeople(sc, h, rt, nearPull) {
     if (d < UNIT * 2 && pressedNow.act) { startTalk(n); return true; }
   }
 }
+function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick's floor, down to his cellar
+  const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
+  sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
+}
+function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -3923,6 +3941,7 @@ function findInteractable() {
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
   if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
+  if (f.trapdoor) add(f.trapdoor[0] * W, f.trapdoor[1] * H, 'Go down', 1.2);
   if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }
   if (f.book) add(f.book[0] * W, f.book[1] * H, 'Read', 1.6);
   if (f.shroom && inv.pipSaved && inv.shrooms[sc.id]) add(f.shroom[0] * W, f.shroom[1] * H, 'Travel', 1.9);
@@ -5323,7 +5342,7 @@ function tabShown(t) {
   if (t === 'Food') return inv.food.length > 0;
   if (t === 'Seeds') return Object.values(inv.bag || {}).some(n => n > 0);
   if (t === 'Materials') return packCells('Materials').length > 0;
-  if (t === 'Map') return inv.journal >= 3;
+  if (t === 'Map') return inv.journal >= 3 || Object.keys(inv.shrooms || {}).length > 0;
   return true;
 }
 function stepTab(i, d) { for (let k = 1; k <= PACK_TABS.length; k++) { const j = (i + d * k + PACK_TABS.length * 4) % PACK_TABS.length; if (tabShown(PACK_TABS[j])) return j; } return i; }
@@ -5408,7 +5427,17 @@ const LEVEL_ROWS = () => [
   { label: 'Everything back to zero', adj: () => { for (const id of Object.keys(SKILLS)) setSkillLevel(id, 0); } },
   { label: 'Back', adj: null },
 ];
+// the Map tab's cells: every traveler's mushroom you've found, with the spore cost to jump there from where you are
+function sporeCells() {
+  const inv = state.inv, from = state.scene;
+  return Object.keys(SHROOM_NAMES).filter(id => inv.shrooms[id]).map(id => {
+    const here = id === from, cost = here ? 0 : sporeCost(id, from);
+    return { icon: 'spore', name: SHROOM_NAMES[id], count: here ? null : cost, mark: here, line: here ? 'you are here' : inv.pipSaved ? `${cost} spore${cost > 1 ? 's' : ''} to go there (you have ${inv.spores})` : 'the spores don\'t answer you yet',
+      acts: here || !inv.pipSaved ? [] : [{ label: 'Travel', fn: () => { if (inv.spores < cost) { state.menu.note = `Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`; return; } state.menu = null; sporeJump(id, cost); } }] };
+  });
+}
 function packCells(tab) {
+  if (tab === 'Map') return sporeCells();
   if (tab === 'Craft') return craftCells();
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
@@ -5470,7 +5499,7 @@ function questRows(v) {
 function updatePack() {
   const m = state.menu;
   if (!tabShown(PACK_TABS[m.tab])) m.tab = stepTab(m.tab, 1);
-  const tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' || tab === 'Status' ? [] : packCells(tab), cols = m.cols || 5;
+  const tab = PACK_TABS[m.tab], cells = tab === 'System' || tab === 'Status' ? [] : packCells(tab), cols = m.cols || 5;
   const mv = (d) => { m.sel = Math.max(0, Math.min(cells.length - 1, m.sel + d)); sfx.tock(); };
   if (m.focus === 'tabs') {
     if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.sel = 0; sfx.tock(); }
@@ -6674,6 +6703,11 @@ function draw() {
   if (!state.intro) drawQuestHud();                     // the quest HUD is the bottom layer of the screen: hints, bubbles, banners all draw over it
   if (state.sporeTint > 0.01) { ctx.fillStyle = `rgba(150,100,220,${state.sporeTint * 0.55})`; ctx.fillRect(0, 0, W, H); }   // spore travel: the world goes violet
   if (state.dawn && state.time - state.dawn < 12) { const k = 1 - (state.time - state.dawn) / 12; ctx.fillStyle = `rgba(255,190,120,${0.22 * k})`; ctx.fillRect(0, 0, W, H); }   // first light
+  if (sc.dim) {                                          // a dark room: the lantern (if you have it) and the mushroom glow
+    const h = state.hero, [hx, hy] = toScreen(h.x, h.y), R = UNIT * (state.inv.lantern ? 4.5 : 2.2) * state.cam.ez;
+    const g = ctx.createRadialGradient(hx, hy, R * 0.3, hx, hy, R); g.addColorStop(0, 'rgba(8,6,10,0)'); g.addColorStop(1, `rgba(8,6,10,${sc.dim + 0.3})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
   drawRideVignette();
   if (state.settings.tiles) drawTiles();
   drawActionHint();
@@ -6718,6 +6752,8 @@ function drawScene(sc) {
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
+  drawMiniShrooms(sc);                                   // little mushrooms in the damp and dark places
+  if (sc.feat.trapdoor) { const [tx, ty] = sc.feat.trapdoor, u = UNIT; ctx.fillStyle = '#4a3420'; ctx.fillRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.arc(tx * W + u * 0.35, ty * H, u * 0.07, 0, 6.28); ctx.fill(); }   // Wick's trapdoor
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
@@ -7267,12 +7303,7 @@ function drawSolid(s) {
       const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
       drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
-      const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * (1.2 + glow * 1.4));
-      g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)');
-      ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, y - u * 4, u * 5.6, u * 5.6);
-      ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
-      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15; ctx.fillStyle = `rgba(245,232,255,${0.3 + 0.6 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
+      drawTravelShroom(x, y, u, found, glow, sceneDef().id);
       if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
       break;
     }
@@ -7295,6 +7326,8 @@ function drawSolid(s) {
       break;
     case 'wall': break;                                // the room draws its own walls
     case 'crystalbug': drawCrystalBug(s); break;
+    case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
+    case 'barrel': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); } break;
     case 'crag': {
       const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
@@ -7435,6 +7468,48 @@ function drawSolid(s) {
 const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
 // Pip, drawn one way everywhere (following you, as a character in a scene, in the glimpse, tied up): 60% of your
 // size, feet on the ground line, his colour and his two dot eyes. Every place that shows Pip calls this.
+// Every traveler's mushroom is its own: the place it grows in picks its height, stem, cap shape, shade and markings.
+const SHROOM_LOOKS = {
+  camp: { h: 1.1, stem: 0.3, cap: 'dome', w: 0.85, c: ['#9a6ad8', '#7a5aa8'], mark: 'spots' },
+  w2:   { h: 1.5, stem: 0.24, cap: 'cone', w: 0.7, c: ['#7a4ac0', '#5a3a90'], mark: 'rings' },
+  foot: { h: 0.8, stem: 0.4, cap: 'flat', w: 1.15, c: ['#b07ad8', '#8a5aa8'], mark: 'stripes' },
+  c4:   { h: 1.3, stem: 0.26, cap: 'bell', w: 0.8, c: ['#6a3a98', '#4a2a70'], mark: 'glowdots' },
+  m1:   { h: 1.0, stem: 0.34, cap: 'frill', w: 0.95, c: ['#c07ad0', '#9a5aa8'], mark: 'spots' },
+  sw2:  { h: 1.7, stem: 0.22, cap: 'dome', w: 0.75, c: ['#8a4a9a', '#6a3a78'], mark: 'rings' },
+};
+function drawTravelShroom(x, y, u, found, glow, id) {
+  const L = SHROOM_LOOKS[id] || SHROOM_LOOKS.camp, ht = u * L.h, cy = y - ht - u * 0.05, cw = u * L.w;
+  ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.moveTo(x - u * L.stem / 2, y + u * 0.12); ctx.quadraticCurveTo(x - u * L.stem * 0.2, y - ht * 0.5, x - u * L.stem * 0.4, cy); ctx.lineTo(x + u * L.stem * 0.4, cy); ctx.quadraticCurveTo(x + u * L.stem * 0.3, y - ht * 0.5, x + u * L.stem / 2, y + u * 0.12); ctx.closePath(); ctx.fill();
+  const g = ctx.createRadialGradient(x, cy, 0, x, cy, u * (1.2 + glow * 1.4)); g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, cy - u * 2.8, u * 5.6, u * 5.6);
+  ctx.fillStyle = found ? L.c[0] : L.c[1]; ctx.beginPath();
+  if (L.cap === 'dome') ctx.ellipse(x, cy, cw, u * 0.5, 0, Math.PI, 0);
+  else if (L.cap === 'cone') { ctx.moveTo(x - cw, cy); ctx.quadraticCurveTo(x - cw * 0.3, cy - u * 0.4, x, cy - u * 1.0); ctx.quadraticCurveTo(x + cw * 0.3, cy - u * 0.4, x + cw, cy); }
+  else if (L.cap === 'flat') { ctx.ellipse(x, cy, cw, u * 0.28, 0, Math.PI, 0); }
+  else if (L.cap === 'bell') { ctx.moveTo(x - cw, cy + u * 0.15); ctx.bezierCurveTo(x - cw, cy - u * 0.9, x + cw, cy - u * 0.9, x + cw, cy + u * 0.15); }
+  else { for (let i = 0; i <= 12; i++) { const a = Math.PI + i / 12 * Math.PI, rr2 = cw * (1 + (i % 2) * 0.1); ctx.lineTo(x + Math.cos(a) * rr2, cy + Math.sin(a) * u * 0.5); } }   // frilled edge
+  ctx.closePath(); ctx.fill();
+  const sp = k => found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15;
+  if (L.mark === 'spots' || L.mark === 'glowdots') [[-0.45, -0.25], [0.1, -0.45], [0.45, -0.2], [-0.1, -0.15]].forEach(([dx, dy], k) => { ctx.fillStyle = L.mark === 'glowdots' ? `rgba(160,255,220,${0.3 + 0.7 * sp(k)})` : `rgba(245,232,255,${0.3 + 0.6 * sp(k)})`; ctx.beginPath(); ctx.arc(x + dx * cw, cy + dy * u, u * 0.09, 0, 6.28); ctx.fill(); });
+  if (L.mark === 'rings') for (let k = 1; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, cy - u * 0.05, cw * (1 - k * 0.3), u * (0.45 - k * 0.12), 0, Math.PI, 0); ctx.stroke(); }
+  if (L.mark === 'stripes') for (let k = -2; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k + 2)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + k * cw * 0.3, cy); ctx.lineTo(x + k * cw * 0.2, cy - u * 0.24); ctx.stroke(); }
+  if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: cy, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
+}
+// little mushrooms strewn about damp, dark places: clusters of two to five, each a small cap on a thin stem
+const MINI_CAPS = { woods: ['#a07a4a', '#c8a878', '#7a5a3a', '#d8c8a8'], cave: ['#8ab0a0', '#6a8a9a', '#b0a0c8', '#c8d8c0'], forest: ['#b08a5a', '#d0b890', '#a05a3a'], cellar: ['#c8b890', '#a08a6a', '#d8d0b0', '#b0a0c0'], swamp: ['#8a8a5a', '#a0a070', '#6a7a4a'] };
+function drawMiniShrooms(sc) {
+  const list = sc.feat.minis; if (!list) return;
+  const glowy = sc.area === 'cave' || sc.area === 'hollow' || sc.id === 'cellar';
+  for (const [fx, fy, n, seed, kind] of list) {
+    const x0 = fx * W, y0 = fy * H, caps = MINI_CAPS[kind] || MINI_CAPS.woods;
+    for (let i = 0; i < n; i++) {
+      const a = seed * 7 + i * 2.1, x = x0 + Math.cos(a) * UNIT * 0.28 * i, y = y0 + Math.sin(a) * UNIT * 0.12 * i, s = UNIT * (0.12 + ((seed * 13 + i * 5) % 7) / 50), c = caps[(Math.floor(seed * 10) + i) % caps.length];
+      ctx.fillStyle = '#e8e0cc'; ctx.fillRect(x - s * 0.18, y - s * 1.1, s * 0.36, s * 1.1);
+      if (glowy && i % 2 === 0) { ctx.fillStyle = `rgba(170,255,210,${0.12 + 0.08 * Math.sin(state.time * 1.3 + seed + i)})`; ctx.beginPath(); ctx.arc(x, y - s * 1.1, s * 1.6, 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y - s * 1.1, s * 0.75, s * 0.45, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(x - s * 0.25, y - s * 1.3, s * 0.12, 0, 6.28); ctx.fill();
+    }
+  }
+}
 function drawPip(x, y, o = {}) {
   ctx.save(); ctx.translate(x, y + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-x, -(y + UNIT * 0.5));
   drawPerson(x, y, '#7ab8e0', 0);
@@ -7839,7 +7914,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 119';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 120';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8242,6 +8317,11 @@ function drawItemIcon(type, x, y, s) {
     case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
       ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
       ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
+    case 'spore':                                         // a little traveler's mushroom, glowing
+      ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);
+      ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.ellipse(0, -s * 0.05, s * 0.34, s * 0.22, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#f0e0ff'; for (const [dx, dy] of [[-0.15, -0.15], [0.08, -0.2], [0.18, -0.1]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.035, 0, 6.28); ctx.fill(); } break;
     case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
     case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
     case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;
@@ -9099,8 +9179,22 @@ function drawPack(m, x, y, pw, fs) {
     return;
   }
   if (tab === 'Map') {
+    // the spores: every mushroom you've found, a row of places to jump to, under the map
+    const sc2 = sporeCells(), rowH = sc2.length ? fs * 3.2 : 0;
+    if (sc2.length) {
+      const cw = Math.min(pwide / Math.max(3, sc2.length), fs * 9), x0 = px + (pwide - cw * sc2.length) / 2, ry = H - fs * 8.6 - rowH;
+      ctx.textAlign = 'left'; ctx.fillStyle = '#c9a2ff'; ctx.font = `bold ${Math.round(fs * 0.8)}px Georgia, serif`; ctx.fillText(`Spore travel \u00b7 ${state.inv.spores} spores`, x0, ry - fs * 0.4);
+      sc2.forEach((c, i) => { const x = x0 + i * cw, sel = i === m.sel && m.focus !== 'tabs';
+        ctx.fillStyle = sel ? 'rgba(201,162,255,.25)' : c.mark ? 'rgba(184,242,138,.12)' : 'rgba(255,255,255,.06)'; rr_(x + 3, ry, cw - 6, rowH - 6, 8); ctx.fill();
+        if (sel) { ctx.strokeStyle = '#c9a2ff'; ctx.lineWidth = 2; ctx.stroke(); }
+        drawItemIcon('spore', x + fs * 1.2, ry + rowH / 2 - 3, fs * 1.4);
+        ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'left'; let nm = c.name; while (ctx.measureText(nm).width > cw - fs * 2.8 && nm.length > 4) nm = nm.slice(0, -2) + '\u2026'; ctx.fillText(nm, x + fs * 2.2, ry + rowH * 0.42);
+        ctx.fillStyle = c.mark ? '#b8f28a' : '#c9a2ff'; ctx.fillText(c.mark ? 'here' : `${c.count} spores`, x + fs * 2.2, ry + rowH * 0.72);
+        hits.push({ x: x + 3, y: ry, w: cw - 6, h: rowH - 6, fn: () => { m.sel = i; m.focus = 'grid'; } }); });
+      ctx.textAlign = 'center';
+    }
     if (state.inv.journal >= 3) {
-      const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
+      const aw = pwide, ah = Math.min(areaH + fs * 4 - rowH, aw * 13 / 15 * 0.8);
       drawJournalMap(px, y, aw, ah, fs);
       ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
       ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${Object.keys(MAP_LAYOUT).length} places \u00b7 you are at ${MAP_NAMES[state.scene] || state.scene}`, W / 2, y + ah + fs * 1.2);
@@ -9108,6 +9202,7 @@ function drawPack(m, x, y, pw, fs) {
       drawItemIcon('journal', W / 2, y + fs * 3, fs * 3);
       ctx.fillStyle = '#d8d0c0'; ctx.fillText('Pip\'s maps are in Pip\'s journal.', W / 2, y + fs * 6);
     }
+    if (sc2.length) { const c = m.focus !== 'tabs' ? sc2[m.sel] : null; if (c) { ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(state.menu.note || c.line, W / 2, H - fs * 7.4); } }
     return;
   }
   if (tab === 'Status') { drawStatusCards(px, y, pwide, fs); drawTipMarquee(fs); return; }   // cards, not a wall of text

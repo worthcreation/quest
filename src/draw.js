@@ -39,6 +39,11 @@ function draw() {
   if (!state.intro) drawQuestHud();                     // the quest HUD is the bottom layer of the screen: hints, bubbles, banners all draw over it
   if (state.sporeTint > 0.01) { ctx.fillStyle = `rgba(150,100,220,${state.sporeTint * 0.55})`; ctx.fillRect(0, 0, W, H); }   // spore travel: the world goes violet
   if (state.dawn && state.time - state.dawn < 12) { const k = 1 - (state.time - state.dawn) / 12; ctx.fillStyle = `rgba(255,190,120,${0.22 * k})`; ctx.fillRect(0, 0, W, H); }   // first light
+  if (sc.dim) {                                          // a dark room: the lantern (if you have it) and the mushroom glow
+    const h = state.hero, [hx, hy] = toScreen(h.x, h.y), R = UNIT * (state.inv.lantern ? 4.5 : 2.2) * state.cam.ez;
+    const g = ctx.createRadialGradient(hx, hy, R * 0.3, hx, hy, R); g.addColorStop(0, 'rgba(8,6,10,0)'); g.addColorStop(1, `rgba(8,6,10,${sc.dim + 0.3})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
   drawRideVignette();
   if (state.settings.tiles) drawTiles();
   drawActionHint();
@@ -83,6 +88,8 @@ function drawScene(sc) {
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
+  drawMiniShrooms(sc);                                   // little mushrooms in the damp and dark places
+  if (sc.feat.trapdoor) { const [tx, ty] = sc.feat.trapdoor, u = UNIT; ctx.fillStyle = '#4a3420'; ctx.fillRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.arc(tx * W + u * 0.35, ty * H, u * 0.07, 0, 6.28); ctx.fill(); }   // Wick's trapdoor
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
@@ -632,12 +639,7 @@ function drawSolid(s) {
       const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
       drawShroomRipples(x, y, u, found, sceneDef().id);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.15, y - u * 1.1, u * 0.3, u * 1.25);
-      const g = ctx.createRadialGradient(x, y - u * 1.2, 0, x, y - u * 1.2, u * (1.2 + glow * 1.4));
-      g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)');
-      ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, y - u * 4, u * 5.6, u * 5.6);
-      ctx.fillStyle = found ? '#9a6ad8' : '#7a5aa8'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.15, u * 0.85, u * 0.5, 0, Math.PI, 0); ctx.fill();
-      [[-0.4, -1.35], [0.1, -1.5], [0.45, -1.3], [-0.1, -1.25]].forEach(([dx, dy], k) => { const sp = found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15; ctx.fillStyle = `rgba(245,232,255,${0.3 + 0.6 * sp})`; ctx.beginPath(); ctx.arc(x + dx * u, y + dy * u, u * (0.07 + 0.03 * sp), 0, 6.28); ctx.fill(); });   // each spot twinkles on its own
+      drawTravelShroom(x, y, u, found, glow, sceneDef().id);
       if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
       break;
     }
@@ -660,6 +662,8 @@ function drawSolid(s) {
       break;
     case 'wall': break;                                // the room draws its own walls
     case 'crystalbug': drawCrystalBug(s); break;
+    case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
+    case 'barrel': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); } break;
     case 'crag': {
       const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
       ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
@@ -800,6 +804,48 @@ function drawSolid(s) {
 const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
 // Pip, drawn one way everywhere (following you, as a character in a scene, in the glimpse, tied up): 60% of your
 // size, feet on the ground line, his colour and his two dot eyes. Every place that shows Pip calls this.
+// Every traveler's mushroom is its own: the place it grows in picks its height, stem, cap shape, shade and markings.
+const SHROOM_LOOKS = {
+  camp: { h: 1.1, stem: 0.3, cap: 'dome', w: 0.85, c: ['#9a6ad8', '#7a5aa8'], mark: 'spots' },
+  w2:   { h: 1.5, stem: 0.24, cap: 'cone', w: 0.7, c: ['#7a4ac0', '#5a3a90'], mark: 'rings' },
+  foot: { h: 0.8, stem: 0.4, cap: 'flat', w: 1.15, c: ['#b07ad8', '#8a5aa8'], mark: 'stripes' },
+  c4:   { h: 1.3, stem: 0.26, cap: 'bell', w: 0.8, c: ['#6a3a98', '#4a2a70'], mark: 'glowdots' },
+  m1:   { h: 1.0, stem: 0.34, cap: 'frill', w: 0.95, c: ['#c07ad0', '#9a5aa8'], mark: 'spots' },
+  sw2:  { h: 1.7, stem: 0.22, cap: 'dome', w: 0.75, c: ['#8a4a9a', '#6a3a78'], mark: 'rings' },
+};
+function drawTravelShroom(x, y, u, found, glow, id) {
+  const L = SHROOM_LOOKS[id] || SHROOM_LOOKS.camp, ht = u * L.h, cy = y - ht - u * 0.05, cw = u * L.w;
+  ctx.fillStyle = '#e8e0d0'; ctx.beginPath(); ctx.moveTo(x - u * L.stem / 2, y + u * 0.12); ctx.quadraticCurveTo(x - u * L.stem * 0.2, y - ht * 0.5, x - u * L.stem * 0.4, cy); ctx.lineTo(x + u * L.stem * 0.4, cy); ctx.quadraticCurveTo(x + u * L.stem * 0.3, y - ht * 0.5, x + u * L.stem / 2, y + u * 0.12); ctx.closePath(); ctx.fill();
+  const g = ctx.createRadialGradient(x, cy, 0, x, cy, u * (1.2 + glow * 1.4)); g.addColorStop(0, `rgba(210,175,255,${0.1 + 0.45 * glow})`); g.addColorStop(1, 'rgba(210,175,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - u * 2.8, cy - u * 2.8, u * 5.6, u * 5.6);
+  ctx.fillStyle = found ? L.c[0] : L.c[1]; ctx.beginPath();
+  if (L.cap === 'dome') ctx.ellipse(x, cy, cw, u * 0.5, 0, Math.PI, 0);
+  else if (L.cap === 'cone') { ctx.moveTo(x - cw, cy); ctx.quadraticCurveTo(x - cw * 0.3, cy - u * 0.4, x, cy - u * 1.0); ctx.quadraticCurveTo(x + cw * 0.3, cy - u * 0.4, x + cw, cy); }
+  else if (L.cap === 'flat') { ctx.ellipse(x, cy, cw, u * 0.28, 0, Math.PI, 0); }
+  else if (L.cap === 'bell') { ctx.moveTo(x - cw, cy + u * 0.15); ctx.bezierCurveTo(x - cw, cy - u * 0.9, x + cw, cy - u * 0.9, x + cw, cy + u * 0.15); }
+  else { for (let i = 0; i <= 12; i++) { const a = Math.PI + i / 12 * Math.PI, rr2 = cw * (1 + (i % 2) * 0.1); ctx.lineTo(x + Math.cos(a) * rr2, cy + Math.sin(a) * u * 0.5); } }   // frilled edge
+  ctx.closePath(); ctx.fill();
+  const sp = k => found ? shroomGlow(k * 1.7 + x * 0.01, state.time * 0.9) : 0.15;
+  if (L.mark === 'spots' || L.mark === 'glowdots') [[-0.45, -0.25], [0.1, -0.45], [0.45, -0.2], [-0.1, -0.15]].forEach(([dx, dy], k) => { ctx.fillStyle = L.mark === 'glowdots' ? `rgba(160,255,220,${0.3 + 0.7 * sp(k)})` : `rgba(245,232,255,${0.3 + 0.6 * sp(k)})`; ctx.beginPath(); ctx.arc(x + dx * cw, cy + dy * u, u * 0.09, 0, 6.28); ctx.fill(); });
+  if (L.mark === 'rings') for (let k = 1; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, cy - u * 0.05, cw * (1 - k * 0.3), u * (0.45 - k * 0.12), 0, Math.PI, 0); ctx.stroke(); }
+  if (L.mark === 'stripes') for (let k = -2; k <= 2; k++) { ctx.strokeStyle = `rgba(245,232,255,${0.25 + 0.5 * sp(k + 2)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + k * cw * 0.3, cy); ctx.lineTo(x + k * cw * 0.2, cy - u * 0.24); ctx.stroke(); }
+  if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: cy, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: '#e8d8ff' });
+}
+// little mushrooms strewn about damp, dark places: clusters of two to five, each a small cap on a thin stem
+const MINI_CAPS = { woods: ['#a07a4a', '#c8a878', '#7a5a3a', '#d8c8a8'], cave: ['#8ab0a0', '#6a8a9a', '#b0a0c8', '#c8d8c0'], forest: ['#b08a5a', '#d0b890', '#a05a3a'], cellar: ['#c8b890', '#a08a6a', '#d8d0b0', '#b0a0c0'], swamp: ['#8a8a5a', '#a0a070', '#6a7a4a'] };
+function drawMiniShrooms(sc) {
+  const list = sc.feat.minis; if (!list) return;
+  const glowy = sc.area === 'cave' || sc.area === 'hollow' || sc.id === 'cellar';
+  for (const [fx, fy, n, seed, kind] of list) {
+    const x0 = fx * W, y0 = fy * H, caps = MINI_CAPS[kind] || MINI_CAPS.woods;
+    for (let i = 0; i < n; i++) {
+      const a = seed * 7 + i * 2.1, x = x0 + Math.cos(a) * UNIT * 0.28 * i, y = y0 + Math.sin(a) * UNIT * 0.12 * i, s = UNIT * (0.12 + ((seed * 13 + i * 5) % 7) / 50), c = caps[(Math.floor(seed * 10) + i) % caps.length];
+      ctx.fillStyle = '#e8e0cc'; ctx.fillRect(x - s * 0.18, y - s * 1.1, s * 0.36, s * 1.1);
+      if (glowy && i % 2 === 0) { ctx.fillStyle = `rgba(170,255,210,${0.12 + 0.08 * Math.sin(state.time * 1.3 + seed + i)})`; ctx.beginPath(); ctx.arc(x, y - s * 1.1, s * 1.6, 0, 6.28); ctx.fill(); }
+      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y - s * 1.1, s * 0.75, s * 0.45, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(x - s * 0.25, y - s * 1.3, s * 0.12, 0, 6.28); ctx.fill();
+    }
+  }
+}
 function drawPip(x, y, o = {}) {
   ctx.save(); ctx.translate(x, y + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-x, -(y + UNIT * 0.5));
   drawPerson(x, y, '#7ab8e0', 0);
@@ -1204,7 +1250,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 119';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 120';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

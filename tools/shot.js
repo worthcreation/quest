@@ -56,6 +56,14 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B120) {                            // build 120: Wick's cellar, the woods' little mushrooms, three different traveler's mushrooms, the Map tab
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.pipSaved=true; inv.shrooms={camp:true,w2:true,foot:true,c4:true}; inv.spores=5; inv.lantern=true; state.pip=null;
+  enterScene('cellar'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b120-cellar.png', canvas.toBuffer('image/png'));
+  const shots=[]; for (const id of ['camp','w2','foot']) { enterScene(id); state.enemies=[]; state.pip=null; const f=WORLD[id].feat.shroom; state.hero.x=f[0]*W-UNIT*2.5; state.hero.y=f[1]*H+UNIT; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b120-'+id+'.png', canvas.toBuffer('image/png')); }
+  enterScene('camp'); run(3); state.menu={view:'pack',tab:PACK_TABS.indexOf('Map'),sel:1,focus:'grid',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b120-map.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b120 written');
+}
 if (process.env.B119) {                            // build 119: the reed wall at the marsh's end, and marsh reeds
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('m3'); state.cut=null; state.enemies=[]; state.pip=null; state.hero.x=W*0.72; state.hero.y=H*0.5; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b119.png', canvas.toBuffer('image/png')); console.log('b119 written');

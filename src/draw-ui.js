@@ -177,6 +177,11 @@ function drawItemIcon(type, x, y, s) {
     case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
       ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
       ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
+    case 'spore':                                         // a little traveler's mushroom, glowing
+      ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);
+      ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.ellipse(0, -s * 0.05, s * 0.34, s * 0.22, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#f0e0ff'; for (const [dx, dy] of [[-0.15, -0.15], [0.08, -0.2], [0.18, -0.1]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.035, 0, 6.28); ctx.fill(); } break;
     case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
     case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
     case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;
@@ -1034,8 +1039,22 @@ function drawPack(m, x, y, pw, fs) {
     return;
   }
   if (tab === 'Map') {
+    // the spores: every mushroom you've found, a row of places to jump to, under the map
+    const sc2 = sporeCells(), rowH = sc2.length ? fs * 3.2 : 0;
+    if (sc2.length) {
+      const cw = Math.min(pwide / Math.max(3, sc2.length), fs * 9), x0 = px + (pwide - cw * sc2.length) / 2, ry = H - fs * 8.6 - rowH;
+      ctx.textAlign = 'left'; ctx.fillStyle = '#c9a2ff'; ctx.font = `bold ${Math.round(fs * 0.8)}px Georgia, serif`; ctx.fillText(`Spore travel \u00b7 ${state.inv.spores} spores`, x0, ry - fs * 0.4);
+      sc2.forEach((c, i) => { const x = x0 + i * cw, sel = i === m.sel && m.focus !== 'tabs';
+        ctx.fillStyle = sel ? 'rgba(201,162,255,.25)' : c.mark ? 'rgba(184,242,138,.12)' : 'rgba(255,255,255,.06)'; rr_(x + 3, ry, cw - 6, rowH - 6, 8); ctx.fill();
+        if (sel) { ctx.strokeStyle = '#c9a2ff'; ctx.lineWidth = 2; ctx.stroke(); }
+        drawItemIcon('spore', x + fs * 1.2, ry + rowH / 2 - 3, fs * 1.4);
+        ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(fs * 0.72)}px "Courier New", monospace`; ctx.textAlign = 'left'; let nm = c.name; while (ctx.measureText(nm).width > cw - fs * 2.8 && nm.length > 4) nm = nm.slice(0, -2) + '\u2026'; ctx.fillText(nm, x + fs * 2.2, ry + rowH * 0.42);
+        ctx.fillStyle = c.mark ? '#b8f28a' : '#c9a2ff'; ctx.fillText(c.mark ? 'here' : `${c.count} spores`, x + fs * 2.2, ry + rowH * 0.72);
+        hits.push({ x: x + 3, y: ry, w: cw - 6, h: rowH - 6, fn: () => { m.sel = i; m.focus = 'grid'; } }); });
+      ctx.textAlign = 'center';
+    }
     if (state.inv.journal >= 3) {
-      const aw = pwide, ah = Math.min(areaH + fs * 4, aw * 13 / 15 * 0.8);
+      const aw = pwide, ah = Math.min(areaH + fs * 4 - rowH, aw * 13 / 15 * 0.8);
       drawJournalMap(px, y, aw, ah, fs);
       ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`;
       ctx.fillText(`${Object.keys(state.seen).filter(k => MAP_LAYOUT[k]).length} of ${Object.keys(MAP_LAYOUT).length} places \u00b7 you are at ${MAP_NAMES[state.scene] || state.scene}`, W / 2, y + ah + fs * 1.2);
@@ -1043,6 +1062,7 @@ function drawPack(m, x, y, pw, fs) {
       drawItemIcon('journal', W / 2, y + fs * 3, fs * 3);
       ctx.fillStyle = '#d8d0c0'; ctx.fillText('Pip\'s maps are in Pip\'s journal.', W / 2, y + fs * 6);
     }
+    if (sc2.length) { const c = m.focus !== 'tabs' ? sc2[m.sel] : null; if (c) { ctx.fillStyle = '#d8d0c0'; ctx.font = `${Math.round(fs * 0.8)}px "Courier New", monospace`; ctx.fillText(state.menu.note || c.line, W / 2, H - fs * 7.4); } }
     return;
   }
   if (tab === 'Status') { drawStatusCards(px, y, pwide, fs); drawTipMarquee(fs); return; }   // cards, not a wall of text

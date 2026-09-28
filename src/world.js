@@ -363,6 +363,15 @@ function genWorld() {
   edgeWall(shack, 's', 'wall', 1.0, [[0.35, 0.65]], 1.2);
   shack.solids.push(solid(0.22, 0.32, 1.1, 'bed'), solid(0.7, 0.42, 0.9, 'table'), solid(0.82, 0.2, 0.7, 'stove'));
   item(shack, { type: 'letter', fx: 0.66, fy: 0.36 }, { type: 'thornseed', fx: 0.3, fy: 0.6 }, { type: 'thornseed', fx: 0.36, fy: 0.64 }, { type: 'carrotseed', fx: 0.78, fy: 0.62 });
+  shack.feat.trapdoor = [0.5, 0.62]; claim(shack, 0.5, 0.62, 0.8);   // a trapdoor in the floor, down to the cellar
+  const cellar = add(newScene({ id: 'cellar', area: 'indoor', placeName: 'Old Wick\'s Cellar', msg: 'Damp. Dark. Something is growing down here.', music: 'marsh', amb: 'none', floor: '#3a3028', heroStart: [0.5, 0.25], speed: 0.4 }));
+  cellar.dim = 0.5;                                  // dark: your lantern (if you have it) and the glow of the mushrooms
+  cellar.exits = [{ side: 'n', a: 0.44, b: 0.56, to: 'shack', arrive: [0.5, 0.62 + 1.2 * UNIT / H] }];
+  for (const side of ['n', 'w', 'e', 's']) edgeWall(cellar, side, 'wall', 1.0, side === 'n' ? [[0.44, 0.56]] : [], 1.2);
+  cellar.solids.push(solid(0.2, 0.7, 0.8, 'crate'), solid(0.8, 0.35, 0.8, 'crate'), solid(0.78, 0.72, 0.7, 'barrel'), solid(0.3, 0.3, 0.6, 'barrel'));
+  cellar.feat.minis = [];
+  for (let t = 0; t < 26; t++) cellar.feat.minis.push([rr(0.1, 0.9), rr(0.2, 0.9), 2 + Math.floor(rng() * 4), rng(), 'cellar']);   // mushrooms everywhere, in every damp corner
+  item(cellar, { type: 'acorn', fx: 0.6, fy: 0.55 }, { type: 'pepperseed', fx: 0.4, fy: 0.8 });
 
   // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
   add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
@@ -708,6 +717,12 @@ function genWorld() {
     if (i === 2) sc.feat.glimpse = { to: ePt, line: 'Almost there! Don\'t stop!' };
     west = east;
   }
+  for (const sc of Object.values(S)) {                // little mushrooms in the damp dark places (most in the caves and deep woods)
+    const kind = sc.area === 'woods' ? 'woods' : sc.area === 'cave' || sc.area === 'hollow' ? 'cave' : sc.area === 'swamp' || sc.area === 'marsh' ? 'swamp' : sc.area === 'forest' ? 'forest' : null;
+    if (!kind || sc.feat.minis) continue;
+    const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
+    sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
+  }
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -766,7 +781,7 @@ const MAP_LAYOUT = {
   fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
   sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
 };
-const MAP_NAMES = { hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const MAP_NAMES = { cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {

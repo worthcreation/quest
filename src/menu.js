@@ -77,7 +77,7 @@ function tabShown(t) {
   if (t === 'Food') return inv.food.length > 0;
   if (t === 'Seeds') return Object.values(inv.bag || {}).some(n => n > 0);
   if (t === 'Materials') return packCells('Materials').length > 0;
-  if (t === 'Map') return inv.journal >= 3;
+  if (t === 'Map') return inv.journal >= 3 || Object.keys(inv.shrooms || {}).length > 0;
   return true;
 }
 function stepTab(i, d) { for (let k = 1; k <= PACK_TABS.length; k++) { const j = (i + d * k + PACK_TABS.length * 4) % PACK_TABS.length; if (tabShown(PACK_TABS[j])) return j; } return i; }
@@ -162,7 +162,17 @@ const LEVEL_ROWS = () => [
   { label: 'Everything back to zero', adj: () => { for (const id of Object.keys(SKILLS)) setSkillLevel(id, 0); } },
   { label: 'Back', adj: null },
 ];
+// the Map tab's cells: every traveler's mushroom you've found, with the spore cost to jump there from where you are
+function sporeCells() {
+  const inv = state.inv, from = state.scene;
+  return Object.keys(SHROOM_NAMES).filter(id => inv.shrooms[id]).map(id => {
+    const here = id === from, cost = here ? 0 : sporeCost(id, from);
+    return { icon: 'spore', name: SHROOM_NAMES[id], count: here ? null : cost, mark: here, line: here ? 'you are here' : inv.pipSaved ? `${cost} spore${cost > 1 ? 's' : ''} to go there (you have ${inv.spores})` : 'the spores don\'t answer you yet',
+      acts: here || !inv.pipSaved ? [] : [{ label: 'Travel', fn: () => { if (inv.spores < cost) { state.menu.note = `Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`; return; } state.menu = null; sporeJump(id, cost); } }] };
+  });
+}
 function packCells(tab) {
+  if (tab === 'Map') return sporeCells();
   if (tab === 'Craft') return craftCells();
   const inv = state.inv, cells = [], h = state.hero;
   const drop = (type, fn) => ({ label: 'Drop', fn: () => { fn(); state.items.push({ type, x: h.x + h.fx * UNIT * 1.4, y: h.y + h.fy * UNIT * 1.4 + UNIT * 0.3 }); } });
@@ -224,7 +234,7 @@ function questRows(v) {
 function updatePack() {
   const m = state.menu;
   if (!tabShown(PACK_TABS[m.tab])) m.tab = stepTab(m.tab, 1);
-  const tab = PACK_TABS[m.tab], cells = tab === 'Map' || tab === 'System' || tab === 'Status' ? [] : packCells(tab), cols = m.cols || 5;
+  const tab = PACK_TABS[m.tab], cells = tab === 'System' || tab === 'Status' ? [] : packCells(tab), cols = m.cols || 5;
   const mv = (d) => { m.sel = Math.max(0, Math.min(cells.length - 1, m.sel + d)); sfx.tock(); };
   if (m.focus === 'tabs') {
     if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.sel = 0; sfx.tock(); }
