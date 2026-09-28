@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 137, 28 Sep 2026)
+# Quest: handoff notes (as of build 138, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 138: the climb prototype (a new kind of screen)
+- src/climb.js (in ORDER after highlands), scene 'climb1', reached from System > Testing > "Try the climb (prototype)";
+  it returns you to where you were when you finish. A fixed camera looks down a trail that winds away into the
+  distance: climbCx(z) is the chasm's centre line (switchbacks), climbHw(z) its half-width (narrowing to about 1 tile
+  and widening to about 4). You are at (x, z) on the green slopes (left rises away, right falls to the valley), drawn
+  bigger the nearer you are. Arrows move you (down = nearer = up the climb). Space is a running jump (about 2.9 wide);
+  land over the chasm and you fall, lose 1 vigor and return to your last safe spot. The wind: calm, a warning rustle,
+  then a 1.6 s blow that shoves you further off and sideways (harder in the air), enough to push you into the chasm.
+  Reach the red flag on the near left slope to finish. The still world is painted once into a picture (paintClimb).
+- engine: state.climb (like state.rapids) takes over update; drawScene hands off to drawClimb.
+- Test: climb (new). 62 of 62. tools/shot.js B138=1.
 
 ## Build 137: one Pip at camp; spores as light
 - Two Pips at camp after the homecoming: the scene made a following Pip beside the camp's own Pip. Now the camp Pip

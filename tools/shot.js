@@ -63,6 +63,13 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B138) {                            // build 138: the climb prototype, in the game
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb1'); state.cut=null; run(5); state.texts=[]; state.title=null;
+  const c=state.climb; c.gust.phase='blow'; c.gust.t=9; c.x=climbCx(14)+climbHw(14)+1.2; c.z=14; run(2); draw(); fs.writeFileSync('/tmp/b138-a.png', canvas.toBuffer('image/png'));
+  c.z=6.5; c.x=climbCx(6.5)-climbHw(6.5)-1.4; c.h=0.8; c.air=true; c.gust.phase='calm'; draw(); fs.writeFileSync('/tmp/b138-b.png', canvas.toBuffer('image/png'));
+  console.log('b138 written');
+}
 if (process.env.MOCK4) {                           // a still: a mountainside built from the game's own assets, scaled and turned
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.inv.story=STORY.gather; enterScene('f3'); state.cut=null; state.enemies=[]; state.pip=null; run(3);

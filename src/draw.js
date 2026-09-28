@@ -85,6 +85,7 @@ function drawCandles(sc) {
 function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
+  if (state.climb) { drawClimb(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
@@ -1269,7 +1270,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 137';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 138';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

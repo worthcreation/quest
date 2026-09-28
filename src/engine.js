@@ -96,6 +96,7 @@ function enterScene(id, fx, fy) {
   }
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
+  state.climb = id === 'climb1' ? newClimb() : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
@@ -235,6 +236,7 @@ function update(dt) {
   if (state.menu) { updateMenu(); return; }
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
+  if (state.climb) { updateClimb(dt); return; }                     // the climb prototype runs its own world
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
