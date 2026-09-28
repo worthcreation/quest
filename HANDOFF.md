@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 110, 27 Sep 2026)
+# Quest: handoff notes (as of build 111, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,23 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 111: the woods reworked: no mud, the ambush, the cave heap
+- No mud pits anywhere in the woods (world.js no longer pushes sc.mud). A thrown rock can still bury itself in soft
+  ground (earthen, 20%); buried rocks all look and work the same: flush in the soil, stomp to pop them up at a tilt
+  (a visible jolt: knockT_ flag drives a 0.5 s pop), then rock and pull.
+- w2: one row of big boulders across the east exit, its cracked keystone out front on dry ground; the old second row
+  (the 'burrow' hole) is gone. Breaking it starts the ambush: gremlins burst in from the east edge, grab Pip, and run
+  off east, deeper into the dark; you can't catch them. New lines: "The way's open! ... Did those bushes just
+  giggle?" and "They ran off with Pip, deeper into the dark! After them!". The rescue quest line matches.
+- w3: the old sinkhole is now a cave mouth (feat.cave): a rocky outcrop with a dark arch, heaped round with big
+  boulders (ringBarrier 'cave'); the one facing you is cracked (a stone kind). The gremlins slip between the boulders
+  (the glimpse on entering w3); break the cracked one and the heap comes down; walk into the arch to go down into the
+  cave (c1). Coming back out of the cave puts you in front of the mouth.
+- The sword pen on w3 is a ring of smaller rough boulders (stoneRing: 'wedge', small), not a row of pebbles; gremlins
+  don't slip through the small ones.
+- hitStone uses the cracked stone of a barrier for its toughness (a heap can mix plain boulders and one cracked one).
+- Tests: hole (ambush, cave heap, into the cave) and woods (no mud) updated. 54 of 54.
 
 ## Build 110: stones, barriers, the tent lantern
 - The lantern is a fixture by Pip's bed from the start (drawTentLantern, lanternSpot): unlit glass by day, lit with the

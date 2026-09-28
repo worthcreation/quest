@@ -99,7 +99,7 @@ function updateCut(dt) {
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
-  } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
+  } else if (c.type === 'abduct') {                    // an ambush: they burst out of the woods ahead, grab Pip and run east, deeper into the dark. You can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;
     { const v = inputVector(), sp = L() * sceneDef().speed * dt;           // your legs still work
@@ -120,7 +120,7 @@ function updateCut(dt) {
       sfx.cackle(); spark(p.x, p.y + UNIT * 0.3, '#8a7a5a', 6, 2);
       if (!c.jeer) { c.jeer = true; say(c.t < 2.3 ? 'Hee hee! Too slow!' : 'Nyah! Can\'t catch us!', p.x, p.y - UNIT * 1.6, { key: 'npc', hold: false, life: 1.6, color: '#b8e08a' }); }
     }
-    if (at(0.3)) say('The map\'s nearly... hey. What\'s that weird little hole?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4, hold: false });
+    if (at(0.3)) say('The way\'s open! The map\'s nearly... wait. Did those bushes just giggle?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4, hold: false });
     if (at(1.2)) setMusic('sinister');
     if (!c.hop && c.t > 1.4 && c.t < 2.4) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
     if (at(1.6)) { sfx.cackle(); state.shake = 0.3; }
@@ -128,12 +128,12 @@ function updateCut(dt) {
     if (!c.hop && !c.gone && c.t > 3.2) {                // dragged to the hole, and down it (however many hops it takes)
       const dx = hx - p.x, dy = hy - p.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(d, UNIT * 5 * dt);
       p.x += dx / d * sp; p.y += dy / d * sp; gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.5 - g.x) * 0.2; g.y += (p.y + (i - 1) * UNIT * 0.4 - g.y) * 0.2; });
-      if (d < UNIT * 0.4) { c.gone = c.t; p.show = false; gs.forEach(g => { g.show = false; }); sfx.cackle(); }
+      if (d < UNIT * 0.4 || p.x > W + UNIT * 0.5) { c.gone = c.t; p.show = false; gs.forEach(g => { g.show = false; }); sfx.cackle(); }   // off the edge, into the dark woods
     }
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      say('Down the hole! It\'s too small to follow. Smash it open with a rock!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
+      say('They ran off with Pip, deeper into the dark! After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');

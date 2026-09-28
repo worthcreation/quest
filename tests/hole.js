@@ -29,11 +29,14 @@ console.log('keystone broken after', throws, 'throw(s)');
 for (const seed of [11,23,47,101,2027]) { const W0=buildWorld(seed); console.log('  seed', seed, 'practice stones:', ['knockA','knockB','knockC'].map(n=>W0.w1.solids.find(q=>q.bar===n).stone).join(', '), '| w2:', ['knockD','knockE'].map(n=>W0.w2.solids.find(q=>q.bar===n).stone).join(', ')); }
 // practice stones: durability and what's inside
 for (const n of ['knockA','knockB','knockC']) { const o=state.solids.find(q=>q.bar===n); if(!o) continue; const cs=WORLD.w1.solids.find(q=>q.bar===n); let t=0; const i0=state.items.length; while(!broken('w1',n) && t<12){ throwAt(o.x,o.y); t++; } console.log('  ', STONES[cs.stone].name.padEnd(9), 'toughness', STONES[cs.stone].dur, '| took', t, 'throws | inside:', state.items.slice(i0).filter(it=>it.type!=='bigrock').map(it=>it.type).join(', ') || 'nothing'); }
-// w2: logs fall, gremlins out of the hole, Pip dragged in; smash the hole
-enterScene('w2', 0.05, 0.5); run(30); rtFor('w2').flags.crack2=true; refreshSceneGeometry(); run(60*7); h=state.hero;
-console.log('abducted', state.inv.pipTaken, '| title', state.title && state.title.sub, '| hole still closed', !broken('w2','burrow'));
-const bw=state.solids.find(o=>o.bar==='burrow'); let bt=0; while(!broken('w2','burrow') && bt<6){ throwAt(bw.x,bw.y); bt++; }
-console.log('hole smashed after', bt, 'throw(s)'); h.x=W-UNIT*0.6; h.y=bw.y; state.keys.arrowright=true; run(10); state.keys.arrowright=false; run(40); console.log('through the hole ->', state.scene);
+// w2: the boulders fall, gremlins burst out of the woods ahead, grab Pip and run east; w3: break the cracked boulder on the heap, into the cave
+state.inv.story=STORY.adventure; state.inv.pipTaken=false; state.cut=null; enterScene('w1'); run(10); enterScene('w2', 0.05, 0.5); run(30); rtFor('w2').flags.crack2=true; refreshSceneGeometry(); for(let k=0;k<60*14;k++){ run(1); if(state.texts.some(t=>t.hold)){ state.keys.f=true; run(1); state.keys.f=false; } } h=state.hero;
+console.log('abducted', state.inv.pipTaken, '| second row of stones on w2?', state.solids.some(o=>o.bar==='burrow'), '| mud on w2?', !!(WORLD.w2.mud&&WORLD.w2.mud.length));
+enterScene('w3', 0.05, 0.5); run(30); const ck=state.solids.find(o=>o.bar==='cave' && o.kind==='cracked');
+const clearFrom=()=>{ for (const a of [Math.PI, Math.PI*0.8, Math.PI*1.2, Math.PI*0.6, Math.PI*1.4, Math.PI/2, Math.PI*1.5]) { const fx=ck.x+Math.cos(a)*UNIT*4.5, fy=ck.y+Math.sin(a)*UNIT*4.5; let ok=fx>UNIT&&fx<W-UNIT&&fy>UNIT&&fy<H-UNIT; for (let k=1;k<10 && ok;k++){ const px=fx+(ck.x-fx)*k/10, py=fy+(ck.y-fy)*k/10; if (state.solids.some(o=>o!==ck && Math.hypot(o.x-px,o.y-py)<o.r+UNIT*0.2)) ok=false; } if (ok) return [fx,fy]; } return [ck.x-UNIT*4.5, ck.y]; };
+const throwFrom=([fx,fy])=>{ state.carry='rock'; state.carryT=state.time-1; h.x=fx; h.y=fy; const dx=ck.x-fx, dy=ck.y-fy, dl=Math.hypot(dx,dy); h.fx=dx/dl; h.fy=dy/dl; run(2); state.keys.f=true; for(let k=0;k<90;k++){ run(1); const [lx,ly]=rockLanding(h); if (Math.hypot(lx-ck.x,ly-ck.y)<UNIT*0.35) break; } state.keys.f=false; run(90); };
+let bt=0; const spot=clearFrom(); while(!broken('w3','cave') && bt<8){ throwFrom(spot); bt++; }
+console.log('cave heap broken after', bt, 'throw(s) (a', ck.stone, 'keystone)'); const cv=WORLD.w3.feat.cave; h.x=cv[0]*W; h.y=cv[1]*H+UNIT*0.2; run(10); run(40); console.log('into the cave ->', state.scene);
 console.log('--- lines ---'); log.forEach(l=>console.log('  '+l));
 console.log('errs', errs2);
 `);

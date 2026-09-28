@@ -21,17 +21,8 @@ state.time=t0+200;
 // 4. the woods: no logs or ropes, boulders and mud instead
 const kinds=new Set(), ropes=[]; for(const id of ['w1','w2','w3']) for(const o of WORLD[id].solids){ if(o.bar) kinds.add(id+':'+o.kind); if(o.rope) ropes.push(id); }
 console.log('4 barrier kinds', [...kinds].sort().join(', '), '| ropes', ropes.length, '| mud patches', ['w1','w2','w3'].map(id=>(WORLD[id].mud||[]).length).join('/'));
-// 5. a short throw into the mud sticks; pound, then pull it out again
-enterScene('w2'); state.enemies=[]; state.inv.story=STORY.adventure; state.inv.sword=true; run(5); clear();
-const m=WORLD.w2.mud[0], mx0=m[0]*W, my0=m[1]*H, ks=state.solids.find(o=>o.bar==='crack2');
-state.carry='rock'; h.x=mx0-UNIT*(m[2]+1.2); h.y=my0+UNIT*1.3; h.fx=1; h.fy=0; run(2); dropRock(); run(2);
-h.x=mx0-UNIT*1.9; h.y=my0-UNIT*0.15; h.fx=1; h.fy=0; const pl0=WORLD.w2.pullables.filter(p=>p.mud).length; state.carry='rock'; dropRock(); run(2);
-const mr=WORLD.w2.pullables.filter(p=>p.mud); console.log('5 rock set down on dry ground stays a rock:', state.items.some(i=>i.type==='bigrock'), '| set down in the mud sinks:', mr.length===pl0+1, '| cracked stone intact', !broken('w2','crack2'));
-const spd=(x,y)=>{ h.x=x; h.y=y; h.vx=h.vy=0; const x0=h.x; state.keys.arrowleft=true; run(30); state.keys.arrowleft=false; run(2); return (x0-h.x)/UNIT; };
-console.log('6 walking half a second: dry', spd(W*0.5, H*0.12).toFixed(2), 'tiles | in mud', spd(mx0-UNIT*0.9, my0).toFixed(2), 'tiles');
-enterScene('w1'); run(3); enterScene('w2'); run(3); console.log('7 the stuck rock is still there after leaving:', WORLD.w2.pullables.filter(p=>p.mud).length===mr.length);
-const pr=WORLD.w2.pullables.find(p=>p.mud); knockRocks(pr.fx*W, pr.fy*H, UNIT); const kn=rtFor('w2').flags['knocked_'+pr.id]; freePullable(pr, pr.fx*W, pr.fy*H);
-console.log('8 pound knocks it loose:', !!kn, '| heaved out and carried:', state.carry==='rock', '| gone from the mud', !WORLD.w2.pullables.some(p=>p.id===pr.id));
+// 5. no mud anywhere in the woods; a thrown rock that buries itself digs out like any other
+console.log('5 mud pits in the woods:', ['w1','w2','w3'].map(id=>(WORLD[id].mud||[]).length).join('/'));
 state.carry=null;
 // 9. the throw that does it: keystone breaks, the boulders tumble
 breakBarrier('crack2','rock'); run(2); console.log('9 keystone hit: the wedged boulders gone', !state.solids.some(o=>o.bar==='crack2' && o.kind==='wedge'));

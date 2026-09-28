@@ -56,6 +56,16 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B111) {                            // build 111: w2's one row of boulders, the w3 cave heap, the heap broken open, a buried rock popping
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; state.dusk=false;
+  enterScene('w2'); state.cut=null; state.enemies=[]; state.pip=null; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b111-w2.png', canvas.toBuffer('image/png'));
+  enterScene('w3'); state.cut=null; state.enemies=[]; state.pip=null; const cv=WORLD.w3.feat.cave; state.hero.x=cv[0]*W-UNIT*4; state.hero.y=cv[1]*H; run(5); state.texts=[]; draw(); fs.writeFileSync('/tmp/b111-w3.png', canvas.toBuffer('image/png'));
+  rtFor('w3').flags.cave=true; refreshSceneGeometry(); run(3); state.texts=[]; draw(); fs.writeFileSync('/tmp/b111-w3open.png', canvas.toBuffer('image/png'));
+  enterScene('start'); state.pip=null; run(3); const rock=sceneDef().pullables.find(p=>p.id==='rock'); state.hero.x=rock.fx*W-UNIT*1.8; state.hero.y=rock.fy*H; run(3); state.texts=[];
+  rtFor('start').flags.knocked_rock=true; rtFor('start').flags.knockT_rock=state.time; run(8); draw(); fs.writeFileSync('/tmp/b111-pop.png', canvas.toBuffer('image/png'));
+  console.log('b111 written');
+}
 if (process.env.B110) {                            // build 110: the boulder barrier and a cracked stone in w1; the buried rock flat then tilted; the tent lantern
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   console.log('b110 start'); state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(5); console.log('ran'); state.texts=[]; state.title=null;

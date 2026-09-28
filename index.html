@@ -271,11 +271,11 @@ const STONES = {
 const pickStone = () => { const r = rng(); return r < 0.5 ? 'sandstone' : r < 0.85 ? 'granite' : 'geode'; };
 function logGate(sc, bar, plateId, x0, y0, x1, y1) { barrier(sc, bar, 'log', x0, y0, x1, y1, 0.55); sc.solids.forEach(s => { if (s.bar === bar) s.plate = plateId; }); }
 function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
-  const n = Math.ceil(Math.PI * 2 * radU / 0.7);
+  const n = Math.ceil(Math.PI * 2 * radU / 0.95);                  // a few smaller rough boulders, not a row of pebbles
   for (let k = 0; k < n; k++) {
     const a = k / n * Math.PI * 2;
     if (gapAng != null && Math.abs(Math.atan2(Math.sin(a - gapAng), Math.cos(a - gapAng))) < gapHalf) continue;
-    sc.solids.push(solid(c[0] + Math.cos(a) * radU * UNIT / W, c[1] + Math.sin(a) * radU * UNIT / H, 0.45, 'stone'));
+    sc.solids.push(solid(c[0] + Math.cos(a) * radU * UNIT / W, c[1] + Math.sin(a) * radU * UNIT / H, 0.55, 'wedge', null, { small: true }));
   }
 }
 function newScene(o) {
@@ -462,33 +462,30 @@ function genWorld() {
     const keep = [];
     if (last) {
       const sword = [rr(0.55, 0.7), pick([0.28, 0.72])];
-      sc.feat.stone = [0.86, 1 - sword[1]]; claim(sc, ...sc.feat.stone, 1.4); claim(sc, ...sword, 2.4);
+      sc.feat.cave = [0.86, 1 - sword[1]]; claim(sc, ...sc.feat.cave, 2.6); claim(sc, ...sword, 2.4);
       pullable(sc, { id: 'sword', kind: 'sword', fx: sword[0], fy: sword[1], need: 6 });
       sc.solids.push(solid(sword[0], sword[1], 0.55, 'stump'));
       sc.feat.sword = sword;
-      sc.paths = [makePath(wPt, [sword[0] - 0.06, sword[1]], 2), makePath([sword[0], sword[1]], sc.feat.stone, 1)];
-      keep.push([...sword, 2.2], [...sc.feat.stone, 2.5]);
+      sc.paths = [makePath(wPt, [sword[0] - 0.06, sword[1]], 2), makePath([sword[0], sword[1]], sc.feat.cave, 1)];
+      keep.push([...sword, 2.2], [...sc.feat.cave, 3.2]);
     } else sc.paths = [makePath(wPt, edgePoint('e', (east[0] + east[1]) / 2), 2 + i)];
     // rock puzzles on the way to the sword, one more idea each screen
     if (i === 1) {                                   // a boulder pile wedged on a cracked keystone: knock the keystone out with a thrown rock.
                                                      // A mud wallow lies in front of it: a rock that falls short sinks and has to be pounded and pulled out
       barrier(sc, 'crack1', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);   // tight against the edge, past both ends of the opening
       const k = [0.9, (east[0] + east[1]) / 2]; keystone(sc, 'crack1', k, null);
-      (sc.mud = sc.mud || []).push([k[0] - 2.2 * UNIT / W, k[1], 1.5]); keep.push([k[0] - 2.2 * UNIT / W, k[1], 2]);
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       for (const n of ['knockA', 'knockB', 'knockC']) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); keystone(sc, n, q, null, 0.7, n === 'knockA' ? 'sandstone' : pickStone()); keep.push([...q, 1.6]); }   // practice stones: sandstone, granite, geode
       sc.paths.push(makePath(wPt, r, 1), makePath(r, k, 1));
       keep.push([...k, 3], [...r, 2.5]);
     }
-    if (i === 2) {                                   // the boulder pile's keystone sits in the middle of a mud wallow: hit it square, or dig your rock out
+    if (i === 2) {                                   // one row of big boulders across the way on; its keystone sits out front
       barrier(sc, 'crack2', 'wedge', 0.968, east[0] - 0.08, 0.968, east[1] + 0.08, 0.85);
-      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null); (sc.mud = sc.mud || []).push([p[0], p[1], 2.3]);
+      const p = freeSpot(sc, [0.5, 0.75, 0.3, 0.7], 3, [[...wPt, 8]]); keystone(sc, 'crack2', p, null);
       const r = freeSpot(sc, [0.15, 0.4, 0.2, 0.8], 2, [[...wPt, 3], [...p, 5]]);
       pullable(sc, { id: 'rock2', kind: 'rock', fx: r[0], fy: r[1], need: 4 });
-      sc.feat.hole = [0.9, (east[0] + east[1]) / 2];
-      barrier(sc, 'burrow', 'burrow', 0.905, east[0] - 0.02, 0.905, east[1] + 0.02, 0.62);
-      { const bs = sc.solids.filter(s => s.bar === 'burrow'); bs.forEach((s, k) => { s.holeMid = k === Math.floor(bs.length / 2); }); }   // one small odd hole in a heap of rock and roots
+      sc.feat.hole = [1.04, (east[0] + east[1]) / 2];     // where the gremlins come from and go: off the east edge, deeper into the dark
       for (const n of ['knockD', 'knockE']) { const q = freeSpot(sc, [0.2, 0.45, 0.15, 0.85], 1.6, [[...wPt, 4], [...r, 3], [...p, 6]]); keystone(sc, n, q, null, 0.7, pickStone()); keep.push([...q, 1.6]); }
       sc.paths.push(makePath(wPt, r, 1), makePath(r, [p[0] - 0.12, p[1]], 1));
       keep.push([...p, 7], [...r, 2.5]);
@@ -502,7 +499,7 @@ function genWorld() {
       const g0 = gapAng - 0.7, g1 = gapAng + 0.7, R = 1.5 * UNIT;
       barrier(sc, 'crack3', 'wedge', pen[0] + Math.cos(g0) * R / W, pen[1] + Math.sin(g0) * R / H, pen[0] + Math.cos(g1) * R / W, pen[1] + Math.sin(g1) * R / H, 0.85);
       pullable(sc, { id: 'rock3a', kind: 'rock', fx: pen[0], fy: pen[1], need: 5 });
-      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null); (sc.mud = sc.mud || []).push([p[0] - 1.6 * UNIT / W, p[1], 1.1]);
+      const p = freeSpot(sc, [0.15, 0.5, 0.15, 0.85], 2, [[...pen, 4], [...wPt, 3]]); keystone(sc, 'crack3', p, null);
       const r = freeSpot(sc, [0.1, 0.4, 0.15, 0.85], 2, [[...pen, 4], [...p, 3], [...wPt, 2]]);
       pullable(sc, { id: 'rock3b', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       sc.paths.push(makePath(wPt, r, 0), makePath(r, p, 0), makePath(p, [pen[0] + Math.cos(gapAng) * 0.08, pen[1] + Math.sin(gapAng) * 0.1], 0), makePath(pen, sw, 1));
@@ -513,7 +510,12 @@ function genWorld() {
     if (i === 2) addShroom(sc);
     for (let g = 0; g < i - 1; g++) { const q = freeSpot(sc, [0.3, 0.8, 0.2, 0.8], 1, [[...wPt, 5]]); sc.spawns.push({ type: 'gremlin', fx: q[0], fy: q[1], req: 'sword' }); }
     decoFlowers(sc, 8);
-    if (last) sc.feat.glimpse = { to: sc.feat.stone, line: 'Down the hole! Follow me!' };
+    if (last) {                                      // the cave mouth, heaped over with boulders; the gremlins slip between them
+      const cv = sc.feat.cave;
+      ringBarrier(sc, 'cave', 'wedge', cv[0], cv[1], 1.7, 0.8);
+      const kk = sc.solids.filter(s => s.bar === 'cave').sort((a, b) => a.fx - b.fx)[0]; if (kk) { kk.kind = 'cracked'; kk.r = 1.0; kk.stone = pickStone(); }   // the loose one, facing you: break it and the heap comes down
+      sc.feat.glimpse = { to: cv, line: 'HELP! They\'re squeezing through the rocks!' };
+    }
     // sun dapples drift through the canopy; one always wanders over the sword
     sc.feat.dapples = Array.from({ length: 14 - i * 2 }, () => ({ fx: rng(), fy: rng(), r: rr(0.8, 2.0), ax: rr(0.02, 0.06), ay: rr(0.02, 0.05), sp: rr(0.08, 0.2), ph: rng() * 6 }));
     if (last) sc.feat.dapples.push({ fx: sc.feat.sword[0], fy: sc.feat.sword[1], r: 1.1, ax: 0.07, ay: 0.06, sp: 0.35, ph: 0, sword: true });
@@ -1453,7 +1455,7 @@ function breakBarrier(bar, how) {
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
     if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
-  if (bar === 'burrow') { say('The hole caves in. There\'s a tunnel through!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3 }); }
+  if (bar === 'cave') { say('The heap comes down: a cave, going deep into the hill!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3.5 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
@@ -1510,7 +1512,7 @@ function enterScene(id, fx, fy) {
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
-  if (id === 'w2' && state.inv.pipTaken && !rt.flags.burrow && !state.inv.burrowTold) { state.inv.burrowTold = true; say('That hole. Pip\'s down there. Smash it open with a rock!', h.x, h.y - UNIT, { key: 'burrow', life: 3 }); }
+  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => say('They slipped between those boulders. Break the cracked one!', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
   if (sc.feat.glimpse && !rt.flags.glimpse && state.inv.pipTaken && !state.inv.pipSaved && state.started) {
     // Pip, carried off by gremlins, always just ahead of you
     rt.flags.glimpse = true;
@@ -1588,8 +1590,8 @@ function checkEdges() {
     if (ex.locked && ex.locked()) return;
     if (Array.isArray(ex.arrive)) { transitionTo(ex.to, ex.arrive[0], ex.arrive[1], true); return; }   // doors put you back at the door
     if (ex.arrive === 'sinkhole') {
-      const s = WORLD[ex.to].feat.stone;
-      transitionTo(ex.to, s[0] - 2.2 * UNIT / W, s[1], true);
+      const s = WORLD[ex.to].feat.cave;
+      transitionTo(ex.to, s[0] - 2.6 * UNIT / W, s[1], true);   // back out of the cave mouth
       if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
       return;
     }
@@ -1809,7 +1811,7 @@ function clampTo(a, r) {
 function collideSolids(a, r) {
   let hit = null;
   for (const o of state.solids) {
-    if (a.type === 'gremlin' && o.kind === 'wedge') continue;   // gremlins slip between the cracks of the boulders
+    if (a.type === 'gremlin' && o.kind === 'wedge' && !o.small) continue;   // gremlins slip between the cracks of the big boulders
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -1882,10 +1884,10 @@ function updatePlates(quiet) {
 // ---------------- scene features ----------------
 function updateFeatures(dt) {
   const sc = sceneDef(), h = state.hero, f = sc.feat, rt = rtFor(sc.id);
-  if (f.stone) {
-    const sx = f.stone[0] * W, sy = f.stone[1] * H, d = Math.hypot(h.x - sx, h.y - sy);
-    if (d < UNIT * 3) say('A sinkhole. The storm opened it.', sx, sy - UNIT * 0.9, { key: 'stone', tip: 'stone' });
-    if (d < UNIT * 0.7) { say('You slip into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
+  if (f.cave) {                                          // the cave mouth: heaped with boulders until you break the loose one
+    const sx = f.cave[0] * W, sy = f.cave[1] * H, d = Math.hypot(h.x - sx, h.y - sy), open = !!rt.flags.cave;
+    if (!open && d < UNIT * 4.5) say('Boulders heaped over something dark. One of them is cracked.', sx, sy - UNIT * 2.2, { key: 'cave', tip: 'cave' });
+    if (open && d < UNIT * 0.8) { say('Into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
   }
   if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {
     rtFor(sc.id).flags.shrine = true;
@@ -2126,7 +2128,7 @@ function deepen(msg) {
 // =====================================================================
 // a thrown rock (or a swing, or a stomp) against a breakable stone: tough stones take several good hits, and not every hit counts
 function hitStone(o, force) {
-  const rt = rtFor(state.scene), cs = sceneDef().solids.find(s => s.bar === o.bar), S = cs && cs.stone && STONES[cs.stone];
+  const rt = rtFor(state.scene), cs = sceneDef().solids.find(s => s.bar === o.bar && s.kind === 'cracked') || sceneDef().solids.find(s => s.bar === o.bar), S = cs && cs.stone && STONES[cs.stone];
   const dur = S ? S.dur : 1, key = 'hits_' + o.bar;
   const counts = !S ? force >= 0.7 || rng() < 0.75 : rng() < 0.45 + 0.4 * Math.min(1, force);
   if (!counts) { sfx.tock(); spark(o.x, o.y, '#9a948a', 4, 1.5); say(S ? `${S.name}. It shrugs that one off.` : 'Glanced off! Try again.', o.x, o.y - UNIT, { key: 'stonehit', life: 1.4 }); return; }
@@ -2137,7 +2139,7 @@ function hitStone(o, force) {
 // buried rocks have to be knocked loose before you can rock them out
 // the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
 // no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
-function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }
+function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
@@ -2145,7 +2147,7 @@ function knockRocks(x, y, reach) {
     if (pl.kind !== 'rock' || rt.pulled.has(pl.id) || rt.flags['knocked_' + pl.id]) continue;
     const px = pl.fx * W, py = pl.fy * H;
     if (Math.hypot(px - x, py - y) > reach) continue;
-    rt.flags['knocked_' + pl.id] = true;
+    rt.flags['knocked_' + pl.id] = true; rt.flags['knockT_' + pl.id] = state.time;   // (for the pop)
     sfx.crash(); state.shake = 0.2; zoomPulse(px, py, 'parry');
     for (let d = 0; d < 10; d++) state.fx.push({ x: px + (Math.random() - 0.5) * UNIT, y: py + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#5a4128' : '#6e5234', size: UNIT * 0.09 });
     say(`THUNK. It shifted! Now hold ${K.act} and rock it.`, px, py - UNIT * 1.3, { key: 'pull', life: 3 });
@@ -4630,10 +4632,10 @@ const PIP_LINES = [
   { key: 'gate', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'crack1' && s.kind === 'cracked'), sight: 12,
     at: sc => { const k = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'); return [k.fx * W, k.fy * H]; }, text: 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.' },
   { key: 'opened', scene: 'w1', when: () => broken('w1', 'crack1'), text: 'CRASH! Onward!' },
-  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, mud, a very suspicious tree.' },
+  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, cracked stones, a very suspicious tree.' },
   { key: 'map-w2', scene: 'w2', text: 'Last blank corner of the map! Past these boulders, and it\'s done.' },
   { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
-    text: 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!' },
+    text: 'That cracked stone is holding the whole pile up. Hit it square with a rock!' },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -4786,7 +4788,7 @@ function updateCut(dt) {
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
-  } else if (c.type === 'abduct') {                    // you can run at them the whole time; they hop clear at the last moment, every time
+  } else if (c.type === 'abduct') {                    // an ambush: they burst out of the woods ahead, grab Pip and run east, deeper into the dark. You can run at them the whole time; they hop clear at the last moment, every time
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;
     { const v = inputVector(), sp = L() * sceneDef().speed * dt;           // your legs still work
@@ -4807,7 +4809,7 @@ function updateCut(dt) {
       sfx.cackle(); spark(p.x, p.y + UNIT * 0.3, '#8a7a5a', 6, 2);
       if (!c.jeer) { c.jeer = true; say(c.t < 2.3 ? 'Hee hee! Too slow!' : 'Nyah! Can\'t catch us!', p.x, p.y - UNIT * 1.6, { key: 'npc', hold: false, life: 1.6, color: '#b8e08a' }); }
     }
-    if (at(0.3)) say('The map\'s nearly... hey. What\'s that weird little hole?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4, hold: false });
+    if (at(0.3)) say('The way\'s open! The map\'s nearly... wait. Did those bushes just giggle?', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.4, hold: false });
     if (at(1.2)) setMusic('sinister');
     if (!c.hop && c.t > 1.4 && c.t < 2.4) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
     if (at(1.6)) { sfx.cackle(); state.shake = 0.3; }
@@ -4815,12 +4817,12 @@ function updateCut(dt) {
     if (!c.hop && !c.gone && c.t > 3.2) {                // dragged to the hole, and down it (however many hops it takes)
       const dx = hx - p.x, dy = hy - p.y, d = Math.hypot(dx, dy) || 1, sp = Math.min(d, UNIT * 5 * dt);
       p.x += dx / d * sp; p.y += dy / d * sp; gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.5 - g.x) * 0.2; g.y += (p.y + (i - 1) * UNIT * 0.4 - g.y) * 0.2; });
-      if (d < UNIT * 0.4) { c.gone = c.t; p.show = false; gs.forEach(g => { g.show = false; }); sfx.cackle(); }
+      if (d < UNIT * 0.4 || p.x > W + UNIT * 0.5) { c.gone = c.t; p.show = false; gs.forEach(g => { g.show = false; }); sfx.cackle(); }   // off the edge, into the dark woods
     }
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      say('Down the hole! It\'s too small to follow. Smash it open with a rock!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
+      say('They ran off with Pip, deeper into the dark! After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
@@ -5753,7 +5755,7 @@ const QUESTS = [
     { id: 'bench', name: 'Build the bench', line: () => `Two frames (${campParts().frames} set): each two sticks and rabbit glue, made on the mat.`, done: () => campBuilt('bench') },
   ] },
   { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
-    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },
+    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins ran off with Pip, deeper into the dark woods.', done: () => state.inv.pipSaved },
   ] },
   { id: 'beans', name: 'The toad\'s beans', icon: 'bean', start: () => rtFor('m2').flags.metToad || state.inv.beans || state.inv.fire, steps: [
     { id: 'beans', name: 'Bring the toad beans', line: () => `${state.inv.beans || 0} of ${BEANS} beans.`, done: () => !!state.inv.fire },
@@ -6544,10 +6546,14 @@ function drawGround(sc) {
       ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.45, UNIT * 0.22, 0, 0, 6.28); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x - UNIT * 0.2, y + (on ? 3 : 0)); ctx.lineTo(x + UNIT * 0.2, y + (on ? 3 : 0)); ctx.stroke();
     }
-    if (f.stone) {                                 // the sinkhole
-      const x = f.stone[0] * W, y = f.stone[1] * H;
-      ctx.fillStyle = '#0c0a08'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.9, UNIT * 0.6, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.stroke();
+    if (f.cave) {                                  // the cave mouth: a rocky outcrop with a dark arch going down into the hill
+      const x = f.cave[0] * W, y = f.cave[1] * H, u = UNIT;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.9, u * 2.2, u * 0.7, 0, 0, 6.28); ctx.fill();
+      drawJagged(x - u * 1.1, y - u * 0.5, u * 1.1, 11.3, ['#6f6a60', '#817b70', '#5c574e']); drawJagged(x + u * 1.1, y - u * 0.4, u * 1.05, 17.9, ['#6f6a60', '#817b70', '#5c574e']);
+      drawJagged(x, y - u * 1.2, u * 1.2, 23.1, ['#77726a', '#8a8479', '#625d55']);
+      ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.moveTo(x - u * 0.75, y + u * 0.55); ctx.lineTo(x - u * 0.7, y - u * 0.1); ctx.quadraticCurveTo(x, y - u * 0.95, x + u * 0.7, y - u * 0.1); ctx.lineTo(x + u * 0.75, y + u * 0.55); ctx.closePath(); ctx.fill();   // the arch
+      const g = ctx.createLinearGradient(0, y - u * 0.7, 0, y + u * 0.6); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(60,40,90,.35)'); ctx.fillStyle = g; ctx.fill();   // a faint cold breath from below
+      ctx.fillStyle = '#4a3a24'; ctx.fillRect(x - u * 0.8, y + u * 0.5, u * 1.6, u * 0.12);   // the worn lip of the entrance
     }
   } else if (sc.area === 'field') {
     for (let i = 0; i < 5; i++) {
@@ -7240,15 +7246,16 @@ function drawPullable(sc, pl) {
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
     if (pl.kind === 'crop') return;                     // drawn with its patch
     if (pl.kind === 'rock') {
-      const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
+      const mud = false, lip = '#5a4128';                   // (a rock you threw and buried looks and works just like the first ones)
       ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
       if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
-      const loose = mud ? false : !!rtFor(sc.id).flags['knocked_' + pl.id];
-      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.14 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
-      const lean = loose ? -0.38 : 0;                                                                                    // and sits at a tilt
+      const knockT = rtFor(sc.id).flags['knockT_' + pl.id], loose = !!rtFor(sc.id).flags['knocked_' + pl.id];
+      const pop = loose && knockT != null ? Math.max(0, 1 - (state.time - knockT) / 0.5) : 0;                            // the stomp: a jolt up, then it settles
+      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.32 + Math.sin(pop * Math.PI) * UNIT * 0.35 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
+      const lean = loose ? -0.55 - pop * 0.3 : 0;                                                                        // and sits well over on its side
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
       ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt + lean); drawRock(0, 0, UNIT * 0.72); ctx.restore();
-      if (!loose && !mud) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
+      if (!loose) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
       if (loose) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x + UNIT * 0.35, y + UNIT * 0.28, UNIT * 0.22, UNIT * 0.08, 0, 0, 6.28); ctx.fill(); }   // the gap the stomp opened
       ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
       if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
@@ -7463,7 +7470,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 110';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 111';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

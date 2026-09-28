@@ -33,7 +33,7 @@ const QUESTS = [
     { id: 'bench', name: 'Build the bench', line: () => `Two frames (${campParts().frames} set): each two sticks and rabbit glue, made on the mat.`, done: () => campBuilt('bench') },
   ] },
   { id: 'pip', name: 'Find Pip', icon: 'heart', start: () => state.inv.pipTaken || state.inv.pipSaved, steps: [
-    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins took Pip down a hole in the woods.', done: () => state.inv.pipSaved },
+    { id: 'rescue', name: 'Find Pip', line: () => 'The gremlins ran off with Pip, deeper into the dark woods.', done: () => state.inv.pipSaved },
   ] },
   { id: 'beans', name: 'The toad\'s beans', icon: 'bean', start: () => rtFor('m2').flags.metToad || state.inv.beans || state.inv.fire, steps: [
     { id: 'beans', name: 'Bring the toad beans', line: () => `${state.inv.beans || 0} of ${BEANS} beans.`, done: () => !!state.inv.fire },

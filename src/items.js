@@ -4,7 +4,7 @@
 // =====================================================================
 // a thrown rock (or a swing, or a stomp) against a breakable stone: tough stones take several good hits, and not every hit counts
 function hitStone(o, force) {
-  const rt = rtFor(state.scene), cs = sceneDef().solids.find(s => s.bar === o.bar), S = cs && cs.stone && STONES[cs.stone];
+  const rt = rtFor(state.scene), cs = sceneDef().solids.find(s => s.bar === o.bar && s.kind === 'cracked') || sceneDef().solids.find(s => s.bar === o.bar), S = cs && cs.stone && STONES[cs.stone];
   const dur = S ? S.dur : 1, key = 'hits_' + o.bar;
   const counts = !S ? force >= 0.7 || rng() < 0.75 : rng() < 0.45 + 0.4 * Math.min(1, force);
   if (!counts) { sfx.tock(); spark(o.x, o.y, '#9a948a', 4, 1.5); say(S ? `${S.name}. It shrugs that one off.` : 'Glanced off! Try again.', o.x, o.y - UNIT, { key: 'stonehit', life: 1.4 }); return; }
@@ -15,7 +15,7 @@ function hitStone(o, force) {
 // buried rocks have to be knocked loose before you can rock them out
 // the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
 // no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
-function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }
+function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
@@ -23,7 +23,7 @@ function knockRocks(x, y, reach) {
     if (pl.kind !== 'rock' || rt.pulled.has(pl.id) || rt.flags['knocked_' + pl.id]) continue;
     const px = pl.fx * W, py = pl.fy * H;
     if (Math.hypot(px - x, py - y) > reach) continue;
-    rt.flags['knocked_' + pl.id] = true;
+    rt.flags['knocked_' + pl.id] = true; rt.flags['knockT_' + pl.id] = state.time;   // (for the pop)
     sfx.crash(); state.shake = 0.2; zoomPulse(px, py, 'parry');
     for (let d = 0; d < 10; d++) state.fx.push({ x: px + (Math.random() - 0.5) * UNIT, y: py + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 4, vy: -UNIT * (1 + Math.random() * 2.5), t: 0, life: 0.7, color: Math.random() < 0.5 ? '#5a4128' : '#6e5234', size: UNIT * 0.09 });
     say(`THUNK. It shifted! Now hold ${K.act} and rock it.`, px, py - UNIT * 1.3, { key: 'pull', life: 3 });

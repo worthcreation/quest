@@ -228,10 +228,14 @@ function drawGround(sc) {
       ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.45, UNIT * 0.22, 0, 0, 6.28); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x - UNIT * 0.2, y + (on ? 3 : 0)); ctx.lineTo(x + UNIT * 0.2, y + (on ? 3 : 0)); ctx.stroke();
     }
-    if (f.stone) {                                 // the sinkhole
-      const x = f.stone[0] * W, y = f.stone[1] * H;
-      ctx.fillStyle = '#0c0a08'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.9, UNIT * 0.6, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.stroke();
+    if (f.cave) {                                  // the cave mouth: a rocky outcrop with a dark arch going down into the hill
+      const x = f.cave[0] * W, y = f.cave[1] * H, u = UNIT;
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.9, u * 2.2, u * 0.7, 0, 0, 6.28); ctx.fill();
+      drawJagged(x - u * 1.1, y - u * 0.5, u * 1.1, 11.3, ['#6f6a60', '#817b70', '#5c574e']); drawJagged(x + u * 1.1, y - u * 0.4, u * 1.05, 17.9, ['#6f6a60', '#817b70', '#5c574e']);
+      drawJagged(x, y - u * 1.2, u * 1.2, 23.1, ['#77726a', '#8a8479', '#625d55']);
+      ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.moveTo(x - u * 0.75, y + u * 0.55); ctx.lineTo(x - u * 0.7, y - u * 0.1); ctx.quadraticCurveTo(x, y - u * 0.95, x + u * 0.7, y - u * 0.1); ctx.lineTo(x + u * 0.75, y + u * 0.55); ctx.closePath(); ctx.fill();   // the arch
+      const g = ctx.createLinearGradient(0, y - u * 0.7, 0, y + u * 0.6); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(60,40,90,.35)'); ctx.fillStyle = g; ctx.fill();   // a faint cold breath from below
+      ctx.fillStyle = '#4a3a24'; ctx.fillRect(x - u * 0.8, y + u * 0.5, u * 1.6, u * 0.12);   // the worn lip of the entrance
     }
   } else if (sc.area === 'field') {
     for (let i = 0; i < 5; i++) {
@@ -924,15 +928,16 @@ function drawPullable(sc, pl) {
     const tilt = p ? p.tilt + (p.grip ? Math.sin(state.time * 60) * 0.02 : 0) : 0;
     if (pl.kind === 'crop') return;                     // drawn with its patch
     if (pl.kind === 'rock') {
-      const mud = pl.mud, lip = mud ? '#3a2a18' : '#5a4128';
+      const mud = false, lip = '#5a4128';                   // (a rock you threw and buried looks and works just like the first ones)
       ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
       if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
-      const loose = mud ? false : !!rtFor(sc.id).flags['knocked_' + pl.id];
-      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.14 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
-      const lean = loose ? -0.38 : 0;                                                                                    // and sits at a tilt
+      const knockT = rtFor(sc.id).flags['knockT_' + pl.id], loose = !!rtFor(sc.id).flags['knocked_' + pl.id];
+      const pop = loose && knockT != null ? Math.max(0, 1 - (state.time - knockT) / 0.5) : 0;                            // the stomp: a jolt up, then it settles
+      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.32 + Math.sin(pop * Math.PI) * UNIT * 0.35 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
+      const lean = loose ? -0.55 - pop * 0.3 : 0;                                                                        // and sits well over on its side
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
       ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt + lean); drawRock(0, 0, UNIT * 0.72); ctx.restore();
-      if (!loose && !mud) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
+      if (!loose) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
       if (loose) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x + UNIT * 0.35, y + UNIT * 0.28, UNIT * 0.22, UNIT * 0.08, 0, 0, 6.28); ctx.fill(); }   // the gap the stomp opened
       ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
       if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
@@ -1147,7 +1152,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 110';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 111';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

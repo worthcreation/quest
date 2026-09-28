@@ -146,10 +146,10 @@ const PIP_LINES = [
   { key: 'gate', scene: 'w1', when: sc => !broken('w1', 'crack1') && sc.solids.some(s => s.bar === 'crack1' && s.kind === 'cracked'), sight: 12,
     at: sc => { const k = sc.solids.find(s => s.bar === 'crack1' && s.kind === 'cracked'); return [k.fx * W, k.fy * H]; }, text: 'Those boulders are wedged on a cracked stone. Throw a rock at it. Mind the mud: a short throw sinks.' },
   { key: 'opened', scene: 'w1', when: () => broken('w1', 'crack1'), text: 'CRASH! Onward!' },
-  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, mud, a very suspicious tree.' },
+  { key: 'map-w1', scene: 'w1', text: 'Drawing the woods in... boulders, cracked stones, a very suspicious tree.' },
   { key: 'map-w2', scene: 'w2', text: 'Last blank corner of the map! Past these boulders, and it\'s done.' },
   { key: 'ring', scene: 'w2', when: () => !broken('w2', 'crack2'), at: sc => { const k = sc.solids.find(s => s.bar === 'crack2' && s.kind === 'cracked'); return k ? [k.fx * W, k.fy * H] : null; },
-    text: 'That cracked stone is holding the whole pile up. It sits in a mud wallow: hit it square, or you\'ll be digging your rock out!' },
+    text: 'That cracked stone is holding the whole pile up. Hit it square with a rock!' },
 ];
 
 // ---------------------------------------------------------------------------------------------------------------
