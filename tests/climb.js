@@ -13,7 +13,7 @@ c.gust.phase='calm'; c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; 
 console.log('1 wind trail: fell into the chasm', fell, '| jumped the narrowest gap', across, '| a gust pushed back', pushed.toFixed(2), '| flag -> next screen', state.scene);
 // 1b. the zigzag: going straight down the right-hand ledge, the crags stop you; you have to cross
 enterScene('climb1'); run(5); c=state.climb; d=climbDef(); c.gust.t=99; c.z=18; c.x=d.cx(18)+d.hw(18)+1.2; state.keys.arrowdown=true; for(let k=0;k<60*4 && !(c.fall>0);k++) run(1); state.keys.arrowdown=false; run(70);
-console.log('1b straight down the right ledge: went off the end at z', (c.safe?c.safe[1]:c.z).toFixed(1), '(the first crossing is at 15.5; the ledge ends just past it)');
+console.log('1b straight down the right ledge (open ground for testing): reached z', c.z.toFixed(1), '| fell', c.fall>0);
 enterScene('climb2'); run(5);
 // 2. stepping stones: from the bank onto the first island, then the next
 c=state.climb; d=climbDef(); const [ix,iz,ir]=d.islands[0]; c.z=iz; c.x=d.cx(iz)+d.hw(iz)+0.3; c.gust.t=99; c.vx=c.vz=0; run(2);

@@ -36,7 +36,7 @@ const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb1;
 const climbCx = (z, d = climbDef()) => d.cx(z);
 const climbHw = (z, d = climbDef()) => d.hw(z);
 const climbSlopeY = dx => 1.5;                                                   // the ledges are level ground
-const climbBand = (z, side, d = climbDef()) => d.band ? d.band(z, side) : 3.2;
+const climbBand = (z, side, d = climbDef()) => 12;                                // (testing) the green runs out past the screen's sides: only the ravine is in the way
 function climbProj(x, y, z, d = climbDef()) {
   const f = H * d.cam.f, sx = (x - d.cx(5.6)) * f / z;
   return [W / 2 + (d.mirror ? -sx : sx), H * d.cam.horizon + (d.cam.camH - y) * f / z];
@@ -115,7 +115,7 @@ function paintClimb(g, d) {
   for (let i = 0; i < 70; i++) { const x = (i * 0.618 % 1) * W, y = horizon + 60 + (i * 0.377 % 1) * (H - horizon); g.fillStyle = 'rgba(60,90,55,.5)'; g.beginPath(); g.arc(x, y, 3 + (y - horizon) * 0.02, 0, 6.28); g.fill(); }
   const HAZE = '#c8d6de', step = 0.15, wh = 1.5; let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const isl = (d.islands || []).map(([ix, iz, r]) => ({ x: d.cx(iz) + ix, z: iz, r, drawn: false }));
-  const lipL = [], lipR = [], lipOL = [], lipOR = [], band = (z, S) => d.band ? d.band(z, S) : 3.2;
+  const lipL = [], lipR = [], lipOL = [], lipOR = [], band = (z, S) => 12;
   const crag = (x0, x0b, dir, z, z2, side, haze) => {                             // the crags beyond a ledge: a rough rock wall rising, stepping back
     const bump = k => wh + 1.6 + 1.1 * Math.abs(Math.sin(k * 1.7 + side)) + 0.5 * Math.abs(Math.sin(k * 4.3)), hTop = bump(z), hTop2 = bump(z2);
     quad([P(x0 + dir * 6, hTop + 1.6, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b + dir * 6, hTop2 + 1.6, z2)], haze(Math.floor(z * 1.5) % 3 ? '#8a857c' : '#817c74'));   // the rock above, stepping back and up

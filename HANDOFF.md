@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 142, 28 Sep 2026)
+# Quest: handoff notes (as of build 143, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,10 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 143: open green, only the ravines (testing)
+- climbBand returns 12 for now, so the green runs out past the sides of the screen; the only obstacle on the trail
+  screens is the interior ravine (and its islands on climb2). The zig() ledge closures are ignored while this is on.
 
 ## Build 142: just the green platforms
 - To prove the concept, the trail screens drop the crags and the distant grey peaks: only the green ledges, their brown
