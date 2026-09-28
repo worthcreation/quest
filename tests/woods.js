@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1);
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1);
 // 1. new quest alert: grand, not held, gone by itself
 const T=state.title; console.log('1 new quest alert:', T&&T.style, T&&T.text, '| held', !!(T&&T.hold)); run(60*4.2); console.log('   gone without a key after ~4 s:', !state.title || state.title!==T);
 clear();

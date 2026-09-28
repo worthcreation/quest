@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 enterScene('start'); state.enemies=[]; state.items=[]; run(5); clear(); inv.story=STORY.adventure; inv.pipTaken=true; if(state.pip) state.pip.show=false;
 const table=[]; for(const L of [0,2,3,5,6,8,9,11,12]){ setSkillLevel('gather',L); table.push('L'+L+': F reach '+gatherReach().toFixed(2)+', auto common '+autoRange('stick').toFixed(1)+' / uncommon '+autoRange('thorn').toFixed(1)+' / rare '+autoRange('starpetal').toFixed(1)+' / secret '+autoRange('starseed').toFixed(1)+', ring rare '+glowShows('starpetal')+' secret '+glowShows('starseed')); }
 console.log('1 by level:\\n   '+table.join('\\n   '));

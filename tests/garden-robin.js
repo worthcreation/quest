@@ -8,7 +8,7 @@ let errs2=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const log=[]; const _say=say; say=function(text,x,y,o){ if(o&&(o.key==='pip'||o.key==='npc')) log.push(text); return _say(text,x,y,o); };
 // build 65 opening: read Pip's three lines with F, wait for Pip to head south, walk out the south edge, clear the quest alert
-const opening=()=>{ run(20); for(let i=0;i<3;i++){ press('f'); run(25);} for(let k=0;k<60*14 && state.intro;k++) run(1); if(state.title&&state.title.hold) press('f'); const hh=state.hero; hh.x=W*0.5; hh.y=H-UNIT*0.6; run(3); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(40); };
+const opening=()=>{ run(20); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(25);} for(let k=0;k<60*14 && state.intro;k++) run(1); if(state.title&&state.title.hold) press('f'); const hh=state.hero; hh.x=W*0.5; hh.y=H-UNIT*0.6; run(3); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(40); };
 opening(); const clearHeld=()=>{ while(state.texts.some(t=>t.hold)||(state.title&&state.title.hold)){ press('f'); run(4);} };
 let h=state.hero; console.log('in the garden: seeds', state.inv.bag.turnipseed||0, '| story', state.inv.story);
 const walkTo=(x,y,n=300)=>{ for(let k=0;k<n;k++){ const dx=x-h.x, dy=y-h.y; if(Math.hypot(dx,dy)<UNIT*0.6) break; state.keys.arrowright=dx>6; state.keys.arrowleft=dx<-6; state.keys.arrowdown=dy>6; state.keys.arrowup=dy<-6; run(1);} ['arrowright','arrowleft','arrowdown','arrowup'].forEach(k=>state.keys[k]=false); };

@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 // 1. an old save with two actions on one key comes back to the defaults; slot labels A S D F, each once
 const d={inv:JSON.parse(JSON.stringify(inv)), settings:{keys:{...DEFAULT_KEYS, dash:'d'}}}; state.settings.keys={...DEFAULT_KEYS, ...d.settings.keys}; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys={...DEFAULT_KEYS}; refreshK && refreshK();
 console.log('1 slot labels:', ALL_SLOTS.map(slotLabel).join(' '), '| each once', new Set(ALL_SLOTS.map(slotLabel)).size===4);

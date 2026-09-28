@@ -29,7 +29,7 @@ const TUT = {
 const TUTORIAL = [
   { id: 'seeds', begins: () => state.inv.story >= STORY.garden, done: () => TUT.seeds() > 0 || TUT.planted() > 0 || state.inv.story > STORY.garden,
     scene: 'meadow', spot: () => gardenSpot(),
-    say: () => 'My garden! First we need seeds. The robin drops them when you startle it. Run right at it!',
+    say: () => 'See? Great dirt! It\'ll be a garden in no time. First we need seeds. The robin drops them when you startle it. Run right at it!',
     remind: () => ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'No seeds yet? That robin has plenty.', 'If it hides in its tree, jump and stomp by the trunk!', 'Go on, give the robin a scare!'],
     remindAt: n => [TUT.robin(), [(TUT.robin()[0] + state.hero.x) / 2, (TUT.robin()[1] + state.hero.y) / 2], [hollowPoint()[0], hollowPoint()[1] + UNIT * 1.2]][n % 3] },
   { id: 'plant', done: () => TUT.planted() >= 2 || state.inv.story > STORY.garden, scene: 'meadow', spot: () => TUT.emptyPlot() || gardenSpot(),

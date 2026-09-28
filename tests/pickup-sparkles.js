@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 enterScene('start'); state.enemies=[]; run(10); clear();
 // 1. walking over something no longer picks it up; F does
 const it={type:'stick', x:W*0.5, y:H*0.5}; state.items.push(it); h.x=it.x; h.y=it.y; run(30);

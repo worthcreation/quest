@@ -3,7 +3,7 @@ eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }}; const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&o.key==='pip') { const sp=(WORLD.camp.feat.buildSpots||[]).map(b=>[b.piece, Math.hypot(state.pip.x-b.fx*W, state.pip.y-b.fy*H)/UNIT]).sort((a,b)=>a[1]-b[1])[0]; said.push(t+'   [Pip by the '+(sp&&sp[1]<2.2?sp[0]+' mark':'-')+']'); } return _s(t,x,y,o); };
 inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; enterScene('camp'); rtFor('camp').flags.built_tent=true; const R=rawOf(); for(const k in R) R[k]=0;
 const stage=(label, fn)=>{ fn(); state.pipTalkT=-99; const n0=said.length; for(let k=0;k<60*12 && said.length===n0;k++){ run(1); if(state.pip && state.pip.visit){ const v=state.pip.visit; h.x=v.x+UNIT*1.5; h.y=v.y+UNIT; } } console.log(label.padEnd(26), '->', said.slice(n0).join(' / ')||'(nothing)'); };

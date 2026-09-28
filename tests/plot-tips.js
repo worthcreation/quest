@@ -6,7 +6,7 @@ const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); 
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
 const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&o.key==='pip') said.push(t); return _s(t,x,y,o); };
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 inv.acorns=4; h.x=W*0.5; h.y=H-UNIT*0.6; run(2); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; for(let k=0;k<60*10;k++) run(1);
 console.log('1 in the meadow, Pip first says:', said[0]);
 console.log('2 compost talk during the garden quest (carrying acorns):', said.some(t=>/compost/i.test(t)));

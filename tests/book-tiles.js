@@ -7,7 +7,7 @@ const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title
 const h=state.hero, inv=state.inv;
 // 1. the opening: nothing about the far side while Pip talks, or from across the river
 const said=[]; const _s=say; say=function(t,x,y,o){ said.push({t, k:o&&o.key}); return _s(t,x,y,o); };
-run(60*6); const during=said.filter(s=>s.k==='farside').length; for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(60*6); const during=said.filter(s=>s.k==='farside').length; for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 enterScene('riverbank'); run(10); const f=WORLD.riverbank.feat.farside, fx=f[0]*W, fy=f[1]*H;
 let seenFromHere=0; for(const [x,y] of [[W*0.5,H*0.8],[W*0.3,H*0.9],[W*0.7,H*0.75]]){ h.x=x; h.y=y; run(60); } seenFromHere=said.filter(s=>s.k==='farside').length;
 console.log('1 far-side notice during the opening:', during, '| from the near bank:', seenFromHere, '| line of sight across the river:', inView(fx,fy+UNIT*0.6,99));

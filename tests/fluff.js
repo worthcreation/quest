@@ -3,7 +3,7 @@ eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message, String(e.stack).slice(0,300));} }}; const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 inv.story=STORY.gather; ['tent'].forEach(k=>rtFor('camp').flags['built_'+k]=true);
 const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&o.key==='pip') said.push(state.scene+': '+t); return _s(t,x,y,o); };
 // 1. the fields: at most two tufts on the first, none lying on the second

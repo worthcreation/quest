@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 inv.story=STORY.tocamp; rtFor('meadow').flags.plots=WORLD.meadow.feat.plots.map(()=>({s:1,t:0,lv:0,seed:'turnipseed'})); enterScene('meadow'); state.enemies=[]; state.items=[]; run(20); clear();
 const keys=['arrowright','arrowleft','arrowup','arrowdown'], stop=()=>keys.forEach(k=>state.keys[k]=false);
 const ex=pipExit(sceneDef()), [gx,gy]=edgePoint(ex.side,(ex.a+ex.b)/2).map((v,i)=>v*(i?H:W));

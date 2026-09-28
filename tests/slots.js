@@ -6,7 +6,7 @@ const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); 
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, sl=()=>JSON.stringify(Object.fromEntries(ALL_SLOTS.map(k=>[k, slotsOf()[k] ? slotsOf()[k].id : null])));
 // skip the opening
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 enterScene('meadow'); run(10); clear();
 console.log('1 new game, all slots empty:', sl(), '| any slot drawn', ALL_SLOTS.some(k=>slotShow(slotsOf()[k])));
 const give=t=>{ collect({type:t, x:h.x, y:h.y}); run(20); };

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 114, 27 Sep 2026)
+# Quest: handoff notes (as of build 117, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,20 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 117: sword swings cost vigor
+- SWING_COST (top of combat.js, 0.35 to start) is spent on every slash; too tired and the swing doesn't happen ("Too
+  tired..."). Existing costs unchanged: lunge 0.6, whirlwind 1.5 to start then 0.35 per beat, pound 0.8. To be tuned.
+
+## Build 116: Pip at 53% pace
+- PIP_PACE = 0.53 (top of pip.js) scales everything Pip does: wandering on the jetty, the run for the dirt, leading,
+  visits, going on ahead, pottering, and his hops (each hop lasts longer). The re-place rules (stuck 1.5 s, or more
+  than 14 tiles away) are unchanged.
+
+## Build 115: Pip found some great dirt
+- There's no garden yet: Pip's third opening line ends "Come on, I saw some great dirt down here!" (INTRO_LINES, pip.js),
+  and on arrival he says "See? Great dirt! It'll be a garden in no time. First we need seeds..." (TUTORIAL seeds step).
+  The longer line runs to two pages, so the opening tests now read until the intro is done rather than three presses.
 
 ## Build 114: the High Reaches (first pass)
 - New file src/highlands.js (in ORDER after world): genHighlands(S, add) builds hr1-hr3 north of peak3 (peak3 gained a

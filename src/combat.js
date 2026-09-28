@@ -7,6 +7,8 @@
 // =====================================================================
 const SLASH = { dur: 0.22, cool: 0.22, reach: 1.7 };
 const STAB  = { dur: 0.22, cool: 0.1, reach: 2.2, charge: 0.35, chainCharge: 0.18, knockChance: 0.6 };
+// the vigor a sword swing costs (the lunge and the whirlwind have their own costs, below). Tune here.
+const SWING_COST = 0.35;
 const COMBO = { slashWindow: 0.7, stabWindow: 0.9 };
 const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
@@ -33,6 +35,7 @@ function updateCombat(dt) {
       bumpCrazy('Whirlwind'); startWhirl(); return;
     }
     if (state.atkCool <= 0) {
+      if (!spend(SWING_COST)) { state.slashBuf = -9; return; }   // every swing costs a little vigor; too tired, no swing
       state.slashBuf = -9;
       const chained = cb.step === 'stab' && state.time - cb.t < COMBO.slashWindow;
       if (chained) { cb.step = 'slash'; cb.t = state.time; } else { cb.step = null; cb.level = 0; }

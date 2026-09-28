@@ -13,7 +13,7 @@ run(5); console.log('opens in', state.scene, '| on the old jetty', !!sceneDef().
 // you can move during the talk
 run(30); const hx=state.hero.x; state.keys.arrowleft=true; run(20); state.keys.arrowleft=false; console.log('during the talk, pressing left moved you', Math.abs(state.hero.x-hx) < UNIT*0.3 ? 'no' : 'yes', '| scene', state.scene);
 // build 65 opening: read Pip's three lines with F, wait for Pip to head south, walk out the south edge, clear the quest alert
-const opening=()=>{ run(20); for(let i=0;i<3;i++){ press('f'); run(25);} for(let k=0;k<60*14 && state.intro;k++) run(1); if(state.title&&state.title.hold) press('f'); const hh=state.hero; hh.x=W*0.5; hh.y=H-UNIT*0.6; run(3); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(40); };
+const opening=()=>{ run(20); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(25);} for(let k=0;k<60*14 && state.intro;k++) run(1); if(state.title&&state.title.hold) press('f'); const hh=state.hero; hh.x=W*0.5; hh.y=H-UNIT*0.6; run(3); state.keys.arrowdown=true; run(90); state.keys.arrowdown=false; run(40); };
 opening();
 h=state.hero; console.log('control back in', state.scene, '| turnip seeds', state.inv.bag.turnipseed, '| story', state.inv.story); state.inv.bag.turnipseed=3;  // the lesson's seeds, handed over for the camp test
 // plant the three seeds

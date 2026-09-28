@@ -5,7 +5,7 @@ let errs=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }c
 const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
 const clear=()=>{ for(let i=0;i<12 && (state.texts.some(t=>t.hold)||(state.title&&state.title.hold));i++) press('f',1); };
 const h=state.hero, inv=state.inv;
-run(10); for(let i=0;i<3;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
+run(10); for(let i=0;i<6 && state.intro && !state.intro.gone;i++){ press('f'); run(20);} for(let k=0;k<60*14 && state.intro;k++) run(1); clear();
 enterScene('start'); state.enemies=[]; run(5); clear();
 // 1. the vigor bar grows to one layer of 17, then layers stack over it
 const bar=(bonus)=>{ inv.vigBonus=bonus; h.vig=maxVig(); draw(); const b=state.vigorBar; return { mv:maxVig(), w:+(b.w/b.rowW).toFixed(2), fills:b.fills, centred: Math.abs((b.x+b.w/2)-(b.rowX+b.rowW/2))<0.5 }; };

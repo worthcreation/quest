@@ -1,3 +1,5 @@
+// Pip's pace: every move he makes (walking, running, pottering, hopping) at 53% of his old speed (build 116)
+const PIP_PACE = 0.53;
 // ===== pip.js: Pip: the opening on the jetty, leading and waiting, the garden, reminders, camp talk, gathering guidance, bounces.
 // =====================================================================
 // Cutscenes: intro storm, sword, toad, faint, ending
@@ -22,7 +24,7 @@ function startIntro() {
 const INTRO_LINES = [
   '...no, LISTEN. Old Wick says the river runs to a pool so shiny it hurts your eyes!',
   'And past the woods? Treasure. Actual, real, heavy treasure!',
-  'We\'re gonna need snacks. SO many snacks. Come on, my garden\'s just south!',
+  'We\'re gonna need snacks. SO many snacks. Come on, I saw some great dirt down here!',
 ];
 function updateIntro(dt) {
   const c = state.intro, p = state.pip, h = state.hero;
@@ -39,7 +41,7 @@ function updateIntro(dt) {
     }
     if (c.wt) {
       const dx = c.wt[0] - p.x, dy = c.wt[1] - p.y, d = Math.hypot(dx, dy);
-      if (d > UNIT * 0.2) { const sp = Math.min(d, L() * sceneDef().speed * 0.55 * dt), ox = p.x, oy = p.y; p.x += dx / d * sp; p.y += dy / d * sp;
+      if (d > UNIT * 0.2) { const sp = Math.min(d, L() * sceneDef().speed * 0.55 * PIP_PACE * dt), ox = p.x, oy = p.y; p.x += dx / d * sp; p.y += dy / d * sp;
         if (isChasm(p.x, p.y, UNIT * 0.3)) { p.x = ox; p.y = oy; c.wt = null; c.pause = 0; }                 // not into the river
         collideSolids(p, UNIT * 0.38); clampTo(p, UNIT * 0.6); }
       p.side = Math.abs(dx) > UNIT * 0.2 ? (dx > 0 ? 1 : -1) : (h.x > p.x ? 1 : -1);
@@ -49,7 +51,7 @@ function updateIntro(dt) {
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
-  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.5 * dt;   // off at a run for the garden
+  const tx = W * 0.5, ty = H + UNIT * 1.2, dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1, sp = L() * sceneDef().speed * 1.5 * PIP_PACE * dt;   // off at a run for the garden
   p.x += dx / d * sp; p.y += dy / d * sp; p.side = dx > 0 ? 1 : -1;
   collideSolids(p, UNIT * 0.38);
   if (p.y > H + UNIT * 0.6 || state.time - c.t0 > 12) finish();
@@ -193,7 +195,7 @@ function pipBounce(dt) {
   for (const t of mine) if (!t.bounced) { t.bounced = true; if (Math.random() < (/!/.test(t.text) ? 0.6 : 0.2)) p.hop = { t: 0, n: 1 + Math.floor(Math.random() * 3) }; }
   if (!p.hop && mine.length && Math.random() < dt * 0.15) p.hop = { t: 0, n: 1 + Math.floor(Math.random() * 2) };
   if (p.hop) {
-    p.hop.t += dt; const per = 0.26, k = p.hop.t / per;
+    p.hop.t += dt; const per = 0.26 / PIP_PACE, k = p.hop.t / per;
     if (k >= p.hop.n) { p.hop = null; p.bz = 0; } else p.bz = Math.abs(Math.sin(Math.PI * (k % 1))) * UNIT * (0.3 + 0.08 * Math.sin(k * 5));
   }
 }
@@ -218,7 +220,7 @@ function updatePip(dt) {
   const waiting = along > Math.min(lead, UNIT * 3.4) - UNIT * 0.3 && along < UNIT * 9 && Math.abs(side) < UNIT * 4;   // up ahead and roughly on the way: he waits, even if you wander a bit
   if (waiting && !p.waitAt) p.waitAt = [p.x, p.y]; else if (!waiting) p.waitAt = null;
   // never standing still: waiting up ahead (or at his garden post) he paces and potters about the spot
-  const pot = k => [Math.cos(state.time * 0.8 + k) * UNIT * 0.7 + Math.cos(state.time * 1.9 + k * 2) * UNIT * 0.2, Math.sin(state.time * 1.1 + k) * UNIT * 0.4];
+  const pt = state.time * PIP_PACE, pot = k => [Math.cos(pt * 0.8 + k) * UNIT * 0.7 + Math.cos(pt * 1.9 + k * 2) * UNIT * 0.2, Math.sin(pt * 1.1 + k) * UNIT * 0.4];   // pottering, at his pace
   let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
   if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }
   const TL = !p.visit && tutorialLead(sc);            // the tour: walk to the door / the flap / the way out, and slip out of sight there
@@ -264,7 +266,7 @@ function updatePip(dt) {
   const mx = tx - p.x, my = ty - p.y, md = Math.hypot(mx, my);
   if (md > UNIT * ((waiting || garden) && !p.visit ? 0.04 : 0.3)) {   // pottering: small steps count too
     const ahead = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'back');   // going on ahead (or coming back to hurry you): an easy pace
-    const sp = Math.min(md * 4, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0) * (ahead ? 0.6 : 1)) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
+    const sp = Math.min(md * 4 * PIP_PACE, L() * sc.speed * (p.visit ? 1.2 : md > UNIT * 5 ? 1.35 : 1.0) * (ahead ? 0.6 : 1) * PIP_PACE) * dt, nx = p.x + mx / md * sp, ny = p.y + my / md * sp;   // walks, never dashes about
     if (!isChasm(nx, ny)) { p.x = nx; p.y = ny; }
     p.side = mx > 0 ? 1 : -1;
   }
