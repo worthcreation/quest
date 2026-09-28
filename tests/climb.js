@@ -30,8 +30,10 @@ enterScene('climb2'); run(5);
   // out on a bare island when the gust blows: off you go
   c4.x=0.4; c4.z=13.7; c4.vx=c4.vz=0; c4.gust.phase='blow'; c4.gust.t=2; c4.gust.dir=1; let blown=false; for(let k=0;k<100;k++){ run(1); if(c4.fall>0) blown=true; } run(80);
   // tucked behind a big rock on the downwind side: you stay put
-  const [bx,bz,br]=d4.boulders[3]; c4.x=bx+br+0.5; c4.z=bz; c4.vx=c4.vz=0; c4.fall=0; c4.gust.phase='blow'; c4.gust.t=2; c4.gust.dir=1; const x0=c4.x; run(100);
-  console.log('4 the windy crossing: caught on a bare island in a gust -> blown off', blown, '| behind a big rock -> moved', Math.abs(c4.x-x0).toFixed(2), 'tiles, sheltered', !!c4.sheltered || Math.abs(c4.x-x0)<0.3); }
+  const [bx,bz,br]=d4.boulders[3]; c4.x=bx; c4.z=bz+br+0.4; c4.vx=c4.vz=0; c4.fall=0; c4.gust.phase='blow'; c4.gust.t=2; c4.gust.dir=1; const z0=c4.z; run(100); const moved=Math.abs(c4.z-z0);
+  // caught in the open near the start: blown all the way back to the screen before
+  c4.x=0; c4.z=21.8; c4.vx=c4.vz=0; c4.gust.phase='blow'; c4.gust.t=3; for(let k=0;k<200 && state.scene==='climb4';k++) run(1);
+  console.log('4 the windy crossing: caught on a bare island -> blown off', blown, '| behind a big rock -> moved', moved.toFixed(2), 'tiles | caught in the open near the start -> now on', state.scene); }
 enterScene('climb5'); run(5);
 for (const id of []) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
 // 5. the side view: run right and jump now and then; reach the top, out into the crags

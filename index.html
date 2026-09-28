@@ -1404,12 +1404,12 @@ function updateClimb(dt) {
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
   const d = climbDef(), h = state.hero, g = c.gust; g.t -= dt;
-  if (g.t <= 0) { const wy = d.windy; if (g.phase === 'calm') { g.phase = 'warn'; g.t = wy ? 1.4 : 0.9; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); if (wy && !(state.inv.pipTips || {})['climb-hide']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-hide'] = true; showScroll('Here it comes', 'Get behind a big rock, on the side away from the wind!'); } } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = wy ? 2.0 : 1.6; } else { g.phase = 'calm'; g.t = wy ? 3.5 + Math.random() * 1.5 : 2 + Math.random() * 2.5; } }
+  if (g.t <= 0) { const wy = d.windy; if (g.phase === 'calm') { g.phase = 'warn'; g.t = wy ? 1.4 : 0.9; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); if (wy && !(state.inv.pipTips || {})['climb-hide']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-hide'] = true; showScroll('Here it comes', 'The wind comes up the mountain at you: get behind a big rock!'); } } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = wy ? 2.0 : 1.6; } else { g.phase = 'calm'; g.t = wy ? 3.5 + Math.random() * 1.5 : 2 + Math.random() * 2.5; } }
   if (c.fall > 0) { c.fall += dt; if (c.fall > 0.9) { c.fall = 0; [c.x, c.z] = c.safe || [d.cx(d.start[1]) + d.start[0], d.start[1]]; c.h = 0; c.air = false; c.vx = c.vz = 0; hurtHero(1, 0, 0, { force: true }); } return; }
   const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
-  c.sheltered = d.windy && (d.boulders || []).some(([bx, bz, r]) => Math.abs(bz - c.z) < r * 1.05 && (bx - c.x) * g.dir < 0 && Math.abs(bx - c.x) < r + 1.5);   // a big rock between you and the wind
-  if (g.phase === 'blow' && !c.sheltered) { if (d.windy) { const push = c.air ? 9 : 6.5; c.vx += g.dir * push * dt * 1.4; c.vz += push * dt * 0.25; } else { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; } }
+  c.sheltered = d.windy && (d.boulders || []).some(([bx, bz, r]) => Math.abs(bx - c.x) < r * 1.05 && bz < c.z && c.z - bz < r + 1.6);   // a big rock between you and the wind (it comes up the mountain at you, from the near side)
+  if (g.phase === 'blow' && !c.sheltered) { if (d.windy) { const push = c.air ? 14 : 10; c.vz += push * dt; c.vx += g.dir * push * dt * 0.15; /* it drives you back, the way you came */ } else { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; } }
   if (pressedNow.jump && !c.air) { c.jumpFrom = [c.x, c.z]; c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
   if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
   if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
@@ -1424,6 +1424,7 @@ function updateClimb(dt) {
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
+  if (d.windy && c.z > d.start[1] + 1.4 && !c.air) { const back = Object.keys(CLIMBS).find(k => CLIMBS[k].next === state.scene); if (back) { state.climb = null; enterScene(back); const b = state.climb; if (b) { b.z = 5.8; b.x = 0.4; b.safe = [b.x, b.z]; } showScroll('Blown back', 'The wind drove you all the way back down.'); return; } }
   // (no crags for now: the ledges are platforms in the air, and off any edge you fall)
   for (const [bx, bz, r] of d.boulders || []) { const dx = c.x - bx, dz = c.z - bz, dd = Math.hypot(dx, dz) || 0.001, mn = r + 0.3; if (dd < mn && c.h < 1.2) { c.x = bx + dx / dd * mn; c.z = bz + dz / dd * mn; } }   // the big rocks are solid
   if (c.air) { c.h += c.vh * dt; c.vh -= 14 * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
@@ -1441,7 +1442,8 @@ function drawClimb() {
   if (c.bgKey !== key) { c.bgKey = key; c.bg = null; try { const cv = document.createElement('canvas'); cv.width = Math.ceil(W); cv.height = Math.ceil(H); const g = cv.getContext && cv.getContext('2d'); if (g && g.fillRect) { paintClimb(g, d); c.bg = cv; } } catch (e) { c.bg = null; } }
   if (c.bg) ctx.drawImage(c.bg, 0, 0); else paintClimb(ctx, d);
   const gs = c.gust, a = gs.phase === 'blow' ? 0.7 : gs.phase === 'warn' ? 0.25 : 0;
-  if (a) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 16; i++) { const z = 5 + ((i * 3.1 + state.time * 9) % 40), x = d.cx(z) + (i % 4 - 1.5) * 2.2 + gs.dir * ((state.time * 3 + i) % 2), [sx, sy] = climbProj(x, 2.2, z), l = 70 * 5 / z, dir = (d.mirror ? -1 : 1) * gs.dir; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * l * 0.5, sy - l * 0.3, sx + dir * l, sy - l * 0.1); ctx.stroke(); } }
+  if (a && d.windy) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 26; i++) { const z = 4.5 + ((i * 2.3 + state.time * 14) % 22), x = ((i * 3.7) % 16) - 8, [sx, sy] = climbProj(x, 2.4, z), [ex, ey] = climbProj(x, 2.4, z + 1.4); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); } }
+  else if (a) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 16; i++) { const z = 5 + ((i * 3.1 + state.time * 9) % 40), x = d.cx(z) + (i % 4 - 1.5) * 2.2 + gs.dir * ((state.time * 3 + i) % 2), [sx, sy] = climbProj(x, 2.2, z), l = 70 * 5 / z, dir = (d.mirror ? -1 : 1) * gs.dir; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * l * 0.5, sy - l * 0.3, sx + dir * l, sy - l * 0.1); ctx.stroke(); } }
   const f = H * d.cam.f, ground = climbGround(c.x, c.z), s = 0.55 * f / c.z;
   const rock = ([bx, bz, r]) => { const [rx, ry] = climbProj(bx, 1.5, bz), rs = r * f / bz; ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(rx + rs * 0.2, ry, rs * 1.1, rs * 0.35, 0, 0, 6.28); ctx.fill(); ctx.save(); ctx.translate(rx, ry - rs * 0.9); ctx.scale(1, 1.25); drawJagged(0, 0, rs, bx * 3 + bz, ['#8a857c', '#a09a90', '#6e6a62']); ctx.restore(); drawSoilLine(rx, ry - rs * 0.05, rs * 2, Math.max(2, rs * 0.12), bx); };
   const far = (d.boulders || []).filter(b => b[1] > c.z), near = (d.boulders || []).filter(b => b[1] <= c.z);
@@ -8539,7 +8541,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 154';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 155';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

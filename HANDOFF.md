@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 154, 28 Sep 2026)
+# Quest: handoff notes (as of build 155, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 155: the wind drives you back down
+- On the windy crossing the gusts now come up the mountain at you and drive you back (10 on the ground, 14 in the air,
+  mostly back toward the far end). Sheltered means a big rock just nearer the camera than you (within its width and
+  about 1.6 tiles behind it). Blown back past the start and you're on the screen before (climb3), near its end, with a
+  scroll ("Blown back"). The streaks on this screen run up the mountain.
+- build.sh now runs node --check on every source file (a stray // had swallowed part of a line twice this session).
+- Test climb: blown back from the open near the start lands you on climb3. 62 of 62.
 
 ## Build 154: climb4 is the windy crossing
 - climb4 ('The windy crossing') replaces the steep way. A gap field (like climb3) with three wide rifts across the way
