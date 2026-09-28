@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 134, 27 Sep 2026)
+# Quest: handoff notes (as of build 135, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 135: broad platforms, a narrow way now and then
+- corridorSpan is mostly broad ground now (about half the screen across, wandering, with an occasional deeper bite),
+  still running diagonally between the openings; the rock is the minority at the sides. Each path screen has one
+  pinch (corridor.pinch, on solid ground between rifts, chosen at build): there the rock closes to a narrow way about
+  2.5 tiles across. The rifts cross the broad platforms as before. Ledges use the usual spread on broad ground and two
+  across a narrow stretch.
 
 ## Build 134: sticks from the trees; the river stone waits for Pip
 - The glade has only about six sticks lying about now: four spread well apart (at least 4 tiles), and a couple lying

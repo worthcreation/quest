@@ -215,8 +215,11 @@ function corridorSpan(sc, fy) {
   const c = sc.corridor; if (!c) return [0, 1];
   const e = Math.min(1, Math.max(0, fy)), k = e * e * (3 - 2 * e), s = c.seed;
   const mid = c.n + (c.s - c.n) * k + (fy > 0.08 && fy < 0.92 ? Math.sin(fy * 7 + s) * 0.035 : 0);
-  const hw = (1.8 + 0.35 * Math.sin(fy * 11 + s * 1.7) + 0.15 * Math.sin(fy * 29 + s)) * UNIT / W;                // never under 2 tiles across (bites included), up to about 4.5
-  const bite = t => (Math.sin(fy * 41 + s * t) > 0.72 ? 0.3 : 0) * UNIT / W;                                        // here and there the rock bites in
+  // mostly broad ground (about half the screen across), wandering; at the pinch, the rock closes in to a narrow way
+  let hw = 0.25 + 0.04 * Math.sin(fy * 9 + s * 1.7) + 0.02 * Math.sin(fy * 23 + s);
+  if (c.pinch != null) { const d = Math.abs(fy - c.pinch), k2 = Math.max(0, 1 - d / 0.09); hw = hw * (1 - k2) + (1.25 * UNIT / W) * k2; }   // never under 2.5 tiles
+  if (fy < 0.06 || fy > 0.94) hw = Math.max(hw, 0.1);                                                                   // room at the openings
+  const bite = t => (Math.sin(fy * 41 + s * t) > 0.8 && (c.pinch == null || Math.abs(fy - c.pinch) > 0.12) ? 0.9 : 0) * UNIT / W;   // here and there the rock bites in
   return [Math.max(0.03, mid - hw + bite(2.3)), Math.min(0.97, mid + hw - bite(3.1))];
 }
 const inCorridor = (sc, fx, fy, pad = 0) => { const [a, b] = corridorSpan(sc, fy); return fx > a + pad && fx < b - pad; };
@@ -570,7 +573,12 @@ function genWorld() {
     const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
     sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
     if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
-    if (sc.corridor) fitToCorridor(sc);                // everything that belongs on the path is on the path
+    if (sc.corridor) {                                 // one narrow way per screen, on solid ground between the rifts
+      const edges = [0.18].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.82]).sort((a, b) => a - b), gaps = [];
+      for (let q = 0; q + 1 < edges.length; q += 2) if (edges[q + 1] - edges[q] > 0.12) gaps.push((edges[q] + edges[q + 1]) / 2);
+      sc.corridor.pinch = gaps.length ? gaps[Math.floor(rng() * gaps.length)] : null;
+      fitToCorridor(sc);                               // everything that belongs on the path is on the path
+    }
     if (south) north = south;
   });
 

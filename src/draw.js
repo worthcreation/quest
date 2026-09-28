@@ -1269,7 +1269,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 134';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 135';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -1345,7 +1345,7 @@ function layoutLedges(sc) {
   for (let k = 0; k + 1 < edges.length; k++) { const a = edges[k], b = edges[k + 1]; if (b - a > 0.06 && !(sc.chasms || []).some(c => (a + b) / 2 > c[1] && (a + b) / 2 < c[3] && c[0] <= 0.01 && c[2] >= 0.99)) bands.push((a + b) / 2); }
   for (const fy of bands) for (let i = 0; i < 5; i++) {
     let fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04;
-    if (sc.corridor) { if (i > 1) continue; const [a, b] = corridorSpan(sc, fy); fx = a + (b - a) * (i ? 0.72 : 0.28); }   // on the mountain path: two ledges across the way
+    if (sc.corridor) { const [a, b] = corridorSpan(sc, fy); if (b - a < 0.2) { if (i > 1) continue; fx = a + (b - a) * (i ? 0.72 : 0.28); } else if (fx < a + 0.04 || fx > b - 0.04) continue; }   // on the mountain: ledges on the ground there is
     const x = fx * W, y = fy * H;
     if (isChasm(x, y, UNIT * 0.85)) continue;
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
