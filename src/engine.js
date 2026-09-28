@@ -171,7 +171,8 @@ function checkEdges() {
       if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
       return;
     }
-    const al = Math.max(0.05, Math.min(0.95, along));
+    let al = Math.max(0.05, Math.min(0.95, along));
+    { const back = (WORLD[ex.to].exits || []).find(b => b.side === OPP[ex.side] && b.to === state.scene); if (back && (al < back.a || al > back.b)) al = (back.a + back.b) / 2; }   // a diagonal step: come in at the far scene's own opening
     const inX = 1.2 * UNIT / W, inY = 1.2 * UNIT / H, side = OPP[ex.side];
     const [fx, fy] = side === 'n' ? [al, inY] : side === 's' ? [al, 1 - inY] : side === 'w' ? [inX, al] : [1 - inX, al];
     transitionTo(ex.to, fx, fy, true);
@@ -429,7 +430,17 @@ function isChasm(x, y, pad = 0) {
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
-  return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
+  return sc.chasms.some(c => { const [x0, y0, x1, y1] = c; if (sc.vista) return fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py;
+    const [a0, a1] = chasmSpan(c, x0 === 0 && x1 === 1 || (x1 - x0) >= (y1 - y0) ? fx : fy);
+    return (x1 - x0) >= (y1 - y0) ? fx > x0 - px && fx < x1 + px && fy > a0 - py && fy < a1 + py : fy > y0 - py && fy < y1 + py && fx > a0 - px && fx < a1 + px; });
+}
+// a ravine's edges wander: broken, irregular lips (up to about a third of a tile either way), the same for walking and
+// for drawing. For a wide ravine the top and bottom edges wander along x; for a tall one the sides wander along y.
+function chasmSpan([x0, y0, x1, y1], t) {
+  const wide = (x1 - x0) >= (y1 - y0), s = x0 * 13.1 + y0 * 7.3 + x1 * 3.7, amp = 0.34 * UNIT / (wide ? H : W);
+  const n = k => (Math.sin(t * 23 + s + k) * 0.55 + Math.sin(t * 61 + s * 2 + k * 3) * 0.3 + Math.sin(t * 131 + k * 5) * 0.15);
+  const lo = wide ? y0 : x0, hi = wide ? y1 : x1;
+  return [lo > 0.001 ? lo + amp * n(1) : lo, hi < 0.999 ? hi + amp * n(2) : hi];
 }
 
 function updateGlimpse(dt) {

@@ -12,7 +12,7 @@ function genHighlands(S, add) {
   HR.forEach((C, k) => {
     const sc = add(newScene({ id: C.id, area: 'high', depth: 11 + k, msg: C.msg, music: 'field', amb: 'wind', floor: k === 2 ? '#a9a4a8' : '#948e88', speed: 0.42, accel: 8, chasms: [] }));
     sc.region = 'high'; sc.vista = C.vista;
-    sc.exits = [{ side: 's', a: 0.42, b: 0.58, to: k ? HR[k - 1].id : 'peak3' }];
+    sc.exits = [{ side: 's', a: k ? 0.42 : 0.08, b: k ? 0.58 : 0.24, to: k ? HR[k - 1].id : 'peak3' }];   // hr1 is a diagonal step up from the old summit: you come in at its bottom-left
     if (k < HR.length - 1) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: HR[k + 1].id });
     else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hrtop', locked: () => true });            // the peak: nothing has gone up and come back
     sc.gusts = [{ a: Math.PI / 2 * (k % 2 ? 1 : -1), s: 1 }, { a: 0, s: 0.6 }];
@@ -27,7 +27,7 @@ function genHighlands(S, add) {
     }
     const inDrop = (x, y) => sc.chasms.some(([x0, y0, x1, y1]) => x > x0 - 0.05 && x < x1 + 0.05 && y > y0 - 0.05 && y < y1 + 0.05);
     const spot = r => { for (let t = 0; t < 40; t++) { const q = freeSpot(sc, [0.12, 0.88, 0.14, 0.86], r); if (!inDrop(q[0], q[1])) return q; } return null; };
-    for (let t = 0; t < 4 + k; t++) { const q = spot(1.2); if (q) sc.solids.push(solid(q[0], q[1], rr(0.6, 1.1), 'boulder')); }
+    for (let t = 0; t < 4 + k; t++) { const q = spot(1.2); if (q) sc.solids.push(solid(q[0], q[1], rr(0.6, 1.1), 'boulder', null, { craggy: true })); }
     // crystal insects, grand or tormented, still for hundreds of years
     for (let t = 0; t < C.statues; t++) { const q = spot(1.6); if (q) sc.solids.push(solid(q[0], q[1], rr(0.8, 1.4), 'crystalbug', null, { form: rng() < 0.4 ? 'tormented' : 'grand', ph: rng() * 6, twitch: rng() < 0.35 })); }
     for (let t = 0; t < C.insects; t++) { const q = spot(1); if (q) sc.spawns.push({ type: 'mantis', fx: q[0], fy: q[1] }); }

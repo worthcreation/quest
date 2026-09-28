@@ -547,8 +547,10 @@ function genWorld() {
     const sc = add(newScene({ id: C.id, area: 'peak', depth: 8 + k, msg: C.msg, music: 'field', amb: 'wind', floor: '#8b8680', speed: 0.42, accel: 8, chasms: [] }));
     sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
     sc.exits = [];
-    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: 0.42, b: 0.58, to: CRAGS[k - 1].id });
-    if (!C.top) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hr1' });   // the summit was never the top
+    const DIAG_UP = ['peak1', 'peak3'], DIAG_IN = ['peak2'];                   // diagonal steps: out at the top-right corner, in at the bottom-left
+    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
+    const up = DIAG_UP.includes(C.id) ? [0.76, 0.92] : [0.42, 0.58];
+    if (!C.top) sc.exits.push({ side: 'n', a: up[0], b: up[1], to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: up[0], b: up[1], to: 'hr1' });   // the summit was never the top
     for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }
     for (const [y, x0, x1] of C.cliffs) for (let x = x0; x <= x1; x += 0.045) sc.solids.push(solid(x, y, 0.75, 'cliff'));
     const band = y => C.ravines.some(r => Math.abs(y - r) < 0.08) || C.cliffs.some(c => Math.abs(y - c[0]) < 0.06);
@@ -733,6 +735,12 @@ function genWorld() {
     const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
     sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
   }
+  // the climb: the smooth field boulders turn to rough, craggy stone as you go up, a few more each screen, all of them by
+  // about halfway (f6 on); the crags and the High Reaches are all craggy
+  for (const sc of Object.values(S)) {
+    const m = /^f(\d)$/.exec(sc.id), frac = m ? Math.min(1, (Number(m[1]) - 1) / 5) : sc.area === 'peak' ? 1 : 0;
+    if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
+  }
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -786,10 +794,10 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [5, 8], peak3: [5, 7], hr1: [5, 6], hr2: [5, 5], hr3: [5, 4], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
-  c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
-  fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
-  sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
+  fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
+  sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],
 };
 const MAP_NAMES = { cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };

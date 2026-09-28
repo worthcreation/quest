@@ -63,6 +63,14 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B131) {                            // build 131: broken ravine edges; boulders turning craggy up the fields; the Map's diagonal climb
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.tortoise=true; state.pip=null;
+  for (const id of ['f2','f5','peak1']) { enterScene(id); state.cut=null; state.enemies=[]; state.pip=null; state.hero.x=W*0.2; state.hero.y=H*0.15; run(6); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b131-'+id+'.png', canvas.toBuffer('image/png')); }
+  for (const id of ['f1','f2','f3','f4','f5','f6','f7','peak1','peak2','peak3','hr1','hr2','hr3','start','foot']) state.seen[id]=true;
+  state.menu={view:'pack',tab:PACK_TABS.indexOf('Map'),sel:0,focus:'tabs',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b131-map.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b131 written');
+}
 if (process.env.B130) {                            // build 130: a pickup note and a long alert, both scrolls
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; enterScene('start'); state.cut=null; state.enemies=[]; state.pip=null; run(5); state.texts=[]; state.title=null; state.scrolls=[];

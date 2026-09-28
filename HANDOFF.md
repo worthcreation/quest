@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 130, 27 Sep 2026)
+# Quest: handoff notes (as of build 131, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,19 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 131: broken ravine edges; the climb turns craggy; a diagonal climb
+- Ravine edges wander (chasmSpan in engine.js, up to about a third of a tile either way, fixed per ravine): isChasm
+  uses them, so walking, falling and jumping match what's drawn. drawBrokenChasm (draw.js) draws the shape, the stone
+  fill clipped to it, and crumbling lips along each wandering edge (grass in the fields, rock on the crags). The High
+  Reaches drops stay straight (they're cliff edges with the view).
+- Boulders turn craggy up the climb: in f1 none, then a growing share each field screen, all of them from f6 on and in
+  the crags and High Reaches (s.craggy, drawn with drawJagged, sunk in the ground).
+- The climb steps up and to the right: peak1 -> peak2 and peak3 -> hr1 leave from the top-right corner and arrive at
+  the bottom-left of the next screen. checkEdges now always brings you in at the far screen's own opening when the
+  openings don't line up. MAP_LAYOUT: peak2 [6,8], peak3 [6,7], hr1-3 [7,6..4]; caves, falls, marsh, swamp and hollow
+  shifted one column right to make room.
+- 59 of 59.
 
 ## Build 130: scrolls only
 - The bottom-left feed is gone: notice() (pickups, counts, item notes) now makes a small title-less scroll; a quick

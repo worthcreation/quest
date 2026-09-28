@@ -604,8 +604,10 @@ function genWorld() {
     const sc = add(newScene({ id: C.id, area: 'peak', depth: 8 + k, msg: C.msg, music: 'field', amb: 'wind', floor: '#8b8680', speed: 0.42, accel: 8, chasms: [] }));
     sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
     sc.exits = [];
-    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: 0.42, b: 0.58, to: CRAGS[k - 1].id });
-    if (!C.top) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hr1' });   // the summit was never the top
+    const DIAG_UP = ['peak1', 'peak3'], DIAG_IN = ['peak2'];                   // diagonal steps: out at the top-right corner, in at the bottom-left
+    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
+    const up = DIAG_UP.includes(C.id) ? [0.76, 0.92] : [0.42, 0.58];
+    if (!C.top) sc.exits.push({ side: 'n', a: up[0], b: up[1], to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: up[0], b: up[1], to: 'hr1' });   // the summit was never the top
     for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }
     for (const [y, x0, x1] of C.cliffs) for (let x = x0; x <= x1; x += 0.045) sc.solids.push(solid(x, y, 0.75, 'cliff'));
     const band = y => C.ravines.some(r => Math.abs(y - r) < 0.08) || C.cliffs.some(c => Math.abs(y - c[0]) < 0.06);
@@ -790,6 +792,12 @@ function genWorld() {
     const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
     sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
   }
+  // the climb: the smooth field boulders turn to rough, craggy stone as you go up, a few more each screen, all of them by
+  // about halfway (f6 on); the crags and the High Reaches are all craggy
+  for (const sc of Object.values(S)) {
+    const m = /^f(\d)$/.exec(sc.id), frac = m ? Math.min(1, (Number(m[1]) - 1) / 5) : sc.area === 'peak' ? 1 : 0;
+    if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
+  }
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -843,10 +851,10 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [5, 8], peak3: [5, 7], hr1: [5, 6], hr2: [5, 5], hr3: [5, 4], f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
-  c1: [7, 3], c2: [7, 4], c3: [7, 5], c4: [7, 6], c5: [7, 7], c6: [7, 8], c7: [7, 9],
-  fallsbank: [8, 9], m1: [9, 9], m2: [10, 9], m3: [11, 9], h1: [12, 9], h2: [13, 9], h3: [14, 9],
-  sw1: [10, 10], sw2: [10, 11], sw3: [10, 12],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
+  fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
+  sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],
 };
 const MAP_NAMES = { cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
@@ -950,7 +958,7 @@ function genHighlands(S, add) {
   HR.forEach((C, k) => {
     const sc = add(newScene({ id: C.id, area: 'high', depth: 11 + k, msg: C.msg, music: 'field', amb: 'wind', floor: k === 2 ? '#a9a4a8' : '#948e88', speed: 0.42, accel: 8, chasms: [] }));
     sc.region = 'high'; sc.vista = C.vista;
-    sc.exits = [{ side: 's', a: 0.42, b: 0.58, to: k ? HR[k - 1].id : 'peak3' }];
+    sc.exits = [{ side: 's', a: k ? 0.42 : 0.08, b: k ? 0.58 : 0.24, to: k ? HR[k - 1].id : 'peak3' }];   // hr1 is a diagonal step up from the old summit: you come in at its bottom-left
     if (k < HR.length - 1) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: HR[k + 1].id });
     else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hrtop', locked: () => true });            // the peak: nothing has gone up and come back
     sc.gusts = [{ a: Math.PI / 2 * (k % 2 ? 1 : -1), s: 1 }, { a: 0, s: 0.6 }];
@@ -965,7 +973,7 @@ function genHighlands(S, add) {
     }
     const inDrop = (x, y) => sc.chasms.some(([x0, y0, x1, y1]) => x > x0 - 0.05 && x < x1 + 0.05 && y > y0 - 0.05 && y < y1 + 0.05);
     const spot = r => { for (let t = 0; t < 40; t++) { const q = freeSpot(sc, [0.12, 0.88, 0.14, 0.86], r); if (!inDrop(q[0], q[1])) return q; } return null; };
-    for (let t = 0; t < 4 + k; t++) { const q = spot(1.2); if (q) sc.solids.push(solid(q[0], q[1], rr(0.6, 1.1), 'boulder')); }
+    for (let t = 0; t < 4 + k; t++) { const q = spot(1.2); if (q) sc.solids.push(solid(q[0], q[1], rr(0.6, 1.1), 'boulder', null, { craggy: true })); }
     // crystal insects, grand or tormented, still for hundreds of years
     for (let t = 0; t < C.statues; t++) { const q = spot(1.6); if (q) sc.solids.push(solid(q[0], q[1], rr(0.8, 1.4), 'crystalbug', null, { form: rng() < 0.4 ? 'tormented' : 'grand', ph: rng() * 6, twitch: rng() < 0.35 })); }
     for (let t = 0; t < C.insects; t++) { const q = spot(1); if (q) sc.spawns.push({ type: 'mantis', fx: q[0], fy: q[1] }); }
@@ -1937,7 +1945,8 @@ function checkEdges() {
       if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
       return;
     }
-    const al = Math.max(0.05, Math.min(0.95, along));
+    let al = Math.max(0.05, Math.min(0.95, along));
+    { const back = (WORLD[ex.to].exits || []).find(b => b.side === OPP[ex.side] && b.to === state.scene); if (back && (al < back.a || al > back.b)) al = (back.a + back.b) / 2; }   // a diagonal step: come in at the far scene's own opening
     const inX = 1.2 * UNIT / W, inY = 1.2 * UNIT / H, side = OPP[ex.side];
     const [fx, fy] = side === 'n' ? [al, inY] : side === 's' ? [al, 1 - inY] : side === 'w' ? [inX, al] : [1 - inX, al];
     transitionTo(ex.to, fx, fy, true);
@@ -2195,7 +2204,17 @@ function isChasm(x, y, pad = 0) {
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
-  return sc.chasms.some(([x0, y0, x1, y1]) => fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py);
+  return sc.chasms.some(c => { const [x0, y0, x1, y1] = c; if (sc.vista) return fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py;
+    const [a0, a1] = chasmSpan(c, x0 === 0 && x1 === 1 || (x1 - x0) >= (y1 - y0) ? fx : fy);
+    return (x1 - x0) >= (y1 - y0) ? fx > x0 - px && fx < x1 + px && fy > a0 - py && fy < a1 + py : fy > y0 - py && fy < y1 + py && fx > a0 - px && fx < a1 + px; });
+}
+// a ravine's edges wander: broken, irregular lips (up to about a third of a tile either way), the same for walking and
+// for drawing. For a wide ravine the top and bottom edges wander along x; for a tall one the sides wander along y.
+function chasmSpan([x0, y0, x1, y1], t) {
+  const wide = (x1 - x0) >= (y1 - y0), s = x0 * 13.1 + y0 * 7.3 + x1 * 3.7, amp = 0.34 * UNIT / (wide ? H : W);
+  const n = k => (Math.sin(t * 23 + s + k) * 0.55 + Math.sin(t * 61 + s * 2 + k * 3) * 0.3 + Math.sin(t * 131 + k * 5) * 0.15);
+  const lo = wide ? y0 : x0, hi = wide ? y1 : x1;
+  return [lo > 0.001 ? lo + amp * n(1) : lo, hi < 0.999 ? hi + amp * n(2) : hi];
 }
 
 function updateGlimpse(dt) {
@@ -7301,14 +7320,8 @@ function drawCrags(sc) {
     ctx.fillStyle = i % 3 ? 'rgba(60,56,52,.18)' : 'rgba(200,195,188,.18)'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.3, UNIT * 0.14, i, 0, 6.28); ctx.fill();
     if (i % 5 === 0) { ctx.strokeStyle = 'rgba(50,46,42,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + UNIT * 0.5, y + UNIT * 0.3); ctx.lineTo(x + UNIT * 0.7, y + UNIT * 0.8); ctx.stroke(); }
   }
-  for (const [x0, y0, x1, y1] of sc.vista ? [] : sc.chasms || []) {
-    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H;
-    const g = ctx.createLinearGradient(0, Y0, 0, Y1); g.addColorStop(0, '#1c1a1e'); g.addColorStop(0.5, '#0c0b0e'); g.addColorStop(1, '#2a2629');
-    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
-    drawRavineStones(X0, Y0, X1, Y1, x0 * 29 + y0 * 13);
-    ctx.fillStyle = '#6b665f';                          // jagged lips
-    for (let x = X0; x < X1; x += UNIT * 0.5) { ctx.beginPath(); ctx.moveTo(x, Y0); ctx.lineTo(x + UNIT * 0.25, Y0 + UNIT * 0.18 * (1 + Math.sin(x))); ctx.lineTo(x + UNIT * 0.5, Y0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, Y1); ctx.lineTo(x + UNIT * 0.25, Y1 - UNIT * 0.15 * (1 + Math.cos(x))); ctx.lineTo(x + UNIT * 0.5, Y1); ctx.fill(); }
-  }
+  for (const c of sc.vista ? [] : sc.chasms || []) drawBrokenChasm(c, 'crag');
+
   for (const d of sc.deco) if (d.kind === 'tuft') { const x = d.fx * W, y = d.fy * H; ctx.strokeStyle = '#7f8f5a'; ctx.lineWidth = 1.5; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 3, y); ctx.lineTo(x + i * 4 + Math.sin(state.time * 2 + d.ph) * 2, y - UNIT * 0.35 * d.s); ctx.stroke(); } }
 }
 // Old Wick's shack: plank floor, log walls, a window, a lived-in mess
@@ -7453,6 +7466,13 @@ function drawSolid(s) {
       ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
       break;
     case 'boulder': case 'cavewall': case 'pillar': {
+      if (kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
+        drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
+        const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
+        for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
+        break;
+      }
       const cave = kind !== 'boulder', moss = s.pal === 'moss';
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
@@ -8102,7 +8122,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 130';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 131';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8274,28 +8294,30 @@ function paintRavineStones(g, X0, Y0, X1, Y1, seed) {
     g.fillStyle = `rgba(6,5,8,${0.12 + d * 0.1})`; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // the dark gathering below
   }
 }
+// one ravine, drawn with broken edges: the dark shape, the stones inside (clipped to it), then the lips along each edge
+function drawBrokenChasm(c, style) {
+  const [x0, y0, x1, y1] = c, wide = (x1 - x0) >= (y1 - y0), u = UNIT, step = u * 0.35;
+  const A = [], B = [];                                               // the two wandering edges, in pixels
+  if (wide) { for (let X = x0 * W; X <= x1 * W + 0.1; X += step) { const [a, b] = chasmSpan(c, X / W); A.push([X, a * H]); B.push([X, b * H]); } }
+  else { for (let Y = y0 * H; Y <= y1 * H + 0.1; Y += step) { const [a, b] = chasmSpan(c, Y / H); A.push([a * W, Y]); B.push([b * W, Y]); } }
+  const shape = () => { ctx.beginPath(); A.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); for (let i = B.length - 1; i >= 0; i--) ctx.lineTo(B[i][0], B[i][1]); ctx.closePath(); };
+  const pad = u * 0.4, X0 = x0 * W - (wide ? 0 : pad), X1 = x1 * W + (wide ? 0 : pad), Y0 = y0 * H - (wide ? pad : 0), Y1 = y1 * H + (wide ? pad : 0);
+  ctx.save(); shape(); ctx.fillStyle = '#0e0c0e'; ctx.fill(); ctx.clip(); drawRavineStones(X0, Y0, X1, Y1, x0 * 31 + y0 * 17); ctx.restore();
+  const lip = (pts, dir) => {                                         // crumbling earth (and grass, in the fields) hanging over each edge
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1], mx = (ax + bx) / 2, my = (ay + by) / 2, j = Math.sin(ax * 0.13 + ay * 0.07) * 0.5 + 0.5;
+      const nx = wide ? 0 : dir, ny = wide ? dir : 0;
+      if ((ax <= 1 && !wide) || (ay <= 1 && wide && dir > 0 && y0 < 0.001)) continue;
+      ctx.fillStyle = style === 'crag' ? '#6b665f' : '#6a5438'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(mx + nx * u * (0.18 + 0.2 * j), my + ny * u * (0.18 + 0.2 * j)); ctx.lineTo(bx, by); ctx.fill();
+      if (style !== 'crag') { ctx.fillStyle = '#6d8a3e'; ctx.beginPath(); ctx.moveTo(ax - nx * 2, ay - ny * 2); ctx.lineTo(mx + nx * u * 0.12 * j, my + ny * u * 0.12 * j); ctx.lineTo(bx - nx * 2, by - ny * 2); ctx.fill(); }
+    }
+  };
+  if (wide) { if (y0 > 0.001) lip(A, 1); if (y1 < 0.999) lip(B, -1); } else { if (x0 > 0.001) lip(A, 1); if (x1 < 0.999) lip(B, -1); }
+}
 function drawRavines(sc) {
   if (sc.vista) { drawHighVista(sc); return; }          // up in the High Reaches the drops look down on the valley
   const t = state.time, u = UNIT;
-  for (const [x0, y0, x1, y1] of sc.chasms || []) {
-    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H, hgt = Y1 - Y0;
-    const g = ctx.createLinearGradient(0, Y0, 0, Y1);
-    g.addColorStop(0, '#3a2c1e'); g.addColorStop(0.35, '#1a140f'); g.addColorStop(0.75, '#0a0808'); g.addColorStop(1, '#231b12');
-    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, hgt);
-    drawRavineStones(X0, Y0, X1, Y1, x0 * 31 + y0 * 17);   // the hole is full of rough stones, darker the deeper they lie
-    const face = Math.min(hgt * 0.38, u * 1.1);
-    ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = 1.5;         // roots dangling from the near lip
-    for (let x = X0 + u * 0.7; x < X1; x += u * 2.3) { if (isChasm(x, Y0 - 4)) continue; ctx.beginPath(); ctx.moveTo(x, Y0 + 2); ctx.quadraticCurveTo(x + u * 0.2 + Math.sin(t + x) * 2, Y0 + face * 0.6, x - u * 0.05, Y0 + face * 1.1); ctx.stroke(); }
-    const lip = (yy, dir) => {                              // crumbling earth and overhanging grass along each edge
-      for (let x = X0; x < X1; x += u * 0.5) {
-        if (isChasm(x + u * 0.25, yy - dir * 4)) continue;
-        const j = Math.sin(x * 0.13) * 0.5 + 0.5;
-        ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + u * 0.25, yy + dir * u * (0.18 + 0.2 * j)); ctx.lineTo(x + u * 0.5, yy); ctx.fill();
-        ctx.fillStyle = '#6d8a3e'; ctx.beginPath(); ctx.moveTo(x, yy - dir * 2); ctx.lineTo(x + u * 0.12, yy + dir * u * 0.12 * j); ctx.lineTo(x + u * 0.3, yy - dir * 2); ctx.fill();
-      }
-    };
-    lip(Y0, 1); lip(Y1, -1);
-  }
+  for (const c of sc.chasms || []) drawBrokenChasm(c, 'field');
   const h = state.hero;                                    // pebbles skitter off the edge near you
   if (sc.chasms && Math.hypot(h.vx, h.vy) > UNIT && Math.random() < 0.25 && h.z <= 0 && isChasm(h.x + h.vx * 0.12, h.y + h.vy * 0.12 + UNIT * 0.6))
     state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 0.6, y: h.y + UNIT * 0.5, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 3, t: 0, life: 0.7, color: 'rgba(90,70,50,.85)', size: UNIT * 0.08 });

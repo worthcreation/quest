@@ -457,14 +457,8 @@ function drawCrags(sc) {
     ctx.fillStyle = i % 3 ? 'rgba(60,56,52,.18)' : 'rgba(200,195,188,.18)'; ctx.beginPath(); ctx.ellipse(x, y, UNIT * 0.3, UNIT * 0.14, i, 0, 6.28); ctx.fill();
     if (i % 5 === 0) { ctx.strokeStyle = 'rgba(50,46,42,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + UNIT * 0.5, y + UNIT * 0.3); ctx.lineTo(x + UNIT * 0.7, y + UNIT * 0.8); ctx.stroke(); }
   }
-  for (const [x0, y0, x1, y1] of sc.vista ? [] : sc.chasms || []) {
-    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H;
-    const g = ctx.createLinearGradient(0, Y0, 0, Y1); g.addColorStop(0, '#1c1a1e'); g.addColorStop(0.5, '#0c0b0e'); g.addColorStop(1, '#2a2629');
-    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, Y1 - Y0);
-    drawRavineStones(X0, Y0, X1, Y1, x0 * 29 + y0 * 13);
-    ctx.fillStyle = '#6b665f';                          // jagged lips
-    for (let x = X0; x < X1; x += UNIT * 0.5) { ctx.beginPath(); ctx.moveTo(x, Y0); ctx.lineTo(x + UNIT * 0.25, Y0 + UNIT * 0.18 * (1 + Math.sin(x))); ctx.lineTo(x + UNIT * 0.5, Y0); ctx.fill(); ctx.beginPath(); ctx.moveTo(x, Y1); ctx.lineTo(x + UNIT * 0.25, Y1 - UNIT * 0.15 * (1 + Math.cos(x))); ctx.lineTo(x + UNIT * 0.5, Y1); ctx.fill(); }
-  }
+  for (const c of sc.vista ? [] : sc.chasms || []) drawBrokenChasm(c, 'crag');
+
   for (const d of sc.deco) if (d.kind === 'tuft') { const x = d.fx * W, y = d.fy * H; ctx.strokeStyle = '#7f8f5a'; ctx.lineWidth = 1.5; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 3, y); ctx.lineTo(x + i * 4 + Math.sin(state.time * 2 + d.ph) * 2, y - UNIT * 0.35 * d.s); ctx.stroke(); } }
 }
 // Old Wick's shack: plank floor, log walls, a window, a lived-in mess
@@ -609,6 +603,13 @@ function drawSolid(s) {
       ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
       break;
     case 'boulder': case 'cavewall': case 'pillar': {
+      if (kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
+        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
+        drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
+        const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
+        for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
+        break;
+      }
       const cave = kind !== 'boulder', moss = s.pal === 'moss';
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
       ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
@@ -1258,7 +1259,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 130';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 131';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -1430,28 +1431,30 @@ function paintRavineStones(g, X0, Y0, X1, Y1, seed) {
     g.fillStyle = `rgba(6,5,8,${0.12 + d * 0.1})`; g.fillRect(x0, y0, x1 - x0, y1 - y0);   // the dark gathering below
   }
 }
+// one ravine, drawn with broken edges: the dark shape, the stones inside (clipped to it), then the lips along each edge
+function drawBrokenChasm(c, style) {
+  const [x0, y0, x1, y1] = c, wide = (x1 - x0) >= (y1 - y0), u = UNIT, step = u * 0.35;
+  const A = [], B = [];                                               // the two wandering edges, in pixels
+  if (wide) { for (let X = x0 * W; X <= x1 * W + 0.1; X += step) { const [a, b] = chasmSpan(c, X / W); A.push([X, a * H]); B.push([X, b * H]); } }
+  else { for (let Y = y0 * H; Y <= y1 * H + 0.1; Y += step) { const [a, b] = chasmSpan(c, Y / H); A.push([a * W, Y]); B.push([b * W, Y]); } }
+  const shape = () => { ctx.beginPath(); A.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); for (let i = B.length - 1; i >= 0; i--) ctx.lineTo(B[i][0], B[i][1]); ctx.closePath(); };
+  const pad = u * 0.4, X0 = x0 * W - (wide ? 0 : pad), X1 = x1 * W + (wide ? 0 : pad), Y0 = y0 * H - (wide ? pad : 0), Y1 = y1 * H + (wide ? pad : 0);
+  ctx.save(); shape(); ctx.fillStyle = '#0e0c0e'; ctx.fill(); ctx.clip(); drawRavineStones(X0, Y0, X1, Y1, x0 * 31 + y0 * 17); ctx.restore();
+  const lip = (pts, dir) => {                                         // crumbling earth (and grass, in the fields) hanging over each edge
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1], mx = (ax + bx) / 2, my = (ay + by) / 2, j = Math.sin(ax * 0.13 + ay * 0.07) * 0.5 + 0.5;
+      const nx = wide ? 0 : dir, ny = wide ? dir : 0;
+      if ((ax <= 1 && !wide) || (ay <= 1 && wide && dir > 0 && y0 < 0.001)) continue;
+      ctx.fillStyle = style === 'crag' ? '#6b665f' : '#6a5438'; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(mx + nx * u * (0.18 + 0.2 * j), my + ny * u * (0.18 + 0.2 * j)); ctx.lineTo(bx, by); ctx.fill();
+      if (style !== 'crag') { ctx.fillStyle = '#6d8a3e'; ctx.beginPath(); ctx.moveTo(ax - nx * 2, ay - ny * 2); ctx.lineTo(mx + nx * u * 0.12 * j, my + ny * u * 0.12 * j); ctx.lineTo(bx - nx * 2, by - ny * 2); ctx.fill(); }
+    }
+  };
+  if (wide) { if (y0 > 0.001) lip(A, 1); if (y1 < 0.999) lip(B, -1); } else { if (x0 > 0.001) lip(A, 1); if (x1 < 0.999) lip(B, -1); }
+}
 function drawRavines(sc) {
   if (sc.vista) { drawHighVista(sc); return; }          // up in the High Reaches the drops look down on the valley
   const t = state.time, u = UNIT;
-  for (const [x0, y0, x1, y1] of sc.chasms || []) {
-    const X0 = x0 * W, Y0 = y0 * H, X1 = x1 * W, Y1 = y1 * H, hgt = Y1 - Y0;
-    const g = ctx.createLinearGradient(0, Y0, 0, Y1);
-    g.addColorStop(0, '#3a2c1e'); g.addColorStop(0.35, '#1a140f'); g.addColorStop(0.75, '#0a0808'); g.addColorStop(1, '#231b12');
-    ctx.fillStyle = g; ctx.fillRect(X0, Y0, X1 - X0, hgt);
-    drawRavineStones(X0, Y0, X1, Y1, x0 * 31 + y0 * 17);   // the hole is full of rough stones, darker the deeper they lie
-    const face = Math.min(hgt * 0.38, u * 1.1);
-    ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = 1.5;         // roots dangling from the near lip
-    for (let x = X0 + u * 0.7; x < X1; x += u * 2.3) { if (isChasm(x, Y0 - 4)) continue; ctx.beginPath(); ctx.moveTo(x, Y0 + 2); ctx.quadraticCurveTo(x + u * 0.2 + Math.sin(t + x) * 2, Y0 + face * 0.6, x - u * 0.05, Y0 + face * 1.1); ctx.stroke(); }
-    const lip = (yy, dir) => {                              // crumbling earth and overhanging grass along each edge
-      for (let x = X0; x < X1; x += u * 0.5) {
-        if (isChasm(x + u * 0.25, yy - dir * 4)) continue;
-        const j = Math.sin(x * 0.13) * 0.5 + 0.5;
-        ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + u * 0.25, yy + dir * u * (0.18 + 0.2 * j)); ctx.lineTo(x + u * 0.5, yy); ctx.fill();
-        ctx.fillStyle = '#6d8a3e'; ctx.beginPath(); ctx.moveTo(x, yy - dir * 2); ctx.lineTo(x + u * 0.12, yy + dir * u * 0.12 * j); ctx.lineTo(x + u * 0.3, yy - dir * 2); ctx.fill();
-      }
-    };
-    lip(Y0, 1); lip(Y1, -1);
-  }
+  for (const c of sc.chasms || []) drawBrokenChasm(c, 'field');
   const h = state.hero;                                    // pebbles skitter off the edge near you
   if (sc.chasms && Math.hypot(h.vx, h.vy) > UNIT && Math.random() < 0.25 && h.z <= 0 && isChasm(h.x + h.vx * 0.12, h.y + h.vy * 0.12 + UNIT * 0.6))
     state.fx.push({ x: h.x + (Math.random() - 0.5) * UNIT * 0.6, y: h.y + UNIT * 0.5, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 3, t: 0, life: 0.7, color: 'rgba(90,70,50,.85)', size: UNIT * 0.08 });
