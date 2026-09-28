@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 148, 28 Sep 2026)
+# Quest: handoff notes (as of build 149, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 149: the shadow leads, never trails
+- The shadow is now your current position plus a smoothed offset toward the landing (c.shox/c.shoz eased in the update;
+  drawn at c.x + offset), so it moves with you and eases ahead in the direction you're going. Before, it was a point
+  chasing a target, which lagged behind you at take-off and looked like it slid backwards first. Checked: across a
+  whole running jump it's never behind you. SHADOW lead/follow tuning keys unchanged.
 
 ## Build 148: a steadier shadow, tunable live
 - The shadow is its own point now (c.shx, c.shz, moved in updateClimb): it chases a target part of the way from you

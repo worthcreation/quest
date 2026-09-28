@@ -86,10 +86,12 @@ function updateClimb(dt) {
   if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
     const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
     const u0 = Math.min(1, (c.airT || 0) / ((c.airDur || 0.74) * SHADOW.arrive)), lead = SHADOW.lead * u0 * u0 * (3 - 2 * u0);
-    const tx = c.x + (lx - c.x) * lead, tz = c.z + (lz - c.z) * lead;
-    if (c.shx == null) { c.shx = c.x; c.shz = c.z; }
-    const kf = 1 - Math.exp(-SHADOW.follow * dt); c.shx += (tx - c.shx) * kf; c.shz += (tz - c.shz) * kf;
-  } else c.shx = null;
+    // the shadow rides along with you and eases ahead of you: it's your position plus a smoothed offset toward the
+    // landing, so it never lags behind you (which looked like it slid backwards before moving on)
+    const ox = (lx - c.x) * lead, oz = (lz - c.z) * lead;
+    if (c.shox == null) { c.shox = 0; c.shoz = 0; }
+    const kf = 1 - Math.exp(-SHADOW.follow * dt); c.shox += (ox - c.shox) * kf; c.shoz += (oz - c.shoz) * kf;
+  } else { c.shx = null; c.shox = null; }
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
@@ -117,7 +119,7 @@ function drawClimb() {
     if (c.air) {
       // the shadow is a thing of its own: it chases a point part of the way from you toward where you'll land, smoothly,
       // so steering doesn't make it jump about. SHADOW.lead is how far ahead it goes (0 = under you, 1 = right on the landing)
-      if (c.shx == null) { c.shx = c.x; c.shz = c.z; }
+      c.shx = c.x + (c.shox || 0); c.shz = c.z + (c.shoz || 0);                           // where you are, plus the eased lead
       [sx0, sy0] = climbProj(c.shx, overChasm(c.shx, c.shz) ? -3 : 1.5, c.shz); sw = 0.8 * 0.55 * H * d.cam.f / c.shz;
       const apex = c.vh * c.vh / 28 + c.h, hk = Math.max(0, Math.min(1, c.h / Math.max(0.3, c.vh > 0 ? apex : (c.peakH || apex))));
       sw *= 0.2 + 0.8 * (1 - hk) * (1 - hk);                                            // tiny at the top of the jump, growing as you come down
