@@ -56,6 +56,14 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B118) {                            // build 118: the vigor bar at 1, 2 and 3 layers; Pip following, in a scene, and tied up, all one drawing
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; enterScene('start'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null;
+  const h=state.hero; state.pip={x:h.x+UNIT*1.2,y:h.y,show:true,follow:true,side:-1};
+  for (const [d,name] of [[0,'1'],[12,'2'],[29,'3']]) { inv.depth=0; inv.vigBonus=d; h.vig=maxVig(); state.hudVigT=state.time; run(2); draw(); fs.writeFileSync('/tmp/b118-bar'+name+'.png', canvas.toBuffer('image/png')); }
+  inv.vigBonus=0; inv.depth=0; h.vig=maxVig(); enterScene('c7'); state.cut=null; state.enemies=[]; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b118-cave.png', canvas.toBuffer('image/png'));
+  console.log('b118 written', maxVig());
+}
 if (process.env.B114) {                            // build 114: the High Reaches
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sawHighTitle=true; state.pip=null;

@@ -110,7 +110,7 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
-  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); ctx.save(); ctx.translate(state.pip.x, py + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-state.pip.x, -(py + UNIT * 0.5)); drawPerson(state.pip.x, py, '#7ab8e0', 0); if (state.pip.bound) drawVineWrap(state.pip.x, py); ctx.restore(); }]);
+  if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -118,7 +118,7 @@ function drawScene(sc) {
   if (gl && gl.t > 0 && !gl.gone) layer.push([gl.y, () => {
     const shrink = gl.down ? 1 - Math.max(0, (gl.t - 1.9) / 0.4) : 1;
     ctx.save(); ctx.translate(gl.x, gl.y); ctx.scale(shrink, shrink); ctx.translate(-gl.x, -gl.y);
-    drawPerson(gl.x, gl.y, '#7ab8e0', 0); drawVineWrap(gl.x, gl.y);
+    drawPip(gl.x, gl.y, { bound: true });
     for (const s of [-1, 1]) drawEnemy({ type: 'gremlin', x: gl.x + s * UNIT * 0.8, y: gl.y + UNIT * 0.2, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 });
     ctx.restore();
   }]);
@@ -774,6 +774,15 @@ function drawSolid(s) {
 
 // ---------------- characters ----------------
 const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
+// Pip, drawn one way everywhere (following you, as a character in a scene, in the glimpse, tied up): 60% of your
+// size, feet on the ground line, his colour and his two dot eyes. Every place that shows Pip calls this.
+function drawPip(x, y, o = {}) {
+  ctx.save(); ctx.translate(x, y + UNIT * 0.5); ctx.scale(PIP_SIZE, PIP_SIZE); ctx.translate(-x, -(y + UNIT * 0.5));
+  drawPerson(x, y, '#7ab8e0', 0);
+  ctx.fillStyle = '#1a2a3a'; const side = o.side || 1; for (const dx of [-0.2, 0.1]) ctx.fillRect(x + dx * UNIT * side - (side < 0 ? 3 : 0), y - UNIT * 0.15, 3, 3);   // his eyes
+  if (o.bound) drawVineWrap(x, y);
+  ctx.restore();
+}
 function drawPerson(x, y, color, z, dim = 0) {
   ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + UNIT * 0.45, UNIT * 0.55, UNIT * 0.2, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = color; ctx.fillRect(x - UNIT / 2, y - z - UNIT / 2, UNIT, UNIT);
@@ -799,8 +808,7 @@ function drawNpc(n) {
     for (const [hx, hy] of [[0, -0.4], [-0.45, -0.2], [0.45, -0.2]]) { ctx.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; ctx[i ? 'lineTo' : 'moveTo'](x + hx * s + Math.cos(a) * s * 0.2, y + hy * s + Math.sin(a) * s * 0.16); } ctx.closePath(); ctx.stroke(); }
     ctx.fillStyle = '#111'; ctx.fillRect(x - s * 1.18, y - s * 0.05 + hd * 0.2, 3, 3);
   } else if (n.kind === 'pip') {
-    drawPerson(x, y, '#7ab8e0', 0);
-    ctx.fillStyle = '#1a2a3a'; ctx.fillRect(x - UNIT * 0.2, y - UNIT * 0.15, 3, 3); ctx.fillRect(x + UNIT * 0.1, y - UNIT * 0.15, 3, 3);
+    drawPip(x, y, { bound: n.bound });
   }
 }
 function drawHero() {
@@ -1172,7 +1180,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 117';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 118';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 117, 27 Sep 2026)
+# Quest: handoff notes (as of build 118, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 118: one Pip; vigor layers by opacity
+- drawPip(x, y, {side, bound}) (draw.js) is the only way Pip is drawn: following you, as an npc (camp, the cave), in
+  the glimpse, tied up. It applies PIP_SIZE, his colour and his eyes. (Before, three places each drew him their own way,
+  which is why the 60% size only reached one of them.)
+- Vigor bar: each layer of 17 is drawn at alpha 1 - 0.53 x 0.55^i: the first at 47%, the second 71%, the third 84%,
+  richer and more solid as they stack.
 
 ## Build 117: sword swings cost vigor
 - SWING_COST (top of combat.js, 0.35 to start) is spent on every slash; too tired and the swing doesn't happen ("Too

@@ -881,7 +881,7 @@ function drawHUD() {
   const LAYER = 17, rowW = s * (ALL_SLOTS.length * 1.2 + (ALL_SLOTS.length - 1) * 0.35);
   const len = rowW * Math.min(1, mv / LAYER), bx = x0 + (rowW - len) / 2;            // the bar and the slot row share a centre
   const fills = Math.max(1, Math.ceil(mv / LAYER - 1e-9)), v = Math.max(0, h.vig);
-  const layer = i => { const k = 1 - Math.pow(0.55, i); return [Math.round(226 - 200 * k), Math.round(250 - 160 * k), Math.round(210 - 180 * k), 0.88 + 0.12 * k]; };
+  const layer = i => { const k = 1 - Math.pow(0.55, i); return [Math.round(226 - 200 * k), Math.round(250 - 160 * k), Math.round(210 - 180 * k), 1 - 0.53 * Math.pow(0.55, i)]; };   // the first 17 at 47%, each further layer richer and more solid
   state.vigorBar = { x: bx, w: len, rowX: x0, rowW, fills };
   ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(bx - 3, y0 - 3, len + 6, hgt + 6);
   { const top = fills - 1, [cr, cg, cb] = layer(top); ctx.fillStyle = `rgba(${cr},${cg},${cb},0.2)`; ctx.fillRect(bx, y0, rowW * Math.min(1, (mv - top * LAYER) / LAYER), hgt); }
