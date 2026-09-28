@@ -177,6 +177,7 @@ function drawItemIcon(type, x, y, s) {
     case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
       ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
       ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
+    case 'beetle': ctx.fillStyle = '#c0203a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.28, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,200,210,.9)'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.1); ctx.lineTo(s * 0.05, -s * 0.16); ctx.lineTo(0, 0); ctx.fill(); ctx.strokeStyle = '#401018'; ctx.lineWidth = 2; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 0.2, sd * s * 0.1); ctx.lineTo(s * 0.34, sd * s * 0.2); ctx.stroke(); } break;
     case 'spore':                                         // a little traveler's mushroom, glowing
       ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);

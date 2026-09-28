@@ -256,6 +256,7 @@ function pickUpHere() {
   tidySlots();                                           // straight into an empty slot, so what's said next knows the key
   return true;
 }
+const LETTER_TEXT = 'A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."';
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
@@ -318,6 +319,7 @@ function collect(it) {
       showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);
       break;
     case 'letter':
+      inv.letter = true;                                  // kept: Gear > Wick's letter, to read again
       say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
     case 'stick': case 'stone': case 'fluff':

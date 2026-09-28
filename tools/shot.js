@@ -57,6 +57,14 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.B123) {                            // build 123: the High Reaches card, close then pulling back; Gear with everything
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sawHighTitle=true; enterScene('hr3'); state.cut=null; state.enemies=[]; state.pip=null; run(3); state.texts=[]; state.title=null;
+  const now=performance.now()/1000; for (const t of [0.6, 3, 6.5]) { state.highTitle={t0: now - t}; draw(); fs.writeFileSync('/tmp/b123-title'+t+'.png', canvas.toBuffer('image/png')); }
+  state.highTitle=null; inv.sword=true; inv.lantern=true; inv.letter=true; inv.tortoise=true; inv.beetle={t:0}; inv.recipes={guard:true}; inv.pages=2; inv.beans=3; enterScene('start'); run(3); state.texts=[]; state.scrolls=[];
+  state.menu={view:'pack',tab:0,sel:0,focus:'grid',act:0,note:''}; draw(); fs.writeFileSync('/tmp/b123-gear.png', canvas.toBuffer('image/png')); state.menu=null;
+  console.log('b123 written');
+}
 if (process.env.B120) {                            // build 120: Wick's cellar, the woods' little mushrooms, three different traveler's mushrooms, the Map tab
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.pipSaved=true; inv.shrooms={camp:true,w2:true,foot:true,c4:true}; inv.spores=5; inv.lantern=true; state.pip=null;

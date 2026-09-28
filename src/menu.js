@@ -187,9 +187,19 @@ function packCells(tab) {
     if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+    // everything else you've gained lives here too, so nothing is ever out of reach
+    if (inv.lantern) cells.push({ col: 0, icon: 'lantern', name: 'Candle lantern', line: 'a warm pool of light, wherever you go' });
+    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; say(LETTER_TEXT, state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
+    if (inv.pages && inv.journal < 3) cells.push({ col: 0, icon: 'page', name: 'Journal pages', count: inv.pages, line: `torn from Pip's journal: ${inv.pages} so far` });
+    if (inv.beans && inv.beans < BEANS) cells.push({ col: 0, icon: 'bean', name: 'Beans', count: inv.beans, line: `the toad's lunch: ${inv.beans} of ${BEANS}` });
+    if (inv.tortoise) cells.push({ col: 1, icon: 'starpetal', name: 'Tortoise\'s blessing', line: 'the High Crags let you pass' });
+    if (inv.beetle) cells.push({ col: 1, icon: 'beetle', name: 'Red crystal beetle', line: 'rides with you; gives vigor in wind and near crystal, and feeds you when low' });
+    if (inv.lumin > 0) cells.push({ col: 1, icon: 'lumin', name: 'Luminescence', line: `you glow: ${Math.ceil(inv.lumin)}s left` });
+    if (inv.slime > 0) cells.push({ col: 1, icon: 'slime', name: 'Lurker slime', line: `on your blade: ${inv.slime} more hits` });
+    for (const f of FORGE) if (inv.recipes && inv.recipes[f.k] && !inv.up[f.k] && !inv[f.k]) cells.push({ col: 1, icon: UP_ICON[f.k] || 'ironwood', name: `Plan: ${f.name}`, line: `${f.what} Make it at the workbench.` });   // plans you've been taught
     // three columns: weapons & tools | abilities & upgrades | what you wear (the old Wear tab lives here now)
     const COL = c => ['sword', 'woodsword', 'acorn', 'thornwrap', 'emberoil', 'rod', 'journal'].includes(c.icon) ? 0 : 1;
-    cells.forEach(c => { c.col = COL(c); c.desc = c.desc || c.line; }); cells.sort((a, b) => a.col - b.col);
+    cells.forEach(c => { if (c.col == null) c.col = COL(c); c.desc = c.desc || c.line; }); cells.sort((a, b) => a.col - b.col);
     const worn = inv.worn || [], nW = wearSlots();
     for (const id of gearOwned()) {
       const on = worn.includes(id), W0 = WEAR[id];

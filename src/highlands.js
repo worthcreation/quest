@@ -228,9 +228,18 @@ function drawHighVista(sc) {
 // the first time you come up above the clouds: a vista card, the title of the place
 function drawHighTitle() {
   const T = state.highTitle; if (!T) return;
-  T.t += 1 / 60; if (T.t > 7 || (T.t > 1 && pressedNow.act)) { state.highTitle = null; return; }
-  const a = Math.min(1, T.t / 0.8, (7 - T.t) / 0.8);
+  try { drawHighTitleInner(T); } catch (e) { state.highTitle = null; }   // never let the card stop the game
+}
+function drawHighTitleInner(T) {
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  if (T.t0 == null) T.t0 = now - (T.t || 0);
+  T.t = now - T.t0;
+  const anyKey = pressedNow.act || pressedNow.jump || pressedNow.menu || pressedNow.swap;
+  if (T.t > 8 || (T.t > 1 && anyKey)) { state.highTitle = null; return; }
+  const a = Math.min(1, T.t / 0.8, (8 - T.t) / 0.8);
+  const e = Math.min(1, T.t / 6), zoom = 2.6 - 1.35 * (1 - Math.pow(1 - e, 3));      // starts close on the peak, pulls back slowly
   ctx.save(); ctx.globalAlpha = a;
+  ctx.save(); ctx.translate(W * 0.5, H * 0.3); ctx.scale(zoom, zoom); ctx.translate(-W * 0.5, -H * 0.3);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f4c49a'); g.addColorStop(0.45, '#b8d4f0'); g.addColorStop(1, '#8aa8c8'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // dawn sky
   ctx.fillStyle = '#6a8a5a'; ctx.fillRect(0, H * 0.72, W, H * 0.28);                                                                           // the valley, very far down
   ctx.strokeStyle = '#8ac0e0'; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const k = i / 30; const xx = W * k, yy = H * (0.78 + Math.sin(k * 9) * 0.04 + k * 0.1); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
@@ -243,9 +252,12 @@ function drawHighTitle() {
   ctx.fillStyle = '#eef3f8'; ctx.beginPath(); ctx.moveTo(W * 0.44, H * 0.34); ctx.lineTo(W * 0.46, H * 0.3); ctx.lineTo(W * 0.5, H * 0.16); ctx.lineTo(W * 0.56, H * 0.28); ctx.lineTo(W * 0.575, H * 0.33); ctx.lineTo(W * 0.53, H * 0.3); ctx.lineTo(W * 0.5, H * 0.34); ctx.lineTo(W * 0.47, H * 0.31); ctx.closePath(); ctx.fill();   // snow on the peak
   for (let i = 0; i < 5; i++) { const bx = W * (0.3 + i * 0.1), by = H * (0.62 - (i % 2) * 0.05), f = Math.sin(T.t * 6 + i); ctx.strokeStyle = 'rgba(40,40,50,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx - 8, by - f * 4); ctx.lineTo(bx, by); ctx.lineTo(bx + 8, by - f * 4); ctx.stroke(); }   // birds, rising
   ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.16, W * 0.12, UNIT * 0.5, 0, 0, 6.28); ctx.fill();          // a cloud round the very top
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e8'; ctx.shadowColor = 'rgba(40,30,60,.5)'; ctx.shadowBlur = 12;
+  ctx.restore();                                                                                                             // the words don't zoom
+  const ta = Math.max(0, Math.min(1, (T.t - 1.2) / 1));
+  ctx.globalAlpha = a * ta; ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e8'; ctx.shadowColor = 'rgba(40,30,60,.5)'; ctx.shadowBlur = 12;
   ctx.font = `bold ${Math.round(Math.min(W / 14, UNIT * 1.4))}px Georgia, serif`; ctx.fillText('The High Reaches', W / 2, H * 0.44);
   ctx.font = `italic ${Math.round(UNIT * 0.5)}px Georgia, serif`; ctx.fillText('above the clouds, where nothing that went higher came back', W / 2, H * 0.44 + UNIT * 0.9);
+  ctx.shadowBlur = 0; ctx.font = `${Math.round(UNIT * 0.32)}px "Courier New", monospace`; ctx.fillStyle = 'rgba(255,248,232,.7)'; if (T.t > 1) ctx.fillText(`${K.act.toUpperCase()} to go on`, W / 2, H - UNIT * 0.6);
   ctx.restore();
 }
 

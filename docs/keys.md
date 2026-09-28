@@ -11,3 +11,7 @@ One job per key. Slots A S D F sit under the vigor bar; empty slots draw nothing
 - Menus: F selects, D backs out one level, M opens and closes the pack.
 
 Code: gear.js (slots, lanes, laneAllows), actions.js (throwing, wheels), interact.js (what F does here).
+
+## The pack
+
+- Anything you gain appears in the pack somewhere, to look at or use: tools, keepsakes (letter, pages, beans), companions (the beetle), blessings, plans you've been taught, timed effects.

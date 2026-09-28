@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 122, 27 Sep 2026)
+# Quest: handoff notes (as of build 123, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 123: everything you gain is in the pack; the High Reaches card
+- Gear now also lists: the lantern, Wick's letter (kept on pickup, inv.letter; F: Read, LETTER_TEXT in items.js),
+  journal pages (until you have the journal), the toad's beans (until you hand them over), the tortoise's blessing,
+  the red crystal beetle, timed buffs (luminescence, lurker slime), and every plan you've been taught but not yet made
+  ("Plan: Ironwood guard: make it at the workbench"). Rule going forward: anything the player gains must appear in the
+  pack somewhere.
+- The High Reaches card: timed by the real clock (not frames), any key (F, jump, M, R) after 1 s or 8 s closes it, and
+  it's wrapped so an error can never leave it stuck on screen. It opens close on the peak (2.6x) and pulls back slowly
+  to 1.25x; the title fades in after a second; "F to go on" at the bottom.
+- 56 of 56. tools/shot.js B123=1.
 
 ## Build 122: the pound lesson comes first
 - In Pip's garden the robin starts hidden in its hollow tree and stays there (robinHiding in critters.js: meadow,

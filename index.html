@@ -1156,9 +1156,18 @@ function drawHighVista(sc) {
 // the first time you come up above the clouds: a vista card, the title of the place
 function drawHighTitle() {
   const T = state.highTitle; if (!T) return;
-  T.t += 1 / 60; if (T.t > 7 || (T.t > 1 && pressedNow.act)) { state.highTitle = null; return; }
-  const a = Math.min(1, T.t / 0.8, (7 - T.t) / 0.8);
+  try { drawHighTitleInner(T); } catch (e) { state.highTitle = null; }   // never let the card stop the game
+}
+function drawHighTitleInner(T) {
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  if (T.t0 == null) T.t0 = now - (T.t || 0);
+  T.t = now - T.t0;
+  const anyKey = pressedNow.act || pressedNow.jump || pressedNow.menu || pressedNow.swap;
+  if (T.t > 8 || (T.t > 1 && anyKey)) { state.highTitle = null; return; }
+  const a = Math.min(1, T.t / 0.8, (8 - T.t) / 0.8);
+  const e = Math.min(1, T.t / 6), zoom = 2.6 - 1.35 * (1 - Math.pow(1 - e, 3));      // starts close on the peak, pulls back slowly
   ctx.save(); ctx.globalAlpha = a;
+  ctx.save(); ctx.translate(W * 0.5, H * 0.3); ctx.scale(zoom, zoom); ctx.translate(-W * 0.5, -H * 0.3);
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#f4c49a'); g.addColorStop(0.45, '#b8d4f0'); g.addColorStop(1, '#8aa8c8'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);   // dawn sky
   ctx.fillStyle = '#6a8a5a'; ctx.fillRect(0, H * 0.72, W, H * 0.28);                                                                           // the valley, very far down
   ctx.strokeStyle = '#8ac0e0'; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i <= 30; i++) { const k = i / 30; const xx = W * k, yy = H * (0.78 + Math.sin(k * 9) * 0.04 + k * 0.1); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
@@ -1171,9 +1180,12 @@ function drawHighTitle() {
   ctx.fillStyle = '#eef3f8'; ctx.beginPath(); ctx.moveTo(W * 0.44, H * 0.34); ctx.lineTo(W * 0.46, H * 0.3); ctx.lineTo(W * 0.5, H * 0.16); ctx.lineTo(W * 0.56, H * 0.28); ctx.lineTo(W * 0.575, H * 0.33); ctx.lineTo(W * 0.53, H * 0.3); ctx.lineTo(W * 0.5, H * 0.34); ctx.lineTo(W * 0.47, H * 0.31); ctx.closePath(); ctx.fill();   // snow on the peak
   for (let i = 0; i < 5; i++) { const bx = W * (0.3 + i * 0.1), by = H * (0.62 - (i % 2) * 0.05), f = Math.sin(T.t * 6 + i); ctx.strokeStyle = 'rgba(40,40,50,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx - 8, by - f * 4); ctx.lineTo(bx, by); ctx.lineTo(bx + 8, by - f * 4); ctx.stroke(); }   // birds, rising
   ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.16, W * 0.12, UNIT * 0.5, 0, 0, 6.28); ctx.fill();          // a cloud round the very top
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e8'; ctx.shadowColor = 'rgba(40,30,60,.5)'; ctx.shadowBlur = 12;
+  ctx.restore();                                                                                                             // the words don't zoom
+  const ta = Math.max(0, Math.min(1, (T.t - 1.2) / 1));
+  ctx.globalAlpha = a * ta; ctx.textAlign = 'center'; ctx.fillStyle = '#fff8e8'; ctx.shadowColor = 'rgba(40,30,60,.5)'; ctx.shadowBlur = 12;
   ctx.font = `bold ${Math.round(Math.min(W / 14, UNIT * 1.4))}px Georgia, serif`; ctx.fillText('The High Reaches', W / 2, H * 0.44);
   ctx.font = `italic ${Math.round(UNIT * 0.5)}px Georgia, serif`; ctx.fillText('above the clouds, where nothing that went higher came back', W / 2, H * 0.44 + UNIT * 0.9);
+  ctx.shadowBlur = 0; ctx.font = `${Math.round(UNIT * 0.32)}px "Courier New", monospace`; ctx.fillStyle = 'rgba(255,248,232,.7)'; if (T.t > 1) ctx.fillText(`${K.act.toUpperCase()} to go on`, W / 2, H - UNIT * 0.6);
   ctx.restore();
 }
 
@@ -2686,6 +2698,7 @@ function pickUpHere() {
   tidySlots();                                           // straight into an empty slot, so what's said next knows the key
   return true;
 }
+const LETTER_TEXT = 'A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."';
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
@@ -2748,6 +2761,7 @@ function collect(it) {
       showTitle('Pip\'s Journal', 'every map Pip ever drew. Open Map in your menu, then bring it home', 'relic', 5);
       break;
     case 'letter':
+      inv.letter = true;                                  // kept: Gear > Wick's letter, to read again
       say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
     case 'stick': case 'stone': case 'fluff':
@@ -5471,9 +5485,19 @@ function packCells(tab) {
     if (wears('embercharm')) cells.push({ icon: 'ember', name: 'Flare', line: 'a ring of sparks around you, from the ember charm', acts: slotActs({ kind: 'ability', id: 'flare' }) });
     for (const f of FORGE) if (f.k !== 'cap' && inv.up[f.k]) cells.push({ icon: UP_ICON[f.k], name: f.name, pips: f.k === 'star' ? 0 : inv.up[f.k], line: f.what });
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
+    // everything else you've gained lives here too, so nothing is ever out of reach
+    if (inv.lantern) cells.push({ col: 0, icon: 'lantern', name: 'Candle lantern', line: 'a warm pool of light, wherever you go' });
+    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; say(LETTER_TEXT, state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
+    if (inv.pages && inv.journal < 3) cells.push({ col: 0, icon: 'page', name: 'Journal pages', count: inv.pages, line: `torn from Pip's journal: ${inv.pages} so far` });
+    if (inv.beans && inv.beans < BEANS) cells.push({ col: 0, icon: 'bean', name: 'Beans', count: inv.beans, line: `the toad's lunch: ${inv.beans} of ${BEANS}` });
+    if (inv.tortoise) cells.push({ col: 1, icon: 'starpetal', name: 'Tortoise\'s blessing', line: 'the High Crags let you pass' });
+    if (inv.beetle) cells.push({ col: 1, icon: 'beetle', name: 'Red crystal beetle', line: 'rides with you; gives vigor in wind and near crystal, and feeds you when low' });
+    if (inv.lumin > 0) cells.push({ col: 1, icon: 'lumin', name: 'Luminescence', line: `you glow: ${Math.ceil(inv.lumin)}s left` });
+    if (inv.slime > 0) cells.push({ col: 1, icon: 'slime', name: 'Lurker slime', line: `on your blade: ${inv.slime} more hits` });
+    for (const f of FORGE) if (inv.recipes && inv.recipes[f.k] && !inv.up[f.k] && !inv[f.k]) cells.push({ col: 1, icon: UP_ICON[f.k] || 'ironwood', name: `Plan: ${f.name}`, line: `${f.what} Make it at the workbench.` });   // plans you've been taught
     // three columns: weapons & tools | abilities & upgrades | what you wear (the old Wear tab lives here now)
     const COL = c => ['sword', 'woodsword', 'acorn', 'thornwrap', 'emberoil', 'rod', 'journal'].includes(c.icon) ? 0 : 1;
-    cells.forEach(c => { c.col = COL(c); c.desc = c.desc || c.line; }); cells.sort((a, b) => a.col - b.col);
+    cells.forEach(c => { if (c.col == null) c.col = COL(c); c.desc = c.desc || c.line; }); cells.sort((a, b) => a.col - b.col);
     const worn = inv.worn || [], nW = wearSlots();
     for (const id of gearOwned()) {
       const on = worn.includes(id), W0 = WEAR[id];
@@ -7938,7 +7962,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 122';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 123';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8341,6 +8365,7 @@ function drawItemIcon(type, x, y, s) {
     case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
       ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
       ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
+    case 'beetle': ctx.fillStyle = '#c0203a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.28, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,200,210,.9)'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.1); ctx.lineTo(s * 0.05, -s * 0.16); ctx.lineTo(0, 0); ctx.fill(); ctx.strokeStyle = '#401018'; ctx.lineWidth = 2; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 0.2, sd * s * 0.1); ctx.lineTo(s * 0.34, sd * s * 0.2); ctx.stroke(); } break;
     case 'spore':                                         // a little traveler's mushroom, glowing
       ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
       ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);
