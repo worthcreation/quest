@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 147, 28 Sep 2026)
+# Quest: handoff notes (as of build 148, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,14 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 148: a steadier shadow, tunable live
+- The shadow is its own point now (c.shx, c.shz, moved in updateClimb): it chases a target part of the way from you
+  toward the landing (SHADOW.lead of the way, reached at SHADOW.arrive of the jump), with smoothing (SHADOW.follow), so
+  steering mid-air no longer makes it jump about. Measured: at most about 0.05 tiles a frame. SHADOW = { lead 0.55,
+  arrive 0.9, follow 7 } at the top of climb.js.
+- On the ?mountain link: [ and ] change the lead, - and = the follow, with a readout at the bottom left, so the sweet
+  spot can be found by feel; tell me the numbers and they become the defaults.
 
 ## Build 147: the shadow travels
 - In the air the shadow starts under you and glides (eased) to the landing spot, arriving at three quarters of the

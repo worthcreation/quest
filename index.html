@@ -1320,6 +1320,9 @@ function startTestScene(id) {                                  // set up enough 
   state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id);
   showScroll('Test link', MOUNTAIN ? 'The climb. Keys 1 to 5 jump between the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
 }
+// the shadow's aim, to tune: lead (how far toward the landing it goes), arrive (when in the jump it gets there),
+// follow (how quickly it chases; lower = lazier, smoother). On the ?mountain link: [ and ] change lead, - and = follow.
+const SHADOW = { lead: 0.55, arrive: 0.9, follow: 7 };
 const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
 // A zigzag of crossings: crossings [[z, 'R' or 'L'], ...] from far to near. Near each one the ravine narrows enough to
 // jump; just past it, crags close the side you came along (you must cross). Between, the walkable ledges wind.
@@ -1368,6 +1371,9 @@ function climbFinish(c) {
 }
 function testHops() {
   if (!MOUNTAIN && !START_SCENE) return false;
+  const tap = k => { if (state.keys[k]) { state.keys[k] = false; return true; } return false; };
+  if (tap('[')) SHADOW.lead = Math.max(0, SHADOW.lead - 0.05); if (tap(']')) SHADOW.lead = Math.min(1, SHADOW.lead + 0.05);
+  if (tap('-')) SHADOW.follow = Math.max(1, SHADOW.follow - 1); if (tap('=')) SHADOW.follow = Math.min(30, SHADOW.follow + 1);
   const ids = ['climb1', 'climb2', 'climb3', 'climb4', 'climb5'];
   for (let i = 0; i <= 5; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
   return false;
@@ -1386,6 +1392,13 @@ function updateClimb(dt) {
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
   if (pressedNow.jump && !c.air) { c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
   if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
+  if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
+    const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
+    const u0 = Math.min(1, (c.airT || 0) / ((c.airDur || 0.74) * SHADOW.arrive)), lead = SHADOW.lead * u0 * u0 * (3 - 2 * u0);
+    const tx = c.x + (lx - c.x) * lead, tz = c.z + (lz - c.z) * lead;
+    if (c.shx == null) { c.shx = c.x; c.shz = c.z; }
+    const kf = 1 - Math.exp(-SHADOW.follow * dt); c.shx += (tx - c.shx) * kf; c.shz += (tz - c.shz) * kf;
+  } else c.shx = null;
   const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.8, Math.min(1.4, c.z / 9));
   c.z = Math.max(4, Math.min(40, c.z));
@@ -1411,15 +1424,17 @@ function drawClimb() {
   if (!sink) {                                                                      // your shadow: in the air it runs ahead to where you'll come down (it tells the truth a moment early)
     let sx0 = gx, sy0 = gy, sw = s * 0.8;
     if (c.air) {
-      const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
-      const u0 = Math.min(1, (c.airT || 0) / ((c.airDur || 0.74) * 0.75)), lead = u0 * u0 * (3 - 2 * u0), /* it sets off from under you and glides to the landing spot, arriving a little before you do */ [tx, ty] = climbProj(lx, overChasm(lx, lz) ? -3 : 1.5, lz), [cx0, cy0] = climbProj(c.x, overChasm(c.x, c.z) ? -3 : 1.5, c.z);
-      sx0 = cx0 + (tx - cx0) * lead; sy0 = cy0 + (ty - cy0) * lead; sw = 0.8 * 0.55 * H * d.cam.f / (c.z + (lz - c.z) * lead);
+      // the shadow is a thing of its own: it chases a point part of the way from you toward where you'll land, smoothly,
+      // so steering doesn't make it jump about. SHADOW.lead is how far ahead it goes (0 = under you, 1 = right on the landing)
+      if (c.shx == null) { c.shx = c.x; c.shz = c.z; }
+      [sx0, sy0] = climbProj(c.shx, overChasm(c.shx, c.shz) ? -3 : 1.5, c.shz); sw = 0.8 * 0.55 * H * d.cam.f / c.shz;
       const apex = c.vh * c.vh / 28 + c.h, hk = Math.max(0, Math.min(1, c.h / Math.max(0.3, c.vh > 0 ? apex : (c.peakH || apex))));
       sw *= 0.2 + 0.8 * (1 - hk) * (1 - hk);                                            // tiny at the top of the jump, growing as you come down
-      if (overChasm(lx, lz)) sw *= 0.6;                                                  // over the drop it falls far below: small and faint
+      if (overChasm(c.shx, c.shz)) sw *= 0.6;                                            // over the drop it falls far below: small and faint
     }
     ctx.fillStyle = `rgba(0,0,0,${c.air ? 0.38 : 0.25})`; ctx.beginPath(); ctx.ellipse(sx0, sy0, sw, sw * 0.28, 0, 0, 6.28); ctx.fill();
   }
+  if (MOUNTAIN) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(8, H - 30, 330, 22); ctx.fillStyle = '#fdf6e3'; ctx.font = '13px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(`shadow lead ${SHADOW.lead.toFixed(2)} [ ]  follow ${SHADOW.follow.toFixed(0)} - =`, 14, H - 14); }
   ctx.save(); ctx.globalAlpha = 1 - sink; ctx.fillStyle = heroColor(); const ss = s * (1 - sink * 0.6); ctx.fillRect(px - ss / 2, py - ss, ss, ss); ctx.restore();
   { const z = d.goalZ - 0.2, x = d.cx(z) - d.hw(z) - 1.2, [fx, fy] = climbProj(x, climbSlopeY(-(d.hw(z) + 1.2)), z); ctx.strokeStyle = '#4a3a24'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - UNIT * 1.6); ctx.stroke(); ctx.fillStyle = '#e05a4a'; ctx.beginPath(); ctx.moveTo(fx, fy - UNIT * 1.6); ctx.lineTo(fx + UNIT * 0.8, fy - UNIT * 1.35); ctx.lineTo(fx, fy - UNIT * 1.1); ctx.fill(); }
   drawFx();
@@ -8433,7 +8448,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 147';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 148';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
