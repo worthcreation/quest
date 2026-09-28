@@ -1660,6 +1660,7 @@ function promptKey(text) {
 const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
 function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
 function say(text, x, y, opts = {}) {
+  if (opts.key === 'pip' || opts.who === 'pip') { try { flashFor(text); } catch (e) {} }   // the slot Pip's talking about lights up
   if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
   if (opts.tip) { rememberTip(text); return; }
   const badge = promptKey(text);
@@ -4591,8 +4592,10 @@ function updateIntro(dt) {
 function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W + UNIT * 1.25, q[1] * H - UNIT * 0.15]; }
 // ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
+const firstPullReady = () => !state.inv.harvests && ((RT.meadow && RT.meadow.flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3);
 function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
+  if (state.scene === 'meadow' && !inv.pipTaken && state.started && !ARENA && !PUZZLE && firstPullReady()) return true;   // your first ripe turnip: Pip's there to show you how
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate
@@ -4873,7 +4876,6 @@ const TUTORIAL = [
   { id: 'seeds', begins: () => state.inv.story >= STORY.garden, done: () => TUT.seeds() > 0 || TUT.planted() > 0 || state.inv.story > STORY.garden,
     scene: 'meadow', spot: () => gardenSpot(),
     say: () => `See? Great dirt! It'll be a garden in no time. First we need seeds. There's a robin hiding in that hollow tree, and robins drop seeds when they're startled. Jump, then ${TUT.F()} in the air: POUND the ground right by the trunk!`,
-    after: () => startCoach('pound'),
     remind: () => state.inv.robinFlushed ? ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'Go on, give the robin a scare!']
                                          : [`Jump, then ${TUT.F()} while you're in the air. Right by the trunk!`, 'It\'s still in the hollow tree. Pound the ground next to it!', `Space to jump, ${TUT.F()} to come down hard. By the tree!`],
     remindAt: n => state.inv.robinFlushed ? [TUT.robin(), [(TUT.robin()[0] + state.hero.x) / 2, (TUT.robin()[1] + state.hero.y) / 2]][n % 2] : [hollowPoint()[0] + UNIT * 1.2, hollowPoint()[1] + UNIT * 1.2] },
@@ -4967,6 +4969,10 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the first ripe turnip: Pip shows you how to pull it up (how many rocks depends on your farming)
+  { key: 'pull-turnip', scene: 'meadow', when: () => !state.inv.harvests && ((rtFor('meadow').flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3),
+    at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,
+    text: () => cropNeed() ? `It's ripe! Grab hold (hold ${TUT.F()}), rock it ${K.l} ${K.r} a few times, then pull ${K.u}!` : `It's ripe! Just ${TUT.F()} and pull it up!` },
   // the rabbits' field: combat basics, in two lines
   { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
     text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
@@ -5047,8 +5053,10 @@ function coachUpdate() {
   if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
-  while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); }
-  if (c.i >= steps.length) state.coach = null;
+  while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }
+  if (c.i >= steps.length) { state.coach = null; return; }
+  const p = state.pip;                                  // out in the world, Pip says the current step (once), as himself
+  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; say(steps[c.i].text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false }); flashFor(steps[c.i].text); }
 }
 // ===== cutscenes.js: Scripted moments: dusk and the lantern, the abduction, the sword reveal, the toad, the rescue, the ending, the warden talk.
 // in the woods, right before the sword: the gremlins take Pip, and the journal with them
@@ -6537,6 +6545,15 @@ function useEntry(e) {
   return null;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
+// when Pip (or a tip) suggests using something, its slot on the HUD flashes for a few seconds
+function flashSlot(k, secs = 4) { if (k) state.slotFlash = { k, until: state.time + secs }; state.slotLit = state.time; }
+function flashFor(text) {
+  if (!text) return; const t = text.toLowerCase(), F = K.act.toLowerCase();
+  if (/acorn/.test(t) && /throw|fling|toss/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'acorn'));
+  if (/\beat\b|snack|turnip at you/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].kind === 'food'));
+  if (/marsh fire|breathe/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'fire'));
+  if (/swing|lunge|slash/.test(t) || new RegExp(`\\b${F}\\b in the air|pound`).test(t)) return flashSlot('f');
+}
 function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
@@ -6562,6 +6579,8 @@ function drawSlotBar(x0, y0, len, s) {
     {
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      const fl = state.slotFlash && state.slotFlash.k === k && state.time < state.slotFlash.until;   // suggested: it flashes
+      if (fl) { const a = 0.5 + 0.5 * Math.sin(state.time * 10); ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = `rgba(255,227,138,${0.25 + 0.35 * a})`; ctx.fillRect(x - s * 0.75, y - s * 0.75, s * 1.5, s * 1.5); ctx.strokeStyle = `rgba(255,240,180,${0.6 + 0.4 * a})`; ctx.lineWidth = 3; ctx.strokeRect(x - s * 0.72, y - s * 0.72, s * 1.44, s * 1.44); ctx.restore(); }
       drawItemIcon(show.icon, x, y, s * 0.78);
       ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
       ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
@@ -7962,7 +7981,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 124';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 125';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -8864,7 +8883,7 @@ function heraldImage(T) {
 // while a quest banner is up, the y just below it (quest info sits there); otherwise null
 function bannerBelow() { const b = state.bannerRect; return b && state.title && state.title.style === 'herald' && state.time - b.at < 0.2 ? b.y + b.h + 8 : null; }
 function drawCoach() {
-  const c = state.coach; if (!c) return;
+  const c = state.coach; if (!c || !state.menu) return;           // only inside the pack, where Pip can't talk to you; out in the world he says it
   const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
@@ -9140,7 +9159,7 @@ function drawHUD() {
   const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
   ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
   ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
-  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial ? 1 : 0);
+  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial || (state.slotFlash && state.time < state.slotFlash.until) ? 1 : 0);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
   let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {

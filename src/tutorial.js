@@ -30,7 +30,6 @@ const TUTORIAL = [
   { id: 'seeds', begins: () => state.inv.story >= STORY.garden, done: () => TUT.seeds() > 0 || TUT.planted() > 0 || state.inv.story > STORY.garden,
     scene: 'meadow', spot: () => gardenSpot(),
     say: () => `See? Great dirt! It'll be a garden in no time. First we need seeds. There's a robin hiding in that hollow tree, and robins drop seeds when they're startled. Jump, then ${TUT.F()} in the air: POUND the ground right by the trunk!`,
-    after: () => startCoach('pound'),
     remind: () => state.inv.robinFlushed ? ['The robin drops seeds when you startle it. Run right at it!', 'Robin\'s back! Sneak close, then dash!', 'Go on, give the robin a scare!']
                                          : [`Jump, then ${TUT.F()} while you're in the air. Right by the trunk!`, 'It\'s still in the hollow tree. Pound the ground next to it!', `Space to jump, ${TUT.F()} to come down hard. By the tree!`],
     remindAt: n => state.inv.robinFlushed ? [TUT.robin(), [(TUT.robin()[0] + state.hero.x) / 2, (TUT.robin()[1] + state.hero.y) / 2]][n % 2] : [hollowPoint()[0] + UNIT * 1.2, hollowPoint()[1] + UNIT * 1.2] },
@@ -124,6 +123,10 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the first ripe turnip: Pip shows you how to pull it up (how many rocks depends on your farming)
+  { key: 'pull-turnip', scene: 'meadow', when: () => !state.inv.harvests && ((rtFor('meadow').flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3),
+    at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,
+    text: () => cropNeed() ? `It's ripe! Grab hold (hold ${TUT.F()}), rock it ${K.l} ${K.r} a few times, then pull ${K.u}!` : `It's ripe! Just ${TUT.F()} and pull it up!` },
   // the rabbits' field: combat basics, in two lines
   { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
     text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
@@ -204,6 +207,8 @@ function coachUpdate() {
   if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
-  while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); }
-  if (c.i >= steps.length) state.coach = null;
+  while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }
+  if (c.i >= steps.length) { state.coach = null; return; }
+  const p = state.pip;                                  // out in the world, Pip says the current step (once), as himself
+  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; say(steps[c.i].text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false }); flashFor(steps[c.i].text); }
 }

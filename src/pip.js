@@ -60,8 +60,10 @@ function updateIntro(dt) {
 function gardenSpot() { const q = WORLD.meadow.feat.plots[0]; return [q[0] * W + UNIT * 1.25, q[1] * H - UNIT * 0.15]; }
 // ---------------- Pip, before the gremlins: a step ahead of you, showing the way and explaining things ----------------
 // Pip is with you everywhere until the gremlins strike, and always leads toward the woods
+const firstPullReady = () => !state.inv.harvests && ((RT.meadow && RT.meadow.flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3);
 function pipWithYou() {
   const inv = state.inv, sc = WORLD[state.scene];
+  if (state.scene === 'meadow' && !inv.pipTaken && state.started && !ARENA && !PUZZLE && firstPullReady()) return true;   // your first ripe turnip: Pip's there to show you how
   return !ARENA && !PUZZLE && state.started && !inv.pipTaken && !inv.pipSaved && !inv.sword && !!sc && (sc.area !== 'indoor' || sc.id === 'tentin') && sc.area !== 'cave';   // Pip comes into the tent too
 }
 function pipExit(sc) {                                // where Pip is heading: the garden, then the camp spot, then the woods gate

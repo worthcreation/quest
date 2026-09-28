@@ -676,7 +676,7 @@ function heraldImage(T) {
 // while a quest banner is up, the y just below it (quest info sits there); otherwise null
 function bannerBelow() { const b = state.bannerRect; return b && state.title && state.title.style === 'herald' && state.time - b.at < 0.2 ? b.y + b.h + 8 : null; }
 function drawCoach() {
-  const c = state.coach; if (!c) return;
+  const c = state.coach; if (!c || !state.menu) return;           // only inside the pack, where Pip can't talk to you; out in the world he says it
   const steps = COACH[c.id](), s = steps[c.i]; if (!s) return;
   const fs = Math.round(Math.max(13, Math.min(17, UNIT * 0.44))), k = Math.min(1, (state.time - c.t) / 0.3);
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
@@ -952,7 +952,7 @@ function drawHUD() {
   const lightBar = Math.ceil(v / LAYER - 1e-9) <= 2 && v > LAYER * 0.3;   // dark words on the pale fills, light words on the dark ones
   ctx.fillStyle = lightBar ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.55)'; ctx.fillText(vt, bx + 5, y0 + hgt * 0.85 + 1);
   ctx.fillStyle = lightBar ? '#22361a' : '#fdf6e3'; ctx.fillText(vt, bx + 4, y0 + hgt * 0.85);
-  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial ? 1 : 0);
+  ctx.restore(); ctx.save(); ctx.globalAlpha = Math.max(slotA, state.menu || state.radial || (state.slotFlash && state.time < state.slotFlash.until) ? 1 : 0);
   // the quick slots, A S D F, centred under the vigor bar; timed effects sit small to the right of them
   let x = drawSlotBar(x0, y0 + hgt + s * 0.95, rowW, s), y = y0 + hgt + s * 0.95;
   const eff = (type, bar) => {

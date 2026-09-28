@@ -21,6 +21,7 @@ function promptKey(text) {
 const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
 function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
 function say(text, x, y, opts = {}) {
+  if (opts.key === 'pip' || opts.who === 'pip') { try { flashFor(text); } catch (e) {} }   // the slot Pip's talking about lights up
   if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
   if (opts.tip) { rememberTip(text); return; }
   const badge = promptKey(text);

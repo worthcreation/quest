@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 124, 27 Sep 2026)
+# Quest: handoff notes (as of build 125, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 125: Pip teaches, the pinned note only in the pack, slots that flash
+- The pinned coach note draws only while the pack is open (where Pip can't talk). Out in the world, each coach step is
+  said once by Pip in his own bubble instead; never both at once. The pound lesson is Pip's lines and reminders only.
+- Pip's first ripe turnip: pipWithYou is true in the meadow while a turnip is ripe and you've never harvested
+  (firstPullReady), even after the rescue, and PIP_LINES 'pull-turnip' has him stand by it: hold F, rock it, pull up
+  (or just F at a high farming level). That harvest completes his garden quest.
+- flashSlot / flashFor (gear.js): when Pip's line suggests something (swing, lunge, pound: F; throw acorns: the acorn
+  key; eat: the food key; marsh fire), that slot glows and pulses for 4 s and the faded HUD comes up. say() calls
+  flashFor on Pip's lines.
+- Pip's pace: measured at 8 tiles/s top (catching up) against your 11; PIP_PACE 0.53 is in force (build 116).
+- Test: pip-teaches (new). 57 of 57.
 
 ## Build 124: the creator screen fixed
 - head.html styled every <canvas> as full-screen, which blew the creator's colour wheel and preview up to fill the

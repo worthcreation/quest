@@ -294,6 +294,15 @@ function useEntry(e) {
   return null;
 }
 // press a slot key: returns 'dodge' if that's what it asked for (the dodge itself runs with the rest of movement)
+// when Pip (or a tip) suggests using something, its slot on the HUD flashes for a few seconds
+function flashSlot(k, secs = 4) { if (k) state.slotFlash = { k, until: state.time + secs }; state.slotLit = state.time; }
+function flashFor(text) {
+  if (!text) return; const t = text.toLowerCase(), F = K.act.toLowerCase();
+  if (/acorn/.test(t) && /throw|fling|toss/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'acorn'));
+  if (/\beat\b|snack|turnip at you/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].kind === 'food'));
+  if (/marsh fire|breathe/.test(t)) return flashSlot(ALL_SLOTS.find(k => slotsOf()[k] && slotsOf()[k].id === 'fire'));
+  if (/swing|lunge|slash/.test(t) || new RegExp(`\\b${F}\\b in the air|pound`).test(t)) return flashSlot('f');
+}
 function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
 // a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
@@ -319,6 +328,8 @@ function drawSlotBar(x0, y0, len, s) {
     {
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
       ctx.strokeStyle = show.on ? 'rgba(159,212,255,.8)' : 'rgba(255,227,138,.35)'; ctx.lineWidth = show.on ? 2 : 1; ctx.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
+      const fl = state.slotFlash && state.slotFlash.k === k && state.time < state.slotFlash.until;   // suggested: it flashes
+      if (fl) { const a = 0.5 + 0.5 * Math.sin(state.time * 10); ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = `rgba(255,227,138,${0.25 + 0.35 * a})`; ctx.fillRect(x - s * 0.75, y - s * 0.75, s * 1.5, s * 1.5); ctx.strokeStyle = `rgba(255,240,180,${0.6 + 0.4 * a})`; ctx.lineWidth = 3; ctx.strokeRect(x - s * 0.72, y - s * 0.72, s * 1.44, s * 1.44); ctx.restore(); }
       drawItemIcon(show.icon, x, y, s * 0.78);
       ctx.font = `bold ${Math.round(s * 0.36)}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.fillStyle = '#ffe38a';
       ctx.fillText(slotLabel(k), x - s * 0.55, y - s * 0.3);
