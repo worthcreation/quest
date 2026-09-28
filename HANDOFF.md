@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 143, 28 Sep 2026)
+# Quest: handoff notes (as of build 144, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,13 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 144: stepping stones that work
+- climb2's islands are round now (the same size in depth as across; they were squashed in depth, so lining up was
+  near impossible), bigger (radius about a tile), six of them in a zigzag path down and across.
+- Air steering is stronger (you can correct a jump), and the pace near and far is more even.
+- While you're in the air a ring shows where you'll land: green over solid ground, red over the drop.
+- Test climb: a player-like bot hops the whole stepping path across. 62 of 62.
 
 ## Build 143: open green, only the ravines (testing)
 - climbBand returns 12 for now, so the green runs out past the sides of the screen; the only obstacle on the trail

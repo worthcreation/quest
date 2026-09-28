@@ -15,10 +15,14 @@ console.log('1 wind trail: fell into the chasm', fell, '| jumped the narrowest g
 enterScene('climb1'); run(5); c=state.climb; d=climbDef(); c.gust.t=99; c.z=18; c.x=d.cx(18)+d.hw(18)+1.2; state.keys.arrowdown=true; for(let k=0;k<60*4 && !(c.fall>0);k++) run(1); state.keys.arrowdown=false; run(70);
 console.log('1b straight down the right ledge (open ground for testing): reached z', c.z.toFixed(1), '| fell', c.fall>0);
 enterScene('climb2'); run(5);
-// 2. stepping stones: from the bank onto the first island, then the next
-c=state.climb; d=climbDef(); const [ix,iz,ir]=d.islands[0]; c.z=iz; c.x=d.cx(iz)+d.hw(iz)+0.3; c.gust.t=99; c.vx=c.vz=0; run(2);
-const hop=(tx)=>{ const L=tx<c.x; state.keys[L?(d.mirror?'arrowright':'arrowleft'):(d.mirror?'arrowleft':'arrowright')]=true; run(4); state.keys[' ']=true; run(2); state.keys[' ']=false; state.keys.arrowleft=state.keys.arrowright=false; for(let k=0;k<60 && c.air;k++) run(1); run(10); };
-const x0h=c.x; hop(d.cx(iz)+ix); console.log('2 stepping stones: landed on the first island', onClimbIsland(c.x,c.z) && c.fall===0, '| screen', state.scene);
+// 2b. the whole stepping path, hopped like a player would (aim, a short run, jump, steer)
+{ enterScene('climb2'); run(5); const c2=state.climb, d2=climbDef(); c2.gust.t=999; const path=[]; const targets=d2.islands.map(([ix,iz])=>[d2.cx(iz)+ix, iz]).concat([[d2.cx(5)-d2.hw(5)-1.2, 5.2]]);
+  c2.x=d2.cx(17.5)+d2.hw(17.5)+0.5; c2.z=17.5; run(2);
+  for (const [tx,tz] of targets) { const dx=tx-c2.x, dz=tz-c2.z, scr=(d2.mirror?-1:1)*Math.sign(dx); state.keys[scr<0?'arrowleft':'arrowright']=Math.abs(dx)>0.2; state.keys[dz<0?'arrowdown':'arrowup']=Math.abs(dz)>0.2; run(3); state.keys[' ']=true; run(2); state.keys[' ']=false;
+    for(let k=0;k<60 && c2.air;k++){ const ddx=tx-c2.x, ddz=tz-c2.z, s2=(d2.mirror?-1:1)*Math.sign(ddx); state.keys.arrowleft=s2<0&&Math.abs(ddx)>0.15; state.keys.arrowright=s2>0&&Math.abs(ddx)>0.15; state.keys.arrowdown=ddz<-0.15; state.keys.arrowup=ddz>0.15; run(1); }
+    for(const k of ['arrowleft','arrowright','arrowup','arrowdown']) state.keys[k]=false; run(12); path.push(c2.fall>0?'fell':'ok'); if(c2.fall>0) run(70); }
+  console.log('2b stepping stones, the whole path:', path.join(' '), '| across:', climbSide(c2.x,c2.z)<-climbHw(c2.z)); }
+enterScene('climb2'); run(5);
 for (const id of ['climb3','climb4']) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5); console.log('3 '+d.name+': start ok, flag -> ', state.scene); }
 // 5. the side view: run right and jump now and then; reach the top, out into the crags
 c=state.climb; let t=0; state.keys.arrowright=true; while(state.scene==='climb5' && t<60*60){ if(!c.air && t%50===0){ state.keys[' ']=true; run(2); state.keys[' ']=false; } run(1); t++; } state.keys.arrowright=false;
