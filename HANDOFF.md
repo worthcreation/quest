@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 133, 27 Sep 2026)
+# Quest: handoff notes (as of build 134, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,16 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 134: sticks from the trees; the river stone waits for Pip
+- The glade has only about six sticks lying about now: four spread well apart (at least 4 tiles), and a couple lying
+  by trees. The rest come down out of the trees: a pound by a tree (the nearest one) while camp still needs sticks
+  brings down one or two (6 s per tree before it drops again); otherwise a pound shakes acorns as before.
+- Pip teaches it: PIP_LINES 'slam-trees' when there are no sticks lying about, and the sticks step's reminders point at
+  the nearest tree ("Give a tree a good thump!").
+- The riverbank's stuck stone (early: true) can't be loosened or pulled until Pip has said his 'stone-loosen' line
+  (pullLocked).
+- Test: sticks-trees (new). 60 of 60.
 
 ## Build 133: the mountain path
 - f2 to f6 (the climb, not f1 or the tortoise's f7) are now a mountain path: sc.corridor {n, s, seed}; the south

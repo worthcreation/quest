@@ -313,7 +313,13 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of Array(10).fill('stick')) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
+  {                                                   // sticks: a few lying about, spread wide; a couple under trees; the rest are still up in the trees (slam by one)
+    const placed = [];
+    const far = q => placed.every(p => Math.hypot((p[0] - q[0]) * W, (p[1] - q[1]) * H) > UNIT * 4);
+    for (let t = 0; t < 4; t++) { let q = null; for (let k = 0; k < 30; k++) { const c = freeSpot(start, [0.1, 0.85, 0.15, 0.85], 0.6); if (far(c)) { q = c; break; } } if (q) { placed.push(q); item(start, { type: 'stick', fx: q[0], fy: q[1] }); } }
+    const trees = start.solids.filter(s => s.kind === 'tree');
+    for (let t = 0; t < 2 && trees.length; t++) { const tr = trees[Math.floor(rng() * trees.length)], a = rng() * 6.28, q = [tr.fx + Math.cos(a) * (tr.r + 0.7) * UNIT / W, tr.fy + (0.5 + Math.abs(Math.sin(a)) * 0.5) * UNIT / H]; if (!onClaim(start, q[0], q[1], 0.4)) item(start, { type: 'stick', fx: q[0], fy: q[1] }); }
+  }
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
 

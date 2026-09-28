@@ -59,7 +59,9 @@ const TUTORIAL = [
     say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, after: true },
     remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },
   { id: 'sticks', done: () => !campMissing().stick, goal: () => 'start', scene: 'start', spot: () => TUT.nearItem('stick') && [TUT.nearItem('stick').x, TUT.nearItem('stick').y],
-    say: () => 'Good sticks. Dry ones burn best. We need a couple.', remind: () => ['Here\'s a good stick!', 'Grab this stick!', 'Sticks, under the trees. We need them.'], remindAt: () => { const it = TUT.nearItem('stick'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
+    say: () => 'Good sticks. Dry ones burn best. We need a couple.',
+    remind: () => TUT.nearItem('stick') ? ['Here\'s a good stick!', 'Grab this stick!', 'Sticks, under the trees. We need them.'] : ['The rest are up in the trees! Jump and pound by a trunk.', `Space, then ${TUT.F()} in the air, right by a tree. Down they come!`, 'Give a tree a good thump!'],
+    remindAt: () => { const it = TUT.nearItem('stick'); if (it) return [it.x, it.y]; const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : TUT.exitSpot(); } },
   { id: 'stones', done: () => !campMissing().stone, goal: () => 'riverbank', scene: 'riverbank', spot: () => TUT.nearItem('stone') && [TUT.nearItem('stone').x, TUT.nearItem('stone').y],
     say: () => 'Smooth stones! Nice flat ones. Two of those.', remind: () => ['Here\'s a good smooth stone!', 'Grab this stone!', 'Flat ones, by the water.'], remindAt: () => { const it = TUT.nearItem('stone'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'f2', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
@@ -127,6 +129,10 @@ const PIP_LINES = [
   // the woods: the gremlins start to show themselves
   { key: 'peek-seen', scene: 'w1', when: () => !!rtFor('w1').flags.peekGone && state.time - rtFor('w1').flags.peekGone > 0.6, text: 'Did you SEE that?! Something green, behind the boulder!' },
   { key: 'taunt-seen', scene: 'w2', when: () => state.enemies.some(e => e.taunter && e.mode === 'taunt' && e.leaps >= 1), text: 'Ignore it! Gremlins. Rude little things.' },
+  // the glade's sticks run out: the rest come down out of the trees when you pound by a trunk
+  { key: 'slam-trees', scene: 'start', when: () => storyAt('gather') && campMissing().stick > 0 && !state.items.some(i => i.type === 'stick') && !campBuilt('fire'),
+    at: () => { const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : null; }, sight: 12,
+    text: () => `That's all the sticks lying about. The rest are up in the trees! Jump, then ${TUT.F()} in the air: pound right by a trunk.` },
   // short of stones on the riverbank: the boulder by the water has more inside
   { key: 'stone-crag', scene: 'riverbank', when: sc => storyAt('gather') && campMissing().stone > 0 && sc.solids.some(s => s.bar === 'stonecrag') && !broken('riverbank', 'stonecrag') && !state.items.some(i => i.type === 'stone'),
     at: sc => { const q = sc.feat.stoneCrag; return [q[0] * W - UNIT * 1.6, q[1] * H]; }, sight: 12,

@@ -370,7 +370,13 @@ function genWorld() {
   barrier(start, 'thicket', 'bramble', 0.955, 0.36, 0.955, 0.64, 0.65);
   start.paths = [[0.5, 0.03], [0.03, 0.5], [0.5, 0.97], [0.93, 0.5], rock].map(p => makePath([0.5, 0.5], p, 1));
   scatter(start, 11, 'tree', 0.9, 1.3, 1.5, [[...rock, 3], [0.9, 0.5, 3]], undefined, 'green');
-  for (const t of Array(10).fill('stick')) { const q = freeSpot(start, [0.1, 0.8, 0.15, 0.85], 0.6); item(start, { type: t, fx: q[0], fy: q[1] }); }   // sticks under the forest trees: enough for camp (3) and a wooden sword (3), and one spare
+  {                                                   // sticks: a few lying about, spread wide; a couple under trees; the rest are still up in the trees (slam by one)
+    const placed = [];
+    const far = q => placed.every(p => Math.hypot((p[0] - q[0]) * W, (p[1] - q[1]) * H) > UNIT * 4);
+    for (let t = 0; t < 4; t++) { let q = null; for (let k = 0; k < 30; k++) { const c = freeSpot(start, [0.1, 0.85, 0.15, 0.85], 0.6); if (far(c)) { q = c; break; } } if (q) { placed.push(q); item(start, { type: 'stick', fx: q[0], fy: q[1] }); } }
+    const trees = start.solids.filter(s => s.kind === 'tree');
+    for (let t = 0; t < 2 && trees.length; t++) { const tr = trees[Math.floor(rng() * trees.length)], a = rng() * 6.28, q = [tr.fx + Math.cos(a) * (tr.r + 0.7) * UNIT / W, tr.fy + (0.5 + Math.abs(Math.sin(a)) * 0.5) * UNIT / H]; if (!onClaim(start, q[0], q[1], 0.4)) item(start, { type: 'stick', fx: q[0], fy: q[1] }); }
+  }
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
 
@@ -2567,7 +2573,7 @@ function hitStone(o, force) {
 // buried rocks have to be knocked loose before you can rock them out
 // the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
 // no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
-function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !pl.early && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
+function pullLocked(pl) { if (pl.early) return !(state.inv.pipTips || {})['stone-loosen']; return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }   // an 'early' stone waits until Pip has shown you   // (a rock you threw and buried is never locked)
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
@@ -2944,10 +2950,17 @@ function cutVines(h) {
 }
 function shakeTreesAround(h, radius) {
   let any = false;
+  const nearest = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
   for (const s of state.solids) {
     if (s.kind !== 'tree' || Math.hypot(s.x - h.x, s.y - h.y) > radius + s.r) continue;
     state.treeShake[s.key] = state.time; any = true;
-    dropAcorn(s);
+    const needSticks = storyAt('gather') && !campBuilt('fire') && campMissing().stick > 0, cool = (state.stickCool || (state.stickCool = {}))[s.key] || 0;
+    if (needSticks && s === nearest && state.playTime > cool) {   // (only the tree you pounded by)                  // a good slam by a tree brings down a dry stick or two
+      state.stickCool[s.key] = state.playTime + 6;
+      const n = Math.random() < 0.35 ? 2 : 1;
+      for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; state.items.push(freeItemSpot({ type: 'stick', x: s.x + Math.cos(a) * (s.r + UNIT * 0.7), y: s.y + UNIT * 0.5 + Math.abs(Math.sin(a)) * UNIT * 0.4 })); }
+      spark(s.x, s.y - UNIT, '#6a4a2a', 6, 2);
+    } else dropAcorn(s);
   }
   if (any) sfx.rustle();
 }
@@ -5056,7 +5069,9 @@ const TUTORIAL = [
     say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, after: true },
     remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },
   { id: 'sticks', done: () => !campMissing().stick, goal: () => 'start', scene: 'start', spot: () => TUT.nearItem('stick') && [TUT.nearItem('stick').x, TUT.nearItem('stick').y],
-    say: () => 'Good sticks. Dry ones burn best. We need a couple.', remind: () => ['Here\'s a good stick!', 'Grab this stick!', 'Sticks, under the trees. We need them.'], remindAt: () => { const it = TUT.nearItem('stick'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
+    say: () => 'Good sticks. Dry ones burn best. We need a couple.',
+    remind: () => TUT.nearItem('stick') ? ['Here\'s a good stick!', 'Grab this stick!', 'Sticks, under the trees. We need them.'] : ['The rest are up in the trees! Jump and pound by a trunk.', `Space, then ${TUT.F()} in the air, right by a tree. Down they come!`, 'Give a tree a good thump!'],
+    remindAt: () => { const it = TUT.nearItem('stick'); if (it) return [it.x, it.y]; const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : TUT.exitSpot(); } },
   { id: 'stones', done: () => !campMissing().stone, goal: () => 'riverbank', scene: 'riverbank', spot: () => TUT.nearItem('stone') && [TUT.nearItem('stone').x, TUT.nearItem('stone').y],
     say: () => 'Smooth stones! Nice flat ones. Two of those.', remind: () => ['Here\'s a good smooth stone!', 'Grab this stone!', 'Flat ones, by the water.'], remindAt: () => { const it = TUT.nearItem('stone'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'f2', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
@@ -5124,6 +5139,10 @@ const PIP_LINES = [
   // the woods: the gremlins start to show themselves
   { key: 'peek-seen', scene: 'w1', when: () => !!rtFor('w1').flags.peekGone && state.time - rtFor('w1').flags.peekGone > 0.6, text: 'Did you SEE that?! Something green, behind the boulder!' },
   { key: 'taunt-seen', scene: 'w2', when: () => state.enemies.some(e => e.taunter && e.mode === 'taunt' && e.leaps >= 1), text: 'Ignore it! Gremlins. Rude little things.' },
+  // the glade's sticks run out: the rest come down out of the trees when you pound by a trunk
+  { key: 'slam-trees', scene: 'start', when: () => storyAt('gather') && campMissing().stick > 0 && !state.items.some(i => i.type === 'stick') && !campBuilt('fire'),
+    at: () => { const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : null; }, sight: 12,
+    text: () => `That's all the sticks lying about. The rest are up in the trees! Jump, then ${TUT.F()} in the air: pound right by a trunk.` },
   // short of stones on the riverbank: the boulder by the water has more inside
   { key: 'stone-crag', scene: 'riverbank', when: sc => storyAt('gather') && campMissing().stone > 0 && sc.solids.some(s => s.bar === 'stonecrag') && !broken('riverbank', 'stonecrag') && !state.items.some(i => i.type === 'stone'),
     at: sc => { const q = sc.feat.stoneCrag; return [q[0] * W - UNIT * 1.6, q[1] * H]; }, sight: 12,
@@ -8174,7 +8193,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 133';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 134';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

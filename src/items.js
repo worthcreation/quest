@@ -32,7 +32,7 @@ function hitStone(o, force) {
 // buried rocks have to be knocked loose before you can rock them out
 // the big buried stones sit there from the start, but they're scenery until the adventure begins (after twilight):
 // no pull, no pounding loose, no hint. Mud rocks (your own throws) and the sword are never locked.
-function pullLocked(pl) { return pl.kind === 'rock' && !pl.mud && !pl.early && !storyAt('adventure'); }   // (a rock you threw and buried is never locked)
+function pullLocked(pl) { if (pl.early) return !(state.inv.pipTips || {})['stone-loosen']; return pl.kind === 'rock' && !pl.mud && !storyAt('adventure'); }   // an 'early' stone waits until Pip has shown you   // (a rock you threw and buried is never locked)
 function knockRocks(x, y, reach) {
   const sc = sceneDef(), rt = rtFor(sc.id);
   for (const pl of sc.pullables) {
@@ -409,10 +409,17 @@ function cutVines(h) {
 }
 function shakeTreesAround(h, radius) {
   let any = false;
+  const nearest = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
   for (const s of state.solids) {
     if (s.kind !== 'tree' || Math.hypot(s.x - h.x, s.y - h.y) > radius + s.r) continue;
     state.treeShake[s.key] = state.time; any = true;
-    dropAcorn(s);
+    const needSticks = storyAt('gather') && !campBuilt('fire') && campMissing().stick > 0, cool = (state.stickCool || (state.stickCool = {}))[s.key] || 0;
+    if (needSticks && s === nearest && state.playTime > cool) {   // (only the tree you pounded by)                  // a good slam by a tree brings down a dry stick or two
+      state.stickCool[s.key] = state.playTime + 6;
+      const n = Math.random() < 0.35 ? 2 : 1;
+      for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; state.items.push(freeItemSpot({ type: 'stick', x: s.x + Math.cos(a) * (s.r + UNIT * 0.7), y: s.y + UNIT * 0.5 + Math.abs(Math.sin(a)) * UNIT * 0.4 })); }
+      spark(s.x, s.y - UNIT, '#6a4a2a', 6, 2);
+    } else dropAcorn(s);
   }
   if (any) sfx.rustle();
 }

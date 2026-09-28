@@ -10,7 +10,7 @@ const c=state.solids.find(s=>s.bar==='stonecrag');
 h.x=c.x-c.r-UNIT*0.9; h.y=c.y; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40);
 console.log('   a pound beside the boulder breaks it?', broken('riverbank','stonecrag'));
 // the stuck stone nearby: stomp to loosen, hold F, rock, pull up
-const rk=WORLD.riverbank.feat.riverRock; h.x=rk[0]*W-UNIT*1.2; h.y=rk[1]*H; h.fx=1; h.fy=0; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40);
+(state.inv.pipTips=state.inv.pipTips||{})['stone-loosen']=true; const rk=WORLD.riverbank.feat.riverRock; h.x=rk[0]*W-UNIT*1.2; h.y=rk[1]*H; h.fx=1; h.fy=0; run(3); state.keys[' ']=true; run(1); state.keys[' ']=false; run(8); state.keys.f=true; run(1); state.keys.f=false; run(40);
 const loose=!!rtFor('riverbank').flags.knocked_riverrock; h.x=rk[0]*W-UNIT*1.2; h.y=rk[1]*H; run(3);
 state.keys.f=true; run(5); for(let i=0;i<8;i++){ state.keys[i%2?'arrowright':'arrowleft']=true; run(2); state.keys.arrowleft=state.keys.arrowright=false; run(4); } state.keys.arrowup=true; run(2); state.keys.arrowup=false; run(4); state.keys.f=false; run(10);
 console.log('   stuck stone: loosened', loose, '| carrying it', state.carry);
