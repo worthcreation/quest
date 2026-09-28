@@ -232,7 +232,7 @@ function drawItemIcon(type, x, y, s) {
 }
 function drawItems() {
   for (const it of state.items) {
-    if (it.type === 'bigrock') { drawRock(it.x, it.y, UNIT * 0.62); continue; }
+    if (it.type === 'bigrock') { if (it.seed == null) it.seed = (it.x * 0.013 + it.y * 0.029) % 97; drawRock(it.x, it.y, UNIT * 0.62, it.seed); continue; }
     // things lie on the ground: a tight contact shadow, a little lean of their own, no floating
     const hsh = Math.abs(Math.sin(it.x * 12.9898 + it.y * 78.233)) % 1, lean = (hsh - 0.5) * 0.6;
     ctx.fillStyle = 'rgba(0,0,0,.3)';

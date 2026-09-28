@@ -155,7 +155,7 @@ function freePullable(pl, x, y) {
   if (pl.kind === 'rock') {
     sfx.lift(); zoomPulse(x, y, 'pickup'); spark(x, y, '#6a4a2a', 12, 3);
     for (let d = 0; d < 18; d++) state.fx.push({ x: x + (Math.random() - 0.5) * UNIT, y: y + UNIT * 0.3, vx: (Math.random() - 0.5) * UNIT * 5, vy: -UNIT * (2 + Math.random() * 3), t: 0, life: 0.8, color: Math.random() < 0.5 ? '#5a4128' : '#6e5234', size: UNIT * (0.08 + Math.random() * 0.06) });   // heaved out in a shower of dirt
-    state.carry = 'rock'; state.carryT = state.time; refreshButtons();
+    state.carry = 'rock'; state.carryT = state.time; state.carrySeed = rockSeedOf(pl); refreshButtons();
     say(`Heavy! It takes both hands. Tap ${K.act} to set it down ahead of you, or hold ${K.act} to aim and let go to throw.`, x, y - UNIT * 1.6, { key: 'pull', life: 5, tip: 'throw-rock' });
   } else startSwordCut();
 }

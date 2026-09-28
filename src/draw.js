@@ -580,11 +580,25 @@ function drawTree(s) {
   }
   ctx.restore();
 }
-function drawRock(x, y, r) {
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r, r * 0.45, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#8a8a80'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#a3a397'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.5, r * 0.32, -0.3, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#5a4a36'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.45, r * 0.55, r * 0.18, 0, 0, 6.28); ctx.fill();
+// a throwing stone: lumpy and irregular, each one its own shape (seed), smooth-edged bumps, a lit top, a pit or two
+function drawRock(x, y, r, seed = 3.7, shadow = true) {
+  let s = Math.abs(Math.floor(seed * 9973)) % 233280 + 11; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+  const n = 7, pts = []; for (let i = 0; i < n; i++) { const a = i / n * 6.28 + (rnd() - 0.5) * 0.5, rr = r * (0.78 + rnd() * 0.36); pts.push([Math.cos(a) * rr, Math.sin(a) * rr * 0.82]); }
+  const blob = (sc, dx, dy) => { ctx.beginPath(); for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % n], mx = (ax + bx) / 2, my = (ay + by) / 2; if (!i) ctx.moveTo(x + dx + (pts[n - 1][0] + ax) / 2 * sc, y + dy + (pts[n - 1][1] + ay) / 2 * sc); ctx.quadraticCurveTo(x + dx + ax * sc, y + dy + ay * sc, x + dx + mx * sc, y + dy + my * sc); } ctx.closePath(); };
+  if (shadow) { ctx.fillStyle = 'rgba(0,0,0,.22)'; blob(1, r * 0.15, r * 0.3); ctx.fill(); }
+  ctx.fillStyle = '#86857c'; blob(1, 0, 0); ctx.fill();
+  ctx.save(); blob(1, 0, 0); ctx.clip(); ctx.fillStyle = '#a2a196'; blob(0.72, -r * 0.18, -r * 0.2); ctx.fill();   // the lit top
+  ctx.fillStyle = 'rgba(60,56,50,.35)'; for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.ellipse(x + (rnd() - 0.4) * r * 0.9, y + (rnd() - 0.3) * r * 0.6, r * (0.08 + rnd() * 0.08), r * 0.06, rnd() * 3, 0, 6.28); ctx.fill(); }   // pits
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(50,46,40,.45)'; ctx.lineWidth = 1.2; blob(1, 0, 0); ctx.stroke();
+}
+const rockSeedOf = pl => (pl.id || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 0.37 + pl.fx * 11;   // the same stone in the ground, in your arms, in the air
+// where a stone meets the ground: just a zigzag brown line along its base, the look of being sunk in
+function drawSoilLine(x, y, w, amp, seed = 1) {
+  ctx.strokeStyle = 'rgba(74,56,34,.85)'; ctx.lineWidth = Math.max(2, amp * 0.5); ctx.lineJoin = 'round'; ctx.beginPath();
+  const n = Math.max(6, Math.round(w / (amp * 1.6)));
+  for (let i = 0; i <= n; i++) { const k = i / n, xx = x - w / 2 + k * w, yy = y - Math.sin(k * Math.PI) * amp * 0.9 + (i % 2 ? -amp * 0.45 : amp * 0.2) + Math.sin(i * 2.7 + seed) * amp * 0.15; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+  ctx.stroke(); ctx.lineJoin = 'miter';
 }
 function drawSolid(s) {
   const { x, y, vis: r, kind } = s, u = UNIT;
@@ -669,7 +683,6 @@ function drawSolid(s) {
     case 'barrel': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); } break;
     case 'crag': {
       const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
-      ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(x + 4, y + r * 0.55, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
       if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
       drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
       { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
@@ -678,7 +691,7 @@ function drawSolid(s) {
         ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
         ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
         for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
-        ctx.fillStyle = 'rgba(74,56,34,.6)'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(x - r * 0.9 + i * r * 0.45, by + r * 0.08 + (i % 2) * r * 0.05, r * 0.05, 0, 6.28); ctx.fill(); } }   // clods
+        }
       ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
       let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
       const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
@@ -924,7 +937,7 @@ function drawHeroBody(h, pw, ph, y, sh) {
   if (r < 0.35) { ctx.fillStyle = `rgba(60,50,80,${(0.35 - r) * 1.3})`; ctx.fillRect(h.x - pw / 2, y - ph / 2, pw, ph); }
   if (wears('cap')) drawScalp(h.x, y - ph / 2, UNIT);
   drawWorn(h.x, y - ph / 2, pw, ph, UNIT);
-  if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62);
+  if (state.carry === 'rock') drawRock(h.x, y - ph / 2 - UNIT * 0.55, UNIT * 0.62, state.carrySeed || 3.7);
   else if (bladeKind() && !state.carry && state.time >= (state.noSwingUntil || 0) && !(state.cut && state.cut.type === 'sword' && !state.inv.sword)) drawSword(h, pw, ph, y, heroic);   // both hands on a stone: the blade's put away
 }
 // the steel blade on its own (honing level given), so the stump sword and the sword in hand look the same
@@ -1036,19 +1049,15 @@ function drawPullable(sc, pl) {
     if (pl.kind === 'crop') return;                     // drawn with its patch
     if (pl.kind === 'rock') {
       const mud = false, lip = '#5a4128';                   // (a rock you threw and buried looks and works just like the first ones)
-      ctx.fillStyle = mud ? '#2e2214' : '#4a3a24'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.8, UNIT * 0.35, 0, 0, 6.28); ctx.fill();
-      if (done) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.6, UNIT * 0.24, 0, 0, 6.28); ctx.fill(); return; }   // the hole it left
+      const seed = rockSeedOf(pl);
+      if (done) { ctx.fillStyle = 'rgba(46,34,20,.8)'; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.3, UNIT * 0.5, UNIT * 0.16, 0, 0, 6.28); ctx.fill(); drawSoilLine(x, y + UNIT * 0.26, UNIT * 1.2, UNIT * 0.12, seed); return; }   // the hole it left
       const knockT = rtFor(sc.id).flags['knockT_' + pl.id], loose = !!rtFor(sc.id).flags['knocked_' + pl.id];
       const pop = loose && knockT != null ? Math.max(0, 1 - (state.time - knockT) / 0.5) : 0;                            // the stomp: a jolt up, then it settles
-      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.32 + Math.sin(pop * Math.PI) * UNIT * 0.35 : -UNIT * 0.2);   // sunk flush at first; stomped loose, it pops up
+      const rise = (p ? Math.min(1, p.wiggle / (pl.need || 3)) * UNIT * 0.28 : 0) + (loose ? UNIT * 0.32 + Math.sin(pop * Math.PI) * UNIT * 0.35 : UNIT * 0.08);   // mostly sunk at first, its lumpy back showing; stomped loose, it pops up
       const lean = loose ? -0.55 - pop * 0.3 : 0;                                                                        // and sits well over on its side
       ctx.save(); ctx.beginPath(); ctx.rect(x - UNIT * 1.2, y - UNIT * 1.5, UNIT * 2.4, UNIT * 1.5 + UNIT * 0.2 + rise); ctx.clip();   // everything below the soil line is hidden
-      ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt + lean); drawRock(0, 0, UNIT * 0.72); ctx.restore();
-      if (!loose) { ctx.strokeStyle = 'rgba(40,28,16,.5)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.1, UNIT * 0.62, UNIT * 0.18, 0, 3.4, 6.0); ctx.stroke(); }   // just a round back showing, soil packed tight
-      if (loose) { ctx.fillStyle = '#2e2214'; ctx.beginPath(); ctx.ellipse(x + UNIT * 0.35, y + UNIT * 0.28, UNIT * 0.22, UNIT * 0.08, 0, 0, 6.28); ctx.fill(); }   // the gap the stomp opened
-      ctx.fillStyle = lip; ctx.beginPath(); ctx.ellipse(x, y + UNIT * 0.28, UNIT * 0.78, UNIT * 0.2, 0, 0, Math.PI); ctx.fill();   // the soil (or mud) lip in front
-      if (mud) { ctx.fillStyle = 'rgba(255,240,210,.18)'; ctx.beginPath(); ctx.ellipse(x - UNIT * 0.25, y + UNIT * 0.3, UNIT * 0.2, UNIT * 0.05, 0, 0, 6.28); ctx.fill(); }
-      else { ctx.fillStyle = '#6b8a3a'; for (let k = -2; k <= 2; k++) ctx.fillRect(x + k * UNIT * 0.28, y + UNIT * 0.36, 2, -UNIT * 0.14); }   // a few grass blades at the rim
+      ctx.translate(x, y + UNIT * 0.25 - rise); ctx.rotate(tilt + lean); drawRock(0, 0, UNIT * 0.72, seed, false); ctx.restore();
+      drawSoilLine(x, y + UNIT * 0.2 + rise, UNIT * 1.4, UNIT * 0.13, seed);   // sunk in: the zigzag where stone meets soil, right at the cut
     } else {
       const c = state.cut && state.cut.type === 'sword' ? state.cut : null;
       if (done && c && !state.inv.sword) { drawSwordReveal(x, y, c.t); return; }
@@ -1094,7 +1103,7 @@ function drawShots() {
   for (const s of state.shots) {
     ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(s.x, s.y + UNIT * 0.2, UNIT * (s.kind === 'rock' ? 0.5 : 0.15), UNIT * 0.1, 0, 0, 6.28); ctx.fill();
     const k = heightScale(s.z);
-    if (s.kind === 'rock') drawRock(s.x, s.y - s.z, UNIT * 0.6 * k);
+    if (s.kind === 'rock') drawRock(s.x, s.y - s.z, UNIT * 0.6 * k, s.seed || 3.7);
     else { ctx.save(); ctx.translate(s.x, s.y - s.z); ctx.rotate(s.spin); drawItemIcon('acorn', 0, 0, UNIT * 0.6 * k); ctx.restore(); }
   }
 }
@@ -1259,7 +1268,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 131';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 132';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

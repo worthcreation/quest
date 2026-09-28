@@ -173,7 +173,7 @@ function drawHeroModelInWorld(h, heroic) {
   if (h.stun > 0 || r < 0.35) { ctx.fillStyle = h.stun > 0 ? 'rgba(255,255,255,.35)' : `rgba(60,50,80,${(0.35 - r) * 1.1})`; ctx.beginPath(); ctx.ellipse(h.x, footY - UNIT * 0.75, UNIT * 0.42, UNIT * 0.85, 0, 0, 6.28); ctx.fill(); }
   if (h.falling > 0) return;
   if (wears('cap')) drawScalp(h.x, info.headTop + UNIT * 0.15, UNIT);
-  if (state.carry === 'rock') drawRock(h.x, info.headTop - UNIT * 0.2, UNIT * 0.62);
+  if (state.carry === 'rock') drawRock(h.x, info.headTop - UNIT * 0.2, UNIT * 0.62, state.carrySeed || 3.7);
   else if (state.inv.sword && !state.atk && !state.whirl && !state.slam && !heroic && info.hand && !(state.equip === 'acorn' && state.inv.acorns > 0)) {
     // at rest the sword sits in the near hand, point down and trailing behind
     const view = heroFacing(h.fx, h.fy), s = view === 'side' ? (h.side || 1) : 1;

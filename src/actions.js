@@ -154,7 +154,7 @@ function launch(kind, k = 1) {
   const sp = UNIT * T.sp;
   let dx = h.fx, dy = h.fy;
   if (!rock) { const a = Math.atan2(h.fy, h.fx) + acornSpread(); dx = Math.cos(a); dy = Math.sin(a); skillUse('acorn'); }
-  state.shots.push({ kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: dx * sp, vy: dy * sp, z: UNIT * T.z, vz: UNIT * T.vz, g: UNIT * T.g, spin: 0, silk, hit: new Set(), force: 0.6 + 0.8 * k });
+  state.shots.push({ seed: rock ? state.carrySeed : undefined, kind, x: h.x + h.fx * UNIT * 0.6, y: h.y + h.fy * UNIT * 0.6, vx: dx * sp, vy: dy * sp, z: UNIT * T.z, vz: UNIT * T.vz, g: UNIT * T.g, spin: 0, silk, hit: new Set(), force: 0.6 + 0.8 * k });
   sfx.throw();
   if (rock) state.shake = 0.1;
   if (state.bird) scareBird(h.x, h.y, 6);
@@ -196,7 +196,7 @@ function updateShots(dt) {
       state.shots.splice(i, 1);
       if (rock && inMud(s.x, s.y)) sinkRock(s.x, s.y);     // short of the mark and into the mud: stuck
       else if (rock && !s.bounced && earthen(s.x, s.y) && Math.random() < 0.2) sinkRock(s.x, s.y, 'earth');   // (a rock that bounced off a boulder lands on top, ready to throw again)   // or it digs into soft ground
-      else if (rock) { state.items.push(freeItemSpot({ type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }));   /* bounced off a boulder: it lands at the foot, where you can reach it */ sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
+      else if (rock) { state.items.push(freeItemSpot({ seed: s.seed, type: 'bigrock', x: Math.max(UNIT, Math.min(W - UNIT, s.x)), y: Math.max(UNIT, Math.min(H - UNIT, s.y)) }));   /* bounced off a boulder: it lands at the foot, where you can reach it */ sfx.crash(); state.shake = 0.2; spark(s.x, s.y, '#8a7a6a', 8, 2.5); }
       else if (Math.random() < 0.35) state.items.push({ type: 'acorn', x: s.x, y: s.y });
       if (state.scene === 'start' && rock && !broken('start', 'thicket')) say('Maybe if it hit the thicket...', s.x, s.y - UNIT, { key: 'rockhint', life: 2.5, tip: 'rockhint' });
       if (state.scene === 'w3' && rock && !broken('w3', 'swordthorns')) say('Thorns. A thrown rock broke the last lot.', s.x, s.y - UNIT, { key: 'rockhint3', life: 2.5, tip: 'rockhint3' });

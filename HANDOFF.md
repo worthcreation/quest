@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 131, 27 Sep 2026)
+# Quest: handoff notes (as of build 132, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,15 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 132: lumpy stones; the zigzag soil line
+- drawRock (draw.js) draws a lumpy, irregular stone (seven bumps joined by curves, a lit top, a couple of pits) from a
+  seed, so each stone has its own shape: the same one in the ground, in your arms, in the air and where it lands
+  (rockSeedOf(pl) for buried ones; state.carrySeed; shot.seed; item.seed).
+- drawSoilLine: the zigzag brown line where a stone meets the ground. Buried throwing stones show their lumpy back
+  above it (no brown oval, no grass blades, no mud sheen); the hole a pulled stone leaves is a dark dip with the line.
+- Crags: the drop shadow and the dirt clods are gone; just the zigzag line round the base.
+- 59 of 59.
 
 ## Build 131: broken ravine edges; the climb turns craggy; a diagonal climb
 - Ravine edges wander (chasmSpan in engine.js, up to about a third of a tile either way, fixed per ravine): isChasm
