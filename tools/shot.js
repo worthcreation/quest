@@ -63,6 +63,13 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B127) {                            // build 127: the riverbank boulder, the peeking gremlin, the taunter mid-leap
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; enterScene('riverbank'); state.cut=null; state.enemies=[]; state.pip=null; const c=WORLD.riverbank.feat.stoneCrag; state.hero.x=c[0]*W-UNIT*2.5; state.hero.y=c[1]*H; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b127-river.png', canvas.toBuffer('image/png'));
+  inv.story=STORY.adventure; inv.sword=true; enterScene('w1'); state.enemies=[]; state.pip=null; state.hero.x=W*0.4; state.hero.y=H*0.5; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b127-peek.png', canvas.toBuffer('image/png'));
+  enterScene('w2'); state.enemies=[]; state.pip=null; state.hero.x=W*0.5; state.hero.y=H*0.5; run(80); const t=state.enemies.find(e=>e.taunter); if(t){ t.leap={x0:t.x,y0:t.y,x1:t.x+UNIT*3,y1:t.y-UNIT,t:0.2,dur:0.45}; } run(1); draw(); fs.writeFileSync('/tmp/b127-taunt.png', canvas.toBuffer('image/png'));
+  console.log('b127 written');
+}
 if (process.env.B126) {                            // build 126: the icon belt and the Map as miniatures
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.pipSaved=true; inv.shrooms={camp:true,w2:true,foot:true}; inv.spores=4; inv.sword=true; inv.food.push('turnip');

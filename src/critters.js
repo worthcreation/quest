@@ -19,7 +19,7 @@ function makeEnemy(type, x, y, idx, poolIdx) {
   }
 }
 function hittable(e) {
-  if (e.dead) return false;
+  if (e.dead || e.taunter) return false;                 // the taunting gremlin is never where your blade is
   if (e.type === 'thief') return !!e.cornered;
   if (e.type === 'diver') return ['floor', 'stunned', 'ascend'].includes(e.mode);
   if (e.type === 'lurker') return ['bite', 'risen', 'stunned'].includes(e.mode);
@@ -138,6 +138,7 @@ function updateEnemies(dt) {
       if (e.type === 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
     }
     else if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
+    else if (e.taunter) { tauntAI(e, dx, dy, dist, dt); continue; }
     else if (e.type === 'hawk') { hawkAI(e, dt); continue; }             // flies: its own movement, no walls
     else if (e.type === 'mantis') mantisAI(e, dx, dy, dist, ease);
     else AI[e.type](e, dx, dy, dist, ease, dt);
@@ -609,4 +610,59 @@ function burstDarkShroom() {
   for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28, d = UNIT * (1.2 + Math.random() * 2.2); state.items.push({ type: 'spore', x: Math.max(UNIT, Math.min(W - UNIT, x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, y + Math.sin(a) * d)) }); }
   state.floaters = makeFloaters(8);
   say('The mushroom bursts! Spores everywhere.', x, y - UNIT * 2, { key: 'burst', life: 3 });
+}
+
+// ---------- gremlins who tease you in the woods, before the ambush ----------
+// The first one peeks out from behind the boulder at the end of the first woods screen, and ducks away when you come.
+function drawPeekGremlin(sc) {
+  const pk = sc.feat.peek, rt = rtFor(sc.id); if (!pk || !storyAt('adventure') || broken(sc.id, 'crack1') || state.inv.pipTaken) return;
+  const x = pk[0] * W, y = pk[1] * H, h = state.hero, near = Math.hypot(h.x - x, h.y - y) < UNIT * 5.5;
+  if (near && !rt.flags.peekGone) { rt.flags.peekGone = state.time; sfx.cackle(); say('Hee hee!', x, y - UNIT, { key: 'gremlin', life: 1.2, color: '#c8e070' }); }
+  const k = rt.flags.peekGone ? Math.min(1, (state.time - rt.flags.peekGone) / 0.35) : 0; if (k >= 1) return;
+  const bob = Math.sin(state.time * 2.2) * UNIT * 0.08, yy = y + bob + k * UNIT * 0.9, u = UNIT;
+  ctx.save(); ctx.beginPath(); ctx.rect(x - u, yy - u, u * 2, u + (1 - k) * u * 0.2); ctx.clip();
+  ctx.fillStyle = '#4a6a2a'; ctx.beginPath(); ctx.ellipse(x, yy, u * 0.34, u * 0.28, 0, 0, 6.28); ctx.fill();          // a green head
+  ctx.beginPath(); ctx.moveTo(x - u * 0.3, yy - u * 0.1); ctx.lineTo(x - u * 0.55, yy - u * 0.35); ctx.lineTo(x - u * 0.22, yy - u * 0.2); ctx.fill();   // pointy ears
+  ctx.beginPath(); ctx.moveTo(x + u * 0.3, yy - u * 0.1); ctx.lineTo(x + u * 0.55, yy - u * 0.35); ctx.lineTo(x + u * 0.22, yy - u * 0.2); ctx.fill();
+  ctx.fillStyle = '#ffe060'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * u * 0.12, yy - u * 0.03, u * 0.06, 0, 6.28); ctx.fill(); }   // yellow eyes
+  ctx.restore();
+}
+// The second runs at you halfway across the second woods screen, stops just out of reach to jeer, and leaps away every
+// time you swing or chase. After a few leaps it runs back the way it came, laughing.
+const TAUNTS = ['Nyah nyah!', 'Too slow!', 'Can\'t catch me!', 'Hee hee hee!', 'Missed!'];
+function updateTaunter(dt) {
+  const sc = sceneDef(), rt = rtFor(sc.id), h = state.hero;
+  if (sc.id !== 'w2' || rt.flags.taunted || !storyAt('adventure') || state.inv.pipTaken || broken('w2', 'crack2') || state.cut) return;
+  if (!state.enemies.some(e => e.taunter) && h.x > W * 0.42) {                      // halfway: out it comes, from the way on
+    const e = makeEnemy('gremlin', W + UNIT, h.y + (Math.random() - 0.5) * UNIT * 2, 0);
+    Object.assign(e, { taunter: true, mode: 'taunt-in', leaps: 0, t: 0 }); state.enemies.push(e); sfx.cackle();
+  }
+}
+function tauntAI(e, dx, dy, dist, dt) {
+  const h = state.hero; e.t += dt;
+  const say2 = () => say(TAUNTS[(e.leaps + Math.floor(e.t)) % TAUNTS.length], e.x, e.y - UNIT * 1.1, { key: 'gremlin', life: 1.1, color: '#c8e070' });
+  if (e.leap) {                                                                     // mid-leap: an arc, well out of reach
+    const L = e.leap; L.t += dt; const k = Math.min(1, L.t / L.dur);
+    e.x = L.x0 + (L.x1 - L.x0) * k; e.y = L.y0 + (L.y1 - L.y0) * k; e.hz = Math.sin(k * Math.PI) * UNIT * 1.3;
+    if (k >= 1) { e.leap = null; e.hz = 0; say2(); }
+    return;
+  }
+  if (e.mode === 'taunt-in') {                                                      // runs right at you
+    const d = Math.max(1, dist); e.x += (dx / d) * UNIT * 7 * dt; e.y += (dy / d) * UNIT * 7 * dt;
+    if (dist < UNIT * 2.8) { e.mode = 'taunt'; e.t = 0; say2(); }
+  } else if (e.mode === 'taunt') {                                                  // hops on the spot, jeering; leaps if you come at it or swing
+    e.hz = Math.abs(Math.sin(e.t * 8)) * UNIT * 0.2;
+    const threat = dist < UNIT * 2.2 || (state.atk && dist < UNIT * 3.4) || (state.hold && state.hold.on && dist < UNIT * 3.4);
+    if (threat) {
+      e.leaps++; sfx.cackle();
+      if (e.leaps >= 4) { e.mode = 'taunt-out'; return; }
+      const away = Math.atan2(e.y - h.y, e.x - h.x) + (Math.random() - 0.5) * 1.2, R = UNIT * 3.4;
+      let x1 = e.x + Math.cos(away) * R, y1 = e.y + Math.sin(away) * R; x1 = Math.max(UNIT, Math.min(W - UNIT, x1)); y1 = Math.max(UNIT * 1.5, Math.min(H - UNIT * 1.5, y1));
+      e.leap = { x0: e.x, y0: e.y, x1, y1, t: 0, dur: 0.45 };
+    } else if (e.t > 9) e.mode = 'taunt-out';
+  } else if (e.mode === 'taunt-out') {                                              // back the way it came, laughing
+    e.x += UNIT * 8 * dt; e.hz = Math.abs(Math.sin(e.t * 12)) * UNIT * 0.25;
+    if (Math.random() < dt * 1.5) say('Hee hee hee!', e.x, e.y - UNIT, { key: 'gremlin', life: 0.9, color: '#c8e070' });
+    if (e.x > W + UNIT) { e.dead = true; e.gone = true; state.enemies.splice(state.enemies.indexOf(e), 1); rtFor('w2').flags.taunted = true; }
+  }
 }

@@ -318,7 +318,7 @@ function genWorld() {
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
-    [0.15, 0.27, 0.39, 0.51, 0.63, 0.75].forEach(t => {        // six smooth stones along the bank: the ring takes five
+    [0.2, 0.42, 0.64].forEach(t => {                               // three smooth stones lying along the bank; the rest are in the boulder
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
       const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1], cx = (ax + (bx - ax) * u2) * W, cy = (ay + (by - ay) * u2) * H;
       const vx = (bx - ax) * W, vy = (by - ay) * H, l = Math.hypot(vx, vy) || 1, nx = vy / l, ny = -vx / l, s2 = (nx + ny > 0 ? 1 : -1);   // the normal pointing to the south-east bank
@@ -326,6 +326,12 @@ function genWorld() {
       for (let tries = 0; tries < 6; tries++, off += UNIT * 0.8) { fx = (cx + s2 * nx * off) / W; fy = (cy + s2 * ny * off) / H; if (!onClaim(riverbank, fx, fy, 0.6)) break; }   // step back from the water until the spot is free
       item(riverbank, { type: 'stone', fx, fy });
     });
+  }
+  {                                                   // a boulder by the water, full of smooth stones: pound beside it (the robin taught you) until it breaks
+    const pts = riverbank.river.pts, t = 0.82, seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), [ax, ay] = pts[seg], [bx, by] = pts[seg + 1];
+    const q = freeSpot(riverbank, [Math.max(0.15, ax - 0.1), Math.min(0.9, ax + 0.12), Math.max(0.3, ay + 0.06), Math.min(0.9, ay + 0.22)], 1.4);
+    crag(riverbank, 'stonecrag', q, 2, { pound: true, drops: { stone: 3 } });
+    riverbank.feat.stoneCrag = q;
   }
   decoFlowers(riverbank, 30);
 
@@ -432,6 +438,7 @@ function genWorld() {
     const exitCrag = (id, size) => { const cy = (east[0] + east[1]) / 2, at = [1 - 0.55 * UNIT / W, cy]; crag(sc, id, at, size); return at; };   // set right in the opening, against the edge
     if (i === 1) {                                   // a big boulder in the way out; a rock to dig up; two little boulders to practise on
       const k = exitCrag('crack1', 4);
+      sc.feat.peek = [k[0] - 1.2 * UNIT / W, k[1] - 1.9 * UNIT / H];   // a gremlin peeks out from behind the boulder, then ducks away
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       for (const [n, sz] of [['knockA', 1], ['knockB', 1]]) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); crag(sc, n, q, sz); keep.push([...q, 1.6]); }

@@ -123,6 +123,13 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the woods: the gremlins start to show themselves
+  { key: 'peek-seen', scene: 'w1', when: () => !!rtFor('w1').flags.peekGone && state.time - rtFor('w1').flags.peekGone > 0.6, text: 'Did you SEE that?! Something green, behind the boulder!' },
+  { key: 'taunt-seen', scene: 'w2', when: () => state.enemies.some(e => e.taunter && e.mode === 'taunt' && e.leaps >= 1), text: 'Ignore it! Gremlins. Rude little things.' },
+  // short of stones on the riverbank: the boulder by the water has more inside
+  { key: 'stone-crag', scene: 'riverbank', when: sc => storyAt('gather') && campMissing().stone > 0 && sc.solids.some(s => s.bar === 'stonecrag') && !broken('riverbank', 'stonecrag') && !state.items.some(i => i.type === 'stone'),
+    at: sc => { const q = sc.feat.stoneCrag; return [q[0] * W - UNIT * 1.6, q[1] * H]; }, sight: 12,
+    text: () => `Still short! That boulder by the water is full of smooth stones. Jump and ${TUT.F()}: pound right next to it!` },
   // the first ripe turnip: Pip shows you how to pull it up (how many rocks depends on your farming)
   { key: 'pull-turnip', scene: 'meadow', when: () => !state.inv.harvests && ((rtFor('meadow').flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3),
     at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 126, 27 Sep 2026)
+# Quest: handoff notes (as of build 127, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,18 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 127: stones in a boulder; gremlins who tease
+- Riverbank: three smooth stones lie along the bank; the rest are inside a 2-tile boulder by the water (crag
+  'stonecrag', pound: true, drops: {stone: 3}). A pound beside it counts as a hit (slamDown); it breaks after two and
+  scatters three smooth stones. Pip points at it when you're short and none are lying about (PIP_LINES 'stone-crag').
+  crag() takes extra options; hitCrag drops o.drops if set (else a throwable rock).
+- w1: a gremlin peeks over the way-out boulder (feat.peek, drawPeekGremlin, depth-sorted so the boulder hides its body);
+  it cackles and ducks away when you come within 5.5 tiles. Pip: "Did you SEE that?!"
+- w2: halfway across (and before its boulder breaks) a taunting gremlin runs in from the east (updateTaunter, tauntAI
+  in critters.js): stops ~2.6 tiles off to jeer, leaps away whenever you come close, swing or charge; never hittable;
+  after four leaps (or 9 s) it runs back east, laughing, and is gone for good (flags.taunted). Pip: "Ignore it!".
+- Test: woods-gremlins (new). 58 of 58.
 
 ## Build 126: the pack's icon belt; the Map as pages of places
 - The pack's tabs are an icon belt (drawTabIcon, draw-ui.js): Gear a sword, Craft the mat, Food a turnip, Seeds a seed,

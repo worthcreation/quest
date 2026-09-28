@@ -221,6 +221,7 @@ function slamDown() {
   if (state.bird) scareBird(h.x, h.y, 6);
   if (state.bird) flushBird(h.x, h.y);                 // a stomp by the nest tree sends the robin bursting out of its hole
   knockRocks(h.x, h.y, UNIT * 2.4);
+  { const pc = state.solids.find(o => o.kind === 'crag' && o.pound && Math.hypot(o.x - h.x, o.y - h.y) < o.r + UNIT * 1.6); if (pc) hitCrag(pc); }   // a boulder that gives to a good stomp
   const ks = state.solids.find(o => o.bar && o.kind === 'cracked' && Math.hypot(o.x - h.x, o.y - h.y) < UNIT * 2.6);
   if (ks) say('It won\'t budge for a stomp. It needs a thrown rock.', ks.x, ks.y - UNIT, { key: 'stonehit', life: 2 });
   scareFlock(h.x, h.y, 6);

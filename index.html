@@ -375,7 +375,7 @@ function genWorld() {
   { const q = freeSpot(riverbank, [0.3, 0.9, 0.5, 0.9], 0.8); item(riverbank, { type: 'driftwood', fx: q[0], fy: q[1] }); }
   {                                                   // smooth stones along the near bank
     const pts = riverbank.river.pts, half = riverbank.river.w * UNIT / 2;
-    [0.15, 0.27, 0.39, 0.51, 0.63, 0.75].forEach(t => {        // six smooth stones along the bank: the ring takes five
+    [0.2, 0.42, 0.64].forEach(t => {                               // three smooth stones lying along the bank; the rest are in the boulder
       const seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), u2 = t * (pts.length - 1) - seg;
       const [ax, ay] = pts[seg], [bx, by] = pts[seg + 1], cx = (ax + (bx - ax) * u2) * W, cy = (ay + (by - ay) * u2) * H;
       const vx = (bx - ax) * W, vy = (by - ay) * H, l = Math.hypot(vx, vy) || 1, nx = vy / l, ny = -vx / l, s2 = (nx + ny > 0 ? 1 : -1);   // the normal pointing to the south-east bank
@@ -383,6 +383,12 @@ function genWorld() {
       for (let tries = 0; tries < 6; tries++, off += UNIT * 0.8) { fx = (cx + s2 * nx * off) / W; fy = (cy + s2 * ny * off) / H; if (!onClaim(riverbank, fx, fy, 0.6)) break; }   // step back from the water until the spot is free
       item(riverbank, { type: 'stone', fx, fy });
     });
+  }
+  {                                                   // a boulder by the water, full of smooth stones: pound beside it (the robin taught you) until it breaks
+    const pts = riverbank.river.pts, t = 0.82, seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1))), [ax, ay] = pts[seg], [bx, by] = pts[seg + 1];
+    const q = freeSpot(riverbank, [Math.max(0.15, ax - 0.1), Math.min(0.9, ax + 0.12), Math.max(0.3, ay + 0.06), Math.min(0.9, ay + 0.22)], 1.4);
+    crag(riverbank, 'stonecrag', q, 2, { pound: true, drops: { stone: 3 } });
+    riverbank.feat.stoneCrag = q;
   }
   decoFlowers(riverbank, 30);
 
@@ -489,6 +495,7 @@ function genWorld() {
     const exitCrag = (id, size) => { const cy = (east[0] + east[1]) / 2, at = [1 - 0.55 * UNIT / W, cy]; crag(sc, id, at, size); return at; };   // set right in the opening, against the edge
     if (i === 1) {                                   // a big boulder in the way out; a rock to dig up; two little boulders to practise on
       const k = exitCrag('crack1', 4);
+      sc.feat.peek = [k[0] - 1.2 * UNIT / W, k[1] - 1.9 * UNIT / H];   // a gremlin peeks out from behind the boulder, then ducks away
       const r = freeSpot(sc, [0.2, 0.45, 0.2, 0.8], 2, [[...wPt, 3], [...k, 5]]);
       pullable(sc, { id: 'rock1', kind: 'rock', fx: r[0], fy: r[1], need: 3 });
       for (const [n, sz] of [['knockA', 1], ['knockB', 1]]) { const q = freeSpot(sc, [0.35, 0.7, 0.2, 0.8], 1.6, [[...wPt, 4], [...r, 3], [...k, 4]]); crag(sc, n, q, sz); keep.push([...q, 1.6]); }
@@ -1964,7 +1971,7 @@ function update(dt) {
   updateQuests();
   if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
   coachUpdate();
-  if (!state.menu) updateBeetle(dt);                                     // coached steps move on as you do them, menus included
+  if (!state.menu) { updateBeetle(dt); updateTaunter(dt); }                                     // coached steps move on as you do them, menus included
   if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
     state.nightT = state.time + 0.35 + Math.random() * 0.9;
     if (Math.random() < 0.06) sfx.owl((Math.random() - 0.5) * 1.4); else sfx.cricket((Math.random() - 0.5) * 1.6);
@@ -2455,11 +2462,12 @@ function hitCrag(o) {
     const x = o.x, y = o.y, r = o.r;
     for (let i = 0; i < 18 + (o.size || 1) * 6; i++) { const a = Math.random() * 6.28, v = UNIT * (1.5 + Math.random() * 4); state.fx.push({ x: x + Math.cos(a) * r * 0.4, y: y + Math.sin(a) * r * 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v - UNIT * 2, t: 0, life: 0.6 + Math.random() * 0.5, color: i % 3 ? (o.tint || '#8a8478') : '#5a5048', size: UNIT * (0.1 + Math.random() * 0.18) }); }
     breakBarrier(o.bar, 'rock');
-    state.items.push(freeItemSpot({ type: 'bigrock', x: x + UNIT * 0.3, y: y + r * 0.5 }));   // a piece big enough to throw
+    if (o.drops) { for (const [type, n] of Object.entries(o.drops)) for (let i = 0; i < n; i++) { const a = i / n * 6.28; state.items.push(freeItemSpot({ type, x: x + Math.cos(a) * r * 0.7, y: y + Math.sin(a) * r * 0.5 })); } }   // what was inside
+    else state.items.push(freeItemSpot({ type: 'bigrock', x: x + UNIT * 0.3, y: y + r * 0.5 }));   // a piece big enough to throw
     state.shake = 0.35 + (o.size || 1) * 0.05; sfx.crash();
   } else {
     sfx.crash(); state.shake = 0.12; spark(o.x, o.y - o.r * 0.2, '#9a948a', 8, 2);
-    say(`Cracking! ${hp - rt.flags[key]} more.`, o.x, o.y - o.r - UNIT * 0.4, { key: 'stonehit', life: 1.4 });
+    say(o.pound ? `Crack! Again!` : `Cracking! ${hp - rt.flags[key]} more.`, o.x, o.y - o.r - UNIT * 0.4, { key: 'stonehit', life: 1.4 });
   }
 }
 function hitStone(o, force) {
@@ -3100,6 +3108,7 @@ function slamDown() {
   if (state.bird) scareBird(h.x, h.y, 6);
   if (state.bird) flushBird(h.x, h.y);                 // a stomp by the nest tree sends the robin bursting out of its hole
   knockRocks(h.x, h.y, UNIT * 2.4);
+  { const pc = state.solids.find(o => o.kind === 'crag' && o.pound && Math.hypot(o.x - h.x, o.y - h.y) < o.r + UNIT * 1.6); if (pc) hitCrag(pc); }   // a boulder that gives to a good stomp
   const ks = state.solids.find(o => o.bar && o.kind === 'cracked' && Math.hypot(o.x - h.x, o.y - h.y) < UNIT * 2.6);
   if (ks) say('It won\'t budge for a stomp. It needs a thrown rock.', ks.x, ks.y - UNIT, { key: 'stonehit', life: 2 });
   scareFlock(h.x, h.y, 6);
@@ -3128,7 +3137,7 @@ function makeEnemy(type, x, y, idx, poolIdx) {
   }
 }
 function hittable(e) {
-  if (e.dead) return false;
+  if (e.dead || e.taunter) return false;                 // the taunting gremlin is never where your blade is
   if (e.type === 'thief') return !!e.cornered;
   if (e.type === 'diver') return ['floor', 'stunned', 'ascend'].includes(e.mode);
   if (e.type === 'lurker') return ['bite', 'risen', 'stunned'].includes(e.mode);
@@ -3247,6 +3256,7 @@ function updateEnemies(dt) {
       if (e.type === 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
     }
     else if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
+    else if (e.taunter) { tauntAI(e, dx, dy, dist, dt); continue; }
     else if (e.type === 'hawk') { hawkAI(e, dt); continue; }             // flies: its own movement, no walls
     else if (e.type === 'mantis') mantisAI(e, dx, dy, dist, ease);
     else AI[e.type](e, dx, dy, dist, ease, dt);
@@ -3718,6 +3728,61 @@ function burstDarkShroom() {
   for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28, d = UNIT * (1.2 + Math.random() * 2.2); state.items.push({ type: 'spore', x: Math.max(UNIT, Math.min(W - UNIT, x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, y + Math.sin(a) * d)) }); }
   state.floaters = makeFloaters(8);
   say('The mushroom bursts! Spores everywhere.', x, y - UNIT * 2, { key: 'burst', life: 3 });
+}
+
+// ---------- gremlins who tease you in the woods, before the ambush ----------
+// The first one peeks out from behind the boulder at the end of the first woods screen, and ducks away when you come.
+function drawPeekGremlin(sc) {
+  const pk = sc.feat.peek, rt = rtFor(sc.id); if (!pk || !storyAt('adventure') || broken(sc.id, 'crack1') || state.inv.pipTaken) return;
+  const x = pk[0] * W, y = pk[1] * H, h = state.hero, near = Math.hypot(h.x - x, h.y - y) < UNIT * 5.5;
+  if (near && !rt.flags.peekGone) { rt.flags.peekGone = state.time; sfx.cackle(); say('Hee hee!', x, y - UNIT, { key: 'gremlin', life: 1.2, color: '#c8e070' }); }
+  const k = rt.flags.peekGone ? Math.min(1, (state.time - rt.flags.peekGone) / 0.35) : 0; if (k >= 1) return;
+  const bob = Math.sin(state.time * 2.2) * UNIT * 0.08, yy = y + bob + k * UNIT * 0.9, u = UNIT;
+  ctx.save(); ctx.beginPath(); ctx.rect(x - u, yy - u, u * 2, u + (1 - k) * u * 0.2); ctx.clip();
+  ctx.fillStyle = '#4a6a2a'; ctx.beginPath(); ctx.ellipse(x, yy, u * 0.34, u * 0.28, 0, 0, 6.28); ctx.fill();          // a green head
+  ctx.beginPath(); ctx.moveTo(x - u * 0.3, yy - u * 0.1); ctx.lineTo(x - u * 0.55, yy - u * 0.35); ctx.lineTo(x - u * 0.22, yy - u * 0.2); ctx.fill();   // pointy ears
+  ctx.beginPath(); ctx.moveTo(x + u * 0.3, yy - u * 0.1); ctx.lineTo(x + u * 0.55, yy - u * 0.35); ctx.lineTo(x + u * 0.22, yy - u * 0.2); ctx.fill();
+  ctx.fillStyle = '#ffe060'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * u * 0.12, yy - u * 0.03, u * 0.06, 0, 6.28); ctx.fill(); }   // yellow eyes
+  ctx.restore();
+}
+// The second runs at you halfway across the second woods screen, stops just out of reach to jeer, and leaps away every
+// time you swing or chase. After a few leaps it runs back the way it came, laughing.
+const TAUNTS = ['Nyah nyah!', 'Too slow!', 'Can\'t catch me!', 'Hee hee hee!', 'Missed!'];
+function updateTaunter(dt) {
+  const sc = sceneDef(), rt = rtFor(sc.id), h = state.hero;
+  if (sc.id !== 'w2' || rt.flags.taunted || !storyAt('adventure') || state.inv.pipTaken || broken('w2', 'crack2') || state.cut) return;
+  if (!state.enemies.some(e => e.taunter) && h.x > W * 0.42) {                      // halfway: out it comes, from the way on
+    const e = makeEnemy('gremlin', W + UNIT, h.y + (Math.random() - 0.5) * UNIT * 2, 0);
+    Object.assign(e, { taunter: true, mode: 'taunt-in', leaps: 0, t: 0 }); state.enemies.push(e); sfx.cackle();
+  }
+}
+function tauntAI(e, dx, dy, dist, dt) {
+  const h = state.hero; e.t += dt;
+  const say2 = () => say(TAUNTS[(e.leaps + Math.floor(e.t)) % TAUNTS.length], e.x, e.y - UNIT * 1.1, { key: 'gremlin', life: 1.1, color: '#c8e070' });
+  if (e.leap) {                                                                     // mid-leap: an arc, well out of reach
+    const L = e.leap; L.t += dt; const k = Math.min(1, L.t / L.dur);
+    e.x = L.x0 + (L.x1 - L.x0) * k; e.y = L.y0 + (L.y1 - L.y0) * k; e.hz = Math.sin(k * Math.PI) * UNIT * 1.3;
+    if (k >= 1) { e.leap = null; e.hz = 0; say2(); }
+    return;
+  }
+  if (e.mode === 'taunt-in') {                                                      // runs right at you
+    const d = Math.max(1, dist); e.x += (dx / d) * UNIT * 7 * dt; e.y += (dy / d) * UNIT * 7 * dt;
+    if (dist < UNIT * 2.8) { e.mode = 'taunt'; e.t = 0; say2(); }
+  } else if (e.mode === 'taunt') {                                                  // hops on the spot, jeering; leaps if you come at it or swing
+    e.hz = Math.abs(Math.sin(e.t * 8)) * UNIT * 0.2;
+    const threat = dist < UNIT * 2.2 || (state.atk && dist < UNIT * 3.4) || (state.hold && state.hold.on && dist < UNIT * 3.4);
+    if (threat) {
+      e.leaps++; sfx.cackle();
+      if (e.leaps >= 4) { e.mode = 'taunt-out'; return; }
+      const away = Math.atan2(e.y - h.y, e.x - h.x) + (Math.random() - 0.5) * 1.2, R = UNIT * 3.4;
+      let x1 = e.x + Math.cos(away) * R, y1 = e.y + Math.sin(away) * R; x1 = Math.max(UNIT, Math.min(W - UNIT, x1)); y1 = Math.max(UNIT * 1.5, Math.min(H - UNIT * 1.5, y1));
+      e.leap = { x0: e.x, y0: e.y, x1, y1, t: 0, dur: 0.45 };
+    } else if (e.t > 9) e.mode = 'taunt-out';
+  } else if (e.mode === 'taunt-out') {                                              // back the way it came, laughing
+    e.x += UNIT * 8 * dt; e.hz = Math.abs(Math.sin(e.t * 12)) * UNIT * 0.25;
+    if (Math.random() < dt * 1.5) say('Hee hee hee!', e.x, e.y - UNIT, { key: 'gremlin', life: 0.9, color: '#c8e070' });
+    if (e.x > W + UNIT) { e.dead = true; e.gone = true; state.enemies.splice(state.enemies.indexOf(e), 1); rtFor('w2').flags.taunted = true; }
+  }
 }
 // ===== interact.js: F does what is here: interact(), findInteractable, patches (plant/compost menu, harvest), NPC talks, fishing, rapids, spore travel, the raft sidequest.
 
@@ -4969,6 +5034,13 @@ const PIP_LINES = [
     text: 'Try pounding around in different places. You never know what you might knock loose!' },
   { key: 'shroom', scene: 'camp', when: (sc, h) => campDone() && sc.feat.shroom && Math.hypot(h.x - sc.feat.shroom[0] * W, h.y - sc.feat.shroom[1] * H) < UNIT * 4.5, at: sc => [sc.feat.shroom[0] * W, sc.feat.shroom[1] * H],
     text: 'That mushroom hums at night.' },
+  // the woods: the gremlins start to show themselves
+  { key: 'peek-seen', scene: 'w1', when: () => !!rtFor('w1').flags.peekGone && state.time - rtFor('w1').flags.peekGone > 0.6, text: 'Did you SEE that?! Something green, behind the boulder!' },
+  { key: 'taunt-seen', scene: 'w2', when: () => state.enemies.some(e => e.taunter && e.mode === 'taunt' && e.leaps >= 1), text: 'Ignore it! Gremlins. Rude little things.' },
+  // short of stones on the riverbank: the boulder by the water has more inside
+  { key: 'stone-crag', scene: 'riverbank', when: sc => storyAt('gather') && campMissing().stone > 0 && sc.solids.some(s => s.bar === 'stonecrag') && !broken('riverbank', 'stonecrag') && !state.items.some(i => i.type === 'stone'),
+    at: sc => { const q = sc.feat.stoneCrag; return [q[0] * W - UNIT * 1.6, q[1] * H]; }, sight: 12,
+    text: () => `Still short! That boulder by the water is full of smooth stones. Jump and ${TUT.F()}: pound right next to it!` },
   // the first ripe turnip: Pip shows you how to pull it up (how many rocks depends on your farming)
   { key: 'pull-turnip', scene: 'meadow', when: () => !state.inv.harvests && ((rtFor('meadow').flags.plots) || []).some(q => q.s === 1 && plotStage(q) >= 3),
     at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,
@@ -6858,6 +6930,7 @@ function drawScene(sc) {
     } else drawEnemy(e);
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
+  if (sc.feat.peek) layer.push([sc.feat.peek[1] * H + UNIT * 0.3, () => drawPeekGremlin(sc)]);   // peeking over the boulder (sorted with it, so the boulder hides its body)
   if (state.pip && state.pip.show && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
@@ -7990,7 +8063,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 126';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 127';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

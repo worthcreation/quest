@@ -12,11 +12,12 @@ function hitCrag(o) {
     const x = o.x, y = o.y, r = o.r;
     for (let i = 0; i < 18 + (o.size || 1) * 6; i++) { const a = Math.random() * 6.28, v = UNIT * (1.5 + Math.random() * 4); state.fx.push({ x: x + Math.cos(a) * r * 0.4, y: y + Math.sin(a) * r * 0.3, vx: Math.cos(a) * v, vy: Math.sin(a) * v - UNIT * 2, t: 0, life: 0.6 + Math.random() * 0.5, color: i % 3 ? (o.tint || '#8a8478') : '#5a5048', size: UNIT * (0.1 + Math.random() * 0.18) }); }
     breakBarrier(o.bar, 'rock');
-    state.items.push(freeItemSpot({ type: 'bigrock', x: x + UNIT * 0.3, y: y + r * 0.5 }));   // a piece big enough to throw
+    if (o.drops) { for (const [type, n] of Object.entries(o.drops)) for (let i = 0; i < n; i++) { const a = i / n * 6.28; state.items.push(freeItemSpot({ type, x: x + Math.cos(a) * r * 0.7, y: y + Math.sin(a) * r * 0.5 })); } }   // what was inside
+    else state.items.push(freeItemSpot({ type: 'bigrock', x: x + UNIT * 0.3, y: y + r * 0.5 }));   // a piece big enough to throw
     state.shake = 0.35 + (o.size || 1) * 0.05; sfx.crash();
   } else {
     sfx.crash(); state.shake = 0.12; spark(o.x, o.y - o.r * 0.2, '#9a948a', 8, 2);
-    say(`Cracking! ${hp - rt.flags[key]} more.`, o.x, o.y - o.r - UNIT * 0.4, { key: 'stonehit', life: 1.4 });
+    say(o.pound ? `Crack! Again!` : `Cracking! ${hp - rt.flags[key]} more.`, o.x, o.y - o.r - UNIT * 0.4, { key: 'stonehit', life: 1.4 });
   }
 }
 function hitStone(o, force) {

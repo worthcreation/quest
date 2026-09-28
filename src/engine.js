@@ -223,7 +223,7 @@ function update(dt) {
   updateQuests();
   if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
   coachUpdate();
-  if (!state.menu) updateBeetle(dt);                                     // coached steps move on as you do them, menus included
+  if (!state.menu) { updateBeetle(dt); updateTaunter(dt); }                                     // coached steps move on as you do them, menus included
   if (state.dusk && !state.menu && (!state.nightT || state.time > state.nightT)) {   // crickets, and now and then an owl
     state.nightT = state.time + 0.35 + Math.random() * 0.9;
     if (Math.random() < 0.06) sfx.owl((Math.random() - 0.5) * 1.4); else sfx.cricket((Math.random() - 0.5) * 1.6);
