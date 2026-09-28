@@ -1313,18 +1313,31 @@ function drawLedgeLips(sc) {                                      // a rough roc
 // in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.)
 
 const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
+// A zigzag of crossings: crossings [[z, 'R' or 'L'], ...] from far to near. Near each one the ravine narrows enough to
+// jump; just past it, crags close the side you came along (you must cross). Between, the walkable ledges wind.
+function zig(cross, wide = 1.9, narrow = 0.55) {
+  const hw = z => { let w = wide; for (const [cz] of cross) { const k = Math.max(0, 1 - Math.abs(z - cz) / 1.1); w = Math.min(w, wide - (wide - narrow) * k * k * (3 - 2 * k)); } return w; };
+  const band = (z, side) => {                                        // how wide the walkable ledge is on that side ('L' / 'R')
+    let b = 2.6 + 0.7 * Math.sin(z * 0.9 + (side === 'L' ? 1 : 2.4));
+    for (const [cz, from] of cross) if (from === side) { const m = Math.min(1, Math.max(0, Math.min(z - (cz - 3.4), (cz - 0.7) - z) / 0.5)); b = b * (1 - m) + 0.15 * m; }   // closed by crags (ramping in and out): you have to cross
+    return b;
+  };
+  return { hw, band };
+}
+const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]), ZIG3 = zig([[19, 'R'], [15.2, 'L'], [11.8, 'R'], [8.6, 'L'], [6.2, 'R']], 1.6, 0.5), ZIG4 = zig([[13, 'R'], [9.2, 'L'], [6.4, 'R']]);
 const CLIMBS = {
-  climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, cx: z => 2.6 * tri(z, 22, 6), hw: z => 1.25 + 0.75 * Math.sin(z * 0.55 + 1.3), start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
+  climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, cx: z => 2.6 * tri(z, 22, 6), hw: ZIG1.hw, band: ZIG1.band, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
   climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, cx: z => 1.4 * tri(z, 30, 4), hw: z => 2.6, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
             islands: [[1.2, 17.5, 0.8], [-0.6, 15, 0.75], [0.9, 12.2, 0.7], [-0.9, 9.6, 0.75], [0.5, 7.2, 0.7]] },          // [x from the centre line, z, radius]
-  climb3: { name: 'The switchbacks', kind: 'trail', cam: { f: 0.66, horizon: 0.22, camH: 3.2 }, cx: z => 3.4 * tri(z, 10, 2), hw: z => 1.0 + 0.55 * Math.sin(z * 1.3), start: [2.2, 22], goalZ: 4.8, next: 'climb4' },
-  climb4: { name: 'The steep way', kind: 'trail', cam: { f: 0.9, horizon: 0.08, camH: 7.5 }, mirror: true, cx: z => 2.2 * tri(z, 16, 3), hw: z => 1.1 + 0.6 * Math.sin(z * 0.8 + 0.4), start: [2.6, 16], goalZ: 5.2, next: 'climb5' },
+  climb3: { name: 'The switchbacks', kind: 'trail', cam: { f: 0.66, horizon: 0.22, camH: 3.2 }, cx: z => 1.6 * tri(z, 16, 2), hw: ZIG3.hw, band: ZIG3.band, start: [2.2, 22], goalZ: 4.8, next: 'climb4' },
+  climb4: { name: 'The steep way', kind: 'trail', cam: { f: 0.9, horizon: 0.08, camH: 7.5 }, mirror: true, cx: z => 2.2 * tri(z, 16, 3), hw: ZIG4.hw, band: ZIG4.band, start: [2.6, 16], goalZ: 5.2, next: 'climb5' },
   climb5: { name: 'The last ledges', kind: 'side', next: 'peak1' },
 };
 const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb1;
 const climbCx = (z, d = climbDef()) => d.cx(z);
 const climbHw = (z, d = climbDef()) => d.hw(z);
-const climbSlopeY = dx => dx < 0 ? 1.5 + (-dx - 1) * 0.36 : 1.5 - (dx - 1) * 0.58;   // left rises away, right falls away
+const climbSlopeY = dx => 1.5;                                                   // the ledges are level ground
+const climbBand = (z, side, d = climbDef()) => d.band ? d.band(z, side) : 3.2;
 function climbProj(x, y, z, d = climbDef()) {
   const f = H * d.cam.f, sx = (x - d.cx(5.6)) * f / z;
   return [W / 2 + (d.mirror ? -sx : sx), H * d.cam.horizon + (d.cam.camH - y) * f / z];
@@ -1355,9 +1368,12 @@ function updateClimb(dt) {
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   if (g.phase === 'blow') { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; }
   if (pressedNow.jump && !c.air) { c.air = true; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
+  const pz = c.z;
   c.x += c.vx * dt; c.z += c.vz * dt * Math.max(0.6, c.z / 8);
   c.z = Math.max(4, Math.min(40, c.z));
-  const reach = climbHw(c.z) + 6, side = climbSide(c.x, c.z); if (side < -reach) c.x = climbCx(c.z) - reach; if (side > reach) c.x = climbCx(c.z) + reach;
+  { const side = climbSide(c.x, c.z), S = side < 0 ? 'L' : 'R', hw = climbHw(c.z), b = climbBand(c.z, S), reach = hw + b;   // the crags beyond each ledge are walls
+    if (!c.air && !onClimbIsland(c.x, c.z) && Math.abs(side) > hw && b < 0.4) c.z = pz;                                       // closed ahead: cross here
+    const s2 = climbSide(c.x, c.z), r2 = climbHw(c.z) + climbBand(c.z, s2 < 0 ? 'L' : 'R'); if (s2 < -r2) c.x = climbCx(c.z) - r2; if (s2 > r2) c.x = climbCx(c.z) + r2; }
   if (c.air) { c.h += c.vh * dt; c.vh -= 14 * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
   if (!c.air) { if (overChasm(c.x, c.z)) { c.fall = 0.01; sfx.fall(); return; } c.safe = [c.x, c.z]; }
   if (!c.air && c.z <= d.goalZ && climbSide(c.x, c.z) < -climbHw(c.z)) climbFinish(c);
@@ -1395,28 +1411,39 @@ function paintClimb(g, d) {
   for (let i = 0; i < 70; i++) { const x = (i * 0.618 % 1) * W, y = horizon + 60 + (i * 0.377 % 1) * (H - horizon); g.fillStyle = 'rgba(60,90,55,.5)'; g.beginPath(); g.arc(x, y, 3 + (y - horizon) * 0.02, 0, 6.28); g.fill(); }
   const HAZE = '#c8d6de', step = 0.15, wh = 1.5; let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const isl = (d.islands || []).map(([ix, iz, r]) => ({ x: d.cx(iz) + ix, z: iz, r, drawn: false }));
+  const lipL = [], lipR = [], band = (z, S) => d.band ? d.band(z, S) : 3.2;
+  const crag = (x0, x0b, dir, z, z2, side, haze) => {                             // the crags beyond a ledge: a rough rock wall rising, stepping back
+    const bump = k => wh + 1.6 + 1.1 * Math.abs(Math.sin(k * 1.7 + side)) + 0.5 * Math.abs(Math.sin(k * 4.3)), hTop = bump(z), hTop2 = bump(z2);
+    quad([P(x0 + dir * 6, hTop + 1.6, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b + dir * 6, hTop2 + 1.6, z2)], haze(Math.floor(z * 1.5) % 3 ? '#8a857c' : '#817c74'));   // the rock above, stepping back and up
+    quad([P(x0, wh, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b, wh, z2)], haze(side === 1 ? '#6c6760' : '#5c5852'));                              // its face toward the ledge
+  };
   for (let z = 70; z > 3.3; z -= step) {
-    const z2 = z - step, t = Math.min(1, (z - 3) / 55) ** 0.8, haze = col => mix(col, HAZE, t * 0.75), wallW = 6;
+    const z2 = z - step, t = Math.min(1, (z - 3) / 55) ** 0.8, haze = col => mix(col, HAZE, t * 0.75);
     const L1 = d.cx(z) - d.hw(z), R1 = d.cx(z) + d.hw(z), L2 = d.cx(z2) - d.hw(z2), R2 = d.cx(z2) + d.hw(z2);
-    quad([P(L1 - wallW, wh + wallW * 0.36, z), P(L1, wh, z), P(L2, wh, z2), P(L2 - wallW, wh + wallW * 0.36, z2)], haze(Math.floor(z) % 3 ? '#7d8a5c' : '#76845a'));
-    quad([P(R1, wh, z), P(R1 + wallW, wh - wallW * 0.58, z), P(R2 + wallW, wh - wallW * 0.58, z2), P(R2, wh, z2)], haze(Math.floor(z) % 3 ? '#7f9460' : '#788c5c'));
+    const bL = band(z, 'L'), bR = band(z, 'R'), bL2 = band(z2, 'L'), bR2 = band(z2, 'R');
+    crag(L1 - bL, L2 - bL2, -1, z, z2, 1, haze); crag(R1 + bR, R2 + bR2, 1, z, z2, 2, haze);                   // crags beyond the ledges
+    quad([P(L1 - bL, wh, z), P(L1, wh, z), P(L2, wh, z2), P(L2 - bL2, wh, z2)], haze(Math.floor(z) % 2 ? '#7d9a5c' : '#779456'));   // the ledges: level grass
+    quad([P(R1, wh, z), P(R1 + bR, wh, z), P(R2 + bR2, wh, z2), P(R2, wh, z2)], haze(Math.floor(z) % 2 ? '#7d9a5c' : '#779456'));
     quad([P(L1, -3, z), P(R1, -3, z), P(R2, -3, z2), P(L2, -3, z2)], haze('#161a12'));
     if (Math.floor(z / step) % 3 === 0) for (let k = 0; k < 2; k++) { const x = d.cx(z) + (rnd() - 0.5) * 2 * d.hw(z) * 0.9, [sx, sy] = P(x, -3, z), sz = 0.2 * f / z; quad([[sx - sz, sy], [sx - sz * 0.6, sy - sz * 0.8], [sx + sz * 0.3, sy - sz], [sx + sz, sy - sz * 0.3], [sx + sz * 0.8, sy]], haze(['#2a3022', '#343c2a', '#222819'][k % 3])); }
     quad([P(L1, wh, z), P(L1, -3, z), P(L2, -3, z2), P(L2, wh, z2)], haze('#7a5a3c'));
     quad([P(R1, wh, z), P(R1, -3, z), P(R2, -3, z2), P(R2, wh, z2)], haze('#5a4028'));
-    for (const q of isl) if (!q.drawn && q.z >= z2) {                                   // an island pillar, drawn as its depth comes round
-      q.drawn = true; const n = 16, top = [], bot = [];
+    lipL.push([P(L1, wh, z), t]); lipR.push([P(R1, wh, z), t]);
+    for (const q of isl) if (!q.drawn && q.z >= z2) {
+      q.drawn = true; const n = 18, top = [], bot = [];
       for (let k = 0; k < n; k++) { const a = k / n * 6.28, px = q.x + Math.cos(a) * q.r, pz = q.z + Math.sin(a) * q.r / 1.2; top.push(P(px, wh, pz)); bot.push(P(px, -3, pz)); }
-      const front = top.map((p, k) => [p, bot[k]]).filter(([p], k) => Math.sin(k / n * 6.28) < 0.2);
-      quad([...front.map(e => e[0]), ...front.slice().reverse().map(e => e[1])], haze('#6b4a30'));
-      quad(top, haze('#7d9a5c')); g.strokeStyle = haze('#3a2a18'); g.lineWidth = 2; g.beginPath(); top.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke();
+      for (let k = 0; k < n; k++) { const k2 = (k + 1) % n; if (Math.sin((k + 0.5) / n * 6.28) > 0.15) continue; quad([top[k], top[k2], bot[k2], bot[k]], haze(Math.cos((k + 0.5) / n * 6.28) < 0 ? '#7a5a3c' : '#5a4028')); }   // solid sides
+      quad(top, haze('#7d9a5c')); g.strokeStyle = haze('#2a1c10'); g.lineWidth = 2.5; g.beginPath(); top.forEach(([x, y], k) => k ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.stroke();
     }
   }
-  { const z = 3.3, L = d.cx(z) - d.hw(z), R = d.cx(z) + d.hw(z), [lx, ly] = P(L, -3, z), [rx, ry] = P(R, -3, z), [ltx, lty] = P(L, wh, z), [rtx, rty] = P(R, wh, z), lo = P(L - 6, wh + 2.2, z), ro = P(R + 6, wh - 3.5, z);
+  for (const lip of [lipL, lipR]) {                                                  // the ravine's edge, drawn crisp: a dark line, a light grass rim
+    g.lineJoin = 'round'; g.strokeStyle = '#1c1208'; g.lineWidth = 3; g.beginPath(); lip.forEach(([[x, y]], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+    g.strokeStyle = 'rgba(190,220,150,.55)'; g.lineWidth = 1.5; g.beginPath(); lip.forEach(([[x, y]], i) => i ? g.lineTo(x, y - 2) : g.moveTo(x, y - 2)); g.stroke(); }
+  { const z = 3.3, L = d.cx(z) - d.hw(z), R = d.cx(z) + d.hw(z), bL = band(z, 'L'), bR = band(z, 'R'), [lx, ly] = P(L, -3, z), [rx, ry] = P(R, -3, z), [ltx, lty] = P(L, wh, z), [rtx, rty] = P(R, wh, z), [lox] = P(L - bL, wh, z), [rox] = P(R + bR, wh, z);
     const ex = d.mirror ? W : 0, fx = d.mirror ? 0 : W;
-    quad([lo, [ltx, lty], [ltx, H], [ex, H], [ex, lo[1]]], '#7d8a5c'); quad([[ltx, lty], [lx, ly], [lx, H], [ltx, H]], '#7a5a3c');
-    quad([[lx, ly], [rx, ry], [rx, H], [lx, H]], '#11140e'); quad([[rx, ry], [rtx, rty], [rtx, H], [rx, H]], '#5a4028'); quad([[rtx, rty], ro, [fx, ro[1]], [fx, H], [rtx, H]], '#7f9460'); }
-  for (const [dx, z, r] of [[-3.5, 18, 0.6], [-5, 30, 0.8], [-2.8, 44, 0.7], [3.4, 24, 0.5], [-4.2, 9, 0.7]]) { const [sx, sy] = P(d.cx(z) + dx, climbSlopeY(dx), z), sz = r * f / z; quad([[sx - sz, sy], [sx - sz * 0.6, sy - sz * 0.9], [sx + sz * 0.2, sy - sz * 1.1], [sx + sz, sy - sz * 0.4], [sx + sz * 0.9, sy]], '#8a857c'); quad([[sx - sz * 0.6, sy - sz * 0.9], [sx + sz * 0.2, sy - sz * 1.1], [sx, sy - sz * 0.4]], '#a09a90'); }
+    quad([[lox, lty], [ltx, lty], [ltx, H], [lox, H]], '#7d9a5c'); quad([[ex, lty - 60], [lox, lty], [lox, H], [ex, H]], '#6c6760');
+    quad([[ltx, lty], [lx, ly], [lx, H], [ltx, H]], '#7a5a3c'); quad([[lx, ly], [rx, ry], [rx, H], [lx, H]], '#11140e'); quad([[rx, ry], [rtx, rty], [rtx, H], [rx, H]], '#5a4028');
+    quad([[rtx, rty], [rox, rty], [rox, H], [rtx, H]], '#7d9a5c'); quad([[rox, rty], [fx, rty - 60], [fx, H], [rox, H]], '#6c6760'); }
 }
 
 // ---------- the side view: the mountain seen side on, ledges climbing to the right, the valley far below ----------
@@ -8375,7 +8402,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 139';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 140';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

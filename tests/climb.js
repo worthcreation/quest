@@ -11,6 +11,10 @@ const across=climbSide(c.x,c.z)<0 && c.fall===0;
 c.z=12; c.x=d.cx(12)-d.hw(12)-2; c.vx=c.vz=0; c.fall=0; const z0=c.z; c.gust.phase='blow'; c.gust.t=1.5; run(60); const pushed=c.z-z0;
 c.gust.phase='calm'; c.gust.t=99; c.z=d.goalZ+0.3; c.x=d.cx(c.z)-d.hw(c.z)-1.5; state.keys.arrowdown=true; run(30); state.keys.arrowdown=false; run(60*2.5);
 console.log('1 wind trail: fell into the chasm', fell, '| jumped the narrowest gap', across, '| a gust pushed back', pushed.toFixed(2), '| flag -> next screen', state.scene);
+// 1b. the zigzag: going straight down the right-hand ledge, the crags stop you; you have to cross
+enterScene('climb1'); run(5); c=state.climb; d=climbDef(); c.gust.t=99; c.z=18; c.x=d.cx(18)+d.hw(18)+1.2; state.keys.arrowdown=true; run(60*4); state.keys.arrowdown=false;
+console.log('1b straight down the right ledge: stopped at z', c.z.toFixed(1), '(the first crossing is at 15.5) | still on the right', climbSide(c.x,c.z)>0);
+enterScene('climb2'); run(5);
 // 2. stepping stones: from the bank onto the first island, then the next
 c=state.climb; d=climbDef(); const [ix,iz,ir]=d.islands[0]; c.z=iz; c.x=d.cx(iz)+d.hw(iz)+0.3; c.gust.t=99; c.vx=c.vz=0; run(2);
 const hop=(tx)=>{ const L=tx<c.x; state.keys[L?(d.mirror?'arrowright':'arrowleft'):(d.mirror?'arrowleft':'arrowright')]=true; run(4); state.keys[' ']=true; run(2); state.keys[' ']=false; state.keys.arrowleft=state.keys.arrowright=false; for(let k=0;k<60 && c.air;k++) run(1); run(10); };

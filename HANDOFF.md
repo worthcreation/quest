@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 139, 28 Sep 2026)
+# Quest: handoff notes (as of build 140, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,17 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 140: the climb as a zigzag of crossings, on level ledges between crags
+- zig(crossings) (climb.js) builds a screen's ravine width and ledge widths from a list of crossings [z, side you
+  arrive on]: the ravine narrows to a jump near each crossing and stays wide between; just past each crossing the side
+  you came along is closed by crags (the ledge ramps down to nothing), so you must cross, back and forth down the screen.
+  climb1, climb3 (five crossings) and climb4 use it; climb2 keeps its islands.
+- The ledges are level grass (no more slopes falling away under you); beyond each ledge a crag wall rises and steps
+  back (its face toward you, its rock top), following the ledge's edge, so the walkable ground is clearly bounded.
+  Walking is held to the ledge; at a closure you can't go on along that side.
+- The ravine's edge is drawn crisp: a dark line with a light grass rim along both lips. Islands have solid sides.
+- Test climb: straight down the right ledge you're stopped before the first crossing. 62 of 62.
 
 ## Build 139: five climb screens, in a chain
 - climb.js is data-driven now: CLIMBS[id] = { name, kind: 'trail' | 'side', cam {f, horizon, camH}, mirror, cx(z),
