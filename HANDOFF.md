@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 123, 27 Sep 2026)
+# Quest: handoff notes (as of build 124, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 124: the creator screen fixed
+- head.html styled every <canvas> as full-screen, which blew the creator's colour wheel and preview up to fill the
+  window and hid the name box and Begin. The rule now targets #game only, and the creator canvases carry their own
+  size (the wheel scales down to 62vw on narrow screens; the overlay scrolls if needed). Checked with jsdom computed
+  styles. Any new canvas in the page gets normal sizing now.
 
 ## Build 123: everything you gain is in the pack; the High Reaches card
 - Gear now also lists: the lantern, Wick's letter (kept on pickup, inv.letter; F: Read, LETTER_TEXT in items.js),

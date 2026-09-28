@@ -57,6 +57,12 @@ if (process.env.LEAN) {
 if (process.env.JAG2) { const run=n=>{ for (let k=0;k<n;k++){ update(1/60); console.log('u',k); draw(); console.log('d',k); } }; state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); console.log('entered'); state.cut=null; state.enemies=[]; run(2); }
 if (process.env.JAG3) { state.started=true; state.intro=null; state.inv.story=STORY.adventure; enterScene('w1'); state.cut=null; state.enemies=[]; for (const s of state.solids) { console.error('solid', s.kind, s.bar||'', Math.round(s.x), Math.round(s.y), Math.round(s.r)); drawSolid(s); } console.error('all solids ok'); }
 if (process.env.JAG) { drawJagged(200,200,40,12.3,['#7d776c','#8f887b','#6c665c']); console.log('jag ok'); drawRock(100,100,30); console.log('rock ok'); }
+if (process.env.PIPCHECK) {                        // every place Pip is drawn, close up
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.pipSaved=true; enterScene('camp'); state.cut=null; state.enemies=[]; run(3); state.texts=[]; state.title=null;
+  const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
+  fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
+}
 if (process.env.B123) {                            // build 123: the High Reaches card, close then pulling back; Gear with everything
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.adventure; inv.sawHighTitle=true; enterScene('hr3'); state.cut=null; state.enemies=[]; state.pip=null; run(3); state.texts=[]; state.title=null;

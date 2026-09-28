@@ -797,11 +797,11 @@ const heroName = () => (state.inv && state.inv.heroName) || 'friend';
 // Shown after "tap to begin" for a new adventure; then the opening.
 function openCreator(done) {
   const ov = document.createElement('div'); ov.id = 'creator';
-  ov.style.cssText = 'position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(14,18,12,.94);z-index:50;font-family:Georgia,serif;color:#fdf6e3';
+  ov.style.cssText = 'position:fixed;inset:0;overflow:auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:rgba(14,18,12,.94);z-index:50;font-family:Georgia,serif;color:#fdf6e3';
   ov.innerHTML = `<div style="font-size:30px;font-weight:bold;color:#ffe38a">Who are you?</div>
     <input id="crName" maxlength="14" placeholder="your name" style="font:20px Georgia,serif;padding:8px 14px;border-radius:10px;border:2px solid #ffe38a;background:#1c2218;color:#fdf6e3;text-align:center;width:240px">
-    <div style="display:flex;gap:22px;align-items:center"><canvas id="crWheel" width="300" height="300" style="touch-action:none;cursor:crosshair"></canvas>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><canvas id="crPrev" width="120" height="120"></canvas><div id="crHex" style="font:14px 'Courier New',monospace;color:#d8d0c0"></div></div></div>
+    <div style="display:flex;gap:22px;align-items:center"><canvas id="crWheel" width="300" height="300" style="position:static;display:block;width:min(300px,62vw);height:min(300px,62vw);touch-action:none;cursor:crosshair"></canvas>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><canvas id="crPrev" width="120" height="120" style="position:static;display:block;width:120px;height:120px"></canvas><div id="crHex" style="font:14px 'Courier New',monospace;color:#d8d0c0"></div></div></div>
     <div style="font:13px 'Courier New',monospace;color:#b8b0a0">ring: colour \u00b7 square: how rich and how light \u00b7 arrows fine-tune</div>
     <button id="crGo" style="font:bold 20px Georgia,serif;padding:10px 34px;border-radius:12px;border:none;background:#ffe38a;color:#1a1420;cursor:pointer">Begin</button>`;
   document.body.appendChild(ov);
