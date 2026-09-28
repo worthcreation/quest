@@ -18,4 +18,4 @@ Code: pip.js (behaviour), tutorial.js (every early-game line, in order, plus PIP
 ## Alerts
 
 - The big banner is for quests only: when one starts and when it's done.
-- Everything else worth a moment (a level, a recipe, an item, a relic) is a small scroll in the lower half for a few seconds. Level-up scrolls point to Status for the details.
+- Everything else worth a moment (a level, a recipe, an item, a relic, a pickup) is a scroll near the bottom for a few seconds, wide enough for a long line. Level-up scrolls point to Status for the details. No other message boxes.

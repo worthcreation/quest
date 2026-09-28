@@ -1677,7 +1677,13 @@ function promptKey(text) {
 }
 // pickups, counts and item notes go to a small feed in the bottom-left corner, not next to you
 const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
-function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
+// pickups, counts and item notes: a small scroll too (no more boxes along the bottom). A quick run of them shares one
+// scroll: the newest line replaces the last while it's still up, so a handful of sticks doesn't queue a parade.
+function notice(text, color) {
+  const q = state.scrolls || (state.scrolls = []), last = q[q.length - 1];
+  if (last && last.feed && last.t < last.life - 0.4) { last.text = text; last.t = Math.min(last.t, 0.4); last.life = 2.4; return; }
+  q.push({ title: '', text, feed: true, t: 0, life: 2.4 });
+}
 function say(text, x, y, opts = {}) {
   if (opts.key === 'pip' || opts.who === 'pip') { try { flashFor(text); } catch (e) {} }   // the slot Pip's talking about lights up
   if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
@@ -1703,7 +1709,7 @@ function say(text, x, y, opts = {}) {
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
-function showScroll(title, text, status) { (state.scrolls = state.scrolls || []).push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // status: add "Status has more" (level-ups)
+function showScroll(title, text, status) { const q = state.scrolls || (state.scrolls = []); const i = q.findIndex(s => s.feed && s.t > 0); if (i >= 0) q.splice(i, 1); q.push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // a real alert bumps a pickup note   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation
@@ -6892,7 +6898,7 @@ function draw() {
   drawTexts();
   drawChoice();
   drawCoach();                                          // quest info first, so a banner always sits on top of it
-  if (!state.menu) { drawScroll(); drawFeed(); }
+  if (!state.menu) drawScroll();                       // every note is a scroll now (the bottom-left feed is gone)
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
   drawHighTitle();                                      // the High Reaches title card, over everything
@@ -8096,7 +8102,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 129';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 130';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
@@ -9051,13 +9057,13 @@ function drawScroll() {
   const a = Math.min(1, S.t / 0.35, (S.life - S.t) / 0.6), fs = Math.round(Math.max(13, Math.min(16, UNIT * 0.42)));
   ctx.save(); ctx.globalAlpha = a;
   ctx.font = HAND(Math.round(fs * 1.35), true); const tw = ctx.measureText(S.title).width;
-  ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.6, 420)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
-  const w = Math.min(W - 40, lw + fs * 3), h = fs * (2.4 + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H - h - Math.max(18, H * 0.04) + (1 - Math.min(1, S.t / 0.35)) * 12;   // near the bottom edge
+  ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.84, 900)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
+  const tH = S.title ? 2.4 : 1.1, w = Math.min(W - 24, Math.max(fs * 11, lw + fs * 3)), h = fs * (tH + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H - h - Math.max(18, H * 0.04) + (1 - Math.min(1, S.t / 0.35)) * 12;   // near the bottom edge
   ctx.fillStyle = 'rgba(232,216,176,.72)'; ctx.fillRect(x, y, w, h);                                   // the paper: see-through, but the ink stays readable
   ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
-  ctx.textAlign = 'center'; ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9);
-  ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * (3.2 + i * 1.25)));
+  ctx.textAlign = 'center'; if (S.title) { ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9); }
+  ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * ((S.title ? 3.2 : 1.9) + i * 1.25)));
   if (S.status) { ctx.fillStyle = 'rgba(62,42,26,.6)'; ctx.font = `${Math.round(fs * 0.75)}px "Courier New", monospace`; ctx.fillText(`Status (${K.menu.toUpperCase()}) has more`, W / 2, y + h - fs * 0.7); }
   ctx.restore(); ctx.textAlign = 'left';
 }

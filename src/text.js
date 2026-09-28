@@ -19,7 +19,13 @@ function promptKey(text) {
 }
 // pickups, counts and item notes go to a small feed in the bottom-left corner, not next to you
 const FEED_KEYS = new Set(['item', 'raw', 'mat', 'matdrift', 'spore', 'seedtip', 'loose', 'food', 'acorns']);
-function notice(text, color) { const f = state.feed || (state.feed = []); f.push({ text, color: color || '#fdf6e3', t: 0 }); if (f.length > 6) f.shift(); }
+// pickups, counts and item notes: a small scroll too (no more boxes along the bottom). A quick run of them shares one
+// scroll: the newest line replaces the last while it's still up, so a handful of sticks doesn't queue a parade.
+function notice(text, color) {
+  const q = state.scrolls || (state.scrolls = []), last = q[q.length - 1];
+  if (last && last.feed && last.t < last.life - 0.4) { last.text = text; last.t = Math.min(last.t, 0.4); last.life = 2.4; return; }
+  q.push({ title: '', text, feed: true, t: 0, life: 2.4 });
+}
 function say(text, x, y, opts = {}) {
   if (opts.key === 'pip' || opts.who === 'pip') { try { flashFor(text); } catch (e) {} }   // the slot Pip's talking about lights up
   if (opts.key && (FEED_KEYS.has(opts.key) || /^raw/.test(opts.key)) && !opts.tip) { notice(text, opts.color); return; }
@@ -45,7 +51,7 @@ function say(text, x, y, opts = {}) {
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
-function showScroll(title, text, status) { (state.scrolls = state.scrolls || []).push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // status: add "Status has more" (level-ups)
+function showScroll(title, text, status) { const q = state.scrolls || (state.scrolls = []); const i = q.findIndex(s => s.feed && s.t > 0); if (i >= 0) q.splice(i, 1); q.push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // a real alert bumps a pickup note   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)
 function speechPages(text, max = 80) {
   const lead = (text.match(/^\.{2,}\s*/) || [''])[0], body = text.slice(lead.length);   // "...no, LISTEN." keeps its ellipsis: the scene opens mid-conversation

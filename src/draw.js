@@ -54,7 +54,7 @@ function draw() {
   drawTexts();
   drawChoice();
   drawCoach();                                          // quest info first, so a banner always sits on top of it
-  if (!state.menu) { drawScroll(); drawFeed(); }
+  if (!state.menu) drawScroll();                       // every note is a scroll now (the bottom-left feed is gone)
   drawTitle();
   if (state.menu) { drawMenu(); drawCoach(); }       // (inside the pack the pinned step still shows over it)
   drawHighTitle();                                      // the High Reaches title card, over everything
@@ -1258,7 +1258,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 129';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 130';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,

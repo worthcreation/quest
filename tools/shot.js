@@ -63,6 +63,13 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B130) {                            // build 130: a pickup note and a long alert, both scrolls
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
+  state.started=true; state.intro=null; enterScene('start'); state.cut=null; state.enemies=[]; state.pip=null; run(5); state.texts=[]; state.title=null; state.scrolls=[];
+  const h=state.hero; collect({type:'stick',x:h.x,y:h.y}); run(5); collect({type:'stick',x:h.x,y:h.y}); run(20); draw(); fs.writeFileSync('/tmp/b130-a.png', canvas.toBuffer('image/png'));
+  state.scrolls=[]; showScroll('The fishing rod', 'Stand by a ripple and press F to cast. Wait for the bob to dip, then F again to reel it in before it gets away.'); run(30); draw(); fs.writeFileSync('/tmp/b130-b.png', canvas.toBuffer('image/png'));
+  console.log('b130 written');
+}
 if (process.env.B129) {                            // build 129: boulders sunk in the ground; the riverbank's stuck stone
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; const inv=state.inv; inv.story=STORY.gather; enterScene('riverbank'); state.cut=null; state.enemies=[]; state.pip=null; const c=WORLD.riverbank.feat.stoneCrag; state.hero.x=c[0]*W+UNIT*3; state.hero.y=c[1]*H; run(5); state.texts=[]; state.title=null; draw(); fs.writeFileSync('/tmp/b129.png', canvas.toBuffer('image/png'));

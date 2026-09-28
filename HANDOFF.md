@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 129, 27 Sep 2026)
+# Quest: handoff notes (as of build 130, 27 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 130: scrolls only
+- The bottom-left feed is gone: notice() (pickups, counts, item notes) now makes a small title-less scroll; a quick
+  run of them shares one scroll (the newest line replaces the last while it's up); a real alert (showScroll) bumps a
+  pickup note. Scrolls wrap at up to 84% of the screen (900 px) so long lines fit on one or two lines, and are at least
+  11 font-widths wide.
 
 ## Build 129: the riverbank boulder takes a thrown rock; boulders sit in the ground
 - The riverbank boulder (stonecrag, 2 tiles) no longer breaks to a pound: it takes two thrown-rock hits. A heavy stone
