@@ -3,6 +3,14 @@
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
 // in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.)
 
+// ?mountain in the link starts straight on the climb (no creator, no opening). ?scene=f3 (any screen id) starts there.
+var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
+var START_SCENE = typeof location !== 'undefined' ? ((/[?&]scene=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
+function startTestScene(id) {                                  // set up enough of the story that a mid-game screen makes sense
+  const inv = state.inv; inv.story = STORY.adventure; inv.tortoise = true; inv.sword = true; inv.acorns = 10; (inv.pipTips = inv.pipTips || {}).tada = true;
+  state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id);
+  showScroll('Test link', MOUNTAIN ? 'The climb. Keys 1 to 5 jump between the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
+}
 const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
 // A zigzag of crossings: crossings [[z, 'R' or 'L'], ...] from far to near. Near each one the ravine narrows enough to
 // jump; just past it, crags close the side you came along (you must cross). Between, the walkable ledges wind.
@@ -47,9 +55,16 @@ function climbFinish(c) {
   const d = climbDef(); c.done = true; sfx.fanfare();
   showScroll(d.name, d.next === 'peak1' ? 'Over the top, and into the crags.' : 'Onward and upward.');
 }
+function testHops() {
+  if (!MOUNTAIN && !START_SCENE) return false;
+  const ids = ['climb1', 'climb2', 'climb3', 'climb4', 'climb5'];
+  for (let i = 0; i <= 5; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
+  return false;
+}
 function updateClimb(dt) {
   const c = state.climb; if (!c) return;
-  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
+  if (testHops()) return;
+  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = MOUNTAIN && d.next === 'peak1' ? 'climb1' : d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
   const d = climbDef(), h = state.hero, g = c.gust; g.t -= dt;

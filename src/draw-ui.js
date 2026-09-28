@@ -842,12 +842,12 @@ function openCreator(done) {
 }
 function begin() {
   if (state.started) return;
-  if (!ARENA && !PUZZLE && !state.created && typeof document !== 'undefined' && document.body && !TEST_MODE) { state.created = true; startEl.style.display = 'none'; openCreator(() => { startEl.style.display = ''; begin(); }); return; }
+  if (!ARENA && !PUZZLE && !MOUNTAIN && !START_SCENE && !state.created && typeof document !== 'undefined' && document.body && !TEST_MODE) { state.created = true; startEl.style.display = 'none'; openCreator(() => { startEl.style.display = ''; begin(); }); return; }
   if (TOUCH) goFullscreen();                         // the first tap on a phone also takes the screen
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('climb1'); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
   startMusic();
 }
 function resizeCanvasOnly() {

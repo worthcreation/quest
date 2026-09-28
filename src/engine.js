@@ -237,6 +237,7 @@ function update(dt) {
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
   if (state.climb) { updateClimb(dt); return; }                     // the climb prototype runs its own world
+  if (testHops()) return;
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;

@@ -1,4 +1,4 @@
-# Quest: handoff notes (as of build 140, 28 Sep 2026)
+# Quest: handoff notes (as of build 141, 28 Sep 2026)
 
 ## What this is
 Browser RPG, Zelda meets EarthBound. One file, `index.html`, on GitHub Pages: https://worthcreation.github.io/quest/
@@ -33,6 +33,12 @@ Next chat: git clone https://github.com/worthcreation/quest.git (github.com is r
               quest log (QUESTS chains, updateQuests, questView)
 - p14.js      food ranges & crop levels (FOOD, cropLevel, farmLevel, eatFood, CROP_PERK), mushroom glow, quick slots (SLOT_KEYS, useSlot, drawSlotBar),
               skills (SKILLS, skillUse, skillLevel, setSkillLevel, SKILL_COLOR), acorn spread/homing (acornSpread, steerAcorn)
+
+## Build 141: test links for the climb and any screen
+- ?mountain starts straight on climb1 (no creator, no opening; story set to the adventure with the tortoise's blessing,
+  a sword and acorns). The last climb screen loops back to the first instead of leaving. ?scene=<id> (e.g.
+  ?scene=f3) starts on any screen the same way. While a test link is in use, keys 1 to 5 jump to climb1-5 and 0 to
+  the first field (testHops, climb.js). Both links show a scroll saying so.
 
 ## Build 140: the climb as a zigzag of crossings, on level ledges between crags
 - zig(crossings) (climb.js) builds a screen's ravine width and ledge widths from a list of crossings [z, side you
