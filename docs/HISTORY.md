@@ -1,6 +1,18 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 167: the rise, wider and steadier
+- No lines on the ground for now: the contour lines and the per-row distance haze are gone (the haze's row overlaps
+  also left faint stripes). The path stays. Flair comes later.
+- The shimmer while zooming: when zoomed out the ground used every other tile's point, and which ones moved with the
+  camera, so the ground's edges wobbled. It now uses every tile, always. A stone's on-screen path while walking and
+  zooming is smooth (largest frame-to-frame change in its step 0.048 px).
+- Crags are 16 pictures, each painted once at full size and scaled (riseCragSprite): frame time at the foot 10.3 ms
+  in the node renderer, from 17.9 with every tile used and crags drawn live. drawSoilLine takes a context like
+  drawJagged.
+- The stone walls open out with the view: 14 tiles apart by the fields, 30 at the foot (riseHalf). Test rise, wall to
+  wall: 12.9 tiles at x 5, 20.6 at x 40, 25.8 at x 66. 63 of 63, overlap 0.
+
 ## Build 166: the rise, smoother
 - Crags on the rise no longer jitter as the view zooms: each is drawn at full size and scaled, so its zigzag keeps the
   same points. They're clipped to their soil line, so no stone shows below it (soilLinePts in draw.js: the line and

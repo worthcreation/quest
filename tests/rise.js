@@ -21,8 +21,9 @@ console.log('3 back west from x 60 (zoom', z60.toFixed(2)+') to x', r.x.toFixed(
 r.x=66; r.y=11; r.vx=r.vy=0; state.keys.arrowright=true; run(60*4); off(); const f=riseFoot(r.y);
 console.log('4 heading east off the path at y 11: stopped at x', r.x.toFixed(1), '| the foot there is at', f.toFixed(1), '| stayed on open ground:', riseOpen(r.x,r.y));
 // 5. the stones along each side of the way are the edge: up and down both stop
-r.x=30; r.y=15; state.keys.arrowup=true; run(120); off(); const top=r.y; state.keys.arrowdown=true; run(180); off(); const bot=r.y;
-console.log('5 up stops at y', top.toFixed(2), '| down stops at y', bot.toFixed(2), '| inside the band', RISE.band.join('-')+':', top>RISE.band[0] && bot<RISE.band[1]);
+const walls=x=>{ r.x=x; r.y=15; r.vx=r.vy=0; state.keys.arrowup=true; run(150); off(); const top=r.y; state.keys.arrowdown=true; run(240); off(); return [top, r.y, riseHalf(x)]; };
+const w5=walls(5), w40=walls(40), w66=walls(66), inside=[[5,w5],[40,w40],[66,w66]].every(([x,[a,b,hw]])=>a>15-hw && b<15+hw);
+console.log('5 the way between the walls, wall to wall: at x 5', (w5[1]-w5[0]).toFixed(1), 'tiles | x 40', (w40[1]-w40[0]).toFixed(1), '| x 66', (w66[1]-w66[0]).toFixed(1), '| widens:', w40[1]-w40[0]>w5[1]-w5[0]+3 && w66[1]-w66[0]>w40[1]-w40[0]+3, '| held inside:', inside);
 // 6. off the bottom (west) end you loop to the top, still walking west
 r.x=3; r.y=risePathY(3); r0=r; state.keys.arrowleft=true; t=0; while(state.rise===r0 && t<120){ run(1); t++; } run(20); r=state.rise; const x1=r.x; run(30); off();
 console.log('6 off the west end -> x', x1.toFixed(1), 'of', RISE.len, 'on', state.scene, '| still heading west:', r.x<x1, '| zoom', z().toFixed(2));

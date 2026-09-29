@@ -56,7 +56,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   it) [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
-- The rise: RISE table, riseH and riseOpen (one shape for standing and for where the crags go), riseLand, riseView [rise].
+- The rise: RISE table, riseH, riseHalf and riseOpen (one shape for standing and for where the walls and crags go),
+  riseLand, riseView, riseCragSprite (a stone painted once, then scaled) [rise].
   A takeover like the climb: its own update and draw, hooked in enterScene, update() and drawScene.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 

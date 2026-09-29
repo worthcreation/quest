@@ -593,10 +593,10 @@ function soilLinePts(x, y, w, amp, seed = 1) {         // the zigzag's points (o
   for (let i = 0; i <= n; i++) { const k = i / n; pts.push([x - w / 2 + k * w, y - Math.sin(k * Math.PI) * amp * 0.9 + (i % 2 ? -amp * 0.45 : amp * 0.2) + Math.sin(i * 2.7 + seed) * amp * 0.15]); }
   return pts;
 }
-function drawSoilLine(x, y, w, amp, seed = 1) {
-  ctx.strokeStyle = 'rgba(74,56,34,.85)'; ctx.lineWidth = Math.max(2, amp * 0.5); ctx.lineJoin = 'round'; ctx.beginPath();
-  soilLinePts(x, y, w, amp, seed).forEach(([xx, yy], i) => i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy));
-  ctx.stroke(); ctx.lineJoin = 'miter';
+function drawSoilLine(x, y, w, amp, seed = 1, g = ctx) {
+  g.strokeStyle = 'rgba(74,56,34,.85)'; g.lineWidth = Math.max(2, amp * 0.5); g.lineJoin = 'round'; g.beginPath();
+  soilLinePts(x, y, w, amp, seed).forEach(([xx, yy], i) => i ? g.lineTo(xx, yy) : g.moveTo(xx, yy));
+  g.stroke(); g.lineJoin = 'miter';
 }
 function drawSolid(s) {
   const { x, y, vis: r, kind } = s, u = UNIT;
@@ -1259,7 +1259,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 166';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 167';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

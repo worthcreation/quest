@@ -1,4 +1,4 @@
-# Quest: handoff (build 166, 29 Sep 2026)
+# Quest: handoff (build 167, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -27,7 +27,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - highlands.js  the High Reaches (hr1-hr3): vistas, hawks, mantises, crystal bugs, worms, the red beetle
 - climb.js      the climb screens (climb1-climb5): CLIMBS table, trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
-- rise.js       the rise (id 'rise'): RISE table, riseH (height), riseOpen (where you can stand: the one shape),
+- rise.js       the rise (id 'rise'): RISE table, riseH (height), riseHalf (the way's half-width, growing with the
+                view), riseOpen (where you can stand: the one shape), riseCragSprite (16 crag pictures, painted once),
                 riseLand (rows, contours and props laid out once in tiles), newRise/updateRise/drawRise, riseView and
                 riseZoom (the camera follows how far east you are), drawRiseTiles
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
@@ -92,21 +93,23 @@ islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The la
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Open green for now (climbBand 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
-## The rise, where it stands (build 166)
-One long screen, 86 tiles east to west, from f7's grass to a pass into the crags. It opens straight down like the
+## The rise, where it stands (build 167)
+One long screen, 86 tiles west to east, from f7's grass to a pass into the crags. It opens straight down like the
 fields; walking east the view pulls back (zoom 1.00 to 0.50 on a laptop, 0.72 on a phone: never under 20 px of hero)
 and tips (0 to 54 degrees) evenly from the first step to the foot (riseView is linear in x; the camera eases at 2.5/s),
-looking a little ahead, so the contour lines bunch, a skyline appears and the mountain
-stands up to the north-east. West, it comes back in. Stones line both sides of the way (smooth, then rough past x 40);
-crags line the mountain's foot and both walls of the pass, on riseOpen's edge. Crags are drawn at full size and scaled
-with the view (their zigzag keeps its shape), clipped so no stone shows below the soil line. For now it loops: off
-either end you come back in at the other, still walking the same way. Draws at about 9 to 13 ms a frame in
-the node renderer (a field screen is about 3). Open: where it joins (replacing the loop with f7's east exit and peak1's
-west exit, which means shifting MAP_LAYOUT's crags and High Reaches a column), whether it leads to peak1 or the climb,
-Pip on it, and saving on it (a load puts you back at an end).
+looking a little ahead, so a skyline appears and the mountain stands up to the north-east. West, it comes back in.
+The way between the stone walls widens with the view: 14 tiles by the fields, 30 at the foot (riseHalf; the walls are
+laid on that line and riseOpen tests it). Stones are smooth, then rough past x 40; crags line the foot and both walls
+of the pass, on riseOpen's edge. Crags are 16 pictures painted once at full size, clipped at their soil line, and
+scaled with the view. No ground lines for now (contours and distance haze are out; Ross will add the flair later);
+the worn path stays. For now it loops: off either end you come back in at the other, still walking the same way.
+Draws at about 7 to 10 ms a frame in the node renderer (a field screen is about 3 to 4).
+Open: where it joins (replacing the loop with f7's east exit and peak1's west exit, which means shifting MAP_LAYOUT's
+crags and High Reaches a column), whether it leads to peak1 or the climb, Pip on it, and saving on it (a load puts you
+back at an end).
 
 ## Next task
-None set after build 166 (the rise, in testing). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 167 (the rise, in testing). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f2-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.
