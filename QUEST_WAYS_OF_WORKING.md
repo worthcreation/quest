@@ -1,5 +1,5 @@
 # Quest: what the project is, and how we work on it
-Checked 29 Sep 2026 against build 162 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
+Checked 29 Sep 2026 against build 163 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
 exists). Read this and HANDOFF.md at the start of every Quest chat.
 
 ## 1. What Quest is
@@ -35,8 +35,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
 4. `sh build.sh`, `node tests/run.js` (62 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
    render a PNG for anything visual (tools/shot.js blocks, env var per build), look at it.
-5. Deliver: what changed (grouped by what the player sees), what was tested with numbers, the ship command, a fresh
-   7-digit prime seed link. Bump `const BUILD` in src/draw.js every time.
+5. Deliver: what changed (grouped by what the player sees), what was tested with numbers, the ship command, and every
+   play-test link (HANDOFF.md, Links), current as of that build, with a fresh 7-digit prime seed. Bump `const BUILD` in src/draw.js every time.
 6. For unsettled looks, iterate on still mockups first (no build). The climb took eight stills.
 
 ## 4. Reuse table (checked against source; file in brackets)
@@ -71,7 +71,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - `sh build.sh` succeeds (it checks the script parses), `node tests/run.js` all pass, `node tools/overlap.js` 0.
 - Both screen shapes (1280x800 and 390x844) for anything laid out in tiles. Grep for stale words. BUILD bumped.
 - HANDOFF.md updated: the current-state sections, plus one short entry at the top of docs/HISTORY.md.
-- Reply ends with the ship command and a fresh prime seed link; test links (?mountain) when relevant.
+- Reply ends with the ship command and every play-test link, full URLs, checked against the source (HANDOFF.md, Links).
 
 ## 7. Talking to the model
 Say what the player should see and feel, and the rule. Batch related changes into one build. For visuals: one

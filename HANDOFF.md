@@ -1,4 +1,4 @@
-# Quest: handoff (build 162, 29 Sep 2026)
+# Quest: handoff (build 163, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -13,8 +13,12 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
   mountainside still; B139/B150/B154 are the climb screens.
 - Ship (Windows PowerShell, shown in a ```powershell block): one download quest-bNN.zip laid out like the repo root, then
   `cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push`
-- Links: `?seed=N` (fresh 7-digit prime each build), `?arena`, `?puzzle`, `?mountain` (climb screens; keys 1-5 jump
-  between them, 0 to the first field, [ ] and - = tune the shadow), `?scene=<id>` (start on any screen).
+- Links (every reply that ships gives all of them, full URLs on https://worthcreation.github.io/quest/, each checked
+  against the source that build): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
+  `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
+  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT or climb1-climb5), `?overview=N` (the same world as
+  one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
+  &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
 ## File map (src/, in load order)
 - world.js      world generation: every screen, solids, exits, barriers, crag(), pullable(), corridorSpan and

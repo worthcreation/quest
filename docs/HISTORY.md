@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 163: every play-test link, every time
+- Docs only (no game change): each delivery lists every play-test link as a full URL, checked against the source:
+  seed, arena, puzzle, mountain, scene, overview, model. The list lives in HANDOFF.md (Links) and moves with src/.
+
 ## Build 162: the cleanup build
 - src/pip.js and src/puzzles.js are back: the build 161 commit deleted them along with p1 to p14 (a p*.js glob), so a
   fresh clone built without Pip or the puzzles. Restored from build 155; the rebuilt index.html is byte-identical.
