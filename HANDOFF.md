@@ -1,4 +1,4 @@
-# Quest: handoff (build 163, 29 Sep 2026)
+# Quest: handoff (build 164, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -87,6 +87,11 @@ Your shadow is the aim (it leads toward the landing, small at the top of a jump)
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
 ## Next task
-The climb: decide which of climb1 to climb5 to keep (test at ?mountain, keys 1 to 5) and where they join the world
-(between the windy fields and the crags), then retire the f2-f6 mountain-path screens they replace. Open with the climb:
-the crag() painter in paintClimb and climbBand fixed at 12.
+None set. The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
+crags), retiring the f2-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
+Until then, wait for Ross's request; don't touch the climb unasked.
+
+## Working from Cowork
+The container never commits or pushes: Ross ships each zip from his PC. After he pushes, `git fetch` and
+`git reset --hard origin/main` so the clone matches main. Deliver the zip as a download (not a preview).

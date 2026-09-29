@@ -1,5 +1,5 @@
 # Quest: what the project is, and how we work on it
-Checked 29 Sep 2026 against build 163 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
+Checked 29 Sep 2026 against build 164 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
 exists). Read this and HANDOFF.md at the start of every Quest chat.
 
 ## 1. What Quest is

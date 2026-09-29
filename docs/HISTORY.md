@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 164: handoff
+- Docs only. HANDOFF.md: no next task set (the climb stays in testing as is until Ross asks), and how Cowork sessions
+  work (the container never pushes; sync to main after Ross ships). PROJECT_INSTRUCTIONS.md says the same.
+
 ## Build 163: every play-test link, every time
 - Docs only (no game change): each delivery lists every play-test link as a full URL, checked against the source:
   seed, arena, puzzle, mountain, scene, overview, model. The list lives in HANDOFF.md (Links) and moves with src/.
