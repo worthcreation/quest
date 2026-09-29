@@ -33,7 +33,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
    changes what gets built. Otherwise decide and state the assumption.
 2. Reuse before adding (section 4). New system only when nothing fits.
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
-4. `sh build.sh`, `node tests/run.js` (62 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
+4. `sh build.sh`, `node tests/run.js` (63 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
    render a PNG for anything visual (tools/shot.js blocks, env var per build), look at it.
 5. Deliver: what changed (grouped by what the player sees), what was tested with numbers, the ship command, and every
    play-test link (HANDOFF.md, Links), current as of that build, with a fresh 7-digit prime seed. Bump `const BUILD` in src/draw.js every time.
@@ -55,6 +55,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   lumpy stone) and drawSoilLine (the zigzag where stone meets ground) [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
+- The rise: RISE table, riseH and riseOpen (one shape for standing and for where the crags go), riseLand, riseView [rise].
+  A takeover like the climb: its own update and draw, hooked in enterScene, update() and drawScene.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
 ## 5. Audit (grep for callers, build 162)

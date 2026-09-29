@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 165: the rise
+- New screen 'rise' (src/rise.js), in testing: ?scene=rise or System > Testing > Try the rise. One long slope from
+  f7's grass to a pass into the crags. Opens top-down like the fields; walking east the view pulls back and tips up
+  (zoom 1.00 to 0.50, 0.72 floor on a phone; tilt 0 to 54 degrees), so the grade shows as bunching contour lines and a
+  rising skyline, and the mountain stands up ahead. Walking west it comes back in. West end > f7, east end > peak1.
+- Stones line the way (round by the fields, rough higher up), crags line the foot and the pass, all on riseOpen's edge.
+- Test rise (new): walked east along the path in 9.7 s to peak1, zoom only ever pulls back (1.00 to 0.50), tilt 54 at
+  the foot; back west from x 60 to 19 the zoom returns to 0.97; off the path the foot stops you at x 73.2 (foot 75.0);
+  the band holds you between y 8.98 and 20.85; west end to f7; a phone keeps the hero at 20 px. 63 of 63, overlap 0.
+  tools/shot.js B165=1.
+
 ## Build 164: handoff
 - Docs only. HANDOFF.md: no next task set (the climb stays in testing as is until Ross asks), and how Cowork sessions
   work (the container never pushes; sync to main after Ross ships). PROJECT_INSTRUCTIONS.md says the same.

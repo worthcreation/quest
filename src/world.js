@@ -800,6 +800,7 @@ function genWorld() {
     if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
   }
   for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
+  add(newScene({ id: 'rise', area: 'field', msg: 'The ground starts to climb.', music: 'field', amb: 'wind', floor: '#707a69', speed: 0.45, accel: 8 })).exits = [];   // drawn and run by rise.js
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }

@@ -158,6 +158,7 @@ const LEVEL_ROWS = () => [
   ...Object.keys(SKILLS).map(id => ({ label: `${id[0].toUpperCase() + id.slice(1)} skill: ${skillLevel(id)} of ${SKILLS[id].steps.length}`, adj: d => setSkillLevel(id, (skillLevel(id) + d + SKILLS[id].steps.length + 1) % (SKILLS[id].steps.length + 1)) })),
   { label: `Vigor depth: ${state.inv.depth}`, adj: d => { state.inv.depth = Math.max(0, Math.min(12, state.inv.depth + d)); state.hero.vig = maxVig(); } },
   { label: `Turnip vigor bonus: ${state.inv.vigBonus}`, adj: d => { state.inv.vigBonus = Math.max(0, Math.min(40, state.inv.vigBonus + d * 5)); state.hero.vig = maxVig(); } },
+  { label: 'Try the rise (fields to the mountain\'s foot)', adj: () => { state.menu = null; enterScene('rise'); } },
   { label: 'Try the climb (all five, in a row)', adj: () => { state.climbReturn = state.scene; state.menu = null; enterScene('climb1'); } },
   ...['climb2', 'climb3', 'climb4', 'climb5'].map(id => ({ label: `  just: ${CLIMBS[id].name}`, adj: () => { state.climbReturn = state.scene; state.menu = null; enterScene(id); } })),
   { label: 'Everything to the top', adj: () => { for (const id of Object.keys(SKILLS)) setSkillLevel(id, SKILLS[id].steps.length); } },

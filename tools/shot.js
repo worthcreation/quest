@@ -63,6 +63,14 @@ if (process.env.PIPCHECK) {                        // every place Pip is drawn, 
   const n=WORLD.camp.npcs.find(q=>q.kind==='pip'); state.hero.x=n.fx*W-UNIT*2; state.hero.y=n.fy*H; state.pip={x:state.hero.x-UNIT*1.2,y:state.hero.y,show:true,follow:true}; run(2); state.texts=[]; draw();
   fs.writeFileSync('/tmp/pipcheck.png', canvas.toBuffer('image/png')); console.log('pip npc at', n.fx*W|0, n.fy*H|0, 'follower at', state.pip.x|0, state.pip.y|0, 'BUILD', BUILD);
 }
+if (process.env.B165) {                            // build 165: the rise, walked east: top-down at the fields, pulled back and tipped at the foot
+  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); } };
+  state.started=true; state.intro=null; startTestScene('rise'); run(5); state.texts=[]; state.title=null; state.scrolls=[];
+  const r=state.rise, tag=(process.env.SW||1280)+'x'+(process.env.SH||800);
+  for (const x of [1.5, 24, 40, 56, 72, 84]) { r.x=x; r.y=risePathY(x); run(240); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b165-'+tag+'-x'+x+'.png', canvas.toBuffer('image/png')); }
+  state.settings.tiles=true; r.x=74; r.y=risePathY(74); run(60); draw(); fs.writeFileSync('/tmp/b165-'+tag+'-tiles.png', canvas.toBuffer('image/png')); state.settings.tiles=false;
+  console.log('b165 written');
+}
 if (process.env.B154) {                            // build 154: the windy crossing, mid-gust, sheltered behind a rock
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb4'); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[];
