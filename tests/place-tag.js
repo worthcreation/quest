@@ -1,0 +1,14 @@
+const src = require('./harness.js').src;
+eval(src+`;
+begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }};
+const seen=[]; const ft=ctx.fillText; ctx.fillText=function(t,x,y){ seen.push([String(t),x,y]); return ft.apply(this,arguments); };
+const tagAt=()=>{ seen.length=0; draw(); return seen.find(s=>s[0]===placeTag()); };
+run(5); const onIntro=!!tagAt();
+state.intro=null; state.texts=[]; run(5); const a=tagAt();
+console.log('1 on the intro: hidden', !onIntro, '| in play:', a?JSON.stringify(a[0]):'none', 'at', a?a[1]+','+a[2]:'-');
+startTestScene('rise'); run(5); const b=tagAt(); startTestScene('f7'); run(5); const c=tagAt();
+console.log('2 follows the screen:', b&&b[0], '->', c&&c[0], '| seed', SEED, 'in both:', !!(b&&c&&b[0].endsWith(String(SEED))&&c[0].endsWith(String(SEED))));
+const ok = !onIntro && a && a[1] < W*0.2 && a[2] < H*0.1 && b && b[0].startsWith('rise') && c && c[0].startsWith('f7');
+if (!ok) errs++;
+console.log('3 top-left:', !!(a && a[1] < W*0.2 && a[2] < H*0.1), '| errs', errs);
+`);

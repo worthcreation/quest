@@ -1,4 +1,4 @@
-# Quest: handoff (build 167, 29 Sep 2026)
+# Quest: handoff (build 168, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -6,7 +6,7 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - Build: `sh build.sh` concatenates src/head.html and the files in src/ORDER into index.html, then checks the script
   parses (fails the build if not). BUILD number: `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 63 tests, about 2 minutes, one call. Each prints `errs N`; 0 is a pass
+  seed 1000003, TEST_MODE on). 64 tests, about 2 minutes, one call. Each prints `errs N`; 0 is a pass
   (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Render: `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
@@ -52,7 +52,7 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - skills.js     SKILLS, skillUse, SKILL_INFO
 - draw.js       world drawing: ground, solids, crags, ravines (drawBrokenChasm), mountain sides, hero, Pip (drawPip),
                 enemies, items, drawJagged, drawRock, drawSoilLine (and soilLinePts, its points), BUILD
-- draw-ui.js    HUD (bottom-right), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
+- draw-ui.js    HUD (bottom-right), the place tag (top-left: screen id and seed, placeTag/drawPlaceTag), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
@@ -81,7 +81,7 @@ docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PR
 acorn-skill arena book-tiles camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson misc-51 mountain-side opening pack patch-hints pickup-sparkles
-pip-ahead pip-bounce pip-brambles pip-leading pip-teaches plot-tips puzzles quests rabbits reminders rise riverbank
+pip-ahead pip-bounce pip-brambles pip-leading pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
 robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
@@ -109,7 +109,7 @@ crags and High Reaches a column), whether it leads to peak1 or the climb, Pip on
 back at an end).
 
 ## Next task
-None set after build 167 (the rise, in testing). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 168 (the rise, in testing; a place tag top-left). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f2-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.

@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 168: the place tag
+- Top-left, small and faint: the screen's id and the world's seed ("rise · 5210189"), on every screen once play has
+  started (not on the intro). For reporting what you see. placeTag/drawPlaceTag in draw-ui.js.
+- Test place-tag (new): hidden on the intro; in play it reads "riverbank · 1000003" at 11,10; it follows the screen
+  (rise, then f7) and carries the seed. 64 of 64, overlap 0.
+
 ## Build 167: the rise, wider and steadier
 - No lines on the ground for now: the contour lines and the per-row distance haze are gone (the haze's row overlaps
   also left faint stripes). The path stays. Flair comes later.

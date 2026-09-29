@@ -33,7 +33,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
    changes what gets built. Otherwise decide and state the assumption.
 2. Reuse before adding (section 4). New system only when nothing fits.
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
-4. `sh build.sh`, `node tests/run.js` (63 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
+4. `sh build.sh`, `node tests/run.js` (64 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
    render a PNG for anything visual (tools/shot.js blocks, env var per build), look at it.
 5. Deliver: what changed (grouped by what the player sees), what was tested with numbers, the ship command, and every
    play-test link (HANDOFF.md, Links), current as of that build, with a fresh 7-digit prime seed. Bump `const BUILD` in src/draw.js every time.

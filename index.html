@@ -7451,6 +7451,7 @@ function draw() {
   if (state.settings.tiles && !state.climb && !state.rise) drawTiles();   // (the climb and the rise draw their own grids, in perspective)
   drawActionHint();
   drawHUD();
+  drawPlaceTag();
   drawRadial();
   if (state.flash > 0) { ctx.fillStyle = `rgba(235,240,255,${state.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
@@ -8662,7 +8663,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 167';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 168';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9630,6 +9631,17 @@ function drawFeed() {
     ctx.globalAlpha = a; ctx.fillStyle = n.color; ctx.fillText(n.text, x, y);
     y -= lh;
   }
+  ctx.restore();
+}
+// top-left, small and faint: which screen you're on and the world's seed (for reporting what you see)
+const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
+function drawPlaceTag() {
+  if (!state.started || (state.intro && !state.intro.gone)) return;
+  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), t = placeTag();
+  ctx.save(); ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const w = ctx.measureText(t).width;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, fs + 8);
+  ctx.fillStyle = 'rgba(253,246,227,.7)'; ctx.fillText(t, 11, 10);
   ctx.restore();
 }
 function drawScroll() {

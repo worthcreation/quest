@@ -48,6 +48,7 @@ function draw() {
   if (state.settings.tiles && !state.climb && !state.rise) drawTiles();   // (the climb and the rise draw their own grids, in perspective)
   drawActionHint();
   drawHUD();
+  drawPlaceTag();
   drawRadial();
   if (state.flash > 0) { ctx.fillStyle = `rgba(235,240,255,${state.flash * 0.8})`; ctx.fillRect(0, 0, W, H); }
   if (state.fade > 0.01) { ctx.fillStyle = `rgba(0,0,0,${state.fade})`; ctx.fillRect(0, 0, W, H); }
@@ -1259,7 +1260,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 167';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 168';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

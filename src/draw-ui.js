@@ -708,6 +708,17 @@ function drawFeed() {
   }
   ctx.restore();
 }
+// top-left, small and faint: which screen you're on and the world's seed (for reporting what you see)
+const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
+function drawPlaceTag() {
+  if (!state.started || (state.intro && !state.intro.gone)) return;
+  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), t = placeTag();
+  ctx.save(); ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  const w = ctx.measureText(t).width;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, fs + 8);
+  ctx.fillStyle = 'rgba(253,246,227,.7)'; ctx.fillText(t, 11, 10);
+  ctx.restore();
+}
 function drawScroll() {
   const q = state.scrolls; if (!q || !q.length) return;
   const S = q[0]; S.t += 1 / 60; if (S.t > S.life) { q.shift(); return; }
