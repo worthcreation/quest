@@ -116,15 +116,3 @@ function drawArenaBanner() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   state.arenaBanner = { x, y, w, h };
 }
-// the hub's wooden signs
-function drawArenaSigns(sc) {
-  for (const [fx, fy, label] of sc.feat.signs || []) {
-    const x = fx * W, y = fy * H, u = UNIT;
-    ctx.font = `bold ${Math.round(Math.max(13, u * 0.4))}px "Courier New", monospace`;
-    const w = ctx.measureText(label).width + 16;
-    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.06, y - u * 0.2, u * 0.12, u * 0.9);
-    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - w / 2, y - u * 0.75, w, u * 0.62);
-    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y - u * 0.44);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  }
-}

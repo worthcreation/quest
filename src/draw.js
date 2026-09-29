@@ -95,7 +95,6 @@ function drawScene(sc) {
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
-  if (sc.feat.signs) drawArenaSigns(sc);
   if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
   if (sc.feat.buildSpots) drawBuildSpots(sc);
   if (sc.gusts) drawLandingShadow();
@@ -231,14 +230,6 @@ function drawGround(sc) {
     for (const d of sc.deco) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
       if (d.kind === 'grass') { ctx.strokeStyle = sc.area === 'woods' ? '#24552c' : '#357a40'; ctx.lineWidth = 1.5; const x = d.fx * W, y = d.fy * H, s = UNIT * 0.3 * d.s; ctx.beginPath(); ctx.moveTo(x - s * 0.4, y); ctx.lineTo(x - s * 0.6, y - s); ctx.moveTo(x, y); ctx.lineTo(x, y - s * 1.2); ctx.moveTo(x + s * 0.4, y); ctx.lineTo(x + s * 0.6, y - s); ctx.stroke(); }
-    }
-    for (const p of f.plates || []) {                // stone plates, sunk and glowing when held down
-      const x = p.fx * W, y = p.fy * H, on = state.plateOn[p.id];
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.85, UNIT * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = on ? '#6a6a62' : '#8e8e84'; ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.8, UNIT * 0.42, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = on ? `rgba(160,230,140,${0.6 + 0.3 * Math.sin(state.time * 4)})` : 'rgba(60,60,55,.8)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.45, UNIT * 0.22, 0, 0, 6.28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - UNIT * 0.2, y + (on ? 3 : 0)); ctx.lineTo(x + UNIT * 0.2, y + (on ? 3 : 0)); ctx.stroke();
     }
     if (f.cave) {                                  // the cave mouth: a rocky outcrop with a dark arch going down into the hill
       const x = f.cave[0] * W, y = f.cave[1] * H, u = UNIT;
@@ -673,12 +664,6 @@ function drawSolid(s) {
       ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
       break;
     }
-    case 'log':                                    // a heavy log braced across the way
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 0.6, r * 0.45, 0, 0, 6.28); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
-      break;
     case 'wall': break;                                // the room draws its own walls
     case 'crystalbug': drawCrystalBug(s); break;
     case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
@@ -1260,7 +1245,6 @@ function tipLibrary() {
     'When vigor runs low every swing is slow and weak. Rest a moment.',
     'Startled birds drop seeds. Plant them in rich soil.',
     `Hold ${K.act} on a big rock and pull away from it to wiggle it free.`,
-    'Stone plates hold gates open while something heavy sits on them.',
     TOUCH ? 'Use the pad to walk.' : 'Arrow keys walk.',
     'Slash, stomp or throw a rock at a tree to shake acorns loose.',
   ];
@@ -1270,11 +1254,11 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 161';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 162';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
-// The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
-// a dotted path that shows where a ride will land, and ravines that look like ravines.
+// The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
+// like ravines.
 // =====================================================================
 // Wick's jetty: rooted on his bank beside the shack, pointing straight out into the current
 function placeDock(sc) {
@@ -1352,14 +1336,6 @@ function layoutLedges(sc) {
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
     sc.rocks.push({ fx, fy, r: 0.8, ledge: true });
   }
-  // the weathervane: somewhere open on the top bank, where you'll see it before you commit
-  const vy = bands.length ? bands[0] : 0.25;
-  let vane = null;
-  for (const fx of [0.85, 0.15, 0.7, 0.3, 0.5]) {
-    const x = fx * W, y = vy * H - UNIT * 0.4;
-    if (!isChasm(x, y, UNIT) && !state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.4) && !sc.rocks.some(r => r.ledge && Math.hypot(r.fx * W - x, r.fy * H - y) < UNIT * 1.6)) { vane = [fx, y / H]; break; }
-  }
-  sc.feat.vane = null;                                // no vane: the plants tell you
 }
 // where a gust ride from here would land: the nearest ledge within a cone around the wind's direction
 function windTarget(sc, from) {
@@ -1377,42 +1353,6 @@ function windTarget(sc, from) {
     if (score < bd) { bd = score; best = [x, y]; }
   }
   return best;
-}
-// the vane: turns to where the next gust will blow; its ring fills as the gust comes
-function drawVane(sc) {
-  const v = sc.feat.vane; if (!v || !sc.gusts) return;
-  const x = v[0] * W, y = v[1] * H, u = UNIT * 1.5, n = sc.gusts.length;
-  const g = state.gustPhase === 'lull' ? sc.gusts[(state.gustIdx + 1) % n] : sc.gusts[state.gustIdx];
-  const want = Math.atan2(Math.cos(g.a), Math.sin(g.a));
-  let cur = state.vaneA ?? want, diff = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-  state.vaneA = cur + diff * 0.08;
-  const T = { lull: 2.4, build: 1.2, blow: 1.4 }, frac = Math.min(1, state.gustT / T[state.gustPhase]);
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.15, u * 0.7, u * 0.25, 0, 0, 6.28); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,30,20,.5)'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, 0, 6.28); ctx.stroke();
-  ctx.strokeStyle = state.gustPhase === 'blow' ? '#ffffff' : state.gustPhase === 'build' ? '#ffe38a' : 'rgba(255,255,255,.5)';
-  ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();   // time to the next change
-  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.05, y - u * 0.9, u * 0.1, u * 0.95);
-  ctx.save(); ctx.translate(x, y - u * 0.9); ctx.rotate(state.vaneA);
-  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.moveTo(u * 0.5, 0); ctx.lineTo(u * 0.18, -u * 0.18); ctx.lineTo(u * 0.18, u * 0.18); ctx.fill();
-  ctx.fillRect(-u * 0.35, -u * 0.035, u * 0.6, u * 0.07);
-  ctx.fillStyle = '#9a7a4a'; ctx.beginPath(); ctx.moveTo(-u * 0.3, 0); ctx.lineTo(-u * 0.48, -u * 0.18); ctx.lineTo(-u * 0.48, u * 0.18); ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.07, 0, 6.28); ctx.fill();
-}
-// the ride preview: while a gust builds or blows, a dotted arc from you to the ledge you'd land on
-function drawWindPath(sc) {
-  const h = state.hero;
-  if (!sc.gusts || h.ride || h.z > 0 || state.gustPhase === 'lull') return;
-  const tgt = windTarget(sc); if (!tgt) return;
-  const blow = state.gustPhase === 'blow', d = Math.hypot(tgt[0] - h.x, tgt[1] - h.y), lift = UNIT * (1.6 + d / H * 3);
-  for (let i = 1; i < 22; i++) {                        // dots marching along the path, dark-edged so they read on grass
-    const p = i / 22, x = h.x + (tgt[0] - h.x) * p, y = h.y + (tgt[1] - h.y) * p - Math.sin(Math.PI * p) * lift;
-    if ((i + Math.floor(state.time * 8)) % 3 === 0) continue;
-    ctx.fillStyle = 'rgba(20,20,20,.35)'; ctx.beginPath(); ctx.arc(x, y + 1.5, UNIT * 0.13, 0, 6.28); ctx.fill();
-    ctx.fillStyle = blow ? '#ffffff' : '#ffe38a'; ctx.beginPath(); ctx.arc(x, y, UNIT * 0.11, 0, 6.28); ctx.fill();
-  }
-  ctx.strokeStyle = blow ? '#ffffff' : 'rgba(255,227,138,.8)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(tgt[0], tgt[1], UNIT * (0.7 + 0.1 * Math.sin(state.time * 6)), UNIT * 0.35, 0, 0, 6.28); ctx.stroke();
 }
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
 // a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the

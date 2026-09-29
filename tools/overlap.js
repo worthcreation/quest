@@ -19,7 +19,6 @@ for (let n = 0; n < worlds; n++) {
     if (sc.feat.shroom) add('mushroom', ...sc.feat.shroom, 1.0);
     for (const p of sc.feat.plots || []) add('plot', ...p, 0.5);
     for (const p of sc.pullables) add(p.kind, p.fx, p.fy, 0.8);
-    for (const p of sc.feat.plates || []) add('plate', p.fx, p.fy, 0.8);
     for (const c of sc.npcs) add(c.kind, c.fx, c.fy, 0.9);
     for (const it of sc.initItems) add(it.type, it.fx, it.fy, 0.4);
     if (sc.feat.stone) add('sinkhole', ...sc.feat.stone, 0.9);

@@ -183,7 +183,7 @@ function ringBarrier(sc, id, kind, cx, cy, radU, rU = 0.5) {
   for (let a = 0; a < 6.28; a += 0.55) sc.solids.push(solid(cx + Math.cos(a) * radU * UNIT / W, cy + Math.sin(a) * radU * UNIT / H, rU, kind, null, { bar: id }));
 }
 function gapAt(c, half = 0.09) { return [Math.max(0.1, c - half), Math.min(0.9, c + half)]; }
-// every interactable (mushroom, plot, rock, plate, character, pickup) claims a patch of ground;
+// every interactable (mushroom, plot, rock, character, pickup) claims a patch of ground;
 // nothing else may be placed on a claim, so no two ever share a spot
 function claim(sc, fx, fy, rU) { sc.claims.push([fx, fy, rU]); }
 const onClaim = (sc, fx, fy, rU) => sc.claims.some(c => Math.hypot((fx - c[0]) * W, (fy - c[1]) * H) < (c[2] + rU) * UNIT);
@@ -215,7 +215,7 @@ function decoFlowers(sc, n) {
 }
 // farm patches: a few patches of rich soil near the path; what grows depends on the region
 // spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
-const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
+const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat(sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
 // Patches are never packed side by side: two of them sit either diagonally touching or with one empty tile between.
 // plotPattern gives n spots around a centre in tiles (converted to fractions of this screen).
 function plotPattern(c, n, kind) {
@@ -257,8 +257,7 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
     row.forEach(q => { sc.feat.plots.push(q); claim(sc, q[0], q[1], 0.7); });
   }
 }
-// ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
-function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
+// ---- rock puzzle pieces: rings of stones ----
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 // breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
 // a single breakable boulder: size in tiles (1-5) is its width and the number of rock hits it takes; its colour varies
@@ -309,7 +308,6 @@ const STONES = {
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
 const pickStone = () => { const r = rng(); return r < 0.5 ? 'sandstone' : r < 0.85 ? 'granite' : 'geode'; };
-function logGate(sc, bar, plateId, x0, y0, x1, y1) { barrier(sc, bar, 'log', x0, y0, x1, y1, 0.55); sc.solids.forEach(s => { if (s.bar === bar) s.plate = plateId; }); }
 function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
   const n = Math.ceil(Math.PI * 2 * radU / 0.95);                  // a few smaller rough boulders, not a row of pebbles
   for (let k = 0; k < n; k++) {
@@ -339,7 +337,6 @@ function genWorld() {
   camp.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'start' }];
   camp.feat.fire = [0.5, 0.45];
   camp.feat.plots = plotPattern([0.66, 0.78], 4);          // four, a tile apart, by the camp's travel mushroom
-  camp.feat.pip = [0.58, 0.44];
   npc(camp, { kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
   camp.solids.slice(-3).forEach((s, i) => { s.showFlag = ['built_fire', 'built_tent', 'built_bench'][i]; });   // only Pip's tent stands at first
@@ -900,7 +897,7 @@ state = {
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
   settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false, equip: 'sword',
-  choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {}, fish: null, fishCool: {},
+  choice: null, whirl: null, chain: { n: 0, t: -9 }, fish: null, fishCool: {},
 };
 state.hero = newHero();
 
@@ -1335,7 +1332,7 @@ function zig(cross, wide = 1.9, narrow = 0.55) {
   };
   return { hw, band };
 }
-const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]), ZIG3 = zig([[19, 'R'], [15.2, 'L'], [11.8, 'R'], [8.6, 'L'], [6.2, 'R']], 1.6, 0.5), ZIG4 = zig([[13, 'R'], [9.2, 'L'], [6.4, 'R']]);
+const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]);
 const CLIMBS = {
   climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, cx: z => 2.6 * tri(z, 22, 6), hw: ZIG1.hw, band: ZIG1.band, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
   climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, cx: z => 1.4 * tri(z, 30, 4), hw: z => 2.6, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
@@ -2155,8 +2152,8 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
-  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
 }
@@ -2218,7 +2215,6 @@ function enterScene(id, fx, fy) {
   state.bird = id === 'meadow' ? makeBird() : null;
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
   state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0; state.gustDur = 2 + Math.random();
-  state.plateOn = {}; updatePlates(true);
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
@@ -2489,7 +2485,6 @@ function update(dt) {
       try { f(dt); } catch (err) { if (!(update.bad || (update.bad = {}))[name]) { update.bad[name] = true; console.error('update ' + name + ' failed (game continues):', err); }
         if (name === 'enemies') state.enemies = state.enemies.filter(e => e && isFinite(e.x) && isFinite(e.y)).map(e => { if (!e.mode) e.mode = 'idle'; return e; }); }
     }
-    updatePlates(false);
   }
 
   // things on the ground wait for F (see pickUpHere), unless your gathering skill brings them to you: within their
@@ -2612,30 +2607,6 @@ function updateGlimpse(dt) {
   if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => say('Gone again. Always one step behind.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'miss', life: 2.5 }), 0); }
   if (g.t > 3) state.glimpse = null;
 }
-// ---------------- stone plates: weight on them lifts their log gate ----------------
-function updatePlates(quiet) {
-  const plates = sceneDef().feat.plates;
-  if (!plates) return;
-  const h = state.hero;
-  let changed = false;
-  for (const p of plates) {
-    const x = p.fx * W, y = p.fy * H;
-    const rock = state.items.some(it => it.type === 'bigrock' && Math.hypot(it.x - x, it.y - y) < UNIT * 1.1);
-    const on = rock || (h.z <= 0 && !h.ride && Math.hypot(h.x - x, h.y - y) < UNIT * 0.7);
-    if (on !== !!state.plateOn[p.id]) {
-      state.plateOn[p.id] = on; changed = true;
-      if (!quiet) {
-        sfx.rumble(); sfx.tock(); state.shake = 0.2;
-        const g = sceneDef().solids.find(s => s.plate === p.id);
-        if (g) zoomPulse(g.fx * W, g.fy * H, on ? 'kill' : 'hit');
-        if (on && !rock) say('The log shifts... but you can\'t hold it and walk through.', x, y - UNIT * 1.2, { key: 'plate', tip: 'plate-self', life: 3.5 });
-        if (on && rock) say('The rock holds the plate down. The log rolls aside.', x, y - UNIT * 1.2, { key: 'plate', life: 3 });
-      }
-    }
-    if (!on && Math.hypot(h.x - x, h.y - y) < UNIT * 2.5) say('A stone plate, worn smooth. Something heavy would hold it down.', x, y - UNIT * 1.2, { key: 'platehint', tip: 'plate', life: 4 });
-  }
-  if (changed) refreshSceneGeometry();
-}
 // ---------------- scene features ----------------
 function updateFeatures(dt) {
   const sc = sceneDef(), h = state.hero, f = sc.feat, rt = rtFor(sc.id);
@@ -2742,20 +2713,6 @@ function catchStone(h, sc) {
   let best = null, bd = Infinity;
   for (const [fx, fy, rU] of sc.river.stones) { const d = Math.hypot(h.x - fx * W, h.y - fy * H); if (d < rU * UNIT * 1.3 && d < bd) { bd = d; best = [fx * W, fy * H, rU]; } }
   if (best && bd > best[2] * UNIT * 0.6) { const a = Math.atan2(h.y - best[1], h.x - best[0]); h.x = best[0] + Math.cos(a) * best[2] * UNIT * 0.55; h.y = best[1] + Math.sin(a) * best[2] * UNIT * 0.55; }
-}
-// stepping stones: a jump aimed at a stone lands you on it, so crossing is about choosing each hop
-function hopToStone(sc) {
-  const h = state.hero;
-  let best = null, bd = Infinity;
-  for (const [fx, fy] of sc.river.stones.concat(sc.river.banks || [])) {
-    const x = fx * W, y = fy * H, dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy);
-    if (d < UNIT * 0.8 || d > Math.max(UNIT * 5.5, H * 0.2) || (dx * h.fx + dy * h.fy) / d < 0.55) continue;   // ahead of you and within a hop
-    if (d < bd) { bd = d; best = [x, y]; }
-  }
-  if (!best) return false;
-  h.ride = { t: 0, dur: 0.45 + bd / (UNIT * 14), x0: h.x, y0: h.y, x1: best[0], y1: best[1], hgt: UNIT * 1.3, hop: true };
-  sfx.jump();
-  return true;
 }
 function rideGust(sc) {
   const h = state.hero, tgt = windTarget(sc);
@@ -4383,14 +4340,9 @@ function interactPatches(sc, h, rt, nearPull) {
         payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
         say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' });
       };
-      const plant = kind => {
-        state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
-        sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-        say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
-      };
       if (p.s === 0) {
         const opts = have.map(k => `Plant ${SEEDS[k].name.toLowerCase()} (${state.inv.bag[k]})`).concat(improve ? [`${next.cost.acorn ? 'Compost' : 'Improve'} (${patchCost(next.cost)})`] : []);
-        ask(patchOf(p).name, px * W, py * H - UNIT, opts, i2 => i2 < have.length ? plant(have[i2]) : doImprove());
+        ask(patchOf(p).name, px * W, py * H - UNIT, opts, i2 => i2 < have.length ? plantHere(have[i2]) : doImprove());
       }
       else if (p.s === 1 && stage >= 3) {                 // pulled all the way up
         const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
@@ -4716,7 +4668,7 @@ function npcLines(n) {
     }
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
-      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
+      return { lines: ['Home. I\'ve never been so happy to see that lean-to.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
     }
     return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. A short hop is only 1.`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
   }
@@ -5656,7 +5608,7 @@ function updateCut(dt) {
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) say('Home! I\'ve never been so happy to see that tent.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.3)) say('Home! I\'ve never been so happy to see that lean-to.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
@@ -6570,15 +6522,10 @@ function drawRawIcon(type, s) {
     case 'stone': ctx.fillStyle = '#9a948a'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.32, s * 0.24, 0.2, 0, 6.28); ctx.fill(); ctx.fillStyle = '#b8b2a6'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.03, s * 0.12, s * 0.07, 0.2, 0, 6.28); ctx.fill(); return true;
     case 'fluff': ctx.fillStyle = '#f2ece0'; for (const [ox, oy, r] of [[-0.12, 0.02, 0.2], [0.1, -0.04, 0.22], [0, 0.1, 0.18], [0.02, -0.14, 0.14]]) { ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill(); } ctx.fillStyle = 'rgba(180,160,140,.4)'; ctx.beginPath(); ctx.arc(0.05 * s, 0.05 * s, 0.08 * s, 0, 6.28); ctx.fill(); return true;
     case 'glue': ctx.fillStyle = '#d9c9a0'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.3, s * 0.26, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#f2ece0'; for (const [ox, oy] of [[-0.2, -0.12], [0.18, -0.16], [0.24, 0.12]]) { ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.08, 0, 6.28); ctx.fill(); } ctx.strokeStyle = 'rgba(140,110,70,.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.25); ctx.quadraticCurveTo(-s * 0.08, s * 0.4, -s * 0.12, s * 0.45); ctx.stroke(); return true;
-    case 'fiber': ctx.strokeStyle = '#8fae4a'; ctx.lineWidth = Math.max(1.5, s * 0.06); for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.05, s * 0.35); ctx.quadraticCurveTo(i * s * 0.12, 0, i * s * 0.2, -s * 0.38); ctx.stroke(); } return true;
-    case 'cloth': ctx.fillStyle = '#b05a4a'; ctx.fillRect(-s * 0.34, -s * 0.28, s * 0.68, s * 0.56); ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 2; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.34, i * s * 0.16); ctx.lineTo(s * 0.34, i * s * 0.16); ctx.stroke(); } return true;
-    case 'cord': ctx.strokeStyle = '#c9b070'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.beginPath(); for (let a = 0; a < 12; a += 0.3) ctx.lineTo(Math.cos(a) * s * (0.1 + a * 0.02), Math.sin(a) * s * (0.1 + a * 0.02)); ctx.stroke(); return true;
-    case 'stake': ctx.fillStyle = '#8a6a3a'; ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, -s * 0.4); ctx.lineTo(s * 0.06, s * 0.2); ctx.lineTo(0, s * 0.42); ctx.lineTo(-s * 0.06, s * 0.2); ctx.fill(); return true;
     case 'tinder': ctx.save(); ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = Math.max(1.5, s * 0.07); for (const [a, l] of [[-0.5, 0.36], [0.4, 0.32], [1.3, 0.3], [-1.2, 0.28], [0.1, 0.34]]) { ctx.beginPath(); ctx.moveTo(-Math.cos(a) * s * l, s * 0.12 - Math.sin(a) * s * l * 0.5); ctx.lineTo(Math.cos(a) * s * l, s * 0.12 + Math.sin(a) * s * l * 0.5); ctx.stroke(); } ctx.restore(); break;
     case 'benchframe': ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.36, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(s * 0.28, -s * 0.2, s * 0.08, s * 0.5); ctx.fillRect(-s * 0.4, -s * 0.22, s * 0.8, s * 0.09); ctx.fillStyle = '#d9c9a0'; ctx.beginPath(); ctx.arc(-s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.arc(s * 0.32, -s * 0.17, s * 0.06, 0, 6.28); ctx.fill(); break;
     case 'firering': for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.3, Math.sin(a) * s * 0.2, s * 0.1, s * 0.08, 0, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#8a6a3a'; ctx.fillRect(-s * 0.15, -s * 0.03, s * 0.3, s * 0.06); return true;
     case 'benchkit': ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.14); ctx.fillRect(-s * 0.32, 0, s * 0.08, s * 0.3); ctx.fillRect(s * 0.24, 0, s * 0.08, s * 0.3); return true;
-    case 'tentkit': ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(0, -s * 0.38); ctx.lineTo(s * 0.4, s * 0.3); ctx.lineTo(-s * 0.4, s * 0.3); ctx.fill(); ctx.fillStyle = '#3a2616'; ctx.beginPath(); ctx.moveTo(0, -s * 0.05); ctx.lineTo(s * 0.12, s * 0.3); ctx.lineTo(-s * 0.12, s * 0.3); ctx.fill(); return true;
     case 'mat': ctx.strokeStyle = 'rgba(255,227,138,.7)'; ctx.setLineDash([4, 3]); ctx.lineWidth = 2; ctx.strokeRect(-s * 0.35, -s * 0.3, s * 0.7, s * 0.6); ctx.setLineDash([]); return true;
   }
   return false;
@@ -6671,7 +6618,7 @@ const plantedIn = id => ((rtFor(id).flags.plots) || []).filter(p => p.s === 1).l
 // what each quest amounts to, said in the banner when it's done
 const QUEST_DID = {
   garden: 'Seeds in the ground, and your first turnip pulled.',
-  camp: 'A fire ring, a bench and a tent: home base.',
+  camp: 'A fire ring, a bench and a lean-to: home base.',
   pip: 'Pip is safe, and the tunnels know your name.',
   beans: 'The toad is fed, and grateful.',
   journal: 'Every map Pip ever drew, back where it belongs.',
@@ -6681,7 +6628,7 @@ const QUEST_DID = {
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
-    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${K.act}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
     { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
     const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;
@@ -7053,13 +7000,7 @@ function slotShow(s) {
   const n = entryCount(s);
   return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && (s.id === 'sword' || s.id === 'woodsword') || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id, wear: s.id === 'woodsword' ? state.inv.woodsword / WOOD_SWORD : null };
 }
-// the plant button: the slot holding seeds you have
-function seedSlotKey() { return null; }                 // no seed key any more: F at a patch plants
-function seedSlotKeyOld() {
-  const sl = slotsOf();
-  return ALL_SLOTS.find(k => sl[k] && sl[k].kind === 'seed' && entryCount(sl[k])) || null;
-}
-const seedKeyLabel = () => { const k = seedSlotKey(); return k ? slotLabel(k) : K.act; };
+// plant from a patch: the nearest empty patch of rich soil within reach
 function plantHere(kind) {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   if (!sc.feat.plots || !kind) return false;
@@ -7366,7 +7307,6 @@ function drawScene(sc) {
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
   drawRiverQuest(sc);
-  if (sc.feat.signs) drawArenaSigns(sc);
   if (sc.rocks && sc.rocks.length) drawRockBanks(sc);
   if (sc.feat.buildSpots) drawBuildSpots(sc);
   if (sc.gusts) drawLandingShadow();
@@ -7502,14 +7442,6 @@ function drawGround(sc) {
     for (const d of sc.deco) {
       if (d.kind === 'flower') { ctx.fillStyle = d.c; ctx.fillRect(d.fx * W, d.fy * H, 3, 3); }
       if (d.kind === 'grass') { ctx.strokeStyle = sc.area === 'woods' ? '#24552c' : '#357a40'; ctx.lineWidth = 1.5; const x = d.fx * W, y = d.fy * H, s = UNIT * 0.3 * d.s; ctx.beginPath(); ctx.moveTo(x - s * 0.4, y); ctx.lineTo(x - s * 0.6, y - s); ctx.moveTo(x, y); ctx.lineTo(x, y - s * 1.2); ctx.moveTo(x + s * 0.4, y); ctx.lineTo(x + s * 0.6, y - s); ctx.stroke(); }
-    }
-    for (const p of f.plates || []) {                // stone plates, sunk and glowing when held down
-      const x = p.fx * W, y = p.fy * H, on = state.plateOn[p.id];
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.85, UNIT * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = on ? '#6a6a62' : '#8e8e84'; ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.8, UNIT * 0.42, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = on ? `rgba(160,230,140,${0.6 + 0.3 * Math.sin(state.time * 4)})` : 'rgba(60,60,55,.8)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(x, y + (on ? 3 : 0), UNIT * 0.45, UNIT * 0.22, 0, 0, 6.28); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - UNIT * 0.2, y + (on ? 3 : 0)); ctx.lineTo(x + UNIT * 0.2, y + (on ? 3 : 0)); ctx.stroke();
     }
     if (f.cave) {                                  // the cave mouth: a rocky outcrop with a dark arch going down into the hill
       const x = f.cave[0] * W, y = f.cave[1] * H, u = UNIT;
@@ -7944,12 +7876,6 @@ function drawSolid(s) {
       ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
       break;
     }
-    case 'log':                                    // a heavy log braced across the way
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 1.1, r * 0.4, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#5e4128'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.05, r * 0.85, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#46301c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r * 0.6, r * 0.45, 0, 0, 6.28); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(x, y, r * 0.25, r * 0.2, 0, 0, 6.28); ctx.stroke();
-      break;
     case 'wall': break;                                // the room draws its own walls
     case 'crystalbug': drawCrystalBug(s); break;
     case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
@@ -8531,7 +8457,6 @@ function tipLibrary() {
     'When vigor runs low every swing is slow and weak. Rest a moment.',
     'Startled birds drop seeds. Plant them in rich soil.',
     `Hold ${K.act} on a big rock and pull away from it to wiggle it free.`,
-    'Stone plates hold gates open while something heavy sits on them.',
     TOUCH ? 'Use the pad to walk.' : 'Arrow keys walk.',
     'Slash, stomp or throw a rock at a tree to shake acorns loose.',
   ];
@@ -8541,11 +8466,11 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 161';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 162';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
-// The wind puzzle, made readable: landing ledges on every bank, a weathervane that shows the next gust,
-// a dotted path that shows where a ride will land, and ravines that look like ravines.
+// The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
+// like ravines.
 // =====================================================================
 // Wick's jetty: rooted on his bank beside the shack, pointing straight out into the current
 function placeDock(sc) {
@@ -8623,14 +8548,6 @@ function layoutLedges(sc) {
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
     sc.rocks.push({ fx, fy, r: 0.8, ledge: true });
   }
-  // the weathervane: somewhere open on the top bank, where you'll see it before you commit
-  const vy = bands.length ? bands[0] : 0.25;
-  let vane = null;
-  for (const fx of [0.85, 0.15, 0.7, 0.3, 0.5]) {
-    const x = fx * W, y = vy * H - UNIT * 0.4;
-    if (!isChasm(x, y, UNIT) && !state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.4) && !sc.rocks.some(r => r.ledge && Math.hypot(r.fx * W - x, r.fy * H - y) < UNIT * 1.6)) { vane = [fx, y / H]; break; }
-  }
-  sc.feat.vane = null;                                // no vane: the plants tell you
 }
 // where a gust ride from here would land: the nearest ledge within a cone around the wind's direction
 function windTarget(sc, from) {
@@ -8648,42 +8565,6 @@ function windTarget(sc, from) {
     if (score < bd) { bd = score; best = [x, y]; }
   }
   return best;
-}
-// the vane: turns to where the next gust will blow; its ring fills as the gust comes
-function drawVane(sc) {
-  const v = sc.feat.vane; if (!v || !sc.gusts) return;
-  const x = v[0] * W, y = v[1] * H, u = UNIT * 1.5, n = sc.gusts.length;
-  const g = state.gustPhase === 'lull' ? sc.gusts[(state.gustIdx + 1) % n] : sc.gusts[state.gustIdx];
-  const want = Math.atan2(Math.cos(g.a), Math.sin(g.a));
-  let cur = state.vaneA ?? want, diff = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-  state.vaneA = cur + diff * 0.08;
-  const T = { lull: 2.4, build: 1.2, blow: 1.4 }, frac = Math.min(1, state.gustT / T[state.gustPhase]);
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.15, u * 0.7, u * 0.25, 0, 0, 6.28); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,30,20,.5)'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, 0, 6.28); ctx.stroke();
-  ctx.strokeStyle = state.gustPhase === 'blow' ? '#ffffff' : state.gustPhase === 'build' ? '#ffe38a' : 'rgba(255,255,255,.5)';
-  ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.55, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2); ctx.stroke();   // time to the next change
-  ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.05, y - u * 0.9, u * 0.1, u * 0.95);
-  ctx.save(); ctx.translate(x, y - u * 0.9); ctx.rotate(state.vaneA);
-  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.moveTo(u * 0.5, 0); ctx.lineTo(u * 0.18, -u * 0.18); ctx.lineTo(u * 0.18, u * 0.18); ctx.fill();
-  ctx.fillRect(-u * 0.35, -u * 0.035, u * 0.6, u * 0.07);
-  ctx.fillStyle = '#9a7a4a'; ctx.beginPath(); ctx.moveTo(-u * 0.3, 0); ctx.lineTo(-u * 0.48, -u * 0.18); ctx.lineTo(-u * 0.48, u * 0.18); ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = '#c9a46a'; ctx.beginPath(); ctx.arc(x, y - u * 0.9, u * 0.07, 0, 6.28); ctx.fill();
-}
-// the ride preview: while a gust builds or blows, a dotted arc from you to the ledge you'd land on
-function drawWindPath(sc) {
-  const h = state.hero;
-  if (!sc.gusts || h.ride || h.z > 0 || state.gustPhase === 'lull') return;
-  const tgt = windTarget(sc); if (!tgt) return;
-  const blow = state.gustPhase === 'blow', d = Math.hypot(tgt[0] - h.x, tgt[1] - h.y), lift = UNIT * (1.6 + d / H * 3);
-  for (let i = 1; i < 22; i++) {                        // dots marching along the path, dark-edged so they read on grass
-    const p = i / 22, x = h.x + (tgt[0] - h.x) * p, y = h.y + (tgt[1] - h.y) * p - Math.sin(Math.PI * p) * lift;
-    if ((i + Math.floor(state.time * 8)) % 3 === 0) continue;
-    ctx.fillStyle = 'rgba(20,20,20,.35)'; ctx.beginPath(); ctx.arc(x, y + 1.5, UNIT * 0.13, 0, 6.28); ctx.fill();
-    ctx.fillStyle = blow ? '#ffffff' : '#ffe38a'; ctx.beginPath(); ctx.arc(x, y, UNIT * 0.11, 0, 6.28); ctx.fill();
-  }
-  ctx.strokeStyle = blow ? '#ffffff' : 'rgba(255,227,138,.8)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.ellipse(tgt[0], tgt[1], UNIT * (0.7 + 0.1 * Math.sin(state.time * 6)), UNIT * 0.35, 0, 0, 6.28); ctx.stroke();
 }
 // ravines: crumbling lips with grass hanging over, a rock face with strata on the far side, mist, a stream far below
 // a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the
@@ -10760,18 +10641,6 @@ function drawArenaBanner() {
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   state.arenaBanner = { x, y, w, h };
 }
-// the hub's wooden signs
-function drawArenaSigns(sc) {
-  for (const [fx, fy, label] of sc.feat.signs || []) {
-    const x = fx * W, y = fy * H, u = UNIT;
-    ctx.font = `bold ${Math.round(Math.max(13, u * 0.4))}px "Courier New", monospace`;
-    const w = ctx.measureText(label).width + 16;
-    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.06, y - u * 0.2, u * 0.12, u * 0.9);
-    ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x - w / 2, y - u * 0.75, w, u * 0.62);
-    ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y - u * 0.44);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  }
-}
 // ===== puzzles.js: ?puzzle mode: the puzzle hub and runs.
 
 // =====================================================================
@@ -10814,7 +10683,7 @@ function startPuzzleHub() {
 function enterPuzzle(p) {
   const inv = state.inv;
   for (const id of [p.scene, 'f4', 'f6', 'farbank', 'gleampool', 'h1', 'h3']) delete RT[id];
-  state.plateOn = {}; state.carry = null; state.aim.on = false;
+  state.carry = null; state.aim.on = false;
   Object.assign(inv, { sword: false, fire: !!p.fire, raft: p.raft ? 2 : 0, tunnel: false });
   state.hero.vig = maxVig();
   state.puzzle = { p, t0: null, solved: false, tries: 0 };

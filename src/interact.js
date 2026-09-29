@@ -154,14 +154,9 @@ function interactPatches(sc, h, rt, nearPull) {
         payFor(next.cost); p.lv = (p.lv || 0) + 1; sfx.forge(); spark(px * W, py * H, '#c9a46a', 12, 2.5); zoomPulse(px * W, py * H, 'pickup');
         say(`${next.name}: grows faster${next.bonus ? ', sometimes gives extra' : ''}${next.seedBack ? ', sometimes gives a seed back' : ''}.`, px * W, py * H - UNIT, { key: 'plot', life: 3.5, color: '#ffe38a' });
       };
-      const plant = kind => {
-        state.inv.bag[kind]--; p.s = 1; p.t = state.playTime; p.seed = kind;
-        sfx.plant(); spark(px * W, py * H, '#6a4a2a', 6, 2);
-        say(SEEDS[kind].crop ? `Planted. ${CROP_NAME[SEEDS[kind].crop]} grow here.` : `${SEEDS[kind].name} planted. It will take a while.`, px * W, py * H - UNIT, { key: 'plot', life: 2.5 });
-      };
       if (p.s === 0) {
         const opts = have.map(k => `Plant ${SEEDS[k].name.toLowerCase()} (${state.inv.bag[k]})`).concat(improve ? [`${next.cost.acorn ? 'Compost' : 'Improve'} (${patchCost(next.cost)})`] : []);
-        ask(patchOf(p).name, px * W, py * H - UNIT, opts, i2 => i2 < have.length ? plant(have[i2]) : doImprove());
+        ask(patchOf(p).name, px * W, py * H - UNIT, opts, i2 => i2 < have.length ? plantHere(have[i2]) : doImprove());
       }
       else if (p.s === 1 && stage >= 3) {                 // pulled all the way up
         const S = SEEDS[seedOfPlot(p, sc, i)], P = patchOf(p), extra = rng() < P.bonus + (S.yields ? 0 : cropLevel(crop) * 0.05) ? 1 : 0;
@@ -487,7 +482,7 @@ function npcLines(n) {
     }
     if (!rt.flags.pipSpores) {
       rt.flags.pipSpores = true;
-      return { lines: ['Home. I\'ve never been so happy to see that tent.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
+      return { lines: ['Home. I\'ve never been so happy to see that lean-to.', 'Remember the gremlins\' trick? Smash a bunch of spores at once near one of those big mushrooms, and you pop out at another.', 'You\'ve been picking spores up all along without knowing it, you know. Check your pockets.', 'Now that you know how, you can jump to any mushroom you\'ve found from anywhere, not just from another mushroom. Farther jumps take more spores.', 'Spore travel is in your menu now. Go on, try it.'] };
     }
     return { lines: [pick(['Found the swamp shrine yet? Those stones give me the shivers.', `You've got ${inv.spores} spores. A short hop is only 1.`, 'Each mushroom grows new spores while you\'re away. Visit them now and then.', 'I planted a few things while you were out. Check the plots!'])] };
   }

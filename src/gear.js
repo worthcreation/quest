@@ -263,13 +263,7 @@ function slotShow(s) {
   const n = entryCount(s);
   return { icon: entryInfo(s).icon, n: s.kind === 'weapon' && (s.id === 'sword' || s.id === 'woodsword') || s.kind === 'ability' ? null : n, on: s.kind === 'weapon' && state.equip === s.id, wear: s.id === 'woodsword' ? state.inv.woodsword / WOOD_SWORD : null };
 }
-// the plant button: the slot holding seeds you have
-function seedSlotKey() { return null; }                 // no seed key any more: F at a patch plants
-function seedSlotKeyOld() {
-  const sl = slotsOf();
-  return ALL_SLOTS.find(k => sl[k] && sl[k].kind === 'seed' && entryCount(sl[k])) || null;
-}
-const seedKeyLabel = () => { const k = seedSlotKey(); return k ? slotLabel(k) : K.act; };
+// plant from a patch: the nearest empty patch of rich soil within reach
 function plantHere(kind) {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   if (!sc.feat.plots || !kind) return false;

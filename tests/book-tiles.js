@@ -15,7 +15,7 @@ console.log('1 far-side notice during the opening:', during, '| from the near ba
 h.x=fx+UNIT*2; h.y=fy+UNIT*2.2; console.log('   standing on the far side, in view:', inView(fx,fy+UNIT*0.6,6)); state.pipTalkT=-9; run(90); console.log('   described now:', said.filter(s=>s.k==='farside').map(s=>s.t).join(' | '));
 // 3. more than one thing to do here: all of them, each with its key
 enterScene('meadow'); inv.story=STORY.garden; inv.bag.turnipseed=2; run(30); clear(); const q=WORLD.meadow.feat.plots[WORLD.meadow.feat.plots.length-1]; h.x=q[0]*W; h.y=q[1]*H; run(5); draw();
-console.log('3 at an empty patch with seeds on', seedSlotKey(), '->', (state.hintActs||[]).map(a=>a.key+' '+a.verb).join('  |  '));
+console.log('3 at an empty patch with seeds ->', (state.hintActs||[]).map(a=>a.key+' '+a.verb).join('  |  '));
 state.items.push({type:'stick',x:h.x,y:h.y}); run(2); draw(); console.log('   with a stick at your feet too ->', (state.hintActs||[]).map(a=>a.key+' '+a.verb).join('  |  ')); state.items=[];
 // 4. the book: two pages to a spread
 enterScene('tentin'); run(5); state.menu={view:'book',page:0}; draw(); press('arrowright'); const p1=state.menu.page; press('arrowright'); const p2=state.menu.page; press('arrowleft'); console.log('4 book spreads: start 0 -> right', p1, '-> right again', p2, '-> left', state.menu.page, '| pages', BOOK.length); state.menu=null;

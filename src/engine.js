@@ -9,8 +9,8 @@ function refreshSceneGeometry() {
   const sc = sceneDef();
   if (!sc) return;
   const rt = rtFor(sc.id);
-  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, log: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
-  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag]) && !(s.plate && state.plateOn[s.plate])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
+  const F = { cavewall: 0.95, boulder: 0.95, pillar: 0.95, stalagmite: 0.8, shroom: 0.7, stone: 1, wall: 1, bed: 1, table: 1, stove: 1, cliff: 1, cairn: 1, mirror: 1, chest: 1, lectern: 1, burrow: 1, cracked: 0.95, crag: 1.15, crate: 0.9, barrel: 0.85, stump: 1, campfire: 1, tent: 0.9, bramble: 1, reeds: 1, web: 1, vine: 1 };
+  state.solids = sc.solids.filter(s => !(s.bar && rt.flags[s.bar]) && !(s.showFlag && !rt.flags[s.showFlag])).map((s, i) => ({ ...s, x: s.fx * W, y: s.fy * H, r: s.r * UNIT * (F[s.kind] || 0.45), vis: s.r * UNIT, key: sc.id + ':' + sc.solids.indexOf(s) }));
   state.pools = sc.pools.map(p => ({ x: p.fx * W, y: p.fy * H, r: p.r * UNIT }));
   for (const e of state.enemies) if (e.poolIdx != null) e.pool = state.pools[e.poolIdx];
 }
@@ -72,7 +72,6 @@ function enterScene(id, fx, fy) {
   state.bird = id === 'meadow' ? makeBird() : null;
   state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
   state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0; state.gustDur = 2 + Math.random();
-  state.plateOn = {}; updatePlates(true);
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
@@ -343,7 +342,6 @@ function update(dt) {
       try { f(dt); } catch (err) { if (!(update.bad || (update.bad = {}))[name]) { update.bad[name] = true; console.error('update ' + name + ' failed (game continues):', err); }
         if (name === 'enemies') state.enemies = state.enemies.filter(e => e && isFinite(e.x) && isFinite(e.y)).map(e => { if (!e.mode) e.mode = 'idle'; return e; }); }
     }
-    updatePlates(false);
   }
 
   // things on the ground wait for F (see pickUpHere), unless your gathering skill brings them to you: within their
@@ -466,30 +464,6 @@ function updateGlimpse(dt) {
   if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => say('Gone again. Always one step behind.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'miss', life: 2.5 }), 0); }
   if (g.t > 3) state.glimpse = null;
 }
-// ---------------- stone plates: weight on them lifts their log gate ----------------
-function updatePlates(quiet) {
-  const plates = sceneDef().feat.plates;
-  if (!plates) return;
-  const h = state.hero;
-  let changed = false;
-  for (const p of plates) {
-    const x = p.fx * W, y = p.fy * H;
-    const rock = state.items.some(it => it.type === 'bigrock' && Math.hypot(it.x - x, it.y - y) < UNIT * 1.1);
-    const on = rock || (h.z <= 0 && !h.ride && Math.hypot(h.x - x, h.y - y) < UNIT * 0.7);
-    if (on !== !!state.plateOn[p.id]) {
-      state.plateOn[p.id] = on; changed = true;
-      if (!quiet) {
-        sfx.rumble(); sfx.tock(); state.shake = 0.2;
-        const g = sceneDef().solids.find(s => s.plate === p.id);
-        if (g) zoomPulse(g.fx * W, g.fy * H, on ? 'kill' : 'hit');
-        if (on && !rock) say('The log shifts... but you can\'t hold it and walk through.', x, y - UNIT * 1.2, { key: 'plate', tip: 'plate-self', life: 3.5 });
-        if (on && rock) say('The rock holds the plate down. The log rolls aside.', x, y - UNIT * 1.2, { key: 'plate', life: 3 });
-      }
-    }
-    if (!on && Math.hypot(h.x - x, h.y - y) < UNIT * 2.5) say('A stone plate, worn smooth. Something heavy would hold it down.', x, y - UNIT * 1.2, { key: 'platehint', tip: 'plate', life: 4 });
-  }
-  if (changed) refreshSceneGeometry();
-}
 // ---------------- scene features ----------------
 function updateFeatures(dt) {
   const sc = sceneDef(), h = state.hero, f = sc.feat, rt = rtFor(sc.id);
@@ -596,20 +570,6 @@ function catchStone(h, sc) {
   let best = null, bd = Infinity;
   for (const [fx, fy, rU] of sc.river.stones) { const d = Math.hypot(h.x - fx * W, h.y - fy * H); if (d < rU * UNIT * 1.3 && d < bd) { bd = d; best = [fx * W, fy * H, rU]; } }
   if (best && bd > best[2] * UNIT * 0.6) { const a = Math.atan2(h.y - best[1], h.x - best[0]); h.x = best[0] + Math.cos(a) * best[2] * UNIT * 0.55; h.y = best[1] + Math.sin(a) * best[2] * UNIT * 0.55; }
-}
-// stepping stones: a jump aimed at a stone lands you on it, so crossing is about choosing each hop
-function hopToStone(sc) {
-  const h = state.hero;
-  let best = null, bd = Infinity;
-  for (const [fx, fy] of sc.river.stones.concat(sc.river.banks || [])) {
-    const x = fx * W, y = fy * H, dx = x - h.x, dy = y - h.y, d = Math.hypot(dx, dy);
-    if (d < UNIT * 0.8 || d > Math.max(UNIT * 5.5, H * 0.2) || (dx * h.fx + dy * h.fy) / d < 0.55) continue;   // ahead of you and within a hop
-    if (d < bd) { bd = d; best = [x, y]; }
-  }
-  if (!best) return false;
-  h.ride = { t: 0, dur: 0.45 + bd / (UNIT * 14), x0: h.x, y0: h.y, x1: best[0], y1: best[1], hgt: UNIT * 1.3, hop: true };
-  sfx.jump();
-  return true;
 }
 function rideGust(sc) {
   const h = state.hero, tgt = windTarget(sc);

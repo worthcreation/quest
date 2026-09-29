@@ -8,7 +8,7 @@ const plantedIn = id => ((rtFor(id).flags.plots) || []).filter(p => p.s === 1).l
 // what each quest amounts to, said in the banner when it's done
 const QUEST_DID = {
   garden: 'Seeds in the ground, and your first turnip pulled.',
-  camp: 'A fire ring, a bench and a tent: home base.',
+  camp: 'A fire ring, a bench and a lean-to: home base.',
   pip: 'Pip is safe, and the tunnels know your name.',
   beans: 'The toad is fed, and grateful.',
   journal: 'Every map Pip ever drew, back where it belongs.',
@@ -18,7 +18,7 @@ const QUEST_DID = {
 const QUESTS = [
   { id: 'garden', name: 'Pip\'s garden', icon: 'turnipseed', start: () => storyAt('garden'), steps: [
     { id: 'seeds', name: 'Gather seeds', line: () => 'Run at the robin in the meadow. It drops turnip seeds.', done: () => (state.inv.bag.turnipseed || 0) > 0 || plantedIn('meadow') > 0 || storyAt('tocamp') },
-    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${seedKeyLabel()}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
+    { id: 'plant', name: 'Plant seeds', line: () => `Stand on Pip's rich soil and press ${K.act}. ${Math.min(2, plantedIn('meadow'))} of 2 planted.`, done: () => storyAt('tocamp') },
     { id: 'later', name: 'Harvest a turnip', line: () => 'They grow while you are out. Come back to the meadow and pull one up.', done: () => (state.inv.harvests || 0) > 0 || Object.keys(state.inv.cropXp || {}).length > 0 },
   ], reward: () => {                                   // Pip's thank-you: a taste of each low vegetable, and carrot seeds to try
     const inv = state.inv; inv.food.push('turnip'); inv.food.push('carrot'); inv.bag.carrotseed = (inv.bag.carrotseed || 0) + 1;

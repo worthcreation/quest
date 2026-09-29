@@ -1,4 +1,4 @@
-# Quest: handoff (build 161, 29 Sep 2026)
+# Quest: handoff (build 162, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -6,7 +6,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - Build: `sh build.sh` concatenates src/head.html and the files in src/ORDER into index.html, then checks the script
   parses (fails the build if not). BUILD number: `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 62 tests, about 2 minutes, one call. Each prints `errs N`; 0 is a pass.
+  seed 1000003, TEST_MODE on). 62 tests, about 2 minutes, one call. Each prints `errs N`; 0 is a pass
+  (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Render: `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
   mountainside still; B139/B150/B154 are the climb screens.
@@ -24,6 +25,7 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
 - text.js       say() with pages and holds, showTitle, showScroll, notice (pickup scrolls)
 - engine.js     update(), enterScene, movement, jumps, wind and rides, chasms (isChasm, chasmSpan), hurtHero, checkEdges
+                (no plates, logs or vanes: deleted in build 162)
 - items.js      pickups, collect, drops, SEEDS, buried rocks and pulls, hitCrag, hitStone, robinHiding, stick drops
 - combat.js     blades, slashes, lunge, whirlwind, pound, SWING_COST
 - critters.js   enemies and AI (rabbits, gremlins incl. the peeking and taunting ones, hawks, mantises), damage, fx
@@ -36,7 +38,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - save.js       saves, settings, migrations
 - craft.js      camp building, RECIPES, the craft mat, STORY, campBuilt
 - quests.js     QUESTS, updateQuests, storyAt, the quest HUD and log
-- gear.js       slots and lanes (SLOT_KEYS, useSlot, flashSlot), FOOD, blades, wearables, plantHere, heroColor
+- gear.js       slots and lanes (SLOT_KEYS, useSlot, flashSlot), FOOD, blades, wearables, plantHere (the one plant
+                path; interact's patch menu calls it), heroColor
 - skills.js     SKILLS, skillUse, SKILL_INFO
 - draw.js       world drawing: ground, solids, crags, ravines (drawBrokenChasm), mountain sides, hero, Pip (drawPip),
                 enemies, items, drawJagged, drawRock, drawSoilLine, BUILD
@@ -80,6 +83,6 @@ Your shadow is the aim (it leads toward the landing, small at the top of a jump)
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
 ## Next task
-The cleanup build: every item in QUEST_WAYS_OF_WORKING.md section 5 (delete the dead functions and features, one plant
-path, lean-to wording, climb leftovers you're sure of), then the full suite, overlap check, BUILD bump, a HISTORY entry.
-After that, ask which climb screens to keep and where they join the world.
+The climb: decide which of climb1 to climb5 to keep (test at ?mountain, keys 1 to 5) and where they join the world
+(between the windy fields and the crags), then retire the f2-f6 mountain-path screens they replace. Open with the climb:
+the crag() painter in paintClimb and climbBand fixed at 12.

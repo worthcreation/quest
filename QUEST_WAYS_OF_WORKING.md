@@ -1,5 +1,5 @@
 # Quest: what the project is, and how we work on it
-Checked 29 Sep 2026 against build 156 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
+Checked 29 Sep 2026 against build 162 source (the 29 Sep rewrite was against build 65 and a p-file layout that no longer
 exists). Read this and HANDOFF.md at the start of every Quest chat.
 
 ## 1. What Quest is
@@ -57,19 +57,13 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
-## 5. Audit (grep for callers, build 156). Do these in one cleanup build, then run the suite.
-- Still dead: hopToStone [engine], drawVane and drawWindPath [draw] (zero callers); plate() and logGate() [world]
-  (zero callers); updatePlates [engine] runs every frame over a feature no screen has, with plateOn in draw, engine,
-  puzzles and world; camp.feat.pip [world] (start.feat.pip is used by the ambush, keep it); icon cases fiber, cloth,
-  cord, stake, tentkit [craft]; seedSlotKey (returns null) and seedSlotKeyOld [gear].
-- Still true: drawArenaSigns is called only when sc.feat.signs is set, and nothing sets it. Delete both.
-- Still two plant paths: interact.js line ~158 inlines "p.s = 1" and gear.js plantHere() does the same. Make interact
-  call plantHere and delete the inline block.
-- Still stale wording: "happy to see that tent" in cutscenes.js and interact.js; it's a lean-to.
-- Climb leftovers: ZIG3 and ZIG4 (screens they served were replaced), the crag() painter inside paintClimb, and
-  climbBand fixed at 12 (ledge closures off while testing). Keep ZIG1/zig() until the climb design settles.
-- Repo only: src/p1.js to p14.js and tests/t21.js to t92.js are leftovers of the pre-build-93 layout. They are not
-  built or run. The ship command below removes them.
+## 5. Audit (grep for callers, build 162)
+- Done in build 162: hopToStone, drawVane, drawWindPath, plate()/logGate()/updatePlates/plateOn, camp.feat.pip, the
+  fiber/cloth/cord/stake/tentkit icons, seedSlotKey/seedSlotKeyOld, drawArenaSigns, the inline plant block, the
+  "tent" lines, ZIG3/ZIG4. src/pip.js and src/puzzles.js were restored (build 161 deleted them by accident).
+- Still to decide with the climb: the crag() painter inside paintClimb and climbBand fixed at 12 (ledge closures off
+  while testing). Keep ZIG1/zig() until the climb design settles.
+- Watch for: the ship command's Remove-Item globs; p*.js also matched pip.js and puzzles.js. Never glob-delete in src/.
 - No longer true: "bump BUILD in p7.js" (src/draw.js); "t21...t65 sweep" (tests are named by topic now, run all
   with tests/run.js); "state.settings.autoTalk" (gone; tests press F through held lines); "drawHUD owns the top strip".
 
@@ -95,9 +89,8 @@ reference image plus a few words; "render a still" gets a mockup, no build. If a
    from the container; no uploads needed once the repo is current.
 
 ## 9. Roadmap
-1. Cleanup build (section 5).
-2. The climb: settle the look (screens 1 to 5 on ?mountain), then decide where it joins the real world (between the
+1. The climb: settle the look (screens 1 to 5 on ?mountain), then decide where it joins the real world (between the
    windy fields and the crags) and retire the f2-f6 mountain-path screens it replaces.
-3. Balance pass from arena and puzzle records; sword swing cost (SWING_COST) and Pip's pace still being tuned.
-4. Story after the rescue: the journal quest, spore travel, the High Reaches, then chapter 2.
-5. The drawn hero, once mechanics lock.
+2. Balance pass from arena and puzzle records; sword swing cost (SWING_COST) and Pip's pace still being tuned.
+3. Story after the rescue: the journal quest, spore travel, the High Reaches, then chapter 2.
+4. The drawn hero, once mechanics lock.

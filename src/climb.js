@@ -26,7 +26,7 @@ function zig(cross, wide = 1.9, narrow = 0.55) {
   };
   return { hw, band };
 }
-const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]), ZIG3 = zig([[19, 'R'], [15.2, 'L'], [11.8, 'R'], [8.6, 'L'], [6.2, 'R']], 1.6, 0.5), ZIG4 = zig([[13, 'R'], [9.2, 'L'], [6.4, 'R']]);
+const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]);
 const CLIMBS = {
   climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, cx: z => 2.6 * tri(z, 22, 6), hw: ZIG1.hw, band: ZIG1.band, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
   climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, cx: z => 1.4 * tri(z, 30, 4), hw: z => 2.6, start: [3.6, 20], goalZ: 4.6, next: 'climb3',

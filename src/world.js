@@ -126,7 +126,7 @@ function ringBarrier(sc, id, kind, cx, cy, radU, rU = 0.5) {
   for (let a = 0; a < 6.28; a += 0.55) sc.solids.push(solid(cx + Math.cos(a) * radU * UNIT / W, cy + Math.sin(a) * radU * UNIT / H, rU, kind, null, { bar: id }));
 }
 function gapAt(c, half = 0.09) { return [Math.max(0.1, c - half), Math.min(0.9, c + half)]; }
-// every interactable (mushroom, plot, rock, plate, character, pickup) claims a patch of ground;
+// every interactable (mushroom, plot, rock, character, pickup) claims a patch of ground;
 // nothing else may be placed on a claim, so no two ever share a spot
 function claim(sc, fx, fy, rU) { sc.claims.push([fx, fy, rU]); }
 const onClaim = (sc, fx, fy, rU) => sc.claims.some(c => Math.hypot((fx - c[0]) * W, (fy - c[1]) * H) < (c[2] + rU) * UNIT);
@@ -158,7 +158,7 @@ function decoFlowers(sc, n) {
 }
 // farm patches: a few patches of rich soil near the path; what grows depends on the region
 // spots other things already claim (puzzles, people) so farms and mushrooms keep their distance
-const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat((sc.feat.plates || []).map(p => [p.fx, p.fy, 3]), sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
+const claimed = sc => sc.pullables.map(p => [p.fx, p.fy, 3]).concat(sc.npcs.map(n => [n.fx, n.fy, 3]), sc.pools.map(o => [o.fx, o.fy, o.r + 2]));
 // Patches are never packed side by side: two of them sit either diagonally touching or with one empty tile between.
 // plotPattern gives n spots around a centre in tiles (converted to fractions of this screen).
 function plotPattern(c, n, kind) {
@@ -200,8 +200,7 @@ function addShroom(sc, spot, plots = 2) {                 // travel mushrooms ar
     row.forEach(q => { sc.feat.plots.push(q); claim(sc, q[0], q[1], 0.7); });
   }
 }
-// ---- rock puzzle pieces: stone plates, log gates held shut, rings of stones ----
-function plate(sc, id, spot) { (sc.feat.plates = sc.feat.plates || []).push({ id, fx: spot[0], fy: spot[1] }); claim(sc, spot[0], spot[1], 1.3); }
+// ---- rock puzzle pieces: rings of stones ----
 // a cracked stone: a thrown rock knocks it apart. Some hold something; some are the keystone of a wedged boulder pile (rope unused now)
 // breakable stones are drawn bigger than a thrown rock (0.6), so they read as the thing to hit
 // a single breakable boulder: size in tiles (1-5) is its width and the number of rock hits it takes; its colour varies
@@ -252,7 +251,6 @@ const STONES = {
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
 const pickStone = () => { const r = rng(); return r < 0.5 ? 'sandstone' : r < 0.85 ? 'granite' : 'geode'; };
-function logGate(sc, bar, plateId, x0, y0, x1, y1) { barrier(sc, bar, 'log', x0, y0, x1, y1, 0.55); sc.solids.forEach(s => { if (s.bar === bar) s.plate = plateId; }); }
 function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
   const n = Math.ceil(Math.PI * 2 * radU / 0.95);                  // a few smaller rough boulders, not a row of pebbles
   for (let k = 0; k < n; k++) {
@@ -282,7 +280,6 @@ function genWorld() {
   camp.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'start' }];
   camp.feat.fire = [0.5, 0.45];
   camp.feat.plots = plotPattern([0.66, 0.78], 4);          // four, a tile apart, by the camp's travel mushroom
-  camp.feat.pip = [0.58, 0.44];
   npc(camp, { kind: 'pip', fx: 0.6, fy: 0.5, home: true });
   camp.solids.push(solid(0.5, 0.45, 0.45, 'campfire'), solid(0.33, 0.33, 1.1, 'tent'), solid(0.64, 0.34, 0.6, 'bench'));
   camp.solids.slice(-3).forEach((s, i) => { s.showFlag = ['built_fire', 'built_tent', 'built_bench'][i]; });   // only Pip's tent stands at first
@@ -843,7 +840,7 @@ state = {
   started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
   shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
   settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false, equip: 'sword',
-  choice: null, whirl: null, chain: { n: 0, t: -9 }, plateOn: {}, fish: null, fishCool: {},
+  choice: null, whirl: null, chain: { n: 0, t: -9 }, fish: null, fishCool: {},
 };
 state.hero = newHero();
 

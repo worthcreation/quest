@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 162: the cleanup build
+- src/pip.js and src/puzzles.js are back: the build 161 commit deleted them along with p1 to p14 (a p*.js glob), so a
+  fresh clone built without Pip or the puzzles. Restored from build 155; the rebuilt index.html is byte-identical.
+- Deleted, zero callers: hopToStone (engine), drawVane, drawWindPath and the vane placement in layoutLedges (draw),
+  plate(), logGate() and the plate claims (world), updatePlates and state.plateOn (engine, world, puzzles, overlap),
+  the plate drawing, the plate tip and the 'log' solid (draw, engine), camp.feat.pip (world), drawArenaSigns and
+  feat.signs (arena, draw), the icon cases fiber, cloth, cord, stake, tentkit (craft), seedSlotKey, seedSlotKeyOld
+  and seedKeyLabel (gear, quests), ZIG3 and ZIG4 (climb).
+- One plant path: the patch menu in interact() calls plantHere() (gear); the inline copy is gone.
+- Wording: Pip's homecoming line says lean-to (cutscenes, interact); the camp quest blurb too (quests).
+- PROJECT_INSTRUCTIONS.md: the PC clone address carries the worthcreation account so it stays apart from the work
+  GitHub account.
+- Suite: 62 of 62, identical output to build 161 line for line; overlap 0 over 300 worlds.
+
 ## Build 161: a ship command that stops if the folder is missing
 - The ship command starts with cd ~\quest -ErrorAction Stop: when ~\quest didn't exist, the old line carried on and
   unzipped and deleted in whatever folder PowerShell was in. The docs say where the repo lives and how to clone it.

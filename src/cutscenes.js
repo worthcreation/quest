@@ -69,7 +69,7 @@ function updateCut(dt) {
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) say('Home! I\'ve never been so happy to see that tent.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.3)) say('Home! I\'ve never been so happy to see that lean-to.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
