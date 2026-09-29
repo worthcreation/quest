@@ -64,17 +64,17 @@ const TUTORIAL = [
     remindAt: () => { const it = TUT.nearItem('stick'); if (it) return [it.x, it.y]; const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : TUT.exitSpot(); } },
   { id: 'stones', done: () => !campMissing().stone, goal: () => 'riverbank', scene: 'riverbank', spot: () => TUT.nearItem('stone') && [TUT.nearItem('stone').x, TUT.nearItem('stone').y],
     say: () => 'Smooth stones! Nice flat ones. Two of those.', remind: () => ['Here\'s a good smooth stone!', 'Grab this stone!', 'Flat ones, by the water.'], remindAt: () => { const it = TUT.nearItem('stone'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
-  { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'f2', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
+  { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'rise', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
     say: () => 'Fluff blows all over in this wind. Grab it quick!', remind: () => ['Quick, the fluff!', 'Don\'t let the wind take it!', 'Rabbit fluff. We need three tufts.'], remindAt: () => { const it = TUT.nearItem('fluff'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'lesson', done: () => TUT.tip('craftLesson') || !TUT.fluffNeed(), once: 'craftLesson', hold: true, spot: null, goal: () => TUT.raw().stick >= 3 ? null : 'start',
     say: () => 'Two tufts! The bench needs more for its glue. There are rabbits to the south... but they are mean! Time you learned crafting. Let\'s make you a wooden sword.',
     after: () => { hearRecipe('woodsword'); startCoach('sword'); } },
   { id: 'sword', done: () => !!bladeKind() || !TUT.fluffNeed(), goal: () => TUT.raw().stick >= 3 ? null : 'start', spot: null,
     remind: () => TUT.raw().stick >= 3 ? [`Slap that sword together! ${TUT.M()}, Craft, wooden sword, Combine.`, 'Three sticks on the mat, then Combine!'] : ['Sticks first. The glade has plenty.', 'Three sticks for a sword!'], remindAt: () => TUT.exitSpot() },
-  { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'f2', scene: null, spot: null,
-    say: () => state.scene === 'f2' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
-    key: () => state.scene === 'f2' ? 'field' : 'go', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
-    remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'f2' && r ? [r.x, r.y] : TUT.exitSpot(); } },
+  { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'rise', scene: null, spot: null,
+    say: () => state.scene === 'rise' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
+    key: () => state.scene === 'rise' ? 'field' : 'go', remind: () => state.scene === 'rise' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
+    remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'rise' && r ? [r.x, r.y] : TUT.exitSpot(); } },
   { id: 'build', done: () => campDone(), goal: () => 'camp', scene: 'camp', spot: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; },
     say: () => campMarkLine(), key: () => campMarkLine(), remind: () => [campMarkLine()], remindAt: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; } },
   { id: 'homebase', done: () => gearOwned().includes('feather'), scene: 'camp', spot: null, hold: true, once: 'campdone', bounce: true,
@@ -147,9 +147,9 @@ const PIP_LINES = [
     at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,
     text: () => cropNeed() ? `It's ripe! Grab hold (hold ${TUT.F()}), rock it ${K.l} ${K.r} a few times, then pull ${K.u}!` : `It's ripe! Just ${TUT.F()} and pull it up!` },
   // the rabbits' field: combat basics, in two lines
-  { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
+  { key: 'combat-eyes', scene: 'rise', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
     text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
-  { key: 'combat-swing', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
+  { key: 'combat-swing', scene: 'rise', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
     text: () => `Then swing (${K.act.toUpperCase()}) while it\'s close. A couple of hits and it\'s done. Or hold ${K.act.toUpperCase()} and let go: one big lunge.` },
   // the glade, once the adventure is on: the brambles, the buried rock, the throw
   { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
@@ -223,7 +223,7 @@ function coachUpdate() {
   // camp coaching starts on its own once the lesson has happened
   if (!state.coach && TUT.tip('craftLesson') && !campBuilt('fire') && campParts().stones >= CAMP_PARTS.fire.stones) { hearRecipe('tinder'); startCoach('tinder'); }
   if (!state.coach && TUT.tip('craftLesson') && campBuilt('fire') && !campBuilt('bench') && bladeKind()) { hearRecipe('glue'); hearRecipe('benchframe'); startCoach('frame'); }
-  if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
+  if (!state.coach && state.scene === 'rise' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }

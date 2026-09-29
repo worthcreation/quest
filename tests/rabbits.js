@@ -2,7 +2,7 @@ const src = require('./harness.js').src;
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }};
 run(5); state.intro=null; state.texts=[]; const inv=state.inv, h=state.hero; inv.story=STORY.gather; (inv.pipTips=inv.pipTips||{}).tada=true; (inv.pipTips).craftLesson=true; inv.woodsword=WOOD_SWORD; rawOf().fluff=2;
-enterScene('f2'); run(5); const rs=state.enemies.filter(e=>e.type==='rabbit'); console.log('1 rabbits on the second field:', rs.length);
+enterScene('rise'); run(5); const rs=state.enemies.filter(e=>e.type==='rabbit'); console.log('1 rabbits on the second field:', rs.length);
 // 2. the tell: it freezes with flashing eyes before it charges
 const e=rs[0]; e.mode='idle'; e.cool=0; e.t=0; h.x=e.x+UNIT*3; h.y=e.y; const modes=[]; for(let k=0;k<90;k++){ run(1); if(modes[modes.length-1]!==e.mode) modes.push(e.mode); }
 console.log('2 a rabbit near you goes:', modes.join(' > '));
@@ -11,7 +11,7 @@ const said=[]; const _s=say; say=function(t,x,y,o){ if(o&&(o.key==='pip'||o.who=
 for(let k=0;k<60*30;k++){ run(1); state.pipTalkT=Math.min(state.pipTalkT||0,state.time-7); if(said.some(t=>/lunge/.test(t))) break; }
 console.log('3 Pip on the field:\\n   '+said.filter(t=>/eyes|swing/i.test(t)).join('\\n   '));
 // 3b. arriving the usual way: Pip's line on the field, and the pinned basics until the rabbits are down
-state.coach=null; delete inv.pipTips['coach-combat']; inv.rabbitKills=0; Object.assign(rawOf(),{stick:6,stone:5,fluff:2}); state.pipTalkT=-99; said.length=0; enterScene('f1'); run(10); enterScene('f2'); run(60*3);
+state.coach=null; delete inv.pipTips['coach-combat']; inv.rabbitKills=0; Object.assign(rawOf(),{stick:6,stone:5,fluff:2}); state.pipTalkT=-99; said.length=0; enterScene('f1'); run(10); enterScene('rise'); run(60*3);
 const cs=[]; const note=()=>{ const c=state.coach; if(c&&c.id==='combat'){ const t=COACH.combat()[c.i].text; if(cs[cs.length-1]!==t) cs.push(t); } };
 note(); for (const e of state.enemies.filter(q=>q.type==='rabbit')) { kill(e); run(10); note(); }
 console.log('3b Pip on arrival:', said.filter(t=>/There they are/.test(t))[0]||'(none)');

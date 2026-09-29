@@ -1,7 +1,7 @@
 const src = require('./harness.js').src;
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }}; const press=(k,n=1)=>{ state.keys[k]=true; run(n); state.keys[k]=false; run(2); };
-run(5); state.intro=null; state.texts=[]; enterScene('f2'); state.enemies=[]; state.items=[]; run(5); const inv=state.inv, h=state.hero; state.pip&&(state.pip.show=false);
+run(5); state.intro=null; state.texts=[]; enterScene('rise'); state.enemies=[]; state.items=[]; run(5); const inv=state.inv, h=state.hero; state.pip&&(state.pip.show=false);
 inv.woodsword=WOOD_SWORD; inv.sword=false; run(20); h.x=W*0.3; h.y=H*0.3; h.fx=1; h.fy=0;
 // 1. swinging at nothing costs nothing
 for(let i=0;i<10;i++){ state.atkCool=0; state.chain.n=0; press('f',2); run(20); } console.log('1 ten swings at air: durability', inv.woodsword, 'of', WOOD_SWORD, '| spinning', !!state.whirl);

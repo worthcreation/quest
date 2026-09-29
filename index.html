@@ -78,9 +78,10 @@ var state;
 refreshK();
 document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act, Space to jump, M for menu';
 let W = window.innerWidth, H = window.innerHeight, UNIT = 32, DPR = window.devicePixelRatio || 1;
+let SW = W, SH = H;                                  // the screen: W and H are the current scene's size (the same, except on the rise)
 const computeUnit = () => { UNIT = Math.max(20, Math.min(W, H) / 14); };
 computeUnit();
-const L = () => Math.max(W, H);
+const L = () => Math.max(SW, SH);                    // walking pace and the like come from the screen, not the scene
 
 // =====================================================================
 // Random (seeded per adventure; the seed is what a save file stores)
@@ -857,7 +858,7 @@ function genWorld() {
     if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
   }
   for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
-  add(newScene({ id: 'rise', area: 'field', msg: 'The ground starts to climb.', music: 'field', amb: 'wind', floor: '#707a69', speed: 0.45, accel: 8 })).exits = [];   // drawn and run by rise.js
+  addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -911,7 +912,7 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
   c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
   fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
   sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],
@@ -961,6 +962,7 @@ function renderOverview(seed) {
   for (const id of Object.keys(MAP_LAYOUT)) {
     const sc = WORLD[id];
     enterScene(id);
+    if (sc.virt) { state.rise = null; refreshSceneGeometry(); }   // the rise, as a flat thumbnail: its tiles squeezed into the frame
     const h = state.hero; h.x = -9999; h.y = -9999;
     state.texts = []; state.title = null; state.fx = []; state.glimpse = null;
     const shade = sc.shade; sc.shade = Math.min(shade || 0, 0.35);   // dim, not black, so dark screens can be read
@@ -1615,19 +1617,19 @@ function drawSideClimb(c) {
   const s = UNIT * 0.8; ctx.fillStyle = heroColor(); ctx.fillRect(sx(c.px) - s / 2, sy(c.py) - s, s, s);
   [state.hero.x, state.hero.y] = [sx(c.px), sy(c.py) - s / 2];
 }
-// ===== rise.js: the rise. One long screen where the windy fields climb to the mountain's foot, laid out in tiles.
-// It opens looking straight down, like the fields. Walk east and the view pulls back and tips up, so the grade shows
-// (the contour lines bunch, the far edge rises into a skyline) and the mountain stands up ahead; walk back west and it
-// comes in again. The camera follows only how far east you are. Like the climb it runs its own update and drawing, but it
-// walks at the fields' speed and is drawn with the game's own stones and trees.
-// Not joined to the map yet: ?scene=rise, or System > Testing. For now it loops: walk off either end and you come back
-// in at the other, still walking the same way.
+// ===== rise.js: the rise, the second screen of the fields (where f2 was). One long slope, 86 tiles west to east
+// and 30 deep, from the first field up to a pass into the mountain, and on to the third field.
+// It runs on the main game: the hero, Pip, the rabbits, items, fire and the barrier are all the usual code, in a scene
+// bigger than the screen (sceneSize: while the rise is current, W and H are its own size in pixels; walking pace
+// comes from the screen, L()). Only the drawing is its own: it opens looking straight down, like the fields; walk
+// east and the view pulls back and tips up, so the grade shows and the mountain stands up ahead; walk back and it
+// comes in again. Everything standing is drawn where it touches the ground, scaled with the view.
+// Just past the first tree a wall of dry reeds crosses the way: only fire gets through it.
 
-const RISE = { len: 86, flat: 0, grade: 0.0018, mid: 15, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
+const RISE = { len: 86, D: 30, flat: 0, grade: 0.0018, mid: 15, floor: '#7b9550', treeX: 11, barX: 13.6, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
 const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
-const riseInPass = (x, y) => x > riseFoot(y) - 2 && Math.abs(y - risePathY(x)) < 1.5; // the notch the path takes into the rock
 // the lowest the view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const riseZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the pass)
@@ -1641,19 +1643,27 @@ function riseH(x, y) {
   }
   return Math.max(0, h);
 }
-// where you can stand: the one shape the game tests (the crags along the foot and the pass are drawn on its edge)
 // the way between its two walls of stone: 14 tiles wide by the fields, opening out as the view pulls back, 30 at the foot
 const riseHalf = x => 7 + 8 * riseView(x);
-const riseOpen = (x, y) => Math.abs(y - RISE.mid) < riseHalf(x) - 0.6 && (x < riseFoot(y) - 0.4 || riseInPass(x, y));
 
 function riseColor(x, y) {
   const h = riseH(x, y), gx = riseH(x + 0.3, y) - riseH(x - 0.3, y), gy = riseH(x, y + 0.3) - riseH(x, y - 0.3);
   const lit = riseClamp(0.35 * gx / 0.6 - 0.2 * gy / 0.6, -0.8, 0.8) * (0.4 + 0.6 * riseClamp((h - 3) / 6));   // faces turned to the light (west) catch it
-  const base = parseInt((WORLD.f7 ? WORLD.f7.floor : '#707a69').slice(1), 16), k = riseClamp((h - 5) / 6);    // the fields' grass, going over to stony turf, then stone
+  const base = parseInt(RISE.floor.slice(1), 16), k = riseClamp((h - 5) / 6);    // the fields' grass, going over to stony turf, then stone
   let c = [base >> 16, (base >> 8) & 255, base & 255].map((v, i) => v + ([132, 130, 118][i] - v) * k);
   const d = Math.abs(y - risePathY(x));
   if (d < 0.75 && x > RISE.X0) { const w = (1 - d / 0.75) * 0.75; c = c.map((v, i) => v + ([150, 132, 98][i] - v) * w); }
   return 'rgb(' + c.map(v => Math.round(riseClamp(v + lit * 30, 0, 255))).join(',') + ')';
+}
+
+
+// how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
+const riseView = x => riseClamp((x - 1) / (RISE.len - 10));                        // evenly, from the first step to the foot: no late rush
+const riseZoom = p => 1 - (1 - riseZoomMin()) * p;
+const riseLead = p => Math.min(RISE.lead, 0.3 * SW / 2 / (UNIT * riseZoom(p))) * p;   // how far ahead of you the view looks (less on a narrow screen)
+function riseProj(x, y, z, r = state.rise) {                                          // tiles to the screen (whatever size the scene is)
+  const s = riseZoom(r.p), th = RISE.tilt * r.p;
+  return [SW / 2 + (x - r.cx) * UNIT * s, SH / 2 + ((y - r.cy) * Math.cos(th) - (z - r.ch) * Math.sin(th)) * UNIT * s];
 }
 
 // the land, laid out once in tiles: rows of heights and colours, and everything standing on it
@@ -1670,76 +1680,89 @@ function riseLand() {
   let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const props = [], put = (k, x, y, r, solid) => props.push({ k, x, y, r, solid, seed: rnd() * 9, v: Math.floor(rnd() * 3), by: y + (k === 'tuft' ? 0.1 : k === 'tree' ? 0.3 : r * 0.9) });
   const clearOf = (x, y, r) => !props.some(p => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + r + 0.2);
+  const nearBar = x => Math.abs(x - RISE.barX) < 1.6;
   // the walls of the way: a line of stones along each side, smooth by the fields, rough as the ground rises
   for (const sd of [-1, 1]) for (let x = X0; x < 100; x += 1.25) { const wy = RISE.mid + sd * riseHalf(x); if (x > riseFoot(wy) + 1) break; const r = 0.55 + rnd() * 0.35; put(x > 40 ? 'crag' : 'boulder', x + rnd() * 0.4, wy + (rnd() - 0.5) * 0.5, r, true); }
+  // the first tree, just before the reeds
+  put('tree', RISE.treeX, risePathY(RISE.treeX) - 2.8, 1.2, true);
   // the mountain's foot and the pass: crags on the line you can't cross
   for (let y = Y0; y < Y1; y += 1.1) { const f = riseFoot(y); if (Math.abs(y - risePathY(f)) < 1.7) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
-  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 4; x += 1.2) for (const sd of [-1, 1]) { const r = 0.5 + rnd() * 0.35, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5 && clearOf(x, y, r * 0.5)) put('crag', x, y, r, true); }
+  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 4; x += 0.85) for (const sd of [-1, 1]) { const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }   // two unbroken walls: the pass is the only way on
   for (let i = 0; i < 110; i++) { const y = Y0 + rnd() * (Y1 - Y0), x = riseFoot(y) + 1 + rnd() * 40, r = 0.7 + rnd() * 0.8; if (Math.abs(y - risePathY(x)) < 3.5 + r || !clearOf(x, y, r * 0.6)) continue; put('crag', x, y, r, true); }
-  // on the way: a few stones and trees (never on the path), grass tufts everywhere green
-  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (Math.abs(y - risePathY(x)) < 2.2 || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
-  for (let i = 0; i < 18; i++) { const x = X0 + rnd() * (70 - X0), y = Y0 + rnd() * (Y1 - Y0); if (Math.abs(y - risePathY(x)) < 2.4 || !clearOf(x, y, 0.4)) continue; put('tree', x, y, 0.35, true); }
+  // on the way: a few stones and trees (never on the path, none by the reeds, no tree before the first), grass tufts
+  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (Math.abs(y - risePathY(x)) < 2.2 || nearBar(x) || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
+  for (let i = 0; i < 18; i++) { const x = 18 + rnd() * 52, y = Y0 + rnd() * (Y1 - Y0); if (Math.abs(y - risePathY(x)) < 2.4 || !clearOf(x, y, 0.6)) continue; put('tree', x, y, 1.2, true); }
   for (let i = 0; i < 420; i++) { const x = X0 + rnd() * (X1 - X0), y = Y0 + rnd() * (Y1 - Y0); if (x < riseFoot(y) - 1 && riseH(x, y) < 9) put('tuft', x, y, 0.3, false); }
-  props.sort((a, b) => a.by - b.by);
-  return (RISE_LAND = { xs, rows, props, solids: props.filter(p => p.solid) });
+  // what stands inside the scene is a solid the game tests; the rest (tufts, the far land) is only drawn
+  const inside = p => p.solid && p.x > -2 && p.x < RISE.len + 2 && p.y > -2 && p.y < RISE.D + 2;
+  const deco = props.filter(p => !inside(p)).sort((a, b) => a.by - b.by);
+  return (RISE_LAND = { xs, rows, solids: props.filter(inside), deco });
 }
+// collision radius as the game scales it for each kind (engine's refreshSceneGeometry): a stone collides at its drawn size
+const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
-function newRise(fx) {
-  const land = riseLand(), east = fx != null && fx > 0.5, x = east ? RISE.len - 1.2 : 1.2, y = risePathY(x);
-  const r = { x, y, vx: 0, vy: 0, land };
-  const p = riseView(x); Object.assign(r, { p, cx: x + riseLead(p), cy: y + (15 - y) * p - RISE.lift * p, ch: riseH(x, y) });
-  return r;
+// the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
+// the first field's south way leads in at the west end, the east end leads down into the third field.
+function addRise(S, add) {
+  const f2 = S.f2, land = riseLand(), { len, D } = RISE;
+  const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
+  sc.virt = [len, D];                                                                   // its size in tiles (sceneSize)
+  for (const p of land.solids) sc.solids.push({ fx: p.x / len, fy: p.y / D, r: p.k === 'tree' ? p.r : p.r / RISE_F[p.k], kind: RISE_KIND[p.k], v: p.v, flip: p.seed > 4.5, pal: 'green', rise: p.k, rr: p.r, seed: p.seed });
+  // the reeds: dry and dense, wall to wall, just past the first tree. Swords and stones do nothing; fire takes them
+  { const x = RISE.barX, hw = riseHalf(x); for (let y = RISE.mid - hw + 0.5; y <= RISE.mid + hw - 0.5; y += 0.85) sc.solids.push({ fx: (x + Math.sin(y * 2.1) * 0.25) / len, fy: y / D, r: 0.72, kind: 'reeds', v: Math.floor(y) % 3, flip: y % 2 < 1, pal: null, bar: 'risereeds' }); }
+  for (const [x, y] of [[4.5, 18.2], [8, 11.8]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
+  const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
+  const wa = (RISE.mid - riseHalf(0) + 0.6) / D, ea = (risePathY(len) - 1.4) / D, eb = (risePathY(len) + 1.4) / D;
+  sc.exits.push({ side: 'w', a: wa, b: 1 - wa, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
+  sc.exits.push({ side: 'e', a: ea, b: eb, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
+  Object.assign(f1s, { to: 'rise', arrive: [1.2 / len, 0.5] });
+  Object.assign(f3n, { to: 'rise', arrive: [1 - 1.2 / len, risePathY(len - 1.2) / D] });
+  delete S.f2;
+  return sc;
 }
-// how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
-const riseView = x => riseClamp((x - 1) / (RISE.len - 10));                        // evenly, from the first step to the foot: no late rush
-const riseZoom = p => 1 - (1 - riseZoomMin()) * p;
-const riseLead = p => Math.min(RISE.lead, 0.3 * W / 2 / (UNIT * riseZoom(p))) * p;   // how far ahead of you the view looks (less on a narrow screen)
-function riseProj(x, y, z, r = state.rise) {
-  const s = riseZoom(r.p), th = RISE.tilt * r.p;
-  return [W / 2 + (x - r.cx) * UNIT * s, H / 2 + ((y - r.cy) * Math.cos(th) - (z - r.ch) * Math.sin(th)) * UNIT * s];
-}
+// the scene's own size in pixels, while it is the current one (every other scene is the screen)
+const sceneSize = id => { const sc = typeof WORLD !== 'undefined' && WORLD && WORLD[id]; return sc && sc.virt ? [sc.virt[0] * UNIT, sc.virt[1] * UNIT] : [SW, SH]; };
 
-function updateRise(dt) {
-  const r = state.rise; if (!r) return;
-  if (testHops()) return;
-  updateFx(dt); state.playTime += dt;
-  const sc = sceneDef(), h = state.hero, still = state.busy || state.npcTalk || state.choice;
-  const v = still ? { x: 0, y: 0 } : inputVector();
-  if (v.x || v.y) { h.fx = v.x; h.fy = v.y; if (Math.abs(v.x) > 0.3) h.side = Math.sign(v.x); }
-  const up = riseH(r.x + 0.5, r.y) - riseH(r.x - 0.5, r.y);                            // the grade under you (tiles up per tile east)
-  const sp = sc.speed * L() / UNIT * (1 - Math.min(0.3, Math.max(0, up * v.x) * 0.6));  // the fields' pace, a touch slower uphill
-  const k = 1 - Math.exp(-sc.accel * dt);
-  r.vx += (v.x * sp - r.vx) * k; r.vy += (v.y * sp - r.vy) * k;
-  const R0 = 0.42, nx = r.x + r.vx * dt, ny = r.y + r.vy * dt;
-  if (riseOpen(nx, r.y) || nx < 0 || nx > RISE.len) r.x = nx; else r.vx = 0;           // slide along the edge you can't cross
-  if (riseOpen(r.x, ny)) r.y = ny; else r.vy = 0;
-  for (const p of r.land.solids) { const dx = r.x - p.x, dy = r.y - p.y, d = Math.hypot(dx, dy) || 0.001, mn = p.r + R0; if (d < mn) { const tx = p.x + dx / d * mn, ty = p.y + dy / d * mn; if (riseOpen(tx, ty)) { r.x = tx; r.y = ty; } } }
-  if (!still && r.x < 0.2 && v.x < 0) { transitionTo('rise', 0.9, 0.5, true); return; }          // it loops: off the bottom, back in at the top
-  if (!still && r.x > RISE.len - 0.2 && v.x > 0) { transitionTo('rise', 0.1, 0.5, true); return; }  // and off the top, back in at the bottom
-  r.x = riseClamp(r.x, 0, RISE.len);
-  // the view: pulled back and tipped by how far east you are, looking ahead up the slope; it eases, never snaps
-  const p = riseView(r.x), e = 1 - Math.exp(-2.5 * dt);
-  r.p += (p - r.p) * e; r.cx += (r.x + riseLead(p) - r.cx) * e; r.cy += (r.y + (15 - r.y) * p - RISE.lift * p - r.cy) * e; r.ch += (riseH(r.x, r.y) - r.ch) * e;
-  const [sx, sy] = riseProj(r.x, r.y, riseH(r.x, r.y));                                 // the hero's place on screen, for speech and hints
-  h.x = sx; h.y = sy - UNIT * riseZoom(r.p) * 0.5; h.vx = r.vx; h.vy = r.vy; h.z = 0;
+function newRise() { const r = { p: 0, cx: 0, cy: RISE.mid, ch: 0 }; riseCamera(0, r, true); return r; }
+// the view: pulled back and tipped by how far east you are, looking ahead up the slope; it eases, never snaps
+function riseCamera(dt, r = state.rise, snap) {
+  if (!r) return;
+  const h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = riseView(x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
+  r.p += (p - r.p) * e; r.cx += (x + riseLead(p) - r.cx) * e; r.cy += (y + (RISE.mid - y) * p - RISE.lift * p - r.cy) * e; r.ch += (riseH(x, y) - r.ch) * e;
 }
+// a point of the scene (in its pixels) on the screen: toScreen uses this on the rise, so speech and hints sit right
+const riseToScreen = (x, y) => riseProj(x / UNIT, y / UNIT, riseH(x / UNIT, y / UNIT));
 
 function drawRise() {
   const r = state.rise; if (!r) return;
-  const land = r.land, s = riseZoom(r.p), th = RISE.tilt * r.p, ct = Math.cos(th), st = Math.sin(th), us = UNIT * s;
+  const land = riseLand(), s = riseZoom(r.p), th = RISE.tilt * r.p, ct = Math.cos(th), st = Math.sin(th), us = UNIT * s;
   const sy = (y, z) => H / 2 + ((y - r.cy) * ct - (z - r.ch) * st) * us, sxOf = x => W / 2 + (x - r.cx) * us;
   // the sky and a far range, seen only once the view tips up past the land's far edge
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#9cc6e4'); g.addColorStop(1, '#e8e2c8'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const hz = sy(RISE.Y0, 0);
   if (hz > 0) { ctx.fillStyle = '#a9b4c4'; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, hz - UNIT * (1.2 + 2.4 * Math.abs(Math.sin(x * 0.004 + 1)) + 0.5 * Math.sin(x * 0.013))); ctx.lineTo(W, H); ctx.closePath(); ctx.fill(); }
-  const i0 = Math.max(0, Math.floor(r.cx - W / 2 / us - 2 - RISE.X0)), i1 = Math.min(land.xs.length - 1, Math.ceil(r.cx + W / 2 / us + 2 - RISE.X0)), step = 1;   // (every tile, always: a stride that shifted with the camera made the ground's edges shimmer)
-  const idx = []; for (let i = i0; i < i1; i += step) idx.push(i); idx.push(i1);
-  const h = state.hero; let pi = 0, heroDone = false;
-  const drawHeroHere = () => {
-    heroDone = true; const [px, py] = riseProj(r.x, r.y, riseH(r.x, r.y));
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(px + 2 * s, py, us * 0.55, us * 0.2, 0, 0, 6.28); ctx.fill();
-    ctx.save(); ctx.translate(px, py - us * 0.45); ctx.scale(s, s); const ox = h.x; h.x = 0; drawHeroBody(h, UNIT, UNIT, 0, 1); h.x = ox; ctx.restore();   // the hero as drawn everywhere else, scaled with the view
-  };
+  const i0 = Math.max(0, Math.floor(r.cx - W / 2 / us - 2 - RISE.X0)), i1 = Math.min(land.xs.length - 1, Math.ceil(r.cx + W / 2 / us + 2 - RISE.X0));
+  const idx = []; for (let i = i0; i < i1; i++) idx.push(i); idx.push(i1);   // (every tile, always: a stride that shifted with the camera made the ground's edges shimmer)
+  // everything standing, back to front by where it touches the ground (in tiles, at its lowest edge: the ground laid
+  // after it is all in front of it), drawn with the game's own code
+  // at its spot on the tipped ground, scaled with the view; the ground's rows are laid between them
+  const [VW, VH] = sceneSize(state.scene), SWH = [W, H];
+  const at = (px, py, fn) => { const xt = px / UNIT, yt = py / UNIT, X = sxOf(xt), Y = sy(yt, riseH(xt, yt)); if (X < -us * 4 || X > SWH[0] + us * 4 || Y < -us * 5 || Y > SWH[1] + us * 5) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
+  const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
+  const list = [];
+  for (const p of land.deco) list.push([p.by, () => drawRiseProp(p, sxOf, sy, us, s)]);
+  const sc = sceneDef(), h = state.hero;
+  for (const o of state.solids) {
+    if (o.rise === 'tree' || o.kind === 'reeds') list.push([o.y / UNIT + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o))]);
+    else if (o.rise) list.push([o.y / UNIT + o.rr * 0.9, () => drawRiseProp({ k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, sxOf, sy, us, s)]);
+  }
+  for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
+  for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
+  if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
+  list.push([h.y / UNIT + 0.6, () => at(h.x, h.y, drawHero)]);
+  for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
+  list.sort((a, b) => a[0] - b[0]);
+  let li = 0;
   for (const row of land.rows) {
     const yT = row.y, yB = row.y2;
     if (!row.grad) { row.grad = ctx.createLinearGradient(RISE.X0, 0, RISE.X1, 0); row.cols.forEach((c, i) => { if (i % 2 === 0 || i === row.cols.length - 1) row.grad.addColorStop(i / (land.xs.length - 1), c); }); }   // a stop every other tile is plenty
@@ -1748,16 +1771,15 @@ function drawRise() {
     if (!(hi < -UNIT * 4 || Math.min(...bp) > H + UNIT * 4 && lo > H)) {
       ctx.save(); ctx.translate(W / 2 - r.cx * us, 0); ctx.scale(us, 1);                // x in tiles, y in pixels: the row's colours are a gradient along x
       ctx.beginPath(); idx.forEach((i, j) => j ? ctx.lineTo(land.xs[i], tp[j]) : ctx.moveTo(land.xs[i], tp[j])); for (let j = idx.length - 1; j >= 0; j--) ctx.lineTo(land.xs[idx[j]], bp[j]); ctx.closePath();
-      ctx.fillStyle = row.grad; ctx.fill();
-      ctx.restore();
+      ctx.fillStyle = row.grad; ctx.fill(); ctx.restore();
     }
-    while (pi < land.props.length && land.props[pi].by < yB) drawRiseProp(land.props[pi++], sxOf, sy, us, s);
-    if (!heroDone && r.y + 0.45 < yB) drawHeroHere();
+    while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
-  while (pi < land.props.length) drawRiseProp(land.props[pi++], sxOf, sy, us, s);
-  if (!heroDone) drawHeroHere();
+  while (li < list.length) list[li++][1]();
+  // things in the air and on top: gas, sparks and dust, each where it is
+  for (const gp of state.gas) at(gp.x, gp.y, () => one('gas', gp, () => { drawGas(false); drawGas(true); }));
+  for (const fp of state.fx) at(fp.x, fp.y, () => one('fx', fp, drawFx));
   if (state.settings.tiles) drawRiseTiles(r, sxOf, sy);
-  drawFx();
 }
 function drawRiseProp(p, sxOf, sy, us, s) {
   const x = sxOf(p.x), y = sy(p.y, riseH(p.x, p.y));
@@ -1769,7 +1791,7 @@ function drawRiseProp(p, sxOf, sy, us, s) {
     if (sp) ctx.drawImage(sp.cv, x - sp.ox * k, y - sp.oy * k, sp.cv.width * k, sp.cv.height * k);
     else { ctx.save(); ctx.translate(x, y); ctx.scale(k, k); paintRiseCrag(ctx, Math.floor(p.seed * 16 / 9)); ctx.restore(); }
   }
-  else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * 1.4, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
+  else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * p.r, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
 }
 // the crags: sixteen shapes, each painted once (per size of screen) at the biggest size one ever draws, then scaled
 const RISE_CRAG_R = 1.6, RISE_CRAGS = {};
@@ -1788,16 +1810,15 @@ function riseCragSprite(v) {
     if (g && g.fillRect) { g.translate(rs * 2.3, rs * 1.6); paintRiseCrag(g, v); sp = { cv, ox: rs * 2.3, oy: rs * 1.6 }; } } catch (e) { sp = null; }
   return (RISE_CRAGS[key] = sp);
 }
-// System > Show tiles: the grid laid on the ground, tipped and shrunk with the view; red where you can't stand
+// System > Show tiles: the grid laid on the ground, tipped and shrunk with the view; red where a solid stands
 function drawRiseTiles(r, sxOf, sy) {
   ctx.save(); ctx.lineWidth = 1;
-  const x0 = Math.floor(r.x - 14), x1 = Math.ceil(r.x + 14);
-  const hw = Math.ceil(riseHalf(r.x)) + 1;
-  for (let y = RISE.mid - hw; y <= RISE.mid + hw; y++) for (let x = x0; x < x1; x++) {
+  const h = state.hero, hx = h.x / UNIT, hyT = h.y / UNIT, x0 = Math.floor(hx - 14), x1 = Math.ceil(hx + 14);
+  for (let y = 0; y < RISE.D; y++) for (let x = Math.max(0, x0); x < Math.min(RISE.len, x1); x++) {
     const pt = (a, b) => [sxOf(a), sy(b, riseH(a, b))], c = [pt(x, y), pt(x + 1, y), pt(x + 1, y + 1), pt(x, y + 1)];
     ctx.beginPath(); c.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
-    const me = Math.floor(r.x) === x && Math.floor(r.y) === y;
-    if (me || !riseOpen(x + 0.5, y + 0.5)) { ctx.fillStyle = me ? 'rgba(255,220,90,.35)' : 'rgba(220,70,60,.22)'; ctx.fill(); }
+    const me = Math.floor(hx) === x && Math.floor(hyT) === y, cx = (x + 0.5) * UNIT, cy = (y + 0.5) * UNIT;
+    if (me || state.solids.some(o => Math.hypot(o.x - cx, o.y - cy) < o.r)) { ctx.fillStyle = me ? 'rgba(255,220,90,.35)' : 'rgba(220,70,60,.22)'; ctx.fill(); }
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
   }
   ctx.restore();
@@ -2218,7 +2239,7 @@ function updateCam(dt) {
   c.ex = Math.max(hw, Math.min(W - hw, c.ex));
   c.ey = Math.max(hh, Math.min(H - hh, c.ey));
 }
-const toScreen = (x, y) => [(x - state.cam.ex) * state.cam.ez + W / 2, (y - state.cam.ey) * state.cam.ez + H / 2];
+const toScreen = (x, y) => state.rise ? riseToScreen(x, y) : [(x - state.cam.ex) * state.cam.ez + W / 2, (y - state.cam.ey) * state.cam.ez + H / 2];
 
 function speakingNow() { return !!state.npcTalk || state.texts.some(t => SPEECH.has(t.key) && t.t < t.life - 0.3); }
 // ===== text.js: Speech and titles: say() with pages and holds, showTitle, dismissHeld, updateTexts.
@@ -2375,6 +2396,11 @@ function saveScene() {
 }
 
 function enterScene(id, fx, fy) {
+  const sv = [W, H]; [W, H] = sceneSize(id);
+  try { enterSceneIn(id, fx, fy); } finally { [W, H] = sv; }
+  if (state.rise) riseCamera(0, state.rise, true);
+}
+function enterSceneIn(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
@@ -2427,7 +2453,7 @@ function enterScene(id, fx, fy) {
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
   state.climb = CLIMBS[id] ? newClimb(id) : null;
-  state.rise = id === 'rise' ? newRise(pos[0]) : null;
+  state.rise = id === 'rise' ? newRise() : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
@@ -2541,7 +2567,14 @@ function newGame() {
 // =====================================================================
 // Update
 // =====================================================================
+// the rise is bigger than the screen: while it's the current scene, W and H are its size (sceneSize), for the game's
+// own code; drawing and the HUD use the screen (SW, SH)
 function update(dt) {
+  const sv = [W, H]; [W, H] = sceneSize(state.scene);
+  try { updateWorld(dt); } finally { [W, H] = sv; }
+  if (state.rise) riseCamera(dt);
+}
+function updateWorld(dt) {
   if (state.radial) dt *= 0.05;                       // the wheel all but stops the world
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
@@ -2568,7 +2601,6 @@ function update(dt) {
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
   if (state.climb) { updateClimb(dt); return; }                     // the climb prototype runs its own world
-  if (state.rise) { updateRise(dt); return; }                       // so does the rise
   if (testHops()) return;
   updateFx(dt);
   state.playTime += dt;
@@ -2956,7 +2988,7 @@ function updateFall(dt) {
 }
 
 // ---------------- wind: a schedule of gusts the windsock announces ----------------
-const gustVec = () => { const g = sceneDef().gusts[state.gustIdx]; return [Math.sin(g.a), Math.cos(g.a)]; };   // every gust the same strength
+const gustVec = () => { const g = (sceneDef().gusts || [])[state.gustIdx]; return g ? [Math.sin(g.a), Math.cos(g.a)] : [0, 0]; };   // every gust the same strength (none on a field without gusts: the rise)
 function updateWind(dt, sc) {
   state.gustT += dt;
   const SEQ = ['lull', 'gentle', 'lull', 'gentle', 'lull', 'blow'], T = { lull: 1.3, gentle: 1.1, blow: 1.8 };
@@ -5324,7 +5356,7 @@ function pipGatherTalk(sc, p) {
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
-  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
+  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const miss = campMissing(), left = Object.keys(miss), here = left.filter(k => local.has(k));
   if (left.length && !local.size && home.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
   const text = !left.length ? 'That\'s everything! Back to camp.'
@@ -5464,7 +5496,7 @@ function updatePip(dt) {
   if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   p.stuck = md > UNIT * 0.5 && Math.hypot(p.x - (p.lx ?? p.x), p.y - (p.ly ?? p.y)) < 0.5 ? (p.stuck || 0) + dt : 0; p.lx = p.x; p.ly = p.y;
   if (!p.visit && !garden && !offRoad && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
-  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
+  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
   else if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
@@ -5560,17 +5592,17 @@ const TUTORIAL = [
     remindAt: () => { const it = TUT.nearItem('stick'); if (it) return [it.x, it.y]; const tr = state.solids.filter(s => s.kind === 'tree').sort((a, b) => Math.hypot(a.x - state.hero.x, a.y - state.hero.y) - Math.hypot(b.x - state.hero.x, b.y - state.hero.y))[0]; return tr ? [tr.x + tr.r + UNIT, tr.y + UNIT * 0.6] : TUT.exitSpot(); } },
   { id: 'stones', done: () => !campMissing().stone, goal: () => 'riverbank', scene: 'riverbank', spot: () => TUT.nearItem('stone') && [TUT.nearItem('stone').x, TUT.nearItem('stone').y],
     say: () => 'Smooth stones! Nice flat ones. Two of those.', remind: () => ['Here\'s a good smooth stone!', 'Grab this stone!', 'Flat ones, by the water.'], remindAt: () => { const it = TUT.nearItem('stone'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
-  { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'f2', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
+  { id: 'fluff', done: () => TUT.raw().fluff >= 2 || !TUT.fluffNeed(), goal: () => TUT.f1Fluff() ? 'f1' : 'rise', scene: 'f1', spot: () => TUT.nearItem('fluff') && [TUT.nearItem('fluff').x, TUT.nearItem('fluff').y],
     say: () => 'Fluff blows all over in this wind. Grab it quick!', remind: () => ['Quick, the fluff!', 'Don\'t let the wind take it!', 'Rabbit fluff. We need three tufts.'], remindAt: () => { const it = TUT.nearItem('fluff'); return it ? [it.x, it.y] : TUT.exitSpot(); } },
   { id: 'lesson', done: () => TUT.tip('craftLesson') || !TUT.fluffNeed(), once: 'craftLesson', hold: true, spot: null, goal: () => TUT.raw().stick >= 3 ? null : 'start',
     say: () => 'Two tufts! The bench needs more for its glue. There are rabbits to the south... but they are mean! Time you learned crafting. Let\'s make you a wooden sword.',
     after: () => { hearRecipe('woodsword'); startCoach('sword'); } },
   { id: 'sword', done: () => !!bladeKind() || !TUT.fluffNeed(), goal: () => TUT.raw().stick >= 3 ? null : 'start', spot: null,
     remind: () => TUT.raw().stick >= 3 ? [`Slap that sword together! ${TUT.M()}, Craft, wooden sword, Combine.`, 'Three sticks on the mat, then Combine!'] : ['Sticks first. The glade has plenty.', 'Three sticks for a sword!'], remindAt: () => TUT.exitSpot() },
-  { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'f2', scene: null, spot: null,
-    say: () => state.scene === 'f2' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
-    key: () => state.scene === 'f2' ? 'field' : 'go', remind: () => state.scene === 'f2' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
-    remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'f2' && r ? [r.x, r.y] : TUT.exitSpot(); } },
+  { id: 'rabbits', done: () => !TUT.fluffNeed(), goal: () => 'rise', scene: null, spot: null,
+    say: () => state.scene === 'rise' ? 'There they are! Watch their eyes: when they flash red, jump aside. Then swing!' : 'And go! South, to the rabbits!',
+    key: () => state.scene === 'rise' ? 'field' : 'go', remind: () => state.scene === 'rise' ? ['Rabbit! Get that fluff straight from the source!', 'Swing at it! It\'s got our fluff.'] : ['South! The rabbits have our fluff.', 'This way, to the rabbits!'],
+    remindAt: () => { const r = state.enemies.find(e => e.type === 'rabbit'); return state.scene === 'rise' && r ? [r.x, r.y] : TUT.exitSpot(); } },
   { id: 'build', done: () => campDone(), goal: () => 'camp', scene: 'camp', spot: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; },
     say: () => campMarkLine(), key: () => campMarkLine(), remind: () => [campMarkLine()], remindAt: () => { const b = campMark(); return b && [b.fx * W, b.fy * H]; } },
   { id: 'homebase', done: () => gearOwned().includes('feather'), scene: 'camp', spot: null, hold: true, once: 'campdone', bounce: true,
@@ -5643,9 +5675,9 @@ const PIP_LINES = [
     at: () => { const i = ((rtFor('meadow').flags.plots) || []).findIndex(q => q.s === 1 && plotStage(q) >= 3), q = WORLD.meadow.feat.plots[i]; return [q[0] * W + UNIT, q[1] * H]; }, sight: 12,
     text: () => cropNeed() ? `It's ripe! Grab hold (hold ${TUT.F()}), rock it ${K.l} ${K.r} a few times, then pull ${K.u}!` : `It's ripe! Just ${TUT.F()} and pull it up!` },
   // the rabbits' field: combat basics, in two lines
-  { key: 'combat-eyes', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
+  { key: 'combat-eyes', scene: 'rise', when: () => !!bladeKind() && TUT.fluffNeed(),   // said where he stands: walking up to a rabbit is your job
     text: 'Watch their eyes! When they flash red, get out of the way. That\'s when they charge.' },
-  { key: 'combat-swing', scene: 'f2', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
+  { key: 'combat-swing', scene: 'rise', when: () => !!bladeKind() && TUT.fluffNeed() && TUT.tip('combat-eyes'),
     text: () => `Then swing (${K.act.toUpperCase()}) while it\'s close. A couple of hits and it\'s done. Or hold ${K.act.toUpperCase()} and let go: one big lunge.` },
   // the glade, once the adventure is on: the brambles, the buried rock, the throw
   { key: 'brambles', scene: 'start', when: (sc, h, rt) => storyAt('adventure') && !rt.flags.thicket, at: () => [W * 0.955, H * 0.5], sight: 14,
@@ -5719,7 +5751,7 @@ function coachUpdate() {
   // camp coaching starts on its own once the lesson has happened
   if (!state.coach && TUT.tip('craftLesson') && !campBuilt('fire') && campParts().stones >= CAMP_PARTS.fire.stones) { hearRecipe('tinder'); startCoach('tinder'); }
   if (!state.coach && TUT.tip('craftLesson') && campBuilt('fire') && !campBuilt('bench') && bladeKind()) { hearRecipe('glue'); hearRecipe('benchframe'); startCoach('frame'); }
-  if (!state.coach && state.scene === 'f2' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
+  if (!state.coach && state.scene === 'rise' && bladeKind() && TUT.fluffNeed() && state.enemies.some(e => e.type === 'rabbit')) startCoach('combat');   // at the rabbits: the basics stay pinned until you've done it
   const c = state.coach; if (!c) return;
   const steps = COACH[c.id]();
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }
@@ -6070,6 +6102,8 @@ const SYSTEM_ITEMS = () => [
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
   ['labels', `Action labels: ${state.settings.labels === false ? 'off' : 'on'}`],
   ['tiles', `Show tiles: ${state.settings.tiles ? 'on' : 'off'}`],
+  ['tag', `Screen and seed: ${state.settings.tag === false ? 'off' : 'on'}`],
+  ['coords', `Your position: ${state.settings.coords === false ? 'off' : 'on'}`],
   ['levels', 'Testing: set levels'],
   ['new', 'New adventure'],
 ];
@@ -6096,6 +6130,7 @@ function systemSelect(i) {
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
   if (key === 'labels') { state.settings.labels = state.settings.labels === false; saveSettings(); }
+  if (key === 'tag' || key === 'coords') { state.settings[key] = state.settings[key] === false; saveSettings(); }
   if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
   if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
 }
@@ -6521,7 +6556,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; if (d.settings.tiles) state.settings.tiles = true; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; if (d.settings.tiles) state.settings.tiles = true; if (d.settings.tag === false) state.settings.tag = false; if (d.settings.coords === false) state.settings.coords = false; }
   } catch (e) {}
   refreshK();
 }
@@ -7427,7 +7462,7 @@ function draw() {
   const c = state.cam, sc = sceneDef();
   ctx.save();
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
-  ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
+  if (!state.rise) { ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey); }   // (the rise places everything itself)
   state.frameNo = (state.frameNo || 0) + 1;
   if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } if (sc.feat.snorkels) drawSnorkels(sc); if (sc.feat.beetle) drawBeetleWaiting(sc); }
   ctx.restore();
@@ -7486,6 +7521,8 @@ function drawCandles(sc) {
     ctx.fillStyle = `rgba(255,${200 + 30 * fl},90,.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.38 - fl * u * 0.02, u * 0.05, u * 0.1 * fl, 0, 0, 6.28); ctx.fill();
   });
 }
+const pipDrawn = sc => state.pip && state.pip.show && !sc.npcs.some(n => n.kind === 'pip' && npcHere(n)) && (state.pip.follow || sc.id === 'camp' || sc.id === 'start');
+function drawPipNow() { const p = state.pip, py = p.y - (p.hz || 0) - (p.bz || 0); drawPip(p.x, py, { side: p.side, bound: p.bound }); }
 function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
@@ -7524,7 +7561,7 @@ function drawScene(sc) {
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (sc.feat.peek) layer.push([sc.feat.peek[1] * H + UNIT * 0.3, () => drawPeekGremlin(sc)]);   // peeking over the boulder (sorted with it, so the boulder hides its body)
-  if (state.pip && state.pip.show && !sc.npcs.some(n => n.kind === 'pip' && npcHere(n)) && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
+  if (pipDrawn(sc)) layer.push([state.pip.y, drawPipNow]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -8663,7 +8700,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 168';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 169';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9633,15 +9670,19 @@ function drawFeed() {
   }
   ctx.restore();
 }
-// top-left, small and faint: which screen you're on and the world's seed (for reporting what you see)
+// top-left, small and faint: which screen you're on and the world's seed, and under it where you stand in the scene
+// (in tiles from its top-left corner), for reporting what you see. Each line switches off under System.
 const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
+const placeCoords = () => `x ${(state.hero.x / UNIT).toFixed(1)}  y ${(state.hero.y / UNIT).toFixed(1)}`;
 function drawPlaceTag() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
-  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), t = placeTag();
+  const lines = [state.settings.tag !== false && placeTag(), state.settings.coords !== false && placeCoords()].filter(Boolean);
+  if (!lines.length) return;
+  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), lh = fs + 4;
   ctx.save(); ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  const w = ctx.measureText(t).width;
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, fs + 8);
-  ctx.fillStyle = 'rgba(253,246,227,.7)'; ctx.fillText(t, 11, 10);
+  const w = Math.max(...lines.map(t => ctx.measureText(t).width));
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, lh * lines.length + 4);
+  ctx.fillStyle = 'rgba(253,246,227,.7)'; lines.forEach((t, i) => ctx.fillText(t, 11, 10 + i * lh));
   ctx.restore();
 }
 function drawScroll() {
@@ -9794,9 +9835,11 @@ function resize() {
   if (OVERVIEW) return;                              // the map page keeps its own size
   const oW = W, oH = H;
   DPR = window.devicePixelRatio || 1;
-  W = window.innerWidth; H = window.innerHeight;
+  const oU = UNIT;
+  W = window.innerWidth; H = window.innerHeight; SW = W; SH = H;
   resizeCanvasOnly();
   computeUnit();
+  if (WORLD[state.scene] && WORLD[state.scene].virt) { const k = UNIT / oU; for (const a of [state.hero, ...state.enemies, ...state.items, state.pip].filter(Boolean)) { a.x *= k; a.y *= k; } [W, H] = sceneSize(state.scene); try { refreshSceneGeometry(); } finally { W = SW; H = SH; } return; }   // a scene bigger than the screen scales with the tile
   const sx = W / oW, sy = H / oH;
   for (const a of [state.hero, ...state.enemies, ...state.items, ...state.hazards, ...state.rings, state.bird].filter(Boolean)) { a.x *= sx; a.y *= sy; }
   if (sceneDef() && sceneDef().river && sceneDef().river.stones) layoutStones(sceneDef());
@@ -10230,8 +10273,8 @@ function drawBook(m) {
 }
 // Pip's map in the book: a pencil sketch of the places around home. Walked: inked with its name. Seen from next door
 // but not walked: a dashed box, still to finish. Past that, a few arrows off the edge of the page: what's beyond.
-const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'f2', 'f3'];
-const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', f2: 'Field', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
+const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'rise', 'f3'];
+const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', rise: 'Rise', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
 // Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
 // Status as cards: you at the top (vigor), then one card per skill: a coloured strip, the name and level pips, a
 // progress bar, and two short lines, now and next. Upgrades are a row of small badges at the bottom.

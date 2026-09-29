@@ -94,6 +94,8 @@ const SYSTEM_ITEMS = () => [
   ...(canFullscreen() ? [['fs', `Full screen: ${inFullscreen() ? 'on' : 'off'}`]] : []),
   ['labels', `Action labels: ${state.settings.labels === false ? 'off' : 'on'}`],
   ['tiles', `Show tiles: ${state.settings.tiles ? 'on' : 'off'}`],
+  ['tag', `Screen and seed: ${state.settings.tag === false ? 'off' : 'on'}`],
+  ['coords', `Your position: ${state.settings.coords === false ? 'off' : 'on'}`],
   ['levels', 'Testing: set levels'],
   ['new', 'New adventure'],
 ];
@@ -120,6 +122,7 @@ function systemSelect(i) {
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
   if (key === 'labels') { state.settings.labels = state.settings.labels === false; saveSettings(); }
+  if (key === 'tag' || key === 'coords') { state.settings[key] = state.settings[key] === false; saveSettings(); }
   if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
   if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
 }

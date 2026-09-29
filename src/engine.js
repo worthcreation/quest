@@ -44,6 +44,11 @@ function saveScene() {
 }
 
 function enterScene(id, fx, fy) {
+  const sv = [W, H]; [W, H] = sceneSize(id);
+  try { enterSceneIn(id, fx, fy); } finally { [W, H] = sv; }
+  if (state.rise) riseCamera(0, state.rise, true);
+}
+function enterSceneIn(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
@@ -96,7 +101,7 @@ function enterScene(id, fx, fy) {
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
   state.climb = CLIMBS[id] ? newClimb(id) : null;
-  state.rise = id === 'rise' ? newRise(pos[0]) : null;
+  state.rise = id === 'rise' ? newRise() : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
@@ -210,7 +215,14 @@ function newGame() {
 // =====================================================================
 // Update
 // =====================================================================
+// the rise is bigger than the screen: while it's the current scene, W and H are its size (sceneSize), for the game's
+// own code; drawing and the HUD use the screen (SW, SH)
 function update(dt) {
+  const sv = [W, H]; [W, H] = sceneSize(state.scene);
+  try { updateWorld(dt); } finally { [W, H] = sv; }
+  if (state.rise) riseCamera(dt);
+}
+function updateWorld(dt) {
   if (state.radial) dt *= 0.05;                       // the wheel all but stops the world
   state.time += dt;
   state.fade += (state.fadeTarget - state.fade) * (1 - Math.exp(-state.fadeRate * dt));
@@ -237,7 +249,6 @@ function update(dt) {
   if (state.choice) { updateChoice(); return; }
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
   if (state.climb) { updateClimb(dt); return; }                     // the climb prototype runs its own world
-  if (state.rise) { updateRise(dt); return; }                       // so does the rise
   if (testHops()) return;
   updateFx(dt);
   state.playTime += dt;
@@ -625,7 +636,7 @@ function updateFall(dt) {
 }
 
 // ---------------- wind: a schedule of gusts the windsock announces ----------------
-const gustVec = () => { const g = sceneDef().gusts[state.gustIdx]; return [Math.sin(g.a), Math.cos(g.a)]; };   // every gust the same strength
+const gustVec = () => { const g = (sceneDef().gusts || [])[state.gustIdx]; return g ? [Math.sin(g.a), Math.cos(g.a)] : [0, 0]; };   // every gust the same strength (none on a field without gusts: the rise)
 function updateWind(dt, sc) {
   state.gustT += dt;
   const SEQ = ['lull', 'gentle', 'lull', 'gentle', 'lull', 'blow'], T = { lull: 1.3, gentle: 1.1, blow: 1.8 };

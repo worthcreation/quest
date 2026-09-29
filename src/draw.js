@@ -24,7 +24,7 @@ function draw() {
   const c = state.cam, sc = sceneDef();
   ctx.save();
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
-  ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey);
+  if (!state.rise) { ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey); }   // (the rise places everything itself)
   state.frameNo = (state.frameNo || 0) + 1;
   if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } if (sc.feat.snorkels) drawSnorkels(sc); if (sc.feat.beetle) drawBeetleWaiting(sc); }
   ctx.restore();
@@ -83,6 +83,8 @@ function drawCandles(sc) {
     ctx.fillStyle = `rgba(255,${200 + 30 * fl},90,.95)`; ctx.beginPath(); ctx.ellipse(x, y - u * 0.38 - fl * u * 0.02, u * 0.05, u * 0.1 * fl, 0, 0, 6.28); ctx.fill();
   });
 }
+const pipDrawn = sc => state.pip && state.pip.show && !sc.npcs.some(n => n.kind === 'pip' && npcHere(n)) && (state.pip.follow || sc.id === 'camp' || sc.id === 'start');
+function drawPipNow() { const p = state.pip, py = p.y - (p.hz || 0) - (p.bz || 0); drawPip(p.x, py, { side: p.side, bound: p.bound }); }
 function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
@@ -121,7 +123,7 @@ function drawScene(sc) {
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (sc.feat.peek) layer.push([sc.feat.peek[1] * H + UNIT * 0.3, () => drawPeekGremlin(sc)]);   // peeking over the boulder (sorted with it, so the boulder hides its body)
-  if (state.pip && state.pip.show && !sc.npcs.some(n => n.kind === 'pip' && npcHere(n)) && (state.pip.follow || sc.id === 'camp' || sc.id === 'start')) layer.push([state.pip.y, () => { const py = state.pip.y - (state.pip.hz || 0) - (state.pip.bz || 0); drawPip(state.pip.x, py, { side: state.pip.side, bound: state.pip.bound }); }]);
+  if (pipDrawn(sc)) layer.push([state.pip.y, drawPipNow]);
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -1260,7 +1262,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 168';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 169';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

@@ -10,5 +10,11 @@ startTestScene('rise'); run(5); const b=tagAt(); startTestScene('f7'); run(5); c
 console.log('2 follows the screen:', b&&b[0], '->', c&&c[0], '| seed', SEED, 'in both:', !!(b&&c&&b[0].endsWith(String(SEED))&&c[0].endsWith(String(SEED))));
 const ok = !onIntro && a && a[1] < W*0.2 && a[2] < H*0.1 && b && b[0].startsWith('rise') && c && c[0].startsWith('f7');
 if (!ok) errs++;
-console.log('3 top-left:', !!(a && a[1] < W*0.2 && a[2] < H*0.1), '| errs', errs);
+const co=()=>{ seen.length=0; draw(); return seen.find(s=>s[0]===placeCoords()); };
+startTestScene('rise'); run(5); state.hero.x=12.4*UNIT; state.hero.y=15*UNIT; const c1=co(), t1=tagAt();
+state.settings.coords=false; const c2=co(), t2=tagAt(); state.settings.tag=false; const t3=tagAt(); state.settings.coords=true; const c3=co(); state.settings.tag=true;
+const rows=SYSTEM_ITEMS().filter(o=>o[0]==='tag'||o[0]==='coords').map(o=>o[1]);
+console.log('3 position under it:', c1&&JSON.stringify(c1[0]), 'at y', c1&&c1[2], '| position off: gone', !c2, 'tag stays', !!t2, '| tag off: gone', !t3, 'position alone at y', c3&&c3[2], '| System rows:', rows.join(' / '));
+if (!(c1 && c1[0]==='x 12.4  y 15.0' && c1[2]>t1[2] && !c2 && t2 && !t3 && c3 && c3[2]===10 && rows.length===2)) errs++;
+console.log('4 top-left:', !!(a && a[1] < W*0.2 && a[2] < H*0.1), '| errs', errs);
 `);

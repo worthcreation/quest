@@ -44,7 +44,7 @@ function saveSettings() { try { localStorage.setItem('quest-settings', JSON.stri
 function loadSettings() {
   try {
     const d = JSON.parse(localStorage.getItem('quest-settings') || 'null');
-    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; if (d.settings.tiles) state.settings.tiles = true; }
+    if (d && d.settings) { state.settings.tips = d.settings.tips || 'intro'; state.settings.keys = { ...DEFAULT_KEYS, ...(d.settings.keys || {}) }; if (new Set(Object.values(state.settings.keys)).size < Object.keys(state.settings.keys).length) state.settings.keys = { ...DEFAULT_KEYS }; /* two actions on one key (an old save): back to the defaults */ if (d.settings.sound === false) soundOn = false; if (d.settings.labels === false) state.settings.labels = false; if (d.settings.tiles) state.settings.tiles = true; if (d.settings.tag === false) state.settings.tag = false; if (d.settings.coords === false) state.settings.coords = false; }
   } catch (e) {}
   refreshK();
 }

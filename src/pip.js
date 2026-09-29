@@ -142,7 +142,7 @@ function pipGatherTalk(sc, p) {
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
-  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
+  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const miss = campMissing(), left = Object.keys(miss), here = left.filter(k => local.has(k));
   if (left.length && !local.size && home.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
   const text = !left.length ? 'That\'s everything! Back to camp.'
@@ -282,7 +282,7 @@ function updatePip(dt) {
   if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   p.stuck = md > UNIT * 0.5 && Math.hypot(p.x - (p.lx ?? p.x), p.y - (p.ly ?? p.y)) < 0.5 ? (p.stuck || 0) + dt : 0; p.lx = p.x; p.ly = p.y;
   if (!p.visit && !garden && !offRoad && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
-  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'f2'];
+  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
   else if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }

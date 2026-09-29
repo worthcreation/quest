@@ -7,7 +7,7 @@ begin(); step(60*7); state.cut=null;
 let errs2=0; const run=(n)=>{ for(let k=0;k<n;k++){ try{ update(1/60); draw(); }catch(e){ errs2++; if(errs2<8) console.log('ERR', state.scene, e.message, String(e.stack).slice(0,300)); return; } } };
 for (const [w,hh] of [[1280,800],[390,844]]) { window.innerWidth=w; window.innerHeight=hh; resize();
   for (const seed of [11, 2719583, 9618677]) { resetRun(seed); state.cut=null; const out=[];
-    for (const id of ['f1','f2','f3','f4','f5','f6','f7']) { enterScene(id); state.cut=null; state.enemies=[]; const sc=WORLD[id];
+    for (const id of ['f1','f3','f4','f5','f6','f7']) { enterScene(id); state.cut=null; state.enemies=[]; const sc=WORLD[id];
       const L=sc.rocks.filter(r=>r.ledge); const bands=[...new Set(L.map(r=>r.fy.toFixed(3)))].map(Number).sort((a,b)=>a-b);
       // can the gusts carry you from each bank to the next one down? and back up?
       let down=0, up=0;

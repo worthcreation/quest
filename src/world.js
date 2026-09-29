@@ -21,9 +21,10 @@ var state;
 refreshK();
 document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act, Space to jump, M for menu';
 let W = window.innerWidth, H = window.innerHeight, UNIT = 32, DPR = window.devicePixelRatio || 1;
+let SW = W, SH = H;                                  // the screen: W and H are the current scene's size (the same, except on the rise)
 const computeUnit = () => { UNIT = Math.max(20, Math.min(W, H) / 14); };
 computeUnit();
-const L = () => Math.max(W, H);
+const L = () => Math.max(SW, SH);                    // walking pace and the like come from the screen, not the scene
 
 // =====================================================================
 // Random (seeded per adventure; the seed is what a save file stores)
@@ -800,7 +801,7 @@ function genWorld() {
     if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
   }
   for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
-  add(newScene({ id: 'rise', area: 'field', msg: 'The ground starts to climb.', music: 'field', amb: 'wind', floor: '#707a69', speed: 0.45, accel: 8 })).exits = [];   // drawn and run by rise.js
+  addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -854,7 +855,7 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ f2: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
   c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
   fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
   sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],
@@ -904,6 +905,7 @@ function renderOverview(seed) {
   for (const id of Object.keys(MAP_LAYOUT)) {
     const sc = WORLD[id];
     enterScene(id);
+    if (sc.virt) { state.rise = null; refreshSceneGeometry(); }   // the rise, as a flat thumbnail: its tiles squeezed into the frame
     const h = state.hero; h.x = -9999; h.y = -9999;
     state.texts = []; state.title = null; state.fx = []; state.glimpse = null;
     const shade = sc.shade; sc.shade = Math.min(shade || 0, 0.35);   // dim, not black, so dark screens can be read

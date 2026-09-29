@@ -708,15 +708,19 @@ function drawFeed() {
   }
   ctx.restore();
 }
-// top-left, small and faint: which screen you're on and the world's seed (for reporting what you see)
+// top-left, small and faint: which screen you're on and the world's seed, and under it where you stand in the scene
+// (in tiles from its top-left corner), for reporting what you see. Each line switches off under System.
 const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
+const placeCoords = () => `x ${(state.hero.x / UNIT).toFixed(1)}  y ${(state.hero.y / UNIT).toFixed(1)}`;
 function drawPlaceTag() {
   if (!state.started || (state.intro && !state.intro.gone)) return;
-  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), t = placeTag();
+  const lines = [state.settings.tag !== false && placeTag(), state.settings.coords !== false && placeCoords()].filter(Boolean);
+  if (!lines.length) return;
+  const fs = Math.round(Math.max(10, Math.min(13, UNIT * 0.3))), lh = fs + 4;
   ctx.save(); ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  const w = ctx.measureText(t).width;
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, fs + 8);
-  ctx.fillStyle = 'rgba(253,246,227,.7)'; ctx.fillText(t, 11, 10);
+  const w = Math.max(...lines.map(t => ctx.measureText(t).width));
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(6, 6, w + 10, lh * lines.length + 4);
+  ctx.fillStyle = 'rgba(253,246,227,.7)'; lines.forEach((t, i) => ctx.fillText(t, 11, 10 + i * lh));
   ctx.restore();
 }
 function drawScroll() {
@@ -869,9 +873,11 @@ function resize() {
   if (OVERVIEW) return;                              // the map page keeps its own size
   const oW = W, oH = H;
   DPR = window.devicePixelRatio || 1;
-  W = window.innerWidth; H = window.innerHeight;
+  const oU = UNIT;
+  W = window.innerWidth; H = window.innerHeight; SW = W; SH = H;
   resizeCanvasOnly();
   computeUnit();
+  if (WORLD[state.scene] && WORLD[state.scene].virt) { const k = UNIT / oU; for (const a of [state.hero, ...state.enemies, ...state.items, state.pip].filter(Boolean)) { a.x *= k; a.y *= k; } [W, H] = sceneSize(state.scene); try { refreshSceneGeometry(); } finally { W = SW; H = SH; } return; }   // a scene bigger than the screen scales with the tile
   const sx = W / oW, sy = H / oH;
   for (const a of [state.hero, ...state.enemies, ...state.items, ...state.hazards, ...state.rings, state.bird].filter(Boolean)) { a.x *= sx; a.y *= sy; }
   if (sceneDef() && sceneDef().river && sceneDef().river.stones) layoutStones(sceneDef());
@@ -1305,8 +1311,8 @@ function drawBook(m) {
 }
 // Pip's map in the book: a pencil sketch of the places around home. Walked: inked with its name. Seen from next door
 // but not walked: a dashed box, still to finish. Past that, a few arrows off the edge of the page: what's beyond.
-const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'f2', 'f3'];
-const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', f2: 'Field', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
+const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'rise', 'f3'];
+const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', rise: 'Rise', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
 // Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
 // Status as cards: you at the top (vigor), then one card per skill: a coloured strip, the name and level pips, a
 // progress bar, and two short lines, now and next. Upgrades are a row of small badges at the bottom.

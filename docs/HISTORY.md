@@ -1,6 +1,24 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 169: the rise takes f2's place
+- f2 is gone; the rise is the second field. f1's south way leads in at its west end; its east end, through a pass,
+  leads down into f3 (and back up). The overview and the Map tab show it where f2 was.
+- The rise now runs on the main game: a scene bigger than the screen (sc.virt, sceneSize: W and H are its size while
+  it's current; L() walks at the screen's pace), so hero, Pip, rabbits, items, fire and the coach are the usual code.
+  drawRise lays the ground, then draws everything standing with the game's own draw code at its spot, scaled;
+  toScreen projects on the rise. The loop is gone. Two unbroken crag walls keep you in the pass.
+- Two rabbits in the first stretch. Just past the first tree, a wall of reeds (the marsh's kind: only fire breaks it)
+  crosses the way wall to wall: in the test, walking east stops at x 12.4, six sword swings leave all 19 clumps, one
+  lit puff of gas clears them.
+- The place tag's second line: your position in the scene, in tiles. System has two switches: Screen and seed, Your
+  position (both on by default, remembered).
+- Tests: rise rewritten (f1 in, rabbits, reeds, fire, up to f3 in 7.8 s with the zoom only pulling back, largest
+  step 0.064, back from f3, walls 12.9 / 20.7 / 25.9 tiles, west to f1, phone 20 px); place-tag checks the position
+  and both switches; fluff, ledge-ride, opening, patch-hints, rabbits, wood-sword moved from f2 to the rise
+  (opening now gathers 6 sticks, not 8: f2's island pickups are gone). gustVec is safe on a field without gusts.
+  64 of 64, overlap 0.
+
 ## Build 168: the place tag
 - Top-left, small and faint: the screen's id and the world's seed ("rise · 5210189"), on every screen once play has
   started (not on the intro). For reporting what you see. placeTag/drawPlaceTag in draw-ui.js.

@@ -1,16 +1,16 @@
-// ===== rise.js: the rise. One long screen where the windy fields climb to the mountain's foot, laid out in tiles.
-// It opens looking straight down, like the fields. Walk east and the view pulls back and tips up, so the grade shows
-// (the contour lines bunch, the far edge rises into a skyline) and the mountain stands up ahead; walk back west and it
-// comes in again. The camera follows only how far east you are. Like the climb it runs its own update and drawing, but it
-// walks at the fields' speed and is drawn with the game's own stones and trees.
-// Not joined to the map yet: ?scene=rise, or System > Testing. For now it loops: walk off either end and you come back
-// in at the other, still walking the same way.
+// ===== rise.js: the rise, the second screen of the fields (where f2 was). One long slope, 86 tiles west to east
+// and 30 deep, from the first field up to a pass into the mountain, and on to the third field.
+// It runs on the main game: the hero, Pip, the rabbits, items, fire and the barrier are all the usual code, in a scene
+// bigger than the screen (sceneSize: while the rise is current, W and H are its own size in pixels; walking pace
+// comes from the screen, L()). Only the drawing is its own: it opens looking straight down, like the fields; walk
+// east and the view pulls back and tips up, so the grade shows and the mountain stands up ahead; walk back and it
+// comes in again. Everything standing is drawn where it touches the ground, scaled with the view.
+// Just past the first tree a wall of dry reeds crosses the way: only fire gets through it.
 
-const RISE = { len: 86, flat: 0, grade: 0.0018, mid: 15, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
+const RISE = { len: 86, D: 30, flat: 0, grade: 0.0018, mid: 15, floor: '#7b9550', treeX: 11, barX: 13.6, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
 const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
-const riseInPass = (x, y) => x > riseFoot(y) - 2 && Math.abs(y - risePathY(x)) < 1.5; // the notch the path takes into the rock
 // the lowest the view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const riseZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the pass)
@@ -24,19 +24,27 @@ function riseH(x, y) {
   }
   return Math.max(0, h);
 }
-// where you can stand: the one shape the game tests (the crags along the foot and the pass are drawn on its edge)
 // the way between its two walls of stone: 14 tiles wide by the fields, opening out as the view pulls back, 30 at the foot
 const riseHalf = x => 7 + 8 * riseView(x);
-const riseOpen = (x, y) => Math.abs(y - RISE.mid) < riseHalf(x) - 0.6 && (x < riseFoot(y) - 0.4 || riseInPass(x, y));
 
 function riseColor(x, y) {
   const h = riseH(x, y), gx = riseH(x + 0.3, y) - riseH(x - 0.3, y), gy = riseH(x, y + 0.3) - riseH(x, y - 0.3);
   const lit = riseClamp(0.35 * gx / 0.6 - 0.2 * gy / 0.6, -0.8, 0.8) * (0.4 + 0.6 * riseClamp((h - 3) / 6));   // faces turned to the light (west) catch it
-  const base = parseInt((WORLD.f7 ? WORLD.f7.floor : '#707a69').slice(1), 16), k = riseClamp((h - 5) / 6);    // the fields' grass, going over to stony turf, then stone
+  const base = parseInt(RISE.floor.slice(1), 16), k = riseClamp((h - 5) / 6);    // the fields' grass, going over to stony turf, then stone
   let c = [base >> 16, (base >> 8) & 255, base & 255].map((v, i) => v + ([132, 130, 118][i] - v) * k);
   const d = Math.abs(y - risePathY(x));
   if (d < 0.75 && x > RISE.X0) { const w = (1 - d / 0.75) * 0.75; c = c.map((v, i) => v + ([150, 132, 98][i] - v) * w); }
   return 'rgb(' + c.map(v => Math.round(riseClamp(v + lit * 30, 0, 255))).join(',') + ')';
+}
+
+
+// how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
+const riseView = x => riseClamp((x - 1) / (RISE.len - 10));                        // evenly, from the first step to the foot: no late rush
+const riseZoom = p => 1 - (1 - riseZoomMin()) * p;
+const riseLead = p => Math.min(RISE.lead, 0.3 * SW / 2 / (UNIT * riseZoom(p))) * p;   // how far ahead of you the view looks (less on a narrow screen)
+function riseProj(x, y, z, r = state.rise) {                                          // tiles to the screen (whatever size the scene is)
+  const s = riseZoom(r.p), th = RISE.tilt * r.p;
+  return [SW / 2 + (x - r.cx) * UNIT * s, SH / 2 + ((y - r.cy) * Math.cos(th) - (z - r.ch) * Math.sin(th)) * UNIT * s];
 }
 
 // the land, laid out once in tiles: rows of heights and colours, and everything standing on it
@@ -53,76 +61,89 @@ function riseLand() {
   let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const props = [], put = (k, x, y, r, solid) => props.push({ k, x, y, r, solid, seed: rnd() * 9, v: Math.floor(rnd() * 3), by: y + (k === 'tuft' ? 0.1 : k === 'tree' ? 0.3 : r * 0.9) });
   const clearOf = (x, y, r) => !props.some(p => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + r + 0.2);
+  const nearBar = x => Math.abs(x - RISE.barX) < 1.6;
   // the walls of the way: a line of stones along each side, smooth by the fields, rough as the ground rises
   for (const sd of [-1, 1]) for (let x = X0; x < 100; x += 1.25) { const wy = RISE.mid + sd * riseHalf(x); if (x > riseFoot(wy) + 1) break; const r = 0.55 + rnd() * 0.35; put(x > 40 ? 'crag' : 'boulder', x + rnd() * 0.4, wy + (rnd() - 0.5) * 0.5, r, true); }
+  // the first tree, just before the reeds
+  put('tree', RISE.treeX, risePathY(RISE.treeX) - 2.8, 1.2, true);
   // the mountain's foot and the pass: crags on the line you can't cross
   for (let y = Y0; y < Y1; y += 1.1) { const f = riseFoot(y); if (Math.abs(y - risePathY(f)) < 1.7) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
-  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 4; x += 1.2) for (const sd of [-1, 1]) { const r = 0.5 + rnd() * 0.35, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5 && clearOf(x, y, r * 0.5)) put('crag', x, y, r, true); }
+  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 4; x += 0.85) for (const sd of [-1, 1]) { const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }   // two unbroken walls: the pass is the only way on
   for (let i = 0; i < 110; i++) { const y = Y0 + rnd() * (Y1 - Y0), x = riseFoot(y) + 1 + rnd() * 40, r = 0.7 + rnd() * 0.8; if (Math.abs(y - risePathY(x)) < 3.5 + r || !clearOf(x, y, r * 0.6)) continue; put('crag', x, y, r, true); }
-  // on the way: a few stones and trees (never on the path), grass tufts everywhere green
-  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (Math.abs(y - risePathY(x)) < 2.2 || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
-  for (let i = 0; i < 18; i++) { const x = X0 + rnd() * (70 - X0), y = Y0 + rnd() * (Y1 - Y0); if (Math.abs(y - risePathY(x)) < 2.4 || !clearOf(x, y, 0.4)) continue; put('tree', x, y, 0.35, true); }
+  // on the way: a few stones and trees (never on the path, none by the reeds, no tree before the first), grass tufts
+  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (Math.abs(y - risePathY(x)) < 2.2 || nearBar(x) || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
+  for (let i = 0; i < 18; i++) { const x = 18 + rnd() * 52, y = Y0 + rnd() * (Y1 - Y0); if (Math.abs(y - risePathY(x)) < 2.4 || !clearOf(x, y, 0.6)) continue; put('tree', x, y, 1.2, true); }
   for (let i = 0; i < 420; i++) { const x = X0 + rnd() * (X1 - X0), y = Y0 + rnd() * (Y1 - Y0); if (x < riseFoot(y) - 1 && riseH(x, y) < 9) put('tuft', x, y, 0.3, false); }
-  props.sort((a, b) => a.by - b.by);
-  return (RISE_LAND = { xs, rows, props, solids: props.filter(p => p.solid) });
+  // what stands inside the scene is a solid the game tests; the rest (tufts, the far land) is only drawn
+  const inside = p => p.solid && p.x > -2 && p.x < RISE.len + 2 && p.y > -2 && p.y < RISE.D + 2;
+  const deco = props.filter(p => !inside(p)).sort((a, b) => a.by - b.by);
+  return (RISE_LAND = { xs, rows, solids: props.filter(inside), deco });
 }
+// collision radius as the game scales it for each kind (engine's refreshSceneGeometry): a stone collides at its drawn size
+const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
-function newRise(fx) {
-  const land = riseLand(), east = fx != null && fx > 0.5, x = east ? RISE.len - 1.2 : 1.2, y = risePathY(x);
-  const r = { x, y, vx: 0, vy: 0, land };
-  const p = riseView(x); Object.assign(r, { p, cx: x + riseLead(p), cy: y + (15 - y) * p - RISE.lift * p, ch: riseH(x, y) });
-  return r;
+// the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
+// the first field's south way leads in at the west end, the east end leads down into the third field.
+function addRise(S, add) {
+  const f2 = S.f2, land = riseLand(), { len, D } = RISE;
+  const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
+  sc.virt = [len, D];                                                                   // its size in tiles (sceneSize)
+  for (const p of land.solids) sc.solids.push({ fx: p.x / len, fy: p.y / D, r: p.k === 'tree' ? p.r : p.r / RISE_F[p.k], kind: RISE_KIND[p.k], v: p.v, flip: p.seed > 4.5, pal: 'green', rise: p.k, rr: p.r, seed: p.seed });
+  // the reeds: dry and dense, wall to wall, just past the first tree. Swords and stones do nothing; fire takes them
+  { const x = RISE.barX, hw = riseHalf(x); for (let y = RISE.mid - hw + 0.5; y <= RISE.mid + hw - 0.5; y += 0.85) sc.solids.push({ fx: (x + Math.sin(y * 2.1) * 0.25) / len, fy: y / D, r: 0.72, kind: 'reeds', v: Math.floor(y) % 3, flip: y % 2 < 1, pal: null, bar: 'risereeds' }); }
+  for (const [x, y] of [[4.5, 18.2], [8, 11.8]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
+  const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
+  const wa = (RISE.mid - riseHalf(0) + 0.6) / D, ea = (risePathY(len) - 1.4) / D, eb = (risePathY(len) + 1.4) / D;
+  sc.exits.push({ side: 'w', a: wa, b: 1 - wa, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
+  sc.exits.push({ side: 'e', a: ea, b: eb, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
+  Object.assign(f1s, { to: 'rise', arrive: [1.2 / len, 0.5] });
+  Object.assign(f3n, { to: 'rise', arrive: [1 - 1.2 / len, risePathY(len - 1.2) / D] });
+  delete S.f2;
+  return sc;
 }
-// how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
-const riseView = x => riseClamp((x - 1) / (RISE.len - 10));                        // evenly, from the first step to the foot: no late rush
-const riseZoom = p => 1 - (1 - riseZoomMin()) * p;
-const riseLead = p => Math.min(RISE.lead, 0.3 * W / 2 / (UNIT * riseZoom(p))) * p;   // how far ahead of you the view looks (less on a narrow screen)
-function riseProj(x, y, z, r = state.rise) {
-  const s = riseZoom(r.p), th = RISE.tilt * r.p;
-  return [W / 2 + (x - r.cx) * UNIT * s, H / 2 + ((y - r.cy) * Math.cos(th) - (z - r.ch) * Math.sin(th)) * UNIT * s];
-}
+// the scene's own size in pixels, while it is the current one (every other scene is the screen)
+const sceneSize = id => { const sc = typeof WORLD !== 'undefined' && WORLD && WORLD[id]; return sc && sc.virt ? [sc.virt[0] * UNIT, sc.virt[1] * UNIT] : [SW, SH]; };
 
-function updateRise(dt) {
-  const r = state.rise; if (!r) return;
-  if (testHops()) return;
-  updateFx(dt); state.playTime += dt;
-  const sc = sceneDef(), h = state.hero, still = state.busy || state.npcTalk || state.choice;
-  const v = still ? { x: 0, y: 0 } : inputVector();
-  if (v.x || v.y) { h.fx = v.x; h.fy = v.y; if (Math.abs(v.x) > 0.3) h.side = Math.sign(v.x); }
-  const up = riseH(r.x + 0.5, r.y) - riseH(r.x - 0.5, r.y);                            // the grade under you (tiles up per tile east)
-  const sp = sc.speed * L() / UNIT * (1 - Math.min(0.3, Math.max(0, up * v.x) * 0.6));  // the fields' pace, a touch slower uphill
-  const k = 1 - Math.exp(-sc.accel * dt);
-  r.vx += (v.x * sp - r.vx) * k; r.vy += (v.y * sp - r.vy) * k;
-  const R0 = 0.42, nx = r.x + r.vx * dt, ny = r.y + r.vy * dt;
-  if (riseOpen(nx, r.y) || nx < 0 || nx > RISE.len) r.x = nx; else r.vx = 0;           // slide along the edge you can't cross
-  if (riseOpen(r.x, ny)) r.y = ny; else r.vy = 0;
-  for (const p of r.land.solids) { const dx = r.x - p.x, dy = r.y - p.y, d = Math.hypot(dx, dy) || 0.001, mn = p.r + R0; if (d < mn) { const tx = p.x + dx / d * mn, ty = p.y + dy / d * mn; if (riseOpen(tx, ty)) { r.x = tx; r.y = ty; } } }
-  if (!still && r.x < 0.2 && v.x < 0) { transitionTo('rise', 0.9, 0.5, true); return; }          // it loops: off the bottom, back in at the top
-  if (!still && r.x > RISE.len - 0.2 && v.x > 0) { transitionTo('rise', 0.1, 0.5, true); return; }  // and off the top, back in at the bottom
-  r.x = riseClamp(r.x, 0, RISE.len);
-  // the view: pulled back and tipped by how far east you are, looking ahead up the slope; it eases, never snaps
-  const p = riseView(r.x), e = 1 - Math.exp(-2.5 * dt);
-  r.p += (p - r.p) * e; r.cx += (r.x + riseLead(p) - r.cx) * e; r.cy += (r.y + (15 - r.y) * p - RISE.lift * p - r.cy) * e; r.ch += (riseH(r.x, r.y) - r.ch) * e;
-  const [sx, sy] = riseProj(r.x, r.y, riseH(r.x, r.y));                                 // the hero's place on screen, for speech and hints
-  h.x = sx; h.y = sy - UNIT * riseZoom(r.p) * 0.5; h.vx = r.vx; h.vy = r.vy; h.z = 0;
+function newRise() { const r = { p: 0, cx: 0, cy: RISE.mid, ch: 0 }; riseCamera(0, r, true); return r; }
+// the view: pulled back and tipped by how far east you are, looking ahead up the slope; it eases, never snaps
+function riseCamera(dt, r = state.rise, snap) {
+  if (!r) return;
+  const h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = riseView(x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
+  r.p += (p - r.p) * e; r.cx += (x + riseLead(p) - r.cx) * e; r.cy += (y + (RISE.mid - y) * p - RISE.lift * p - r.cy) * e; r.ch += (riseH(x, y) - r.ch) * e;
 }
+// a point of the scene (in its pixels) on the screen: toScreen uses this on the rise, so speech and hints sit right
+const riseToScreen = (x, y) => riseProj(x / UNIT, y / UNIT, riseH(x / UNIT, y / UNIT));
 
 function drawRise() {
   const r = state.rise; if (!r) return;
-  const land = r.land, s = riseZoom(r.p), th = RISE.tilt * r.p, ct = Math.cos(th), st = Math.sin(th), us = UNIT * s;
+  const land = riseLand(), s = riseZoom(r.p), th = RISE.tilt * r.p, ct = Math.cos(th), st = Math.sin(th), us = UNIT * s;
   const sy = (y, z) => H / 2 + ((y - r.cy) * ct - (z - r.ch) * st) * us, sxOf = x => W / 2 + (x - r.cx) * us;
   // the sky and a far range, seen only once the view tips up past the land's far edge
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#9cc6e4'); g.addColorStop(1, '#e8e2c8'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const hz = sy(RISE.Y0, 0);
   if (hz > 0) { ctx.fillStyle = '#a9b4c4'; ctx.beginPath(); ctx.moveTo(0, H); for (let x = 0; x <= W; x += 20) ctx.lineTo(x, hz - UNIT * (1.2 + 2.4 * Math.abs(Math.sin(x * 0.004 + 1)) + 0.5 * Math.sin(x * 0.013))); ctx.lineTo(W, H); ctx.closePath(); ctx.fill(); }
-  const i0 = Math.max(0, Math.floor(r.cx - W / 2 / us - 2 - RISE.X0)), i1 = Math.min(land.xs.length - 1, Math.ceil(r.cx + W / 2 / us + 2 - RISE.X0)), step = 1;   // (every tile, always: a stride that shifted with the camera made the ground's edges shimmer)
-  const idx = []; for (let i = i0; i < i1; i += step) idx.push(i); idx.push(i1);
-  const h = state.hero; let pi = 0, heroDone = false;
-  const drawHeroHere = () => {
-    heroDone = true; const [px, py] = riseProj(r.x, r.y, riseH(r.x, r.y));
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(px + 2 * s, py, us * 0.55, us * 0.2, 0, 0, 6.28); ctx.fill();
-    ctx.save(); ctx.translate(px, py - us * 0.45); ctx.scale(s, s); const ox = h.x; h.x = 0; drawHeroBody(h, UNIT, UNIT, 0, 1); h.x = ox; ctx.restore();   // the hero as drawn everywhere else, scaled with the view
-  };
+  const i0 = Math.max(0, Math.floor(r.cx - W / 2 / us - 2 - RISE.X0)), i1 = Math.min(land.xs.length - 1, Math.ceil(r.cx + W / 2 / us + 2 - RISE.X0));
+  const idx = []; for (let i = i0; i < i1; i++) idx.push(i); idx.push(i1);   // (every tile, always: a stride that shifted with the camera made the ground's edges shimmer)
+  // everything standing, back to front by where it touches the ground (in tiles, at its lowest edge: the ground laid
+  // after it is all in front of it), drawn with the game's own code
+  // at its spot on the tipped ground, scaled with the view; the ground's rows are laid between them
+  const [VW, VH] = sceneSize(state.scene), SWH = [W, H];
+  const at = (px, py, fn) => { const xt = px / UNIT, yt = py / UNIT, X = sxOf(xt), Y = sy(yt, riseH(xt, yt)); if (X < -us * 4 || X > SWH[0] + us * 4 || Y < -us * 5 || Y > SWH[1] + us * 5) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
+  const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
+  const list = [];
+  for (const p of land.deco) list.push([p.by, () => drawRiseProp(p, sxOf, sy, us, s)]);
+  const sc = sceneDef(), h = state.hero;
+  for (const o of state.solids) {
+    if (o.rise === 'tree' || o.kind === 'reeds') list.push([o.y / UNIT + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o))]);
+    else if (o.rise) list.push([o.y / UNIT + o.rr * 0.9, () => drawRiseProp({ k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, sxOf, sy, us, s)]);
+  }
+  for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
+  for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
+  if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
+  list.push([h.y / UNIT + 0.6, () => at(h.x, h.y, drawHero)]);
+  for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
+  list.sort((a, b) => a[0] - b[0]);
+  let li = 0;
   for (const row of land.rows) {
     const yT = row.y, yB = row.y2;
     if (!row.grad) { row.grad = ctx.createLinearGradient(RISE.X0, 0, RISE.X1, 0); row.cols.forEach((c, i) => { if (i % 2 === 0 || i === row.cols.length - 1) row.grad.addColorStop(i / (land.xs.length - 1), c); }); }   // a stop every other tile is plenty
@@ -131,16 +152,15 @@ function drawRise() {
     if (!(hi < -UNIT * 4 || Math.min(...bp) > H + UNIT * 4 && lo > H)) {
       ctx.save(); ctx.translate(W / 2 - r.cx * us, 0); ctx.scale(us, 1);                // x in tiles, y in pixels: the row's colours are a gradient along x
       ctx.beginPath(); idx.forEach((i, j) => j ? ctx.lineTo(land.xs[i], tp[j]) : ctx.moveTo(land.xs[i], tp[j])); for (let j = idx.length - 1; j >= 0; j--) ctx.lineTo(land.xs[idx[j]], bp[j]); ctx.closePath();
-      ctx.fillStyle = row.grad; ctx.fill();
-      ctx.restore();
+      ctx.fillStyle = row.grad; ctx.fill(); ctx.restore();
     }
-    while (pi < land.props.length && land.props[pi].by < yB) drawRiseProp(land.props[pi++], sxOf, sy, us, s);
-    if (!heroDone && r.y + 0.45 < yB) drawHeroHere();
+    while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
-  while (pi < land.props.length) drawRiseProp(land.props[pi++], sxOf, sy, us, s);
-  if (!heroDone) drawHeroHere();
+  while (li < list.length) list[li++][1]();
+  // things in the air and on top: gas, sparks and dust, each where it is
+  for (const gp of state.gas) at(gp.x, gp.y, () => one('gas', gp, () => { drawGas(false); drawGas(true); }));
+  for (const fp of state.fx) at(fp.x, fp.y, () => one('fx', fp, drawFx));
   if (state.settings.tiles) drawRiseTiles(r, sxOf, sy);
-  drawFx();
 }
 function drawRiseProp(p, sxOf, sy, us, s) {
   const x = sxOf(p.x), y = sy(p.y, riseH(p.x, p.y));
@@ -152,7 +172,7 @@ function drawRiseProp(p, sxOf, sy, us, s) {
     if (sp) ctx.drawImage(sp.cv, x - sp.ox * k, y - sp.oy * k, sp.cv.width * k, sp.cv.height * k);
     else { ctx.save(); ctx.translate(x, y); ctx.scale(k, k); paintRiseCrag(ctx, Math.floor(p.seed * 16 / 9)); ctx.restore(); }
   }
-  else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * 1.4, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
+  else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * p.r, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
 }
 // the crags: sixteen shapes, each painted once (per size of screen) at the biggest size one ever draws, then scaled
 const RISE_CRAG_R = 1.6, RISE_CRAGS = {};
@@ -171,16 +191,15 @@ function riseCragSprite(v) {
     if (g && g.fillRect) { g.translate(rs * 2.3, rs * 1.6); paintRiseCrag(g, v); sp = { cv, ox: rs * 2.3, oy: rs * 1.6 }; } } catch (e) { sp = null; }
   return (RISE_CRAGS[key] = sp);
 }
-// System > Show tiles: the grid laid on the ground, tipped and shrunk with the view; red where you can't stand
+// System > Show tiles: the grid laid on the ground, tipped and shrunk with the view; red where a solid stands
 function drawRiseTiles(r, sxOf, sy) {
   ctx.save(); ctx.lineWidth = 1;
-  const x0 = Math.floor(r.x - 14), x1 = Math.ceil(r.x + 14);
-  const hw = Math.ceil(riseHalf(r.x)) + 1;
-  for (let y = RISE.mid - hw; y <= RISE.mid + hw; y++) for (let x = x0; x < x1; x++) {
+  const h = state.hero, hx = h.x / UNIT, hyT = h.y / UNIT, x0 = Math.floor(hx - 14), x1 = Math.ceil(hx + 14);
+  for (let y = 0; y < RISE.D; y++) for (let x = Math.max(0, x0); x < Math.min(RISE.len, x1); x++) {
     const pt = (a, b) => [sxOf(a), sy(b, riseH(a, b))], c = [pt(x, y), pt(x + 1, y), pt(x + 1, y + 1), pt(x, y + 1)];
     ctx.beginPath(); c.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
-    const me = Math.floor(r.x) === x && Math.floor(r.y) === y;
-    if (me || !riseOpen(x + 0.5, y + 0.5)) { ctx.fillStyle = me ? 'rgba(255,220,90,.35)' : 'rgba(220,70,60,.22)'; ctx.fill(); }
+    const me = Math.floor(hx) === x && Math.floor(hyT) === y, cx = (x + 0.5) * UNIT, cy = (y + 0.5) * UNIT;
+    if (me || state.solids.some(o => Math.hypot(o.x - cx, o.y - cy) < o.r)) { ctx.fillStyle = me ? 'rgba(255,220,90,.35)' : 'rgba(220,70,60,.22)'; ctx.fill(); }
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
   }
   ctx.restore();

@@ -1,4 +1,4 @@
-# Quest: handoff (build 168, 29 Sep 2026)
+# Quest: handoff (build 169, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -10,14 +10,14 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
   (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Render: `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
-  mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (six spots along it, plus the tiles;
+  mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots along it, plus the tiles;
   SW=390 SH=844 for a phone).
 - Ship (Windows PowerShell, shown in a ```powershell block): one download quest-bNN.zip laid out like the repo root, then
   `cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push`
 - Links (every reply that ships gives all of them, full URLs on https://worthcreation.github.io/quest/, each checked
   against the source that build): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
-  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, climb1-climb5, or rise), `?overview=N` (the same world as
+  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
@@ -27,10 +27,12 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - highlands.js  the High Reaches (hr1-hr3): vistas, hawks, mantises, crystal bugs, worms, the red beetle
 - climb.js      the climb screens (climb1-climb5): CLIMBS table, trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
-- rise.js       the rise (id 'rise'): RISE table, riseH (height), riseHalf (the way's half-width, growing with the
-                view), riseOpen (where you can stand: the one shape), riseCragSprite (16 crag pictures, painted once),
-                riseLand (rows, contours and props laid out once in tiles), newRise/updateRise/drawRise, riseView and
-                riseZoom (the camera follows how far east you are), drawRiseTiles
+- rise.js       the rise (id 'rise', where f2 was): RISE table, riseH (height), riseHalf (the way's half-width,
+                growing with the view), riseLand (ground rows and props, laid out once in tiles), addRise (builds the
+                scene with the world: solids, the reeds, two rabbits, exits to f1 and f3), sceneSize (a scene's size
+                in px: the rise's own, every other the screen), riseCamera, riseView/riseZoom/riseProj, riseToScreen
+                (toScreen on the rise), drawRise (ground rows, then everything standing drawn by the game's own code
+                at its spot, scaled), riseCragSprite (16 crag pictures, painted once), drawRiseTiles
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
 - text.js       say() with pages and holds, showTitle, showScroll, notice (pickup scrolls)
 - engine.js     update(), enterScene, movement, jumps, wind and rides, chasms (isChasm, chasmSpan), hurtHero, checkEdges
@@ -52,7 +54,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - skills.js     SKILLS, skillUse, SKILL_INFO
 - draw.js       world drawing: ground, solids, crags, ravines (drawBrokenChasm), mountain sides, hero, Pip (drawPip),
                 enemies, items, drawJagged, drawRock, drawSoilLine (and soilLinePts, its points), BUILD
-- draw-ui.js    HUD (bottom-right), the place tag (top-left: screen id and seed, placeTag/drawPlaceTag), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
+- draw-ui.js    HUD (bottom-right), the place tag (top-left: screen id and seed, and under it your position in tiles;
+                placeTag/placeCoords/drawPlaceTag, each line toggled in System), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
@@ -61,12 +64,11 @@ docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PR
 ## World layout (MAP_LAYOUT, x across, y down)
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
-- Down from f1: the windy fields f1 to f7 (f2-f6 are the mountain path: rock one side, a drop with islands the other),
+- Down from f1: the rise (where f2 was: one long slope west to east, into f3 through a pass), then the windy fields
+  f3 to f7 (f3-f6 are the mountain path: rock one side, a drop with islands the other),
   then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the right.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
 - climb1-climb5 exist but are not joined to the map yet (test links and System > Testing only).
-- rise exists but is not in MAP_LAYOUT yet (?scene=rise, System > Testing > Try the rise). It loops on itself for
-  now; nothing leads to it or out of it.
 
 ## Conventions
 - Pip and NPC lines hold until F; tutorial lines are free. One alert style: scrolls. Banners only for quest start/end.
@@ -93,25 +95,29 @@ islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The la
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Open green for now (climbBand 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
-## The rise, where it stands (build 167)
-One long screen, 86 tiles west to east, from f7's grass to a pass into the crags. It opens straight down like the
-fields; walking east the view pulls back (zoom 1.00 to 0.50 on a laptop, 0.72 on a phone: never under 20 px of hero)
-and tips (0 to 54 degrees) evenly from the first step to the foot (riseView is linear in x; the camera eases at 2.5/s),
-looking a little ahead, so a skyline appears and the mountain stands up to the north-east. West, it comes back in.
-The way between the stone walls widens with the view: 14 tiles by the fields, 30 at the foot (riseHalf; the walls are
-laid on that line and riseOpen tests it). Stones are smooth, then rough past x 40; crags line the foot and both walls
-of the pass, on riseOpen's edge. Crags are 16 pictures painted once at full size, clipped at their soil line, and
-scaled with the view. No ground lines for now (contours and distance haze are out; Ross will add the flair later);
-the worn path stays. For now it loops: off either end you come back in at the other, still walking the same way.
+## The rise, where it stands (build 169)
+The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. f1's south way leads in at its west
+end; the east end, through a pass in the mountain's foot, leads down into f3 (and back). It runs on the main game:
+while it's the current scene, W and H are its own size in px (sceneSize; update() and enterScene() set them, drawing
+and the HUD use the screen, SW and SH, and L() walks at the screen's pace), so the hero, Pip, the rabbits, items, fire,
+the tutorial coach and saving are the usual code. Only the drawing is its own (drawRise): the ground in rows, then
+everything standing drawn by the game's own draw code at its spot on the tipped ground, scaled with the view;
+toScreen projects on the rise, so speech and hints sit right. The overview draws it as a flat thumbnail.
+The view: straight down at the west end; walking east it pulls back (zoom 1.00 to 0.50 on a laptop, 0.72 on a phone:
+never under 20 px of hero) and tips (0 to 54 degrees) evenly to the foot, looking a little ahead. The stone walls
+widen with it: 14 tiles apart by the fields, 30 at the foot (riseHalf). Crags line the foot and two unbroken walls
+line the pass. No ground lines for now (contours and haze out; Ross will add flair later); the worn path stays.
+Two rabbits in the first stretch (the camp's fluff). Just past the first tree (x 11) a wall of reeds crosses the way
+wall to wall (x 13.6, bar 'risereeds'): the marsh's reeds kind, so only fire breaks it (burning gas; the marsh fire
+breath), which gates f3 onward, the mountain path and the crags behind the marsh.
 Draws at about 7 to 10 ms a frame in the node renderer (a field screen is about 3 to 4).
-Open: where it joins (replacing the loop with f7's east exit and peak1's west exit, which means shifting MAP_LAYOUT's
-crags and High Reaches a column), whether it leads to peak1 or the climb, Pip on it, and saving on it (a load puts you
-back at an end).
+Open: the reeds' look (they are the marsh's dark bulrushes; straw-dry would suit a field), a line when you bump them
+without fire, and f2's two island pickups (a stick or an acorn each), which the rise doesn't have.
 
 ## Next task
-None set after build 168 (the rise, in testing; a place tag top-left). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 169 (the rise in place of f2, gated by reeds only fire breaks). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
-crags), retiring the f2-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
+crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.
 
 ## Working from Cowork

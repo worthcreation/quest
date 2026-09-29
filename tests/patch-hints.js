@@ -21,7 +21,7 @@ const visit=(id,n=200)=>{ enterScene(id); state.cut=null; state.pip.visit=null; 
 pipLines.length=0;
 visit('riverbank'); raw.stone=2; state.pipTalkT=-9; run(600);
 visit('start'); raw.stick=3; state.pipTalkT=-9; run(600);
-visit('f2'); raw.fluff=2; state.pip.visit=null; state.pipTalkT=-9; run(600);
+visit('rise'); raw.fluff=2; state.pip.visit=null; state.pipTalkT=-9; run(600);
 visit('meadow'); visit('riverbank');
 const gl=pipLines.filter(l=>/need|everything|looking/.test(l)); gl.forEach(l=>console.log('  '+l));
 console.log('woods line while gathering:', pipLines.some(l=>/other way/.test(l)));

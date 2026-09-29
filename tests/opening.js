@@ -29,7 +29,7 @@ h=state.hero; const ch=WORLD.tentin.feat.chest; h.x=ch[0]*W; h.y=ch[1]*H+UNIT*0.
 const bk=WORLD.tentin.feat.book; h.x=bk[0]*W; h.y=bk[1]*H+UNIT*0.9; run(3); press('f'); console.log('book opens', state.menu && state.menu.view, '| page 1:', BOOK_PAGES()[0].title); press('arrowright'); console.log('turned to', BOOK_PAGES()[state.menu.page].title); state.menu=null;
 h.x=W*0.5; h.y=H-UNIT*0.6; state.keys.arrowdown=true; run(6); state.keys.arrowdown=false; run(40); console.log('out the flap ->', state.scene);
 // gather: stones by the water, sticks in the forest, fluff in the windy field
-for (const id of ['riverbank','start','f1','f2']) { enterScene(id); run(20); h=state.hero; for (const it of state.items.filter(i=>['stone','stick','fluff'].includes(i.type))) { h.x=it.x; h.y=it.y; run(3); press('f'); } run(60*3); }
+for (const id of ['riverbank','start','f1','rise']) { enterScene(id); run(20); h=state.hero; for (const it of state.items.filter(i=>['stone','stick','fluff'].includes(i.type))) { h.x=it.x; h.y=it.y; run(3); press('f'); } run(60*3); }
 console.log('gathered', JSON.stringify(rawOf())); const topUp=4-(rawOf().fluff||0); rawOf().fluff=4; console.log('   + '+topUp+' tuft(s) from rabbits on the second field (build 98: camp takes 4; fluff blows about, the rest comes from rabbits)');
 // craft and build
 enterScene('camp'); run(10); toggleMenu(); state.menu.tab=PACK_TABS.indexOf('Craft'); state.menu.focus='grid';
