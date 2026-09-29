@@ -1,4 +1,4 @@
-# Quest: handoff (build 170, 29 Sep 2026)
+# Quest: handoff (build 171, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -96,7 +96,7 @@ islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The la
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Open green for now (climbBand 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
-## The rise, where it stands (build 170)
+## The rise, where it stands (build 171)
 The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. In and out as the map lays them:
 f1's south way leads in at the north-west corner (x 4, a short way down between the west wall and a corner wall to
 the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads down into f3 (and back). It runs on the main game:
@@ -109,6 +109,9 @@ The view: straight down at the west end; walking east it pulls back (zoom 1.00 t
 never under 20 px of hero) and tips (0 to 54 degrees) evenly to the foot, looking a little ahead. The stone walls
 widen with it: 14 tiles apart by the fields, 30 at the foot (riseHalf). Crags line the foot and two unbroken walls
 line the pass. No ground lines for now (contours and haze out; Ross will add flair later); the worn path stays.
+Wind as on f1: the same gusts (sc.gusts copied from f1), so you, Pip and loose fluff are nudged and shoved just as
+there; five clumps of tall grass lean ahead of each gust; cloud shadows drift (4 per screen's worth of ground, 33).
+No ledges to ride to: a jump into the strong gust is just a jump.
 Two rabbits in the first stretch (the camp's fluff), with 9 stones and trees to duck behind. At x 20, just past a
 tree at x 18, a wall of reeds crosses the way wall to wall. For now nothing gets through it, fire included (the
 clumps have no bar; reedwall: true). To open it to fire later, give each clump bar: 'risereeds' (burning gas breaks
@@ -120,7 +123,7 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task
-None set after build 170 (the rise in place of f2; reeds at x 20 close it for now). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 171 (the rise in place of f2, with f1's wind; reeds at x 20 close it for now). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.

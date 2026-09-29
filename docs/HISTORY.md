@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 171: wind on the rise
+- The rise has f1's wind: the same gusts, so you, Pip and loose fluff are nudged by the gentle ones and shoved by the
+  strong one; five clumps of tall grass lean ahead of each gust; cloud shadows drift across it (as many per screen's
+  worth of ground as a field has: 33 here). No ledges on the rise, so a jump into the strong gust is just a jump.
+- Test rise, new check: gusts identical to f1's; standing on open grass, the strong gust shoves you 2.02 tiles/s on
+  the rise and 2.02 on f1; the grass clumps stand clear of every stone. 64 of 64, overlap 0.
+
 ## Build 170: the rise, in and out as the map has it
 - In from f1 at the north-west corner (a short way down to the path, between a west wall and a corner wall), out at
   the far end south through the pass (it turns south between crag walls at x 78 to 84) into f3. The path is drawn the

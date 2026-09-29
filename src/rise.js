@@ -109,6 +109,11 @@ function addRise(S, add) {
   const land = riseLand(), { len, D } = RISE, oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
   sc.virt = [len, D];                                                                   // its size in tiles (sceneSize)
+  // the wind, as on the first field: the same gusts (two gentle, one strong, from the same quarters), tall grass that
+  // leans the way the next one will blow, loose fluff and you and Pip nudged or shoved, cloud shadows drifting.
+  // (No ledges to ride to here: a jump into the strong gust is just a jump.)
+  sc.gusts = S.f1.gusts.map(g => ({ ...g }));
+  sc.feat.plants = [[4.5, -2.8], [14.5, 2.4], [30, -4], [47, 4.5], [62, -5]].map(([x, dy]) => [x / len, (risePathY(x) + dy) / D]);
   for (const p of land.solids) sc.solids.push({ fx: p.x / len, fy: p.y / D, r: p.k === 'tree' ? p.r : p.r / RISE_F[p.k], kind: RISE_KIND[p.k], v: p.v, flip: p.seed > 4.5, pal: 'green', rise: p.k, rr: p.r, seed: p.seed });
   // the reeds: dense, wall to wall, just past the tree at x 18. For now nothing gets through, fire included (no bar:
   // nothing breaks them). To open them to fire later, give each clump bar: 'risereeds'
@@ -149,7 +154,7 @@ function drawRise() {
   // after it is all in front of it), drawn with the game's own code
   // at its spot on the tipped ground, scaled with the view; the ground's rows are laid between them
   const [VW, VH] = sceneSize(state.scene), SWH = [W, H];
-  const at = (px, py, fn) => { const xt = px / UNIT, yt = py / UNIT, X = sxOf(xt), Y = sy(yt, riseH(xt, yt)); if (X < -us * 4 || X > SWH[0] + us * 4 || Y < -us * 5 || Y > SWH[1] + us * 5) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
+  const at = (px, py, fn, m = 4) => { const xt = px / UNIT, yt = py / UNIT, X = sxOf(xt), Y = sy(yt, riseH(xt, yt)); if (X < -us * m || X > SWH[0] + us * m || Y < -us * (m + 1) || Y > SWH[1] + us * (m + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
   const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
   const list = [];
   for (const p of land.deco) list.push([p.by, () => drawRiseProp(p, sxOf, sy, us, s)]);
@@ -160,6 +165,7 @@ function drawRise() {
   }
   for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
+  for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * RISE.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
   if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
   list.push([h.y / UNIT + 0.6, () => at(h.x, h.y, drawHero)]);
   for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
@@ -178,7 +184,8 @@ function drawRise() {
     while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
   while (li < list.length) list[li++][1]();
-  // things in the air and on top: gas, sparks and dust, each where it is
+  // things in the air and on top: cloud shadows on the ground, gas, sparks and dust, each where it is
+  for (const c of state.clouds) at(c.x, c.y, () => { const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r); g.addColorStop(0, `rgba(20,25,35,${0.12 + (sc.depth || 0) * 0.02})`); g.addColorStop(1, 'rgba(20,25,35,0)'); ctx.fillStyle = g; ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2); }, c.r / UNIT + 1);
   for (const gp of state.gas) at(gp.x, gp.y, () => one('gas', gp, () => { drawGas(false); drawGas(true); }));
   for (const fp of state.fx) at(fp.x, fp.y, () => one('fx', fp, drawFx));
   if (state.settings.tiles) drawRiseTiles(r, sxOf, sy);

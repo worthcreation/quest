@@ -75,7 +75,7 @@ function enterSceneIn(id, fx, fy) {
   state.hazards = []; state.rings = []; state.fx = []; state.texts = []; state.shots = []; state.gas = []; state.spark = null;
   state.drops.length = 0; state.splashes.length = 0; state.dripTimer = 1;
   state.bird = id === 'meadow' ? makeBird() : null;
-  state.clouds = sc.area === 'field' ? Array.from({ length: 4 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
+  state.clouds = sc.area === 'field' ? Array.from({ length: Math.round(4 * W * H / (SW * SH)) }, () => ({ x: Math.random() * W, y: Math.random() * H, r: UNIT * (4 + Math.random() * 4) })) : [];
   state.gustIdx = 0; state.gustPhase = 'lull'; state.gustT = 0; state.gust = 0; state.gustStep = 0; state.gustDur = 2 + Math.random();
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];

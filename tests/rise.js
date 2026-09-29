@@ -48,6 +48,17 @@ console.log('7 wall to wall: x 10', w5.toFixed(1), 'tiles | x 40', w40.toFixed(1
 state.hero.x=2*UNIT; state.hero.y=15*UNIT; state.keys.arrowleft=true; run(90); off(); const wx=tx(); state.hero.x=RISE.inX*UNIT; state.hero.y=4*UNIT; state.keys.arrowup=true; run(90); off(); run(20); const west=state.scene;
 const sv=[W,H,SW,SH]; W=SW=390; H=SH=844; computeUnit(); const px=riseZoomMin()*UNIT; [W,H,SW,SH]=sv; computeUnit();
 console.log('8 west end: stopped at x', wx.toFixed(2), '| up the way in ->', west, '| phone: smallest hero', px.toFixed(1), 'px');
+// 9. the wind, as on f1: the same gusts; standing still, the strong gust shoves you as far as it does on f1; the tall
+// grass stands clear of every stone; cloud shadows drift here too
+const shove=id=>{ enterScene(id); state.enemies=[]; state.items=[]; state.pip=null; const sc=WORLD[id], h=state.hero; let far=0;
+  const spot = id==='rise' ? [30, risePathY(30)] : [0.3*W/UNIT, 0.5*H/UNIT];   // open grass on each
+  h.x=spot[0]*UNIT; h.y=spot[1]*UNIT; run(5);
+  let t=0; while(t<60*20){ const x0=h.x, y0=h.y; run(1); t++; if(state.gustPhase==='blow') far=Math.max(far, Math.hypot(h.x-x0, h.y-y0)*60/UNIT); } return far; };
+const sameGusts = JSON.stringify(WORLD.rise.gusts)===JSON.stringify(WORLD.f1.gusts);
+const vR=shove('rise'), vF=shove('f1'); enterScene('rise'); run(3);
+const clear=WORLD.rise.feat.plants.every(([fx,fy])=>riseLand().solids.every(p=>Math.hypot(p.x-fx*RISE.len,p.y-fy*RISE.D)>p.r+0.9));
+console.log('9 gusts same as f1:', sameGusts, '| strong-gust shove, tiles/s: rise', vR.toFixed(2), 'f1', vF.toFixed(2), '| tall grass', WORLD.rise.feat.plants.length, 'clumps, all clear of stones:', clear, '| clouds', state.clouds.length);
+if (!(sameGusts && Math.abs(vR-vF)<0.05 && vR>0.5 && clear && state.clouds.length>4)) errs++;
 if (!(WORLD.f2===undefined && rab.length===2 && cover>=6 && stopped<RISE.barX && afterFire>0 && secs>0 && mono && most<0.12 && w40>w5+3 && w66>w40+3 && wx>0.3 && west==='f1' && px>=20)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);
