@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 170: the rise, in and out as the map has it
+- In from f1 at the north-west corner (a short way down to the path, between a west wall and a corner wall), out at
+  the far end south through the pass (it turns south between crag walls at x 78 to 84) into f3. The path is drawn the
+  whole way (risePathD). The west end is a wall.
+- The reeds moved to x 20 (a tree at x 18) and nothing gets through them for now, fire included (no bar).
+- Cover in the first stretch: 9 stones and trees to duck behind when a rabbit comes; the rabbits start at x 11 and 15.
+- Test rise: in at x 4.0; 9 pieces of cover; stops at x 19.1 before the reeds, 20 clumps after six swings and after
+  fire; up the rest and down the pass to f3 in 8.1 s (zoom only pulls back, largest step 0.064); in from f3 at
+  x 81.2; walls 13.9 / 20.1 / 26.1 tiles at x 10 / 40 / 66; the west end stops you at x 0.81; the way in leads to f1.
+  64 of 64, overlap 0.
+
 ## Build 169: the rise takes f2's place
 - f2 is gone; the rise is the second field. f1's south way leads in at its west end; its east end, through a pass,
   leads down into f3 (and back up). The overview and the Map tab show it where f2 was.

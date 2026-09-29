@@ -67,7 +67,7 @@ if (process.env.B165) {                            // the rise, walked east: top
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); } }, clear=()=>{ state.texts=[]; state.title=null; state.scrolls=[]; };
   state.started=true; state.intro=null; startTestScene('rise'); run(5); clear();
   const h=state.hero, tag=(process.env.SW||1280)+'x'+(process.env.SH||800), keepE=state.enemies.slice();
-  for (const x of [2.5, 12, 24, 40, 56, 72, 84]) { state.enemies = x < 10 ? keepE : []; h.x=x*UNIT; h.y=risePathY(x)*UNIT; h.vx=h.vy=0; riseCamera(0, state.rise, true); for (let k=0;k<30;k++) { update(1/60); h.x=x*UNIT; h.y=risePathY(x)*UNIT; } clear(); draw(); fs.writeFileSync('/tmp/b165-'+tag+'-x'+x+'.png', canvas.toBuffer('image/png')); }
+  for (const [x, yy] of [[4, 3], [12, null], [19, null], [40, null], [56, null], [72, null], [81.2, 24]]) { const y = yy == null ? risePathY(x) : yy; state.enemies = x < 16 ? keepE : []; h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; riseCamera(0, state.rise, true); for (let k=0;k<30;k++) { update(1/60); h.x=x*UNIT; h.y=y*UNIT; } clear(); draw(); fs.writeFileSync('/tmp/b165-'+tag+'-x'+x+'.png', canvas.toBuffer('image/png')); }
   state.settings.tiles=true; h.x=12*UNIT; h.y=risePathY(12)*UNIT; riseCamera(0, state.rise, true); update(1/60); draw(); fs.writeFileSync('/tmp/b165-'+tag+'-tiles.png', canvas.toBuffer('image/png')); state.settings.tiles=false;
   console.log('b165 written');
 }

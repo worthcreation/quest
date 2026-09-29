@@ -1,4 +1,4 @@
-# Quest: handoff (build 169, 29 Sep 2026)
+# Quest: handoff (build 170, 29 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -10,7 +10,7 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
   (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Render: `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
-  mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots along it, plus the tiles;
+  mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots: the way in, along it, the way out; plus the tiles;
   SW=390 SH=844 for a phone).
 - Ship (Windows PowerShell, shown in a ```powershell block): one download quest-bNN.zip laid out like the repo root, then
   `cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push`
@@ -64,7 +64,8 @@ docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PR
 ## World layout (MAP_LAYOUT, x across, y down)
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
-- Down from f1: the rise (where f2 was: one long slope west to east, into f3 through a pass), then the windy fields
+- Down from f1: the rise (where f2 was: in from f1 at its north-west corner, one long slope east, out south through
+  a pass at the far end into f3), then the windy fields
   f3 to f7 (f3-f6 are the mountain path: rock one side, a drop with islands the other),
   then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the right.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
@@ -95,9 +96,10 @@ islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The la
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Open green for now (climbBand 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
-## The rise, where it stands (build 169)
-The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. f1's south way leads in at its west
-end; the east end, through a pass in the mountain's foot, leads down into f3 (and back). It runs on the main game:
+## The rise, where it stands (build 170)
+The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. In and out as the map lays them:
+f1's south way leads in at the north-west corner (x 4, a short way down between the west wall and a corner wall to
+the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads down into f3 (and back). It runs on the main game:
 while it's the current scene, W and H are its own size in px (sceneSize; update() and enterScene() set them, drawing
 and the HUD use the screen, SW and SH, and L() walks at the screen's pace), so the hero, Pip, the rabbits, items, fire,
 the tutorial coach and saving are the usual code. Only the drawing is its own (drawRise): the ground in rows, then
@@ -107,15 +109,18 @@ The view: straight down at the west end; walking east it pulls back (zoom 1.00 t
 never under 20 px of hero) and tips (0 to 54 degrees) evenly to the foot, looking a little ahead. The stone walls
 widen with it: 14 tiles apart by the fields, 30 at the foot (riseHalf). Crags line the foot and two unbroken walls
 line the pass. No ground lines for now (contours and haze out; Ross will add flair later); the worn path stays.
-Two rabbits in the first stretch (the camp's fluff). Just past the first tree (x 11) a wall of reeds crosses the way
-wall to wall (x 13.6, bar 'risereeds'): the marsh's reeds kind, so only fire breaks it (burning gas; the marsh fire
-breath), which gates f3 onward, the mountain path and the crags behind the marsh.
+Two rabbits in the first stretch (the camp's fluff), with 9 stones and trees to duck behind. At x 20, just past a
+tree at x 18, a wall of reeds crosses the way wall to wall. For now nothing gets through it, fire included (the
+clumps have no bar; reedwall: true). To open it to fire later, give each clump bar: 'risereeds' (burning gas breaks
+reeds with a bar). Past it is out of reach for now, and with it f3 onward from this side.
 Draws at about 7 to 10 ms a frame in the node renderer (a field screen is about 3 to 4).
-Open: the reeds' look (they are the marsh's dark bulrushes; straw-dry would suit a field), a line when you bump them
-without fire, and f2's two island pickups (a stick or an acorn each), which the rise doesn't have.
+Open: what opens the reeds, their look (the marsh's dark bulrushes; straw-dry would suit a field), a line when you
+bump them, f2's two island pickups (a stick or an acorn each), which the rise doesn't have, and continuity at the
+seams: the rise's way in is at its far west and its way out at its far east, while f1's south opening and f3's north
+opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task
-None set after build 169 (the rise in place of f2, gated by reeds only fire breaks). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 170 (the rise in place of f2; reeds at x 20 close it for now). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.

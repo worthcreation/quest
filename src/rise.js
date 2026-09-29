@@ -5,12 +5,21 @@
 // comes from the screen, L()). Only the drawing is its own: it opens looking straight down, like the fields; walk
 // east and the view pulls back and tips up, so the grade shows and the mountain stands up ahead; walk back and it
 // comes in again. Everything standing is drawn where it touches the ground, scaled with the view.
-// Just past the first tree a wall of dry reeds crosses the way: only fire gets through it.
+// At x 20, just past a tree, a wall of reeds crosses the way: for now nothing gets through it.
 
-const RISE = { len: 86, D: 30, flat: 0, grade: 0.0018, mid: 15, floor: '#7b9550', treeX: 11, barX: 13.6, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
+const RISE = { len: 86, D: 30, flat: 0, grade: 0.0018, mid: 15, floor: '#7b9550', treeX: 18, barX: 20, inX: 4, outX: 81.2, tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
 const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
+// the whole path, as the map has it: down from the first field at the north-west corner, east up the rise, and at the
+// far end south through the pass, down to the third field. Distance to it, in tiles:
+function risePathD(x, y) {
+  const { inX, outX, D } = RISE, y0 = risePathY(inX + 6), y1 = risePathY(outX);
+  let d = x >= inX + 4 && x <= outX ? Math.abs(y - risePathY(x)) : 99;
+  if (y <= y0 + 0.5) { const t = riseClamp((y + 1) / (y0 + 1)); d = Math.min(d, Math.abs(x - (inX + 6 * t * t))); }   // the way in, from the north
+  if (y >= y1 - 0.5) { const t = riseClamp((y - y1) / (D + 1 - y1)); d = Math.min(d, Math.abs(x - (outX + 0.6 * t))); }   // the way out, to the south
+  return d;
+}
 // the lowest the view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const riseZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the pass)
@@ -32,7 +41,7 @@ function riseColor(x, y) {
   const lit = riseClamp(0.35 * gx / 0.6 - 0.2 * gy / 0.6, -0.8, 0.8) * (0.4 + 0.6 * riseClamp((h - 3) / 6));   // faces turned to the light (west) catch it
   const base = parseInt(RISE.floor.slice(1), 16), k = riseClamp((h - 5) / 6);    // the fields' grass, going over to stony turf, then stone
   let c = [base >> 16, (base >> 8) & 255, base & 255].map((v, i) => v + ([132, 130, 118][i] - v) * k);
-  const d = Math.abs(y - risePathY(x));
+  const d = risePathD(x, y);
   if (d < 0.75 && x > RISE.X0) { const w = (1 - d / 0.75) * 0.75; c = c.map((v, i) => v + ([150, 132, 98][i] - v) * w); }
   return 'rgb(' + c.map(v => Math.round(riseClamp(v + lit * 30, 0, 255))).join(',') + ')';
 }
@@ -61,18 +70,29 @@ function riseLand() {
   let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const props = [], put = (k, x, y, r, solid) => props.push({ k, x, y, r, solid, seed: rnd() * 9, v: Math.floor(rnd() * 3), by: y + (k === 'tuft' ? 0.1 : k === 'tree' ? 0.3 : r * 0.9) });
   const clearOf = (x, y, r) => !props.some(p => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + r + 0.2);
-  const nearBar = x => Math.abs(x - RISE.barX) < 1.6;
-  // the walls of the way: a line of stones along each side, smooth by the fields, rough as the ground rises
-  for (const sd of [-1, 1]) for (let x = X0; x < 100; x += 1.25) { const wy = RISE.mid + sd * riseHalf(x); if (x > riseFoot(wy) + 1) break; const r = 0.55 + rnd() * 0.35; put(x > 40 ? 'crag' : 'boulder', x + rnd() * 0.4, wy + (rnd() - 0.5) * 0.5, r, true); }
-  // the first tree, just before the reeds
+  const nearBar = x => Math.abs(x - RISE.barX) < 1.6, inPassOut = (x, y) => x > RISE.outX - 4.5 && x < RISE.outX + 4 && y > risePathY(x) - 3;
+  // the walls of the way: a line of stones along each side, smooth by the fields, rough as the ground rises. The north
+  // one starts past the way in; a short wall closes the corner above it, another the west end
+  const nW = RISE.inX + 3.5;
+  for (const sd of [-1, 1]) for (let x = sd < 0 ? nW : 0.4; x < 100; x += 1.25) { const wy = RISE.mid + sd * riseHalf(x); if (x > riseFoot(wy) + 1) break; const r = 0.55 + rnd() * 0.35; put(x > 40 ? 'crag' : 'boulder', x + rnd() * 0.4, wy + (rnd() - 0.5) * 0.5, r, true); }
+  for (let y = 0.3; y < RISE.mid - riseHalf(nW) - 0.6; y += 1.2) put('boulder', nW + (rnd() - 0.5) * 0.3, y, 0.55 + rnd() * 0.3, true);
+  for (let y = 0.3; y < RISE.mid + riseHalf(0) - 0.6; y += 1.2) put('boulder', -0.1 + (rnd() - 0.5) * 0.3, y, 0.6 + rnd() * 0.3, true);
+  // the first stretch: stones and trees to duck behind when a rabbit comes (off the path, inside the walls), and the
+  // tree just before the reeds
+  for (const [x, dy, k] of [[6, 4.5, 'boulder'], [8.5, -3.2, 'tree'], [10.5, 3.4, 'boulder'], [12.5, -4.5, 'boulder'], [13.5, 4.8, 'tree'], [15.5, -3, 'boulder'], [16.5, 3.2, 'boulder'], [7, -5.2, 'boulder']]) {
+    const y = risePathY(x) + dy; if (Math.abs(y - RISE.mid) < riseHalf(x) - 1.2) put(k, x, y, k === 'tree' ? 1.2 : 0.7 + rnd() * 0.25, true);
+  }
   put('tree', RISE.treeX, risePathY(RISE.treeX) - 2.8, 1.2, true);
   // the mountain's foot and the pass: crags on the line you can't cross
   for (let y = Y0; y < Y1; y += 1.1) { const f = riseFoot(y); if (Math.abs(y - risePathY(f)) < 1.7) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
-  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 4; x += 0.85) for (const sd of [-1, 1]) { const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }   // two unbroken walls: the pass is the only way on
-  for (let i = 0; i < 110; i++) { const y = Y0 + rnd() * (Y1 - Y0), x = riseFoot(y) + 1 + rnd() * 40, r = 0.7 + rnd() * 0.8; if (Math.abs(y - risePathY(x)) < 3.5 + r || !clearOf(x, y, r * 0.6)) continue; put('crag', x, y, r, true); }
+  // the pass: east between two unbroken walls, then south down to the third field between two more
+  const oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
+  for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 2; x += 0.85) for (const sd of [-1, 1]) { if (sd > 0 && x > oW - 0.3) continue; const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }
+  for (const [wx, from] of [[oW, risePathY(oW) + 2.1], [oE, risePathY(oE) - 1.6]]) for (let y = from; y < RISE.D + 1.5; y += 0.85) put('crag', wx + (rnd() - 0.5) * 0.2, y, 0.55 + rnd() * 0.3, true);
+  for (let i = 0; i < 110; i++) { const y = Y0 + rnd() * (Y1 - Y0), x = riseFoot(y) + 1 + rnd() * 40, r = 0.7 + rnd() * 0.8; if (risePathD(x, y) < 3.5 + r || inPassOut(x, y) || !clearOf(x, y, r * 0.6)) continue; put('crag', x, y, r, true); }
   // on the way: a few stones and trees (never on the path, none by the reeds, no tree before the first), grass tufts
-  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (Math.abs(y - risePathY(x)) < 2.2 || nearBar(x) || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
-  for (let i = 0; i < 18; i++) { const x = 18 + rnd() * 52, y = Y0 + rnd() * (Y1 - Y0); if (Math.abs(y - risePathY(x)) < 2.4 || !clearOf(x, y, 0.6)) continue; put('tree', x, y, 1.2, true); }
+  for (let i = 0; i < 60; i++) { const x = X0 + rnd() * (riseFoot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (risePathD(x, y) < 2.2 || nearBar(x) || !clearOf(x, y, r)) continue; put(x > 36 ? 'crag' : 'boulder', x, y, r, true); }
+  for (let i = 0; i < 18; i++) { const x = 23 + rnd() * 47, y = Y0 + rnd() * (Y1 - Y0); if (risePathD(x, y) < 2.4 || !clearOf(x, y, 0.6)) continue; put('tree', x, y, 1.2, true); }
   for (let i = 0; i < 420; i++) { const x = X0 + rnd() * (X1 - X0), y = Y0 + rnd() * (Y1 - Y0); if (x < riseFoot(y) - 1 && riseH(x, y) < 9) put('tuft', x, y, 0.3, false); }
   // what stands inside the scene is a solid the game tests; the rest (tufts, the far land) is only drawn
   const inside = p => p.solid && p.x > -2 && p.x < RISE.len + 2 && p.y > -2 && p.y < RISE.D + 2;
@@ -83,21 +103,22 @@ function riseLand() {
 const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
 // the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
-// the first field's south way leads in at the west end, the east end leads down into the third field.
+// the first field's south way leads in at the north-west corner, and the pass at the far end leads south into the
+// third field: in and out as the map lays them (f1 above, f3 below).
 function addRise(S, add) {
-  const f2 = S.f2, land = riseLand(), { len, D } = RISE;
+  const land = riseLand(), { len, D } = RISE, oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
   sc.virt = [len, D];                                                                   // its size in tiles (sceneSize)
   for (const p of land.solids) sc.solids.push({ fx: p.x / len, fy: p.y / D, r: p.k === 'tree' ? p.r : p.r / RISE_F[p.k], kind: RISE_KIND[p.k], v: p.v, flip: p.seed > 4.5, pal: 'green', rise: p.k, rr: p.r, seed: p.seed });
-  // the reeds: dry and dense, wall to wall, just past the first tree. Swords and stones do nothing; fire takes them
-  { const x = RISE.barX, hw = riseHalf(x); for (let y = RISE.mid - hw + 0.5; y <= RISE.mid + hw - 0.5; y += 0.85) sc.solids.push({ fx: (x + Math.sin(y * 2.1) * 0.25) / len, fy: y / D, r: 0.72, kind: 'reeds', v: Math.floor(y) % 3, flip: y % 2 < 1, pal: null, bar: 'risereeds' }); }
-  for (const [x, y] of [[4.5, 18.2], [8, 11.8]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
+  // the reeds: dense, wall to wall, just past the tree at x 18. For now nothing gets through, fire included (no bar:
+  // nothing breaks them). To open them to fire later, give each clump bar: 'risereeds'
+  { const x = RISE.barX, hw = riseHalf(x); for (let y = RISE.mid - hw + 0.5; y <= RISE.mid + hw - 0.5; y += 0.85) sc.solids.push({ fx: (x + Math.sin(y * 2.1) * 0.25) / len, fy: y / D, r: 0.72, kind: 'reeds', v: Math.floor(y) % 3, flip: y % 2 < 1, pal: null, reedwall: true }); }
+  for (const [x, y] of [[11, 18.8], [15, 11.6]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
   const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
-  const wa = (RISE.mid - riseHalf(0) + 0.6) / D, ea = (risePathY(len) - 1.4) / D, eb = (risePathY(len) + 1.4) / D;
-  sc.exits.push({ side: 'w', a: wa, b: 1 - wa, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
-  sc.exits.push({ side: 'e', a: ea, b: eb, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
-  Object.assign(f1s, { to: 'rise', arrive: [1.2 / len, 0.5] });
-  Object.assign(f3n, { to: 'rise', arrive: [1 - 1.2 / len, risePathY(len - 1.2) / D] });
+  sc.exits.push({ side: 'n', a: 0.8 / len, b: (RISE.inX + 3) / len, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
+  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
+  Object.assign(f1s, { to: 'rise', arrive: [RISE.inX / len, 1.2 / D] });
+  Object.assign(f3n, { to: 'rise', arrive: [RISE.outX / len, 1 - 1.2 / D] });
   delete S.f2;
   return sc;
 }
