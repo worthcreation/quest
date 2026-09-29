@@ -3,16 +3,17 @@
 // (the contour lines bunch, the far edge rises into a skyline) and the mountain stands up ahead; walk back west and it
 // comes in again. The camera follows only how far east you are. Like the climb it runs its own update and drawing, but it
 // walks at the fields' speed and is drawn with the game's own stones and trees.
-// Not joined to the map yet: ?scene=rise, or System > Testing. The west end leads to f7, the east end to peak1.
+// Not joined to the map yet: ?scene=rise, or System > Testing. For now it loops: walk off either end and you come back
+// in at the other, still walking the same way.
 
-const RISE = { len: 86, flat: 10, grade: 0.0025, band: [8, 22], tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
+const RISE = { len: 86, flat: 0, grade: 0.0018, band: [8, 22], tilt: 0.95, lead: 6, lift: 4.5, X0: -16, X1: 124, Y0: -6, Y1: 72 };
 const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
 const riseInPass = (x, y) => x > riseFoot(y) - 2 && Math.abs(y - risePathY(x)) < 1.5; // the notch the path takes into the rock
 // the lowest the view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const riseZoomMin = () => Math.max(0.5, 20 / UNIT);
-// the ground's height in tiles: flat by the fields, then a gentle, steepening grade, then the mountain (cut by the pass)
+// the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the pass)
 function riseH(x, y) {
   const f = riseFoot(y), xb = Math.min(x, f), m = x - f;
   let h = xb < RISE.flat ? 0 : RISE.grade * (xb - RISE.flat) ** 2;
@@ -73,8 +74,8 @@ function newRise(fx) {
   const p = riseView(x); Object.assign(r, { p, cx: x + riseLead(p), cy: y + (15 - y) * p - RISE.lift * p, ch: riseH(x, y) });
   return r;
 }
-// how far along the transition you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
-const riseView = x => { const t = riseClamp((x - RISE.flat) / 60); return t * t * (3 - 2 * t); };
+// how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the foot)
+const riseView = x => riseClamp((x - 1) / (RISE.len - 10));                        // evenly, from the first step to the foot: no late rush
 const riseZoom = p => 1 - (1 - riseZoomMin()) * p;
 const riseLead = p => Math.min(RISE.lead, 0.3 * W / 2 / (UNIT * riseZoom(p))) * p;   // how far ahead of you the view looks (less on a narrow screen)
 function riseProj(x, y, z, r = state.rise) {
@@ -97,11 +98,11 @@ function updateRise(dt) {
   if (riseOpen(nx, r.y) || nx < 0 || nx > RISE.len) r.x = nx; else r.vx = 0;           // slide along the edge you can't cross
   if (riseOpen(r.x, ny)) r.y = ny; else r.vy = 0;
   for (const p of r.land.solids) { const dx = r.x - p.x, dy = r.y - p.y, d = Math.hypot(dx, dy) || 0.001, mn = p.r + R0; if (d < mn) { const tx = p.x + dx / d * mn, ty = p.y + dy / d * mn; if (riseOpen(tx, ty)) { r.x = tx; r.y = ty; } } }
-  if (!still && r.x < 0.2 && v.x < 0) { transitionTo('f7', 1 - 1.2 * UNIT / W, 0.85, true); return; }   // back down to the fields
-  if (!still && r.x > RISE.len - 0.2 && v.x > 0) { transitionTo('peak1', 1.2 * UNIT / W, 0.5, true); return; }   // up into the crags
+  if (!still && r.x < 0.2 && v.x < 0) { transitionTo('rise', 0.9, 0.5, true); return; }          // it loops: off the bottom, back in at the top
+  if (!still && r.x > RISE.len - 0.2 && v.x > 0) { transitionTo('rise', 0.1, 0.5, true); return; }  // and off the top, back in at the bottom
   r.x = riseClamp(r.x, 0, RISE.len);
   // the view: pulled back and tipped by how far east you are, looking ahead up the slope; it eases, never snaps
-  const p = riseView(r.x), e = 1 - Math.exp(-4 * dt);
+  const p = riseView(r.x), e = 1 - Math.exp(-2.5 * dt);
   r.p += (p - r.p) * e; r.cx += (r.x + riseLead(p) - r.cx) * e; r.cy += (r.y + (15 - r.y) * p - RISE.lift * p - r.cy) * e; r.ch += (riseH(r.x, r.y) - r.ch) * e;
   const [sx, sy] = riseProj(r.x, r.y, riseH(r.x, r.y));                                 // the hero's place on screen, for speech and hints
   h.x = sx; h.y = sy - UNIT * riseZoom(r.p) * 0.5; h.vx = r.vx; h.vy = r.vy; h.z = 0;
@@ -158,7 +159,14 @@ function drawRiseProp(p, sxOf, sy, us, s) {
   if (x < -us * 3 || x > W + us * 3 || y < -us * 3 || y > H + us * 4) return;
   if (p.k === 'tuft') { ctx.strokeStyle = '#7f8f5a'; ctx.lineWidth = Math.max(1, 1.5 * s); for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(x + i * 3 * s, y); ctx.lineTo(x + (i * 4 + Math.sin(state.time * 2 + p.seed) * 2) * s, y - us * 0.35); ctx.stroke(); } }
   else if (p.k === 'boulder') drawSolid({ kind: 'boulder', x, y, vis: p.r * us, flip: p.seed > 4.5 });
-  else if (p.k === 'crag') { const rs = p.r * us; ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + rs * 0.15, y + rs * 0.3, rs, rs * 0.45, 0, 0, 6.28); ctx.fill(); drawJagged(x, y - rs * 0.4, rs, p.seed * 13 + p.x, ['#86827a', '#9a968c', '#6e6a62']); drawSoilLine(x, y + rs * 0.2, rs * 1.8, Math.max(2, rs * 0.15), p.x); }
+  else if (p.k === 'crag') {                                                          // drawn at full size and scaled with the view, so the zigzag keeps its shape as you zoom
+    const rs = p.r * UNIT, amp = Math.max(2, rs * 0.15), soil = soilLinePts(0, rs * 0.2, rs * 2.2, amp, p.x), [ax, ay] = soil[0], [bx, by] = soil[soil.length - 1];
+    ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(rs * 0.15, rs * 0.3, rs, rs * 0.45, 0, 0, 6.28); ctx.fill();
+    ctx.save(); ctx.beginPath(); ctx.moveTo(ax - rs * 2, -rs * 3); ctx.lineTo(ax - rs * 2, ay); soil.forEach(([sx, sy]) => ctx.lineTo(sx, sy)); ctx.lineTo(bx + rs * 2, by); ctx.lineTo(bx + rs * 2, -rs * 3); ctx.closePath(); ctx.clip();   // sunk: nothing of the stone below its soil line
+    drawJagged(0, -rs * 0.4, rs, p.seed * 13 + p.x, ['#86827a', '#9a968c', '#6e6a62']); ctx.restore();
+    drawSoilLine(0, rs * 0.2, rs * 2.2, amp, p.x); ctx.restore();
+  }
   else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * 1.4, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
 }
 // System > Show tiles: the grid laid on the ground, tipped and shrunk with the view; red where you can't stand

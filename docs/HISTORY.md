@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 166: the rise, smoother
+- Crags on the rise no longer jitter as the view zooms: each is drawn at full size and scaled, so its zigzag keeps the
+  same points. They're clipped to their soil line, so no stone shows below it (soilLinePts in draw.js: the line and
+  the clip share one shape; drawSoilLine draws the same points it always did).
+- The view changes evenly from the first step to the foot (it was a smoothstep over x 10 to 70), and the grade starts
+  at the first step too. Zoom by second, walking east: 0.97 0.91 0.85 0.79 0.73 0.68 0.62 0.56 0.51 (was 1.00 0.98
+  0.91 0.81 0.71 0.61 0.54 0.50); biggest one-second change 0.061 (was 0.10). Camera eases at 2.5/s (was 4).
+- The rise loops for now: off the east end you come in at the west, off the west end at the east. The f7 and peak1
+  exits are gone until it's joined. Test rise checks both loops. 63 of 63, overlap 0.
+
 ## Build 165: the rise
 - New screen 'rise' (src/rise.js), in testing: ?scene=rise or System > Testing > Try the rise. One long slope from
   f7's grass to a pass into the crags. Opens top-down like the fields; walking east the view pulls back and tips up

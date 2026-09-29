@@ -588,10 +588,14 @@ function drawRock(x, y, r, seed = 3.7, shadow = true) {
 }
 const rockSeedOf = pl => (pl.id || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 0.37 + pl.fx * 11;   // the same stone in the ground, in your arms, in the air
 // where a stone meets the ground: just a zigzag brown line along its base, the look of being sunk in
+function soilLinePts(x, y, w, amp, seed = 1) {         // the zigzag's points (one shape: the line, and the clip that sinks a stone into it)
+  const n = Math.max(6, Math.round(w / (amp * 1.6))), pts = [];
+  for (let i = 0; i <= n; i++) { const k = i / n; pts.push([x - w / 2 + k * w, y - Math.sin(k * Math.PI) * amp * 0.9 + (i % 2 ? -amp * 0.45 : amp * 0.2) + Math.sin(i * 2.7 + seed) * amp * 0.15]); }
+  return pts;
+}
 function drawSoilLine(x, y, w, amp, seed = 1) {
   ctx.strokeStyle = 'rgba(74,56,34,.85)'; ctx.lineWidth = Math.max(2, amp * 0.5); ctx.lineJoin = 'round'; ctx.beginPath();
-  const n = Math.max(6, Math.round(w / (amp * 1.6)));
-  for (let i = 0; i <= n; i++) { const k = i / n, xx = x - w / 2 + k * w, yy = y - Math.sin(k * Math.PI) * amp * 0.9 + (i % 2 ? -amp * 0.45 : amp * 0.2) + Math.sin(i * 2.7 + seed) * amp * 0.15; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+  soilLinePts(x, y, w, amp, seed).forEach(([xx, yy], i) => i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy));
   ctx.stroke(); ctx.lineJoin = 'miter';
 }
 function drawSolid(s) {
@@ -1255,7 +1259,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 165';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 166';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

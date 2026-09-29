@@ -52,7 +52,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - Progression: SKILLS/skillUse [skills]; FOOD [gear]; SEEDS [items]; plotStage() + PATCH [interact]; CROP_XP [gear];
   RECIPES [craft]; slots SLOT_KEYS/useSlot/flashSlot [gear]; the R wheel [actions].
 - Drawing: drawItemIcon for every icon [draw-ui]; drawJagged (optional context) for every rough stone; drawRock (seeded
-  lumpy stone) and drawSoilLine (the zigzag where stone meets ground) [draw]; drawHUD is bottom-right (vigor and
+  lumpy stone) and drawSoilLine (the zigzag where stone meets ground; soilLinePts gives its points, to clip a stone to
+  it) [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - The rise: RISE table, riseH and riseOpen (one shape for standing and for where the crags go), riseLand, riseView [rise].
