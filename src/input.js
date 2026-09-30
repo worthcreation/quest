@@ -15,12 +15,14 @@ window.addEventListener('keydown', e => {
   if (k === 'r' && state.won) { newGame(); return; }
   if ((k === state.settings.keys.menu || k === 'escape') && !state.won) toggleMenu();
 });
+// forget every key held and pressed: the press that opened a menu or a question doesn't also act inside it
+function swallowKeys() { state.keys = {}; state.prevKeys = {}; }
 function assignKey(action, k) {
   if (k === 'escape') { state.remap = null; return; }
   const map = state.settings.keys;
   for (const a in map) if (map[a] === k) map[a] = map[action];     // swap if the key was taken
   map[action] = k;
-  state.remap = null; state.keys = {}; state.prevKeys = {};
+  state.remap = null; swallowKeys();
   refreshK(); saveSettings(); sfx.pickup();
 }
 window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });

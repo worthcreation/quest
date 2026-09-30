@@ -90,7 +90,7 @@ function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick
   const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
   sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
 }
-function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); }
+function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; swallowKeys(); sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -126,7 +126,7 @@ function interactBench(sc, h, rt, nearPull) {
   if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
-    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
+    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; swallowKeys(); sfx.tock(); return true; }
   }
 }
 function interactPatches(sc, h, rt, nearPull) {
@@ -523,7 +523,7 @@ function advanceTalk() {
 // =====================================================================
 function ask(text, x, y, options, cb) {
   state.choice = { text, x, y, options, sel: 0, cb };
-  state.keys = {}; state.prevKeys = {};
+  swallowKeys();
   sfx.talk();
 }
 function updateChoice() {

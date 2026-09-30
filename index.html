@@ -1780,12 +1780,14 @@ window.addEventListener('keydown', e => {
   if (k === 'r' && state.won) { newGame(); return; }
   if ((k === state.settings.keys.menu || k === 'escape') && !state.won) toggleMenu();
 });
+// forget every key held and pressed: the press that opened a menu or a question doesn't also act inside it
+function swallowKeys() { state.keys = {}; state.prevKeys = {}; }
 function assignKey(action, k) {
   if (k === 'escape') { state.remap = null; return; }
   const map = state.settings.keys;
   for (const a in map) if (map[a] === k) map[a] = map[action];     // swap if the key was taken
   map[action] = k;
-  state.remap = null; state.keys = {}; state.prevKeys = {};
+  state.remap = null; swallowKeys();
   refreshK(); saveSettings(); sfx.pickup();
 }
 window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });
@@ -4556,7 +4558,7 @@ function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick
   const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
   sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
 }
-function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); }
+function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; swallowKeys(); sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -4592,7 +4594,7 @@ function interactBench(sc, h, rt, nearPull) {
   if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
-    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; state.keys = {}; state.prevKeys = {}; sfx.tock(); return true; }
+    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; swallowKeys(); sfx.tock(); return true; }
   }
 }
 function interactPatches(sc, h, rt, nearPull) {
@@ -4989,7 +4991,7 @@ function advanceTalk() {
 // =====================================================================
 function ask(text, x, y, options, cb) {
   state.choice = { text, x, y, options, sel: 0, cb };
-  state.keys = {}; state.prevKeys = {};
+  swallowKeys();
   sfx.talk();
 }
 function updateChoice() {
@@ -6408,7 +6410,7 @@ function toggleMenu() {
   if (!state.started) return;
   if (state.menu) { if (state.menu.view === 'pack') state.lastTab = state.menu.tab; state.menu = null; sfx.tock(); return; }
   state.menu = { view: 'pack', tab: state.lastTab || 0, sel: 0, focus: 'grid', act: 0, sys: 0, note: '' };
-  state.keys = {}; state.prevKeys = {};
+  swallowKeys();
   sfx.tock();
 }
 function menuItems() {
@@ -8713,7 +8715,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 190';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 191';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

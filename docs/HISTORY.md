@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 191: swallowKeys (state-owners move 6)
+- input.js: swallowKeys() forgets keys held and pressed; the five places that did it by hand (the key remap, the Map
+  tab, the forge, ask(), toggleMenu) call it. All 65 test outputs identical to build 190's.
+
 ## Build 190: liftRock (state-owners move 5)
 - items.js: liftRock(seed) sets carry, carryT and carrySeed and refreshes the buttons; the two pickups (a rock pulled
   up, a loose rock picked up in interact.js) call it. All 65 test outputs identical to build 189's.

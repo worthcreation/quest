@@ -331,7 +331,7 @@ function toggleMenu() {
   if (!state.started) return;
   if (state.menu) { if (state.menu.view === 'pack') state.lastTab = state.menu.tab; state.menu = null; sfx.tock(); return; }
   state.menu = { view: 'pack', tab: state.lastTab || 0, sel: 0, focus: 'grid', act: 0, sys: 0, note: '' };
-  state.keys = {}; state.prevKeys = {};
+  swallowKeys();
   sfx.tock();
 }
 function menuItems() {
