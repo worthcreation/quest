@@ -257,8 +257,9 @@ Struck through with the build number as each ships. Rows above still describe bu
 4. ~~One `setEquip(id)` in gear.js; the six direct `state.equip = ...` call it (goes with 1, since `active` sits on the
    same lines).~~ Done, build 189: there were seven (gear had two); setEquip sits beside syncEquip and is the only
    write left.
-5. One `pickUp(kind, seed)` in items.js that sets carry, carryT and carrySeed; interact.js:181 and items.js:158
-   call it. Owner of carry becomes items; actions still throws, engine still drops.
+5. ~~One `pickUp(kind, seed)` in items.js that sets carry, carryT and carrySeed; interact.js:181 and items.js:158
+   call it. Owner of carry becomes items; actions still throws, engine still drops.~~ Done, build 190, named
+   `liftRock(seed)` (carry is only ever 'rock', and pickUpHere already exists). The clears stay where they are.
 6. `swallowKeys()` in input.js for the four `state.keys = {}; state.prevKeys = {}` lines (interact 3, menu 1).
 7. quests.js:69: call showTitle instead of building the herald title by hand (check showTitle can take the note).
 8. climbReturn: `startClimb(id, from)` in climb.js; menu's two Testing rows call it.

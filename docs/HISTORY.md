@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 190: liftRock (state-owners move 5)
+- items.js: liftRock(seed) sets carry, carryT and carrySeed and refreshes the buttons; the two pickups (a rock pulled
+  up, a loose rock picked up in interact.js) call it. All 65 test outputs identical to build 189's.
+
 ## Build 189: setEquip (state-owners move 4)
 - gear.js: setEquip(id) beside syncEquip; the seven direct `state.equip = ...` (actions, arena, cutscenes, engine,
   items, gear x2) call it. All 65 test outputs identical to build 188's.

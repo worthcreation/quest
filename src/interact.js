@@ -178,7 +178,7 @@ function interactPatches(sc, h, rt, nearPull) {
 function interactLift(sc, h, rt, nearPull) {
   if (!state.carry) {
     const rock = state.items.find(it => it.type === 'bigrock' && Math.hypot(h.x - it.x, h.y - it.y) < UNIT * 1.3);
-    if (rock && pressedNow.act) { state.items.splice(state.items.indexOf(rock), 1); state.carrySeed = rock.seed != null ? rock.seed : 3.7; state.carry = 'rock'; state.carryT = state.time; sfx.lift(); refreshButtons(); return true; }
+    if (rock && pressedNow.act) { state.items.splice(state.items.indexOf(rock), 1); sfx.lift(); liftRock(rock.seed != null ? rock.seed : 3.7); return true; }
   } else if (pressedNow.act) { dropRock(); return true; }
 }
 // Farm patches start as a wild tuft of rich earth and can be improved, one step at a time:
