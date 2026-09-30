@@ -36,11 +36,11 @@ function bladeWear(n) {
   const k = inv.woodsword;
   const tip = [h.x + h.fx * UNIT * 0.9, h.y + h.fy * UNIT * 0.9 - UNIT * 0.4];
   if (k > 0 && k <= 5) for (let i = 0; i < 3; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (0.5 + Math.random() * 1.5), t: 0, life: 0.5, color: '#b08a5a', size: UNIT * 0.06 });   // splinters
-  if (k === 4) say('It\'s splintering...', h.x, h.y - UNIT * 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
+  if (k === 4) heroNote('It\'s splintering...', 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
   if (k === 0) {                                   // shattered
     sfx.crash(); state.shake = 0.2; zoomPulse(h.x, h.y, 'parry');
     for (let i = 0; i < 16; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#b08a5a' : '#7a5a34', size: UNIT * 0.09 });
-    say('The wooden sword shatters!', h.x, h.y - UNIT * 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
+    heroNote('The wooden sword shatters!', 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
     state.atk = null; if (inv.aug && !inv.sword) inv.aug = null;
     tidySlots();
   }
@@ -55,7 +55,7 @@ function augBonus(e) {
   if (!a || !AUG[a.id]) return 0;
   const A = AUG[a.id];
   if (A.burn) { e.burn = Math.max(e.burn || 0, A.burn); spark(e.x, e.y, '#ffa04a', 5, 2); }
-  if (--a.n <= 0) { inv.aug = null; const h = state.hero; say(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, h.x, h.y - UNIT * 1.3, { key: 'aug', life: 1.8 }); }
+  if (--a.n <= 0) { inv.aug = null; const h = state.hero; heroNote(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, 1.3, { key: 'aug', life: 1.8 }); }
   return A.bonus;
 }
 function augGlint(len, w) {
@@ -88,16 +88,16 @@ function eatFood(food) {
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
   if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
     inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
-    say(`+${Math.round(amt * maxVig())} vigor, slowly`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
-    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+    heroNote(`+${Math.round(amt * maxVig())} vigor, slowly`, 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
+    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); heroNote(`Sturdier. Max vigor ${maxVig()}`, 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
     refreshButtons(); return;
   }
   heal(amt);                                           // everything else, the carrot first among them, mends you on the spot
-  say(`+${Math.round(amt * maxVig())} vigor`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
-  if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-  if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
+  heroNote(`+${Math.round(amt * maxVig())} vigor`, 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
+  if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; heroNote('Your vigor swells for a while.', 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
+  if (food === 'pepper') { inv.pepper = perk ? 90 : 60; heroNote('Hot! Your marsh fire will burn bigger for a while.', 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
-  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); say('A spring in your step.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
+  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); heroNote('A spring in your step.', 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
   if (food === 'salad') inv.turnipRegen = (inv.turnipRegen || 0) + maxVig() * 0.15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
   refreshButtons();
@@ -106,7 +106,7 @@ function gainCropXp(k) {
   const inv = state.inv, xp = inv.cropXp || (inv.cropXp = {}), before = cropLevel(k), fBefore = farmLevel();
   xp[k] = (xp[k] || 0) + 1;
   const h = state.hero;
-  if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
+  if (cropLevel(k) > before) { sfx.grow(); heroNote(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
   if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.', true);
 }
 // The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep

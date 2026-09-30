@@ -21,7 +21,7 @@ function radialLabel(o, slot) {
 function applyRadial(r) {
   const opt = r.opts[r.sel];
   if (!opt) return;
-  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; say(radialLabel(opt, r.slot), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
+  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; heroNote(radialLabel(opt, r.slot), 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
   else useEntry(opt);
 }
 // tap R: the F slot steps through your weapons
@@ -168,7 +168,7 @@ function updateShots(dt) {
       s.hit.add(e);
       if (!rock) skillUse('acorn', true);
       if (!rock && wears('embercharm')) { e.burn = Math.max(e.burn || 0, 2); spark(e.x, e.y, '#ffa04a', 6, 2); }   // the ember charm lights them
-      damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
+      damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && monster(e).small);
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
     }
@@ -247,7 +247,7 @@ function updateGas(dt) {
     for (const e of state.enemies) {
       if (!hittable(e) || (e.burnCool || 0) > state.time || Math.hypot(e.x - b.x, e.y - b.y) > b.r + e.r) continue;
       e.burnCool = state.time + 0.5;
-      e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
+      e.burn = Math.min(monster(e).boss ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
       damage(e, 1, 'fire', 0, 0);
     }
     for (const s of state.solids) if (s.bar && ['reeds', 'web', 'vine'].includes(s.kind) && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }

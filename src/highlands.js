@@ -43,33 +43,7 @@ function genHighlands(S, add) {
   });
 }
 
-// ---------- what lives up here ----------
-function makeHighCritter(type, b, u) {
-  if (type === 'hawk') return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'circle', t: rr(2, 4), fly: true, ang: rng() * 6, cx: b.x, cy: b.y };
-  if (type === 'mantis') return { ...b, r: u * 0.7, hp: 4, dmg: 1, mode: 'idle', t: 1 };
-  return null;
-}
-// the hawk: circles high, its shadow on the ground; then a dive (the shadow shrinks to a dot, a shriek); it strikes you
-// and knocks you back, or sometimes grabs you, carries you off and drops you (over a drop: you land a screen lower)
-function hawkAI(e, dt) {
-  const h = state.hero;
-  e.t -= dt;
-  if (e.mode === 'circle') {
-    e.ang += dt * 0.6; e.cx += (h.x - e.cx) * dt * 0.3; e.cy += (h.y - e.cy) * dt * 0.3;
-    e.x = e.cx + Math.cos(e.ang) * UNIT * 3; e.y = e.cy + Math.sin(e.ang) * UNIT * 2; e.alt = UNIT * 3;
-    if (e.t <= 0 && !state.grab) { e.mode = 'dive'; e.t = 0.9; e.tx = h.x; e.ty = h.y; e.x0 = e.x; e.y0 = e.y; sfx.shriek ? sfx.shriek() : sfx.cackle(); }
-  } else if (e.mode === 'dive') {
-    const k = 1 - Math.max(0, e.t) / 0.9; e.x = e.x0 + (e.tx - e.x0) * k; e.y = e.y0 + (e.ty - e.y0) * k; e.alt = UNIT * 3 * (1 - k);
-    if (e.t <= 0) {
-      if (Math.hypot(h.x - e.x, h.y - e.y) < UNIT * 0.9 && h.z <= UNIT * 0.3 && !(h.invuln > 0)) {
-        if (Math.random() < 0.35) { state.grab = { e, t: 0, dur: 1.6, dx: (Math.random() - 0.5) * 2, dy: (Math.random() - 0.5) * 2 }; say('Talons!', h.x, h.y - UNIT * 1.2, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
-        else { const d = Math.hypot(h.x - e.x0, h.y - e.y0) || 1; hurtHero(1, (h.x - e.x0) / d, (h.y - e.y0) / d); }
-      }
-      e.mode = 'climb'; e.t = 1.2;
-    }
-  } else if (e.mode === 'climb') { e.alt = Math.min(UNIT * 3, (e.alt || 0) + UNIT * 3 * dt); e.cx = e.x; e.cy = e.y; if (e.t <= 0) { e.mode = 'circle'; e.t = rr(3, 6); } }
-  else if (e.mode === 'carry') { e.alt = UNIT * 1.6; }
-}
+// ---------- what lives up here (hawk and mantis: MONSTERS in critters.js) ----------
 function updateGrab(dt) {
   const g = state.grab, h = state.hero; if (!g) return false;
   g.t += dt; const e = g.e; e.mode = 'carry';
@@ -80,18 +54,11 @@ function updateGrab(dt) {
     state.grab = null; e.mode = 'climb'; e.t = 1.5; h.z = 0;
     if (isChasm(h.x, h.y)) {                                       // dropped over the edge: down a screen, hurt
       const sc = sceneDef(), down = (sc.exits.find(x => x.side === 's') || {}).to;
-      hurtHero(1, 0, 1); if (down) { say('Dropped! Down the mountain...', h.x, h.y - UNIT, { key: 'fall', life: 2 }); transitionTo(down, 0.5, 0.2); }
-    } else { hurtHero(1, 0, 1); say('Dropped!', h.x, h.y - UNIT, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
+      hurtHero(1, 0, 1); if (down) { heroNote('Dropped! Down the mountain...', 1, { key: 'fall', life: 2 }); transitionTo(down, 0.5, 0.2); }
+    } else { hurtHero(1, 0, 1); heroNote('Dropped!', 1, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
   }
   return true;
 }
-function mantisAI(e, dx, dy, dist, ease) {                        // a big mountain mantis: stalks, rears up, lunges
-  if (e.mode === 'idle') { ease(0, 0, 4); if (dist < UNIT * 5) { e.mode = 'stalk'; e.t = 1.5; } }
-  else if (e.mode === 'stalk') { ease(dx / dist * UNIT * 1.4, dy / dist * UNIT * 1.4, 3); if (e.t <= 0 && dist < UNIT * 2.6) { e.mode = 'rear'; e.t = 0.5; } else if (e.t <= 0) e.t = 1.2; }
-  else if (e.mode === 'rear') { ease(0, 0, 10); if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.35; e.vx = dx / dist * UNIT * 9; e.vy = dy / dist * UNIT * 9; } }
-  else if (e.mode === 'lunge') { if (e.t <= 0) { e.mode = 'stalk'; e.t = 1.4; } }
-}
-
 // ---------- the red crystal beetle ----------
 // Found on the Crossing. It doesn't want to come; it comes anyway, riding on you and clambering about. Near crystal
 // or out in the wind it hums and gives back a little vigor; when you're low it will shove one of your snacks at you.
@@ -262,27 +229,6 @@ function drawHighTitleInner(T) {
   ctx.font = `italic ${Math.round(UNIT * 0.5)}px Georgia, serif`; ctx.fillText('above the clouds, where nothing that went higher came back', W / 2, H * 0.44 + UNIT * 0.9);
   ctx.shadowBlur = 0; ctx.font = `${Math.round(UNIT * 0.32)}px "Courier New", monospace`; ctx.fillStyle = 'rgba(255,248,232,.7)'; if (T.t > 1) ctx.fillText(`${K.act.toUpperCase()} to go on`, W / 2, H - UNIT * 0.6);
   ctx.restore();
-}
-
-function drawHawk(e) {                                            // its shadow on the ground, the bird up at its altitude
-  const u = UNIT, alt = e.alt || 0, t = state.time, sz = e.mode === 'dive' ? 1 + (1 - alt / (u * 3)) * 0.3 : 1, flap = e.mode === 'dive' ? 0.2 : Math.sin(t * 6 + e.ang);
-  ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.2 * (1 - alt / (u * 3.2))})`; ctx.beginPath(); ctx.ellipse(e.x, e.y, u * (0.3 + 0.5 * alt / (u * 3)), u * 0.14, 0, 0, 6.28); ctx.fill();
-  const y = e.y - alt - u * 0.3;
-  ctx.fillStyle = '#5a4030'; ctx.beginPath(); ctx.moveTo(e.x - u * 1.0 * sz, y - flap * u * 0.35); ctx.quadraticCurveTo(e.x - u * 0.4, y - u * 0.2, e.x, y); ctx.quadraticCurveTo(e.x + u * 0.4, y - u * 0.2, e.x + u * 1.0 * sz, y - flap * u * 0.35); ctx.lineTo(e.x, y + u * 0.18); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#7a5a40'; ctx.beginPath(); ctx.ellipse(e.x, y + u * 0.05, u * 0.18, u * 0.32, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#e8c860'; ctx.beginPath(); ctx.moveTo(e.x - u * 0.06, y - u * 0.26); ctx.lineTo(e.x + u * 0.06, y - u * 0.26); ctx.lineTo(e.x, y - u * 0.38); ctx.fill();   // beak
-  if (e.mode === 'dive') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * u * 0.3, y - u * 0.4); ctx.lineTo(e.x + s * u * 0.5, y - u * 1.1); ctx.stroke(); } }   // whoosh
-}
-function drawMantis(e) {                                          // a big mountain mantis, green-grey, forelegs up
-  const u = UNIT, r = e.r, rear = e.mode === 'rear' ? 1 : 0, t = state.time;
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
-  ctx.strokeStyle = '#4a5a3a'; ctx.lineWidth = Math.max(2, r * 0.08);
-  for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y + i * r * 0.2); ctx.lineTo(e.x + s * r * 0.8, e.y + i * r * 0.3 + r * 0.3); ctx.stroke(); }
-  ctx.fillStyle = e.flash > 0 ? '#fff' : '#7a8a5a'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.1, r * 0.35, r * 0.6, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = e.flash > 0 ? '#fff' : '#8a9a6a'; ctx.beginPath(); ctx.moveTo(e.x - r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x + r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x, e.y - r * 0.9); ctx.closePath(); ctx.fill();   // the triangle head
-  ctx.strokeStyle = '#5a6a44'; ctx.lineWidth = Math.max(3, r * 0.1);
-  for (const s of [-1, 1]) { const up = rear ? -0.9 : -0.4 + Math.sin(t * 2) * 0.05; ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y - r * 0.4); ctx.lineTo(e.x + s * r * 0.55, e.y - r * 0.4 + up * r); ctx.lineTo(e.x + s * r * 0.3, e.y - r * 0.6 + up * r * 0.6); ctx.stroke(); }   // the forelegs, raised to strike
-  ctx.fillStyle = rear ? '#ff4a3a' : '#1a1a12'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.12, e.y - r * 0.72, r * 0.05, 0, 6.28); ctx.fill(); }
 }
 
 function drawLedgeLips(sc) {                                      // a rough rock lip along each drop, so the edge reads as an edge

@@ -60,6 +60,8 @@ for (const f of files) for (const raw of body[f].replace(/\/\/[^\n]*/g, '').spli
   const s = raw.replace(/'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"/g, 'S').replace(/\b\d+(\.\d+)?\b/g, '#').replace(/\s+/g, ' ').trim();
   if (s.length < 45 || !s.includes('(') || /^ctx\.\w+\(/.test(s) ||   // lone canvas calls are drawing, meant to repeat
       /^(case|if|else|for|return|const|let|\}|\{)\b/.test(s) && s.length < 60) continue;
+  const args = /^[\w.]+\((.*)\)$/.exec(s);                                // one call with nothing but literals in it (heroNote(S, #, { key: S }))
+  if (args && args[1].replace(/\b\w+:/g, '').replace(/[S#,\s{}\[\]]/g, '') === '') continue;   // is data for a helper, not a helper waiting to happen
   (shapes[s] = shapes[s] || { n: 0, files: new Set() }).n++; shapes[s].files.add(f);
 }
 const reps = Object.entries(shapes).filter(([, v]) => v.n >= LIMIT.repeat).sort((a, b) => b[1].n - a[1].n);

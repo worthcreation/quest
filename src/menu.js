@@ -20,7 +20,7 @@ function learnRecipe(k, source) {
   const f = FORGE.find(o => o.k === k);
   sfx.pickup(); sfx.shing();
   showTitle(`Recipe: ${f.name}`, f.how, 'relic', 4.5);
-  say(source || 'Work it at the camp bench.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'recipe', life: 3 });
+  heroNote(source || 'Work it at the camp bench.', 1.3, { key: 'recipe', life: 3 });
 }
 const costText = c => Object.entries(c).map(([m, n]) => `${n} ${MATS[m]}`).join(', ');
 function forgeItems() {
@@ -194,7 +194,7 @@ function packCells(tab) {
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
     // everything else you've gained lives here too, so nothing is ever out of reach
     if (inv.lantern) cells.push({ col: 0, icon: 'lantern', name: 'Candle lantern', line: 'a warm pool of light, wherever you go' });
-    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; say(LETTER_TEXT, state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
+    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; heroNote(LETTER_TEXT, 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
     if (inv.pages && inv.journal < 3) cells.push({ col: 0, icon: 'page', name: 'Journal pages', count: inv.pages, line: `torn from Pip's journal: ${inv.pages} so far` });
     if (inv.beans && inv.beans < BEANS) cells.push({ col: 0, icon: 'bean', name: 'Beans', count: inv.beans, line: `the toad's lunch: ${inv.beans} of ${BEANS}` });
     if (inv.tortoise) cells.push({ col: 1, icon: 'starpetal', name: 'Tortoise\'s blessing', line: 'the High Crags let you pass' });

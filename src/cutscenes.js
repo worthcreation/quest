@@ -126,7 +126,7 @@ function updateCut(dt) {
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      say('They ran off with Pip, deeper into the dark! After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
+      heroNote('They ran off with Pip, deeper into the dark! After them!', 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
@@ -141,7 +141,7 @@ function updateCut(dt) {
     if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
     if (at(7)) {
       p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
+      heroNote('The gremlins piled thorns behind Pip. You need a way through.', 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
     const R0 = 1.5, TAKE = 3.1, a = TAKE + 0.1, b = TAKE + 1.2;
@@ -159,7 +159,7 @@ function updateCut(dt) {
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
     if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'relic', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
-    if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
+    if (c.t >= b + 2.6) { state.cut = null; heroNote(`Tap ${K.act} to slash. Hold and release to stab.`, 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {
     const [tx, ty] = npcPos(c.n);
     if (at(0.2)) sfx.munch();
@@ -183,8 +183,8 @@ function updateCut(dt) {
     h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
     h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y));
     if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
-    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5, hold: false });
-    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
+    if (at(0.4)) heroNote('The current takes the raft...', 1.4, { key: 'npc', life: 2.5, hold: false });
+    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; heroNote('Rapids!', 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
     if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);

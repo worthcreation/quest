@@ -95,7 +95,7 @@ function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
 function interactBedroll(sc, h, rt, nearPull) {
-  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); say('A quick nap. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
+  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); heroNote('A quick nap. Vigor restored.', 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
 }
 function interactChest(sc, h, rt, nearPull) {
   if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
@@ -116,7 +116,7 @@ function interactCampfire(sc, h, rt, nearPull) {
     if (d < UNIT * 2.2) say(`${K.act} to rest by the fire`, fx * W, fy * H - UNIT * 1.2, { key: 'fire', tip: 'rest', life: 3 });
     if (d < UNIT * 1.7 && pressedNow.act) {
       h.vig = maxVig(); sfx.crackle(); sfx.heart(); zoomPulse(fx * W, fy * H, 'pickup');
-      say('You rest by the fire. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.5 });
+      heroNote('You rest by the fire. Vigor restored.', 1.2, { key: 'item', life: 2.5 });
       say(`${K.menu} opens the menu. Save your progress there.`, h.x, h.y + UNIT * 2.2, { key: 'savetip', tip: 'save', life: 4 });
       return true;
     }
@@ -220,7 +220,7 @@ function travelOptions(from) {
 }
 function sporeJump(id, cost) {
   const inv = state.inv, h = state.hero;
-  if (inv.spores < cost) { say(`Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`, h.x, h.y - UNIT * 1.3, { key: 'spore', life: 2.5 }); return false; }
+  if (inv.spores < cost) { heroNote(`Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`, 1.3, { key: 'spore', life: 2.5 }); return false; }
   inv.spores -= cost;
   const to = WORLD[id].feat.shroom;
   sfx.spores();
@@ -295,7 +295,7 @@ function riverSideQuest(sc, h) {
         /* the Downriver quest announces itself (quest banner) */
       }
       say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : 'Old Wick\'s first raft, never finished.', wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
-      if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
+      if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); heroNote('+2 driftwood', 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
     }
     if (Math.hypot(h.x - door[0], h.y - door[1]) < UNIT * 1.3) {
       say(`${K.act} to go inside`, door[0], door[1] - UNIT, { key: 'door', life: 1.5 });
@@ -414,7 +414,7 @@ function updateRapids(dt) {
     const inv = state.inv; inv.raft = 1; inv.mats.driftwood += 2;
     const [ax, ay] = dockLanding();
     transitionTo('riverbank', ax, ay);
-    setTimeout(() => say('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'wreck', life: 5 }), 1100);
+    setTimeout(() => heroNote('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', 1.3, { key: 'wreck', life: 5 }), 1100);
   }
   h.x = r.x; h.y = ry; h.z = Math.abs(Math.sin(r.t * 5)) * UNIT * 0.08; h.vx = r.vx; h.vy = 0; h.fx = 0; h.fy = -1;
   updateCam(dt);
@@ -441,7 +441,7 @@ function startFishing(key, x, y) {
 function updateFishing(dt) {
   const f = state.fish, h = state.hero;
   if (!f) return;
-  if (pressedNow.jump || pressedNow.up || pressedNow.down || pressedNow.left || pressedNow.right) { state.fish = null; say('You reel in.', h.x, h.y - UNIT, { key: 'fish', life: 1 }); return; }
+  if (pressedNow.jump || pressedNow.up || pressedNow.down || pressedNow.left || pressedNow.right) { state.fish = null; heroNote('You reel in.', 1, { key: 'fish', life: 1 }); return; }
   f.t -= dt;
   if (f.phase === 'wait') {
     if (pressedNow.act) { state.fish = null; say('Too early. It swims off.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); state.fishCool[f.key] = state.playTime + 6; return; }
@@ -454,7 +454,7 @@ function updateFishing(dt) {
       if (rng() < 0.35) {                            // sometimes a seed in its belly
         const r = rng(), seed = r < 0.5 ? localSeed() : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
         state.items.push({ type: seed, x: h.x - h.fx * UNIT * 0.6 + UNIT * 0.5, y: h.y + UNIT * 0.6 });
-        say('Something was in its belly!', h.x, h.y - UNIT * 1.6, { key: 'belly', life: 2 });
+        heroNote('Something was in its belly!', 1.6, { key: 'belly', life: 2 });
       }
       train(0.5);
     } else if (f.t <= 0) { state.fish = null; state.fishCool[f.key] = state.playTime + 6; say('It got away.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); }

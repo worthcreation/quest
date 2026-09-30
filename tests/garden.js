@@ -70,7 +70,7 @@ state.menu=null; run(5);
 const inv=JSON.parse(JSON.stringify(state.inv)); inv.bag={seed:3, thornseed:1}; inv.favSeed='seed'; delete inv.qtrack;
 migrateSeeds(inv); console.log('31 old save migrates: turnipseed', inv.bag.turnipseed, 'thornseed', inv.bag.thornseed, 'no seed key', !('seed' in inv.bag), 'fav', inv.favSeed);
 console.log('32 planted patch from an old save gets a seed kind:', seedOfPlot({s:1}, WORLD.meadow, 0), seedOfPlot({s:1,seed:'seed'}, WORLD.f1||WORLD.meadow, 0));
-console.log('33 drops: robin turnipseed, rabbit carrotseed', DROPS.rabbit.some(d=>d[0]==='carrotseed'), DROPS.gremlin.some(d=>d[0]==='turnipseed'));
+console.log('33 drops: robin turnipseed, rabbit carrotseed', MONSTERS.rabbit.drop.some(d=>d[0]==='carrotseed'), MONSTERS.gremlin.drop.some(d=>d[0]==='turnipseed'));
 // icons draw for every seed
 for (const k of Object.keys(SEEDS)) drawItemIcon(k, 100, 100, 24);
 console.log('34 all seed icons draw:', Object.keys(SEEDS).join(','));

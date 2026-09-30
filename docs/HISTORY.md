@@ -1,6 +1,19 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 176: the MONSTERS table, heroNote
+- MONSTERS (top of critters.js): one entry per kind holding stats, ai, touches, hittable, resume, afterHit, onHit,
+  onKill, onParry, parryStun, drop, draw, eyes, small and a few flags (boss, water, rooted, flies, slips, airborne,
+  crash, slim). makeEnemy, hittable, resumeMode, damage, kill, parry, updateEnemies, dropFor, drawEnemy and
+  drawEnemyEyes read the entry; every per-type switch, AI, TOUCHES, SMALL, DROPS, afterHit, makeHighCritter, hawkAI
+  and mantisAI are gone. Hawk and mantis are entries like the rest (their draws moved to draw-ui.js beside the
+  others, so a dead one now fades like everything else). No change in play: the whole suite passes as it was
+  (tests/garden.js reads MONSTERS.rabbit.drop where it read DROPS.rabbit). Adding a monster is one entry plus a draw.
+- heroNote(text, above, opts) in text.js: the note above the hero's head, replacing 67 say(text, h.x, h.y - UNIT * n,
+  ...) calls in 10 files. tools/audit.js no longer counts a call made of nothing but literals as a repeat (that's
+  data for a helper, not a helper waiting to happen). Audit: repeats 5 to 3, drawEnemy off the longest-function list.
+- Found, kept as it plays: the hawk counts its timer down twice a frame (once in updateEnemies, once in its own ai).
+
 ## Build 175: handoff
 - HANDOFF brought to build 175: the audit and model rules, pipArrive/pipLine conventions, 65 tests, next task the
   MONSTERS table (on Fable) with the audit's cleanup list. PROJECT_INSTRUCTIONS refined. Audit baseline re-saved.

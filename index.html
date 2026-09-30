@@ -1042,33 +1042,7 @@ function genHighlands(S, add) {
   });
 }
 
-// ---------- what lives up here ----------
-function makeHighCritter(type, b, u) {
-  if (type === 'hawk') return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'circle', t: rr(2, 4), fly: true, ang: rng() * 6, cx: b.x, cy: b.y };
-  if (type === 'mantis') return { ...b, r: u * 0.7, hp: 4, dmg: 1, mode: 'idle', t: 1 };
-  return null;
-}
-// the hawk: circles high, its shadow on the ground; then a dive (the shadow shrinks to a dot, a shriek); it strikes you
-// and knocks you back, or sometimes grabs you, carries you off and drops you (over a drop: you land a screen lower)
-function hawkAI(e, dt) {
-  const h = state.hero;
-  e.t -= dt;
-  if (e.mode === 'circle') {
-    e.ang += dt * 0.6; e.cx += (h.x - e.cx) * dt * 0.3; e.cy += (h.y - e.cy) * dt * 0.3;
-    e.x = e.cx + Math.cos(e.ang) * UNIT * 3; e.y = e.cy + Math.sin(e.ang) * UNIT * 2; e.alt = UNIT * 3;
-    if (e.t <= 0 && !state.grab) { e.mode = 'dive'; e.t = 0.9; e.tx = h.x; e.ty = h.y; e.x0 = e.x; e.y0 = e.y; sfx.shriek ? sfx.shriek() : sfx.cackle(); }
-  } else if (e.mode === 'dive') {
-    const k = 1 - Math.max(0, e.t) / 0.9; e.x = e.x0 + (e.tx - e.x0) * k; e.y = e.y0 + (e.ty - e.y0) * k; e.alt = UNIT * 3 * (1 - k);
-    if (e.t <= 0) {
-      if (Math.hypot(h.x - e.x, h.y - e.y) < UNIT * 0.9 && h.z <= UNIT * 0.3 && !(h.invuln > 0)) {
-        if (Math.random() < 0.35) { state.grab = { e, t: 0, dur: 1.6, dx: (Math.random() - 0.5) * 2, dy: (Math.random() - 0.5) * 2 }; say('Talons!', h.x, h.y - UNIT * 1.2, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
-        else { const d = Math.hypot(h.x - e.x0, h.y - e.y0) || 1; hurtHero(1, (h.x - e.x0) / d, (h.y - e.y0) / d); }
-      }
-      e.mode = 'climb'; e.t = 1.2;
-    }
-  } else if (e.mode === 'climb') { e.alt = Math.min(UNIT * 3, (e.alt || 0) + UNIT * 3 * dt); e.cx = e.x; e.cy = e.y; if (e.t <= 0) { e.mode = 'circle'; e.t = rr(3, 6); } }
-  else if (e.mode === 'carry') { e.alt = UNIT * 1.6; }
-}
+// ---------- what lives up here (hawk and mantis: MONSTERS in critters.js) ----------
 function updateGrab(dt) {
   const g = state.grab, h = state.hero; if (!g) return false;
   g.t += dt; const e = g.e; e.mode = 'carry';
@@ -1079,18 +1053,11 @@ function updateGrab(dt) {
     state.grab = null; e.mode = 'climb'; e.t = 1.5; h.z = 0;
     if (isChasm(h.x, h.y)) {                                       // dropped over the edge: down a screen, hurt
       const sc = sceneDef(), down = (sc.exits.find(x => x.side === 's') || {}).to;
-      hurtHero(1, 0, 1); if (down) { say('Dropped! Down the mountain...', h.x, h.y - UNIT, { key: 'fall', life: 2 }); transitionTo(down, 0.5, 0.2); }
-    } else { hurtHero(1, 0, 1); say('Dropped!', h.x, h.y - UNIT, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
+      hurtHero(1, 0, 1); if (down) { heroNote('Dropped! Down the mountain...', 1, { key: 'fall', life: 2 }); transitionTo(down, 0.5, 0.2); }
+    } else { hurtHero(1, 0, 1); heroNote('Dropped!', 1, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
   }
   return true;
 }
-function mantisAI(e, dx, dy, dist, ease) {                        // a big mountain mantis: stalks, rears up, lunges
-  if (e.mode === 'idle') { ease(0, 0, 4); if (dist < UNIT * 5) { e.mode = 'stalk'; e.t = 1.5; } }
-  else if (e.mode === 'stalk') { ease(dx / dist * UNIT * 1.4, dy / dist * UNIT * 1.4, 3); if (e.t <= 0 && dist < UNIT * 2.6) { e.mode = 'rear'; e.t = 0.5; } else if (e.t <= 0) e.t = 1.2; }
-  else if (e.mode === 'rear') { ease(0, 0, 10); if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.35; e.vx = dx / dist * UNIT * 9; e.vy = dy / dist * UNIT * 9; } }
-  else if (e.mode === 'lunge') { if (e.t <= 0) { e.mode = 'stalk'; e.t = 1.4; } }
-}
-
 // ---------- the red crystal beetle ----------
 // Found on the Crossing. It doesn't want to come; it comes anyway, riding on you and clambering about. Near crystal
 // or out in the wind it hums and gives back a little vigor; when you're low it will shove one of your snacks at you.
@@ -1261,27 +1228,6 @@ function drawHighTitleInner(T) {
   ctx.font = `italic ${Math.round(UNIT * 0.5)}px Georgia, serif`; ctx.fillText('above the clouds, where nothing that went higher came back', W / 2, H * 0.44 + UNIT * 0.9);
   ctx.shadowBlur = 0; ctx.font = `${Math.round(UNIT * 0.32)}px "Courier New", monospace`; ctx.fillStyle = 'rgba(255,248,232,.7)'; if (T.t > 1) ctx.fillText(`${K.act.toUpperCase()} to go on`, W / 2, H - UNIT * 0.6);
   ctx.restore();
-}
-
-function drawHawk(e) {                                            // its shadow on the ground, the bird up at its altitude
-  const u = UNIT, alt = e.alt || 0, t = state.time, sz = e.mode === 'dive' ? 1 + (1 - alt / (u * 3)) * 0.3 : 1, flap = e.mode === 'dive' ? 0.2 : Math.sin(t * 6 + e.ang);
-  ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.2 * (1 - alt / (u * 3.2))})`; ctx.beginPath(); ctx.ellipse(e.x, e.y, u * (0.3 + 0.5 * alt / (u * 3)), u * 0.14, 0, 0, 6.28); ctx.fill();
-  const y = e.y - alt - u * 0.3;
-  ctx.fillStyle = '#5a4030'; ctx.beginPath(); ctx.moveTo(e.x - u * 1.0 * sz, y - flap * u * 0.35); ctx.quadraticCurveTo(e.x - u * 0.4, y - u * 0.2, e.x, y); ctx.quadraticCurveTo(e.x + u * 0.4, y - u * 0.2, e.x + u * 1.0 * sz, y - flap * u * 0.35); ctx.lineTo(e.x, y + u * 0.18); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#7a5a40'; ctx.beginPath(); ctx.ellipse(e.x, y + u * 0.05, u * 0.18, u * 0.32, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = '#e8c860'; ctx.beginPath(); ctx.moveTo(e.x - u * 0.06, y - u * 0.26); ctx.lineTo(e.x + u * 0.06, y - u * 0.26); ctx.lineTo(e.x, y - u * 0.38); ctx.fill();   // beak
-  if (e.mode === 'dive') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * u * 0.3, y - u * 0.4); ctx.lineTo(e.x + s * u * 0.5, y - u * 1.1); ctx.stroke(); } }   // whoosh
-}
-function drawMantis(e) {                                          // a big mountain mantis, green-grey, forelegs up
-  const u = UNIT, r = e.r, rear = e.mode === 'rear' ? 1 : 0, t = state.time;
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
-  ctx.strokeStyle = '#4a5a3a'; ctx.lineWidth = Math.max(2, r * 0.08);
-  for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y + i * r * 0.2); ctx.lineTo(e.x + s * r * 0.8, e.y + i * r * 0.3 + r * 0.3); ctx.stroke(); }
-  ctx.fillStyle = e.flash > 0 ? '#fff' : '#7a8a5a'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.1, r * 0.35, r * 0.6, 0, 0, 6.28); ctx.fill();
-  ctx.fillStyle = e.flash > 0 ? '#fff' : '#8a9a6a'; ctx.beginPath(); ctx.moveTo(e.x - r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x + r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x, e.y - r * 0.9); ctx.closePath(); ctx.fill();   // the triangle head
-  ctx.strokeStyle = '#5a6a44'; ctx.lineWidth = Math.max(3, r * 0.1);
-  for (const s of [-1, 1]) { const up = rear ? -0.9 : -0.4 + Math.sin(t * 2) * 0.05; ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y - r * 0.4); ctx.lineTo(e.x + s * r * 0.55, e.y - r * 0.4 + up * r); ctx.lineTo(e.x + s * r * 0.3, e.y - r * 0.6 + up * r * 0.6); ctx.stroke(); }   // the forelegs, raised to strike
-  ctx.fillStyle = rear ? '#ff4a3a' : '#1a1a12'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.12, e.y - r * 0.72, r * 0.05, 0, 6.28); ctx.fill(); }
 }
 
 function drawLedgeLips(sc) {                                      // a rough rock lip along each drop, so the edge reads as an edge
@@ -2312,6 +2258,8 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// a note above the hero's head, `above` tiles up (the usual short game notes: too tired, +vigor, perfect dodge)
+function heroNote(text, above, opts) { const h = state.hero; say(text, h.x, h.y - UNIT * above, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
 function showScroll(title, text, status) { const q = state.scrolls || (state.scrolls = []); const i = q.findIndex(s => s.feed && s.t > 0); if (i >= 0) q.splice(i, 1); q.push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // a real alert bumps a pickup note   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)
@@ -2398,7 +2346,7 @@ function breakBarrier(bar, how) {
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
     if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
-  if (bar === 'cave') { say('The great stone falls to pieces: a cave, going deep into the hill!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3.5 }); }
+  if (bar === 'cave') { heroNote('The great stone falls to pieces: a cave, going deep into the hill!', 1, { key: 'burrow', life: 3.5 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
@@ -2435,7 +2383,7 @@ function enterSceneIn(id, fx, fy) {
   // the dead come back if you've been away a while (never the boss); some only show up later
   state.enemies = sc.spawns.map((s, i) => {
     const d = rt.deadAt[i];
-    if (d != null && (s.type === 'warden' || state.playTime - d < 60)) return null;
+    if (d != null && (MONSTERS[s.type].boss || state.playTime - d < 60)) return null;
     if (s.req && !state.inv[s.req]) return null;
     delete rt.deadAt[i];
     return makeEnemy(s.type, s.fx * W, s.fy * H, i, s.pool);
@@ -2461,7 +2409,7 @@ function enterSceneIn(id, fx, fy) {
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
-  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => say('They squeezed past that big stone. Break it! Big ones take a few hits.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
+  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => heroNote('They squeezed past that big stone. Break it! Big ones take a few hits.', 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
   if (sc.feat.glimpse && !rt.flags.glimpse && state.inv.pipTaken && !state.inv.pipSaved && state.started) {
     // Pip, carried off by gremlins, always just ahead of you
     rt.flags.glimpse = true;
@@ -2480,7 +2428,7 @@ function enterSceneIn(id, fx, fy) {
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
-    setTimeout(() => say('Over the falls! The raft breaks apart at the bottom. Two logs float free.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'falls', life: 4.5 }), 0);
+    setTimeout(() => heroNote('Over the falls! The raft breaks apart at the bottom. Two logs float free.', 1.3, { key: 'falls', life: 4.5 }), 0);
     state.shake = 0.6;
   }
   const ti = THIEF_ROUTE.indexOf(id);
@@ -2494,7 +2442,7 @@ function enterSceneIn(id, fx, fy) {
     else say('Cornered! It won\'t give the journal up without a fight.', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 3, color: '#ffe38a' });
   }
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
-  if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
+  if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) heroNote(sc.msg, 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
   pipArrive(true);                                   // Pip: beside you, on his post, or out of sight (never popping in where he isn't)
   const bossAlive = id === 'c7' && !rt.bossDead;
@@ -2544,7 +2492,7 @@ function checkEdges() {
     if (ex.arrive === 'sinkhole') {
       const s = WORLD[ex.to].feat.cave;
       transitionTo(ex.to, s[0] - 2.6 * UNIT / W, s[1], true);   // back out of the cave mouth
-      if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
+      if (ex.say) setTimeout(() => heroNote(ex.say, 1, { key: 'climb', life: 2.5 }), 0);
       return;
     }
     let al = Math.max(0.05, Math.min(0.95, along));
@@ -2686,7 +2634,7 @@ function updateWorld(dt) {
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
     let spd = sc.speed * (inMud(h.x, h.y + UNIT * 0.2) ? 0.55 : 1) * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
-    if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
+    if (inWeb(h.x, h.y)) { spd *= 0.45; heroNote('Sticky webs. They\'d burn nicely.', 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
@@ -2705,7 +2653,7 @@ function updateWorld(dt) {
       const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
       for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
         it.x += w[0] * k * L() * dt; it.y += w[1] * k * L() * dt;
-        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; say('Whoosh! The wind took a tuft of fluff.', h.x, h.y - UNIT * 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
+        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; heroNote('Whoosh! The wind took a tuft of fluff.', 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
     }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
@@ -2752,7 +2700,7 @@ function sluggish() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1
 function frailty() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 2; return r < 0.25 ? 1 + (0.25 - r) * 4 : 1; }
 function spend(cost) {
   const h = state.hero;
-  if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); say('Too tired...', h.x, h.y - UNIT, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
+  if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); heroNote('Too tired...', 1, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
   h.vig = Math.max(0, h.vig - cost); h.rest = state.time;
   train(cost);
   return true;
@@ -2765,7 +2713,7 @@ function train(amount) {
   if (inv.xp >= need) {
     inv.xp -= need; inv.tlevel++;
     sfx.grow();
-    say(`Your vigor grows. ${maxVig()}`, state.hero.x, state.hero.y - UNIT * 1.4, { key: 'grow', life: 2.2, color: '#b8f28a' });
+    heroNote(`Your vigor grows. ${maxVig()}`, 1.4, { key: 'grow', life: 2.2, color: '#b8f28a' });
   }
 }
 
@@ -2789,8 +2737,9 @@ function clampTo(a, r) {
 }
 function collideSolids(a, r) {
   let hit = null;
+  const slim = monster(a).slim;                                        // gremlins slip through gaps you can't
   for (const o of state.solids) {
-    if (a.type === 'gremlin' && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;   // gremlins slip through gaps you can't
+    if (slim && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -2844,7 +2793,7 @@ function updateGlimpse(dt) {
   const p = Math.max(0, Math.min(1, (g.t - 0.9) / 1.4)), e = p * p;
   g.x = g.x0 + (g.x1 - g.x0) * e; g.y = g.y0 + (g.y1 - g.y0) * e;
   if (g.t > 0 && !g.said) { g.said = true; say(g.line, g.x, g.y - UNIT * 1.4, { key: 'glimpse', life: 2.2, color: '#9fd4ff' }); sfx.cackle(); zoomPulse(g.x, g.y, 'parry'); }
-  if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => say('Gone again. Always one step behind.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'miss', life: 2.5 }), 0); }
+  if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => heroNote('Gone again. Always one step behind.', 1.2, { key: 'miss', life: 2.5 }), 0); }
   if (g.t > 3) state.glimpse = null;
 }
 // ---------------- scene features ----------------
@@ -2853,7 +2802,7 @@ function updateFeatures(dt) {
   if (f.cave) {                                          // the cave mouth: heaped with boulders until you break the loose one
     const sx = f.cave[0] * W, sy = f.cave[1] * H, d = Math.hypot(h.x - sx, h.y - sy), open = !!rt.flags.cave;
     if (!open && d < UNIT * 5) say('A great stone over something dark. They squeezed through the gap beside it.', sx, sy - UNIT * 2.6, { key: 'cave', tip: 'cave' });
-    if (open && d < UNIT * 0.8) { say('Into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
+    if (open && d < UNIT * 0.8) { heroNote('Into the dark...', 1, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
   }
   if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {
     rtFor(sc.id).flags.shrine = true;
@@ -2865,7 +2814,7 @@ function updateFeatures(dt) {
     const open = rt.bossDead && h.y > gap.a * H + UNIT * 0.5 && h.y < gap.b * H - UNIT * 0.5;
     if (h.x > lim && !open) { h.x = lim; h.vx = Math.min(0, h.vx); }
   }
-  if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) say(`Jump (${K.jump}) toward a stone to hop onto it.`, h.x, h.y - UNIT * 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
+  if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) heroNote(`Jump (${K.jump}) toward a stone to hop onto it.`, 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
   if (f.plants && f.plants.length && (sc.id === 'f1' || sc.id === 'f3')) { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
 }
 
@@ -2884,7 +2833,7 @@ function updateJump(dt) {
     // more vigor, higher and longer jumps, a little at a time; a tired hero barely leaves the ground
     const [f, g2] = jumpGrowth();
     h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
-    if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
+    if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); heroNote(`${K.act} in the air to pound down`, 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow' && rideGust(sc)) return;
   }
@@ -2976,7 +2925,7 @@ function updateRide(dt) {
     h.ride = null; h.z = 0;
     if (h.safe) { h.x = h.safe[0] * W; h.y = h.safe[1] * H; }
     sfx.land(); state.shake = 0.3;
-    say('The gust tumbles you back. Wait on the rock for it to pass.', h.x, h.y - UNIT, { key: 'blown', life: 3 });
+    heroNote('The gust tumbles you back. Wait on the rock for it to pass.', 1, { key: 'blown', life: 3 });
     return;
   }
   if (p >= 1 && r.hop) {
@@ -3000,7 +2949,7 @@ function updateFall(dt) {
     h.falling = 0;
     const s = h.safe || [state.entry.fx, state.entry.fy];
     h.x = s[0] * W; h.y = s[1] * H; h.vx = 0; h.vy = 0;
-    say(h.fallKind === 'deep' ? 'Too deep! You splash back to the shallows.' : h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
+    heroNote(h.fallKind === 'deep' ? 'Too deep! You splash back to the shallows.' : h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', 1, { key: 'fall', life: 1.8 });
     hurtHero(1, h.x, h.y, { noKnock: true, force: true });
   }
 }
@@ -3043,7 +2992,7 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
   if (state.whirl) endWhirl('hit');
   h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty() * (wears('stonecharm') ? 0.75 : 1); h.rest = state.time + 0.8; h.hurtT = state.time;
-  if (h.vig > 0 && h.vig <= 1) say('Exhausted...', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
+  if (h.vig > 0 && h.vig <= 1) heroNote('Exhausted...', 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
   h.invuln = 1.2;
   sfx.hit();
   state.shake = 0.35;
@@ -3073,12 +3022,12 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
 function heal(frac, label) {
   const h = state.hero, mv = maxVig(), before = h.vig;
   h.vig = Math.min(mv, h.vig + mv * frac);
-  say('+' + Math.round(h.vig - before), h.x, h.y - UNIT * 0.9, { key: 'heal', life: 1.2, color: '#b8f28a' });
+  heroNote('+' + Math.round(h.vig - before), 0.9, { key: 'heal', life: 1.2, color: '#b8f28a' });
 }
 function deepen(msg) {
   state.inv.depth++;
   state.hero.vig = maxVig();
-  say(msg + ` Vigor ${maxVig()}.`, state.hero.x, state.hero.y - UNIT * 1.1, { key: 'item', life: 5 });
+  heroNote(msg + ` Vigor ${maxVig()}.`, 1.1, { key: 'item', life: 5 });
 }
 // ===== items.js: Things on the ground: pickup (F, gathering), collect(), drops and relics, seeds, buried rocks and pulls (rocks, sword, crops), mud, hidden loose spots, trees dropping sticks and acorns.
 // =====================================================================
@@ -3246,16 +3195,6 @@ function freePullable(pl, x, y) {
 // Drops: every monster leaves something tied to what it was
 // =====================================================================
 // Drop tables: rolled in order, first hit wins. Relics are rare and level up (to 3).
-const DROPS = {
-  stalker:  [['step', 0.1], ['ear', 0.25], ['hide', 0.15], ['ironseed', 0.05], ['wisp', 0.3]],
-  diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
-  charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
-  glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
-  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['carrotseed', 0.12]],
-  lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
-  gremlin:  [['thornseed', 0.1], ['turnipseed', 0.25], ['acorn', 0.3]],
-  warden:   [['warden', 1]],
-};
 // Seeds, rarest last. Vegetable seeds (crop) grow that vegetable, one to a few per seed; the rest grow materials.
 // Colours and shapes follow the real seeds: turnip seeds are tiny dark round beads, carrot seeds small tan ridged ovals,
 // pepper seeds flat pale discs, squash seeds cream teardrops with a rim.
@@ -3296,7 +3235,7 @@ function itemExists(type) {
 }
 function dropFor(e) {
   if (e.type === 'rabbit' && !campDone() && (campMissing().fluff || 0) > 0) return 'fluff';   // still short of fluff for camp: straight from the source
-  for (const [t, p] of DROPS[e.type] || []) {
+  for (const [t, p] of monster(e).drop || []) {
     if (rng() >= p) continue;
     if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
     if (t === 'scalp' && (state.inv.scalp || itemExists('scalp'))) return 'wisp';
@@ -3342,7 +3281,7 @@ const LETTER_TEXT = 'A letter, weighted with a pipe: "If you\'re reading this, y
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
-  const tell = (s, life = 4, tip) => say(s, h.x, h.y - UNIT * 1.1, { key: 'item', life, tip });
+  const tell = (s, life = 4, tip) => heroNote(s, 1.1, { key: 'item', life, tip });
   zoomPulse(it.x, it.y, 'pickup');
   if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
 
@@ -3383,14 +3322,14 @@ function collect(it) {
       inv.bag[it.type] = (inv.bag[it.type] || 0) + 1;
       const S = SEEDS[it.type];
       if (S.crop) tell(`${S.name}. Plant them in any patch of rich soil; ${CROP_NAME[S.crop].toLowerCase()} grow.`, 3.5, 'seed-' + S.crop);
-      else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
+      else { heroNote(`${S.name}! ${S.rarity}.`, 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
     }
     case 'page': {
       inv.pages++;
       const note = PAGE_NOTES[(inv.pages - 1) % PAGE_NOTES.length];
-      say(`A page of Pip's journal: "${note}"`, h.x, h.y - UNIT * 1.3, { key: 'page', life: 6, color: '#fff3c8' });
+      heroNote(`A page of Pip's journal: "${note}"`, 1.3, { key: 'page', life: 6, color: '#fff3c8' });
       const lore = PAGE_LORE[(inv.pages - 1) % PAGE_NOTES.length];
       if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
@@ -3402,29 +3341,29 @@ function collect(it) {
       break;
     case 'letter':
       inv.letter = true;                                  // kept: Gear > Wick's letter, to read again
-      say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
+      heroNote('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
     case 'stick': case 'stone': case 'fluff':
       rawOf()[it.type] = (rawOf()[it.type] || 0) + 1;
-      say(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, h.x, h.y - UNIT * 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
+      heroNote(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
       break;
-    case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
+    case 'driftwood': inv.mats.driftwood++; heroNote(`+1 driftwood (${inv.mats.driftwood})`, 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
     case 'rod': inv.rod = true; showTitle('Old Wick\'s fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
     case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
-    case 'spores7': inv.spores += 7; if (inv.pipSaved) say('+7 spores', h.x, h.y - UNIT * 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
-    case 'spore': inv.spores++; if (inv.pipSaved) say(`+1 spore (${inv.spores})`, h.x, h.y - UNIT * 1.1, { key: 'spore', life: 1.2, color: '#e8d8ff' }); break;
+    case 'spores7': inv.spores += 7; if (inv.pipSaved) heroNote('+7 spores', 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
+    case 'spore': inv.spores++; if (inv.pipSaved) heroNote(`+1 spore (${inv.spores})`, 1.1, { key: 'spore', life: 1.2, color: '#e8d8ff' }); break;
     case 'ear': case 'hide':
       inv.mats[it.type]++;
-      say(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
+      heroNote(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
       if (!inv.recipes.cap && !inv.scalp) setTimeout(() => learnRecipe('cap', 'Those ears would make a fine cap, with a scrap of hide to hold them.'), 0);
       break;
     case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++;
-      if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
+      if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); heroNote(`+1 ${MATS[it.type]}`, 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
       inv.beans++;
-      say(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 2.5 });
+      heroNote(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, 1.1, { key: 'item', life: 2.5 });
       break;
   }
   refreshButtons();
@@ -3535,7 +3474,6 @@ const STAB  = { dur: 0.22, cool: 0.1, reach: 2.2, charge: 0.35, chainCharge: 0.1
 // the vigor a sword swing costs (the lunge and the whirlwind have their own costs, below). Tune here.
 const SWING_COST = 0.35;
 const COMBO = { slashWindow: 0.7, stabWindow: 0.9 };
-const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
 function updateCombat(dt) {
   const inv = state.inv, h = state.hero;
@@ -3573,16 +3511,16 @@ function updateCombat(dt) {
       if (ch.n >= WHIRL.chain) {
         ch.n = 0;
         if (h.vig >= 3) { startWhirl(); return; }
-        say('Too tired to spin', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' });
+        heroNote('Too tired to spin', 1.2, { key: 'tired', life: 1.2, color: '#ffb080' });
       }
-      if (ch.n >= 2) say('\u2022 '.repeat(ch.n).trim(), h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
+      if (ch.n >= 2) heroNote('\u2022 '.repeat(ch.n).trim(), 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
       state.active = 'sword';
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
       skillUse('sword');
-      if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
+      if (slow > 1.8) heroNote('Your arm is heavy...', 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
       scareFlock(h.x, h.y, 5);
@@ -3608,9 +3546,9 @@ function updateCombat(dt) {
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
-        if (cb.level) { sfx.flipStrike(); zoomPulse(h.x, h.y, cb.level >= 3 ? 'kill' : 'parry'); say('x' + (cb.level + 1), h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.9, color: '#ffe38a', size: 1 + cb.level * 0.2 }); }
+        if (cb.level) { sfx.flipStrike(); zoomPulse(h.x, h.y, cb.level >= 3 ? 'kill' : 'parry'); heroNote('x' + (cb.level + 1), 1.2, { key: 'combo', life: 0.9, color: '#ffe38a', size: 1 + cb.level * 0.2 }); }
         else sfx.stab();
-        say('Stab, then slash while you lunge, then stab again: each chained stab goes farther.', h.x, h.y - UNIT * 1.6, { key: 'combotip', tip: 'combo', life: 5 });
+        heroNote('Stab, then slash while you lunge, then stab again: each chained stab goes farther.', 1.6, { key: 'combotip', tip: 'combo', life: 5 });
       }
       hold.on = false; hold.charged = false;
     }
@@ -3640,7 +3578,7 @@ function updateCombat(dt) {
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       if (a.type === 'stab' && a.woodBreak) dmg = Math.max(dmg, 2.2 * Math.max(0.5, power()));   // a wooden lunge is all or nothing: enough to fell a rabbit (it splits when the lunge ends)
-      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
+      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && monster(e).small);
       bladeWear(1); skillUse('sword', true);
     }
   }
@@ -3664,12 +3602,12 @@ const lungeK = () => 0.8 + 0.1 * swordLv();
 const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26, bonus: 0.5 };
 function startWhirl() {
   const h = state.hero;
-  if (state.time < (state.whirlCool || 0)) { say('Too dizzy to spin again yet.', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
+  if (state.time < (state.whirlCool || 0)) { heroNote('Too dizzy to spin again yet.', 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
   state.atk = null; state.hold.on = false; state.hold.charged = false;
   spend(1.5);
   state.whirl = { wood: bladeKind() === 'wood', t: 0, end: state.time + whirlLen(), cap: state.time + whirlLen() * 1.6, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
-  say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
+  heroNote('Whirlwind!', 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
   say(`A short spin at first; practice makes it last. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
@@ -3678,8 +3616,8 @@ function endWhirl(why) {
   state.whirl = null;
   state.whirlCool = state.time + whirlRest();
   if (w.wood && bladeKind() === 'wood') bladeWear(999);   // three sticks can't take a whirlwind: it flies apart
-  if (why === 'done') { h.stun = 0.3; sfx.dizzy(); say('Whew.', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.8 }); }
-  if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
+  if (why === 'done') { h.stun = 0.3; sfx.dizzy(); heroNote('Whew.', 1.2, { key: 'combo', life: 0.8 }); }
+  if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); heroNote(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', 1.2, { key: 'combo', life: 1.2 }); }
 }
 function updateWhirl(dt) {
   const w = state.whirl, h = state.hero, inv = state.inv;
@@ -3697,7 +3635,7 @@ function updateWhirl(dt) {
       w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
       w.next = state.time + w.beat;
       cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
-      say('x' + (w.streak + 1), h.x, h.y - UNIT * 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
+      heroNote('x' + (w.streak + 1), 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
     }
   }
   const reach = UNIT * (1.9 + Math.min(0.8, w.streak * 0.06));
@@ -3717,7 +3655,7 @@ function updateWhirl(dt) {
 function bumpCrazy(label) {
   const c = state.crazy || (state.crazy = { n: 0, t: -9 }), h = state.hero;
   c.n = state.time - c.t < 2.5 ? c.n + 1 : 1; c.t = state.time;
-  if (c.n >= 2) say(`${label}! x${c.n}`, h.x, h.y - UNIT * 1.6, { key: 'crazy', life: 1.1, color: c.n >= 5 ? '#ffb347' : '#ffe38a', size: 1 + Math.min(0.8, c.n * 0.1) });
+  if (c.n >= 2) heroNote(`${label}! x${c.n}`, 1.6, { key: 'crazy', life: 1.1, color: c.n >= 5 ? '#ffb347' : '#ffe38a', size: 1 + Math.min(0.8, c.n * 0.1) });
 }
 const crazyMult = () => { const c = state.crazy; return c && state.time - c.t < 2.5 ? 1 + Math.min(1, c.n * 0.12) : 1; };
 function slamDown() {
@@ -3754,37 +3692,352 @@ function slamDown() {
   poundLoose(h.x, h.y);
 }
 const slashActive = () => state.atk && state.atk.type === 'slash' && state.atk.t < state.atk.dur;
-// ===== critters.js: Enemies, damage and kills, the robin, rabbits/flocks, webs, hazards, fx particles.
+// ===== critters.js: Enemies (the MONSTERS table), damage and kills, the robin, rabbits/flocks, webs, hazards, fx particles.
 // =====================================================================
-// Enemies
+// MONSTERS: one entry per kind. Adding a monster is one entry here plus its draw function in draw-ui.js.
+//   stats(u, b)  the fields makeEnemy adds to the base (r, hp, dmg, mode, t ...); b is the base (x, y ...)
+//   ai(e, dx, dy, dist, ease, dt)  runs every frame it isn't stunned or panicking (dx, dy: toward the hero)
+//   touches(e)   when it hurts the hero on contact (none: never by touch)
+//   hittable(e)  when your blade can reach it (none: always, unless dead or the taunter)
+//   resume       [mode, t] it picks up in after a stun or a wake
+//   afterHit(e)  what it does after it hurt you
+//   onHit(e, kind, nx, ny, bowl)  after damage that didn't kill it; return true to skip the usual knockback
+//   onKill(e)    after its drop lands; return true to skip the usual kill pulse
+//   onParry(e)   return true if it shrugs a parry off
+//   parryStun    seconds stunned by a parry (1.2)
+//   drop         [[item, chance], ...] tried in order, rarest first
+//   draw(e, C, scale), eyes(e, glow, ox, oy)  in draw-ui.js (C(colour) is white while it flashes)
+//   small        light enough to bowl over with a heavy stab or a hard throw
+//   flags: boss (never respawns, no panic, no falling, hits walls harder), water (stays in its pool, moves only in
+//   panic), rooted (no knockback from a parry), flies (its own movement, no walls), slips(e) (passes through
+//   everything), airborne(e) (off the ground: no collision, no chasm), crash: false (a lunge into a wall doesn't stun
+//   it), slim (fits through gaps you can't)
 // =====================================================================
+const MONSTERS = {
+  stalker: {
+    stats: u => ({ r: u * 0.7, hp: 4, dmg: 1, mode: 'sleep', t: rr(1.5, 2.5) }),
+    small: true, resume: ['stalk', 0], crash: false,
+    touches: e => ['stalk', 'windup', 'lunge', 'recover'].includes(e.mode),
+    afterHit: e => { e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3; },
+    drop: [['step', 0.1], ['ear', 0.25], ['hide', 0.15], ['ironseed', 0.05], ['wisp', 0.3]],
+    draw: drawStalker, eyes: (e, glow, ox, oy) => eyesGlare(e, glow, ox, oy, '#ff3b2a'),
+    ai(e, dx, dy, dist, ease) {
+      switch (e.mode) {
+        case 'sleep':
+          if (e.t <= 0) { e.mode = 'stalk'; sfx.growl(); say('Something stirs in the dark', e.x, e.y - UNIT * 1.3, { key: 'wake' }); state.shake = 0.3; zoomPulse(e.x, e.y, 'hit'); }
+          break;
+        case 'stalk':
+          ease(dx / dist * 0.22 * L(), dy / dist * 0.22 * L(), 3);
+          if (dist < UNIT * 6 && e.cool <= 0) { e.mode = 'windup'; e.t = 0.45; e.lx = dx / dist; e.ly = dy / dist; sfx.windup(); }
+          break;
+        case 'windup': ease(0, 0, 10); if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.45; e.vx = e.lx * 0.8 * L(); e.vy = e.ly * 0.8 * L(); } break;
+        case 'lunge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.7; e.cool = 1.4; } break;
+        case 'recover': ease(0, 0, 5); if (e.t <= 0) e.mode = 'stalk'; break;
+      }
+    },
+  },
+  charger: {
+    stats: u => ({ r: u * 0.75, hp: 5, dmg: 2, mode: 'sleep', t: 1.5 }),
+    resume: ['aim', 0.8],
+    touches: e => ['aim', 'charge', 'recover'].includes(e.mode),
+    afterHit: e => { e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3; },
+    drop: [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
+    draw: drawCharger, eyes: (e, glow, ox, oy) => eyesGlare(e, glow, ox, oy, '#ff8a2a'),
+    ai(e, dx, dy, dist, ease) {
+      switch (e.mode) {
+        case 'sleep': if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9; sfx.growl(); state.shake = 0.3; } break;
+        case 'aim':
+          ease(0, 0, 8);
+          if (e.t > 0.25) { e.lx = dx / dist; e.ly = dy / dist; }
+          if (e.t <= 0) { e.mode = 'charge'; e.t = 1.2; e.vx = e.lx * 0.85 * L(); e.vy = e.ly * 0.85 * L(); sfx.snort(); }
+          break;
+        case 'charge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.9; } break;
+        case 'recover': ease(0, 0, 5); if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9 + Math.random() * 0.6; } break;
+      }
+    },
+  },
+  diver: {
+    stats: u => ({ r: u * 0.55, hp: 3, dmg: 1, mode: 'ceiling', t: rr(1.5, 3.5), hgt: 1 }),
+    small: true, rooted: true, resume: ['ascend', 0.6], parryStun: 1.6,
+    hittable: e => ['floor', 'stunned', 'ascend'].includes(e.mode),
+    airborne: e => e.mode === 'ceiling',
+    onHit: stunOnStab,
+    drop: [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
+    draw: drawDiver, eyes: eyesDiver,
+    ai(e, dx, dy, dist, ease, dt) {
+      const h = state.hero;
+      switch (e.mode) {
+        case 'ceiling':
+          e.hgt = 1;
+          ease(dx / dist * 0.22 * L(), dy / dist * 0.22 * L(), 2);
+          if (e.t <= 0 && dist < UNIT * 3) {
+            e.mode = 'descend'; e.t = 0.9;
+            e.lx = h.x + h.vx * 0.25; e.ly = h.y + h.vy * 0.25;
+            e.vx = 0; e.vy = 0; e.parried = false;
+            sfx.skitter(panOf(e.x));
+          }
+          break;
+        case 'descend':
+          e.x += (e.lx - e.x) * (1 - Math.exp(-10 * dt)); e.y += (e.ly - e.y) * (1 - Math.exp(-10 * dt));
+          e.hgt = Math.max(0, e.t / 0.9);
+          if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !wears('cap')) { e.parried = true; e.hgt = 0; parry(e); break; }
+          if (e.t <= 0) {
+            e.hgt = 0;
+            spark(e.x, e.y, '#4b3558', 8, 3);
+            if (dist < UNIT * 1.1 && h.z < UNIT * 0.5) {
+              if (wears('cap')) {
+                sfx.boing(); e.mode = 'stunned'; e.t = 1.6;
+                zoomPulse(h.x, h.y, 'parry');
+                heroNote('Bonk! The scalp takes it.', 1.2, { key: 'bonk', life: 1.8 });
+                break;
+              }
+              hurtHero(e.dmg, e.x, e.y);
+            }
+            e.mode = 'floor'; e.t = 1.3;
+            spinWeb(e.x, e.y);
+          }
+          break;
+        case 'floor': ease(0, 0, 4); if (e.t <= 0) { e.mode = 'ascend'; e.t = 0.6; } break;
+        case 'ascend': e.hgt = 1 - Math.max(0, e.t) / 0.6; ease(0, 0, 6); if (e.t <= 0) { e.mode = 'ceiling'; e.t = rr(2, 3.5); } break;
+      }
+      if (e.mode === 'stunned') e.hgt = 0;
+    },
+  },
+  glowworm: {
+    stats: u => ({ r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6, flashCool: rr(1, 3) }),
+    small: true, resume: ['crawl', 0],
+    touches: e => e.mode === 'crawl' && e.cool <= 0,
+    afterHit: e => { e.cool = 1.5; },
+    drop: [['lumin', 0.3], ['emberseed', 0.08]],
+    draw: drawGlowworm,
+    ai(e, dx, dy, dist, ease, dt) {
+      e.seg += 0.1;
+      e.flashCool -= dt;
+      if (e.mode === 'glowup') {                      // their weapon: a blinding flash
+        ease(0, 0, 8);
+        if (e.t <= 0) {
+          e.mode = 'crawl'; e.flashCool = rr(4, 6);
+          sfx.flash(); spark(e.x, e.y, '#f4ffc0', 16, 5);
+          if (dist < UNIT * 5.5 && state.whirl) endWhirl('flash');
+          if (dist < UNIT * 4.5) {
+            if (state.inv.lumin > 0) heroNote('Your own glow shrugs off the flash.', 1, { key: 'blind', life: 1.5 });
+            else { state.blind = 1.8; zoomPulse(e.x, e.y, 'hurt'); heroNote('Blinded!', 1, { key: 'blind', life: 1.5, color: '#ffffff' }); }
+          }
+        }
+        return;
+      }
+      if (dist < UNIT * 3.5 && e.flashCool <= 0) { e.mode = 'glowup'; e.t = 0.8; sfx.charge(); return; }
+      if (dist < UNIT * 5 && e.cool <= 0) ease(dx / dist * 0.07 * L(), dy / dist * 0.07 * L(), 2);
+      else { if (e.t <= 0) { e.t = 2; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); } ease(e.lx * 0.03 * L(), e.ly * 0.03 * L(), 2); }
+    },
+  },
+  rabbit: {
+    stats: u => ({ r: u * 0.45, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1) }),
+    small: true, resume: ['flee', 0.8],
+    touches: e => e.mode === 'dart',
+    afterHit: fleeAfterHit,
+    onKill: e => { state.inv.rabbitKills = (state.inv.rabbitKills || 0) + 1; },
+    drop: [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['carrotseed', 0.12]],
+    draw: drawRabbit,
+    ai(e, dx, dy, dist, ease, dt, fast = 1) {
+      switch (e.mode) {
+        case 'idle':
+          ease(0, 0, 4);
+          if (e.t <= 0) { e.t = rr(0.5, 1.2); const a = Math.random() * 6.28; e.vx = Math.cos(a) * 0.3 * L(); e.vy = Math.sin(a) * 0.3 * L(); }
+          if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'rage'; e.t = 0.55; }   // the tell: it freezes and its eyes flash, then it comes
+          break;
+        case 'rage': ease(0, 0, 12); if (e.t <= 0) { e.mode = 'dart'; e.t = 1.1; } break;
+        case 'dart': {
+          const zig = Math.sin(state.time * 14) * 0.7, px = -dy / dist, py = dx / dist;
+          ease((dx / dist + px * zig) * 0.6 * fast * L(), (dy / dist + py * zig) * 0.6 * fast * L(), 8);
+          if (e.t <= 0) { e.mode = 'flee'; e.t = 0.8; e.cool = 1.5; }
+          break;
+        }
+        case 'flee': ease(-dx / dist * 0.45 * L(), -dy / dist * 0.45 * L(), 6); if (e.t <= 0) { e.mode = 'idle'; e.t = 0.5; } break;
+      }
+    },
+  },
+  gremlin: {
+    stats: u => ({ r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 }),
+    small: true, slim: true, resume: ['flee', 0.6],
+    touches: e => e.mode === 'dart',
+    afterHit: fleeAfterHit,
+    drop: [['thornseed', 0.1], ['turnipseed', 0.25], ['acorn', 0.3]],
+    draw: drawGremlin,
+    ai(e, dx, dy, dist, ease, dt) { MONSTERS.rabbit.ai(e, dx, dy, dist, ease, dt, 1.25); },
+  },
+  thief: {                                          // the gremlin with Pip's journal: runs a route, fights when cornered
+    stats: u => ({ r: u * 0.45, hp: 6, dmg: 1, mode: 'taunt', t: 1, fast: 1.45 }),
+    resume: ['flee', 0.6],
+    hittable: e => !!e.cornered,
+    slips: e => !e.cornered,                        // it slips through anything on its way out
+    touches: e => e.cornered && e.mode === 'dart',
+    afterHit: fleeAfterHit,
+    onKill: e => { state.items.push({ type: 'journal', x: e.x, y: e.y }); relicMoment('journal', e.x, e.y); state.inv.thiefAt = THIEF_ROUTE.length; return true; },
+    draw: drawGremlin,
+    ai(e, dx, dy, dist, ease, dt) {
+      if (e.cornered) return MONSTERS.rabbit.ai(e, dx, dy, dist, ease, dt, 1.45);   // nowhere left to run: it fights
+      if (e.mode === 'taunt') {                         // hops about waving the journal until you get close
+        ease(0, 0, 6);
+        if (e.t <= 0) { e.t = rr(1, 2); sfx.cackle(); }
+        if (dist < UNIT * 5) {
+          e.mode = 'flee';
+          const next = THIEF_ROUTE[e.route + 1], ex = sceneDef().exits.find(o => o.to === next);
+          const [fx, fy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2) : [0.98, 0.5];
+          e.lx = fx * W + (fx > 0.9 ? UNIT * 3 : fx < 0.1 ? -UNIT * 3 : 0); e.ly = fy * H + (fy > 0.9 ? UNIT * 3 : fy < 0.1 ? -UNIT * 3 : 0);
+          say('It\'s getting away!', e.x, e.y - UNIT * 1.3, { key: 'thief', life: 1.5 });
+        }
+      } else if (e.mode === 'flee') {                  // too quick to catch: it always makes the next screen
+        const tx = e.lx - e.x, ty = e.ly - e.y, td = Math.hypot(tx, ty) || 1;
+        ease(tx / td * 0.75 * L(), ty / td * 0.75 * L(), 8);
+        if (td < UNIT * 0.8 || e.x < -UNIT * 2 || e.x > W + UNIT * 2 || e.y < -UNIT * 2 || e.y > H + UNIT * 2) {
+          e.dead = true; e.mode = 'dead'; e.t = 0; state.inv.thiefAt = Math.min(THIEF_ROUTE.length - 1, e.route + 1);
+          heroNote('Gone again. Follow the dropped pages.', 1.2, { key: 'thief', life: 2.5 });
+        }
+      }
+    },
+  },
+  lurker: {
+    stats: u => ({ r: u * 0.55, hp: 3, dmg: 1, mode: 'submerged', t: 0, cool: rr(0.5, 2) }),
+    small: true, water: true, rooted: true, resume: ['sink', 0.4], parryStun: 1.6,
+    hittable: e => ['bite', 'risen', 'stunned'].includes(e.mode),
+    onHit: stunOnStab,
+    drop: [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
+    draw: drawLurker,
+    ai(e, dx, dy, dist) {
+      const p = e.pool, h = state.hero;
+      if (!p) return;
+      switch (e.mode) {
+        case 'submerged': {
+          e.x = p.x; e.y = p.y;
+          if (e.cool <= 0 && Math.hypot(h.x - p.x, h.y - p.y) < p.r + UNIT * 2.6) {
+            const a = Math.atan2(h.y - p.y, h.x - p.x);
+            e.x = p.x + Math.cos(a) * p.r * 0.7; e.y = p.y + Math.sin(a) * p.r * 0.7;
+            e.mode = 'ripple'; e.t = 0.8; sfx.bubble();
+          }
+          break;
+        }
+        case 'ripple': if (e.t <= 0) { e.mode = 'bite'; e.t = 0.3; e.parried = false; sfx.splash(); spark(e.x, e.y, '#6a8a8a', 10, 3); } break;
+        case 'bite':
+          if (!e.parried && slashActive() && dist < UNIT * 1.9) { e.parried = true; parry(e); break; }
+          if (e.t <= 0) { if (dist < UNIT * 1.5 && state.hero.z < UNIT * 0.5) hurtHero(e.dmg, e.x, e.y); e.mode = 'risen'; e.t = 1.2; }
+          break;
+        case 'risen': if (e.t <= 0) { e.mode = 'sink'; e.t = 0.4; } break;
+        case 'sink': if (e.t <= 0) { e.mode = 'submerged'; e.cool = rr(1.5, 3); } break;
+      }
+    },
+  },
+  warden: {                                         // the boss behind the falls
+    stats: u => ({ r: u * 1.3, hp: 18, maxHp: 18, dmg: 2, mode: 'dormant', t: 0 }),
+    boss: true, resume: ['prowl', 1.2], parryStun: 1.8,
+    hittable: e => !['dormant', 'intro', 'talk'].includes(e.mode),
+    onParry: e => e.mode !== 'charge',              // blocked, but it shrugs it off
+    touches: e => ['prowl', 'aim', 'charge', 'rear', 'recover'].includes(e.mode),
+    afterHit: e => { e.mode = 'recover'; e.t = 1.0; },
+    onHit: e => { if (e.hp <= e.maxHp / 2 && !e.enraged) { e.enraged = true; say('The Warden is enraged!', e.x, e.y - e.r - UNIT, { key: 'boss' }); sfx.roar(); zoomPulse(e.x, e.y, 'boss'); } return true; },
+    onKill: e => {
+      state.items.push({ type: 'spores7', x: e.x + UNIT * 1.2, y: e.y + UNIT * 0.6 });
+      rtFor(state.scene).bossDead = true;
+      zoomPulse(e.x, e.y, 'boss');
+      state.shake = 0.8;
+      setMusic('cave');
+      say('Behind the falls, a passage opens.', W - UNIT * 4, H * 0.5 - UNIT * 2, { key: 'falls', life: 5 });
+      return true;
+    },
+    drop: [['warden', 1]],
+    draw: drawWarden, eyes: eyesWarden,
+    ai(e, dx, dy, dist, ease) {
+      const h = state.hero, fast = e.enraged ? 1.25 : 1;
+      switch (e.mode) {
+        case 'dormant':
+          if (h.x > W * 0.3 && !state.cut) { e.mode = 'talk'; startWardenTalk(e); }
+          break;
+        case 'talk': ease(0, 0, 8); break;
+        case 'intro': if (e.t <= 0) { state.cam.focus = null; e.mode = 'prowl'; e.t = 1.2; } break;
+        case 'prowl':
+          ease(dx / dist * 0.16 * fast * L(), dy / dist * 0.16 * fast * L(), 3);
+          if (e.t <= 0) {
+            if (dist > UNIT * 5 || Math.random() < 0.5) { e.mode = 'aim'; e.t = 0.8 / fast; sfx.snort(); }
+            else { e.mode = 'rear'; e.t = 0.7 / fast; sfx.growl(); }
+          }
+          break;
+        case 'aim':
+          ease(0, 0, 8);
+          if (e.t > 0.25) { e.lx = dx / dist; e.ly = dy / dist; }
+          if (e.t <= 0) { e.mode = 'charge'; e.t = 1.1; e.vx = e.lx * 0.9 * fast * L(); e.vy = e.ly * 0.9 * fast * L(); }
+          break;
+        case 'charge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.9; } break;
+        case 'rear':
+          ease(0, 0, 8);
+          if (e.t <= 0) {
+            sfx.crash(); state.shake = 0.6; zoomPulse(e.x, e.y, 'kill');
+            state.rings.push({ x: e.x, y: e.y, t: 0, dur: 0.9, r0: e.r, r1: e.r + UNIT * 6, hit: false });
+            const n = e.enraged ? 5 : 3;
+            for (let i = 0; i < n; i++) {
+              const a = Math.random() * 6.28, d = i === 0 ? 0 : UNIT * rr(1, 3.2);
+              state.hazards.push({ x: Math.max(UNIT, Math.min(W - UNIT * 3, h.x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, h.y + Math.sin(a) * d)), t: -i * 0.15, dur: 1.0, r: UNIT * 0.8 });
+            }
+            e.mode = 'recover'; e.t = 1.1;
+          }
+          break;
+        case 'recover': ease(0, 0, 5); if (e.t <= 0) { e.mode = 'prowl'; e.t = rr(1.0, 2.0) / fast; } break;
+      }
+    },
+  },
+  // the High Reaches
+  hawk: {                                           // circles high, its shadow on the ground; then a dive (the shadow shrinks to a dot, a shriek);
+    // it strikes you and knocks you back, or sometimes grabs you, carries you off and drops you (over a drop: you land a screen lower; updateGrab)
+    stats: (u, b) => ({ r: u * 0.55, hp: 3, dmg: 1, mode: 'circle', t: rr(2, 4), fly: true, ang: rng() * 6, cx: b.x, cy: b.y }),
+    flies: true, resume: ['climb', 1],
+    draw: drawHawk,
+    ai(e, dx, dy, dist, ease, dt) {
+      const h = state.hero;
+      e.t -= dt;                                    // (counted down twice a frame, here and in updateEnemies, since build 100: kept as it plays)
+      if (e.mode === 'circle') {
+        e.ang += dt * 0.6; e.cx += (h.x - e.cx) * dt * 0.3; e.cy += (h.y - e.cy) * dt * 0.3;
+        e.x = e.cx + Math.cos(e.ang) * UNIT * 3; e.y = e.cy + Math.sin(e.ang) * UNIT * 2; e.alt = UNIT * 3;
+        if (e.t <= 0 && !state.grab) { e.mode = 'dive'; e.t = 0.9; e.tx = h.x; e.ty = h.y; e.x0 = e.x; e.y0 = e.y; sfx.shriek ? sfx.shriek() : sfx.cackle(); }
+      } else if (e.mode === 'dive') {
+        const k = 1 - Math.max(0, e.t) / 0.9; e.x = e.x0 + (e.tx - e.x0) * k; e.y = e.y0 + (e.ty - e.y0) * k; e.alt = UNIT * 3 * (1 - k);
+        if (e.t <= 0) {
+          if (Math.hypot(h.x - e.x, h.y - e.y) < UNIT * 0.9 && h.z <= UNIT * 0.3 && !(h.invuln > 0)) {
+            if (Math.random() < 0.35) { state.grab = { e, t: 0, dur: 1.6, dx: (Math.random() - 0.5) * 2, dy: (Math.random() - 0.5) * 2 }; heroNote('Talons!', 1.2, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
+            else { const d = Math.hypot(h.x - e.x0, h.y - e.y0) || 1; hurtHero(1, (h.x - e.x0) / d, (h.y - e.y0) / d); }
+          }
+          e.mode = 'climb'; e.t = 1.2;
+        }
+      } else if (e.mode === 'climb') { e.alt = Math.min(UNIT * 3, (e.alt || 0) + UNIT * 3 * dt); e.cx = e.x; e.cy = e.y; if (e.t <= 0) { e.mode = 'circle'; e.t = rr(3, 6); } }
+      else if (e.mode === 'carry') { e.alt = UNIT * 1.6; }
+    },
+  },
+  mantis: {                                         // a big mountain mantis: stalks, rears up, lunges
+    stats: u => ({ r: u * 0.7, hp: 4, dmg: 1, mode: 'idle', t: 1 }),
+    resume: ['stalk', 1],
+    draw: drawMantis,
+    ai(e, dx, dy, dist, ease) {
+      if (e.mode === 'idle') { ease(0, 0, 4); if (dist < UNIT * 5) { e.mode = 'stalk'; e.t = 1.5; } }
+      else if (e.mode === 'stalk') { ease(dx / dist * UNIT * 1.4, dy / dist * UNIT * 1.4, 3); if (e.t <= 0 && dist < UNIT * 2.6) { e.mode = 'rear'; e.t = 0.5; } else if (e.t <= 0) e.t = 1.2; }
+      else if (e.mode === 'rear') { ease(0, 0, 10); if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.35; e.vx = dx / dist * UNIT * 9; e.vy = dy / dist * UNIT * 9; } }
+      else if (e.mode === 'lunge') { if (e.t <= 0) { e.mode = 'stalk'; e.t = 1.4; } }
+    },
+  },
+};
+// shared bits of the table
+function fleeAfterHit(e) { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
+function stunOnStab(e, kind) { if (kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance)) { e.mode = 'stunned'; e.t = 1.0; } return true; }
+const monster = e => MONSTERS[e.type] || {};        // the entry (empty for anything that isn't a monster: the hero, Pip)
+
 function makeEnemy(type, x, y, idx, poolIdx) {
   const b = { type, idx, x, y, vx: 0, vy: 0, t: 0, cool: 0, lx: 0, ly: 0, flash: 0, dead: false, hgt: 0, poolIdx: poolIdx == null ? null : poolIdx };
-  const u = UNIT;
-  switch (type) {
-    case 'stalker':  return { ...b, r: u * 0.7, hp: 4, dmg: 1, mode: 'sleep', t: rr(1.5, 2.5) };
-    case 'charger':  return { ...b, r: u * 0.75, hp: 5, dmg: 2, mode: 'sleep', t: 1.5 };
-    case 'diver':    return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'ceiling', t: rr(1.5, 3.5), hgt: 1 };
-    case 'glowworm': return { ...b, r: u * 0.4, hp: 1, dmg: 1, mode: 'crawl', t: 0, seg: Math.random() * 6, flashCool: rr(1, 3) };
-    case 'rabbit':     return { ...b, r: u * 0.45, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1) };
-    case 'hawk': case 'mantis': return makeHighCritter(type, b, u);
-    case 'gremlin':  return { ...b, r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 };
-    case 'thief':    return { ...b, r: u * 0.45, hp: 6, dmg: 1, mode: 'taunt', t: 1, fast: 1.45 };
-    case 'lurker':   return { ...b, r: u * 0.55, hp: 3, dmg: 1, mode: 'submerged', t: 0, cool: rr(0.5, 2) };
-    case 'warden':   return { ...b, r: u * 1.3, hp: 18, maxHp: 18, dmg: 2, mode: 'dormant', t: 0 };
-  }
+  return { ...b, ...MONSTERS[type].stats(UNIT, b) };
 }
 function hittable(e) {
   if (e.dead || e.taunter) return false;                 // the taunting gremlin is never where your blade is
-  if (e.type === 'thief') return !!e.cornered;
-  if (e.type === 'diver') return ['floor', 'stunned', 'ascend'].includes(e.mode);
-  if (e.type === 'lurker') return ['bite', 'risen', 'stunned'].includes(e.mode);
-  if (e.type === 'warden') return !['dormant', 'intro', 'talk'].includes(e.mode);
-  return true;
+  const M = monster(e);
+  return M.hittable ? M.hittable(e) : true;
 }
 function resumeMode(e) {
-  const m = { thief: ['flee', 0.6], stalker: ['stalk', 0], charger: ['aim', 0.8], diver: ['ascend', 0.6], glowworm: ['crawl', 0], rabbit: ['flee', 0.8], gremlin: ['flee', 0.6], lurker: ['sink', 0.4], warden: ['prowl', 1.2] }[e.type];
-  if (!m) { e.mode = { mantis: 'stalk', hawk: 'climb' }[e.type] || 'idle'; e.t = 1; return; }   // any creature without an entry picks itself back up (this was the High Reaches freeze)
+  const m = monster(e).resume || ['idle', 1];         // anything without an entry picks itself back up (this was the High Reaches freeze)
   e.mode = m[0]; e.t = m[1];
 }
 function spark(x, y, color, n, speed) {
@@ -3808,41 +4061,31 @@ function damage(e, amount, kind, nx, ny, bowl) {
   if (kind !== 'fire') { spark(e.x - nx * e.r * 0.6, e.y - ny * e.r * 0.6, '#ffe7b0', kind === 'stab' ? 8 : 5, 4); sfx.whack(); zoomPulse(e.x, e.y, 'hit'); }
   if (e.hp <= 0) return kill(e);
   if (e.mode === 'sleep' || e.mode === 'dormant') resumeMode(e);
-  if (e.type === 'warden') { if (e.hp <= e.maxHp / 2 && !e.enraged) { e.enraged = true; say('The Warden is enraged!', e.x, e.y - e.r - UNIT, { key: 'boss' }); sfx.roar(); zoomPulse(e.x, e.y, 'boss'); } return; }
-  if (e.type === 'diver' || e.type === 'lurker') {
-    if (kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance)) { e.mode = 'stunned'; e.t = 1.0; }
-    return;
-  }
+  const M = monster(e);
+  if (M.onHit && M.onHit(e, kind, nx, ny, bowl)) return;
   const knock = bowl || (kind === 'stab' && (state.inv.horn || Math.random() < STAB.knockChance));
   if (knock) { e.vx = nx * 0.9 * L(); e.vy = ny * 0.9 * L(); e.mode = 'stunned'; e.t = 0.7; state.shake = 0.2; }
   else { e.vx += nx * 0.2 * L(); e.vy += ny * 0.2 * L(); }
 }
 
 function kill(e) {
-  if (e.type === 'rabbit') state.inv.rabbitKills = (state.inv.rabbitKills || 0) + 1;
   e.dead = true; e.mode = 'dead'; e.t = 0.9; e.vx = 0; e.vy = 0;
   sfx.death();
   state.shake = 0.3;
   spark(e.x, e.y, '#6b1a1a', 14, 3);
   if (e.idx >= 0) rtFor(state.scene).deadAt[e.idx] = state.playTime;
-  if (e.type === 'thief') { state.items.push({ type: 'journal', x: e.x, y: e.y }); relicMoment('journal', e.x, e.y); state.inv.thiefAt = THIEF_ROUTE.length; return; }
   const t = dropFor(e);
   if (t) {
     state.items.push({ type: t, x: e.x, y: e.y });
     if (RELICS[t] || t === 'scalp' || t === 'warden') relicMoment(t, e.x, e.y);
   }
-  if (e.type === 'warden') state.items.push({ type: 'spores7', x: e.x + UNIT * 1.2, y: e.y + UNIT * 0.6 });
-  if (e.type === 'warden') {
-    rtFor(state.scene).bossDead = true;
-    zoomPulse(e.x, e.y, 'boss');
-    state.shake = 0.8;
-    setMusic('cave');
-    say('Behind the falls, a passage opens.', W - UNIT * 4, H * 0.5 - UNIT * 2, { key: 'falls', life: 5 });
-  } else zoomPulse(e.x, e.y, 'kill');
+  const M = monster(e);
+  if (M.onKill && M.onKill(e)) return;
+  zoomPulse(e.x, e.y, 'kill');
 }
 
 function parry(e) {
-  const h = state.hero;
+  const h = state.hero, M = monster(e);
   const dx = e.x - h.x, dy = e.y - h.y, d = Math.hypot(dx, dy) || 1;
   sfx.clang();
   spark((e.x + h.x) / 2, (e.y + h.y) / 2, '#ffd23a', 12, 5);
@@ -3850,26 +4093,16 @@ function parry(e) {
   zoomPulse((e.x + h.x) / 2, (e.y + h.y) / 2, 'parry');
   h.vx -= dx / d * 0.25 * L(); h.vy -= dy / d * 0.25 * L();
   h.invuln = Math.max(h.invuln, 0.35);
-  if (e.type === 'warden' && e.mode !== 'charge') return;      // blocked, but it shrugs it off
+  if (M.onParry && M.onParry(e)) return;
   e.mode = 'stunned';
-  e.t = { diver: 1.6, lurker: 1.6, warden: 1.8 }[e.type] || 1.2;
-  if (!['diver', 'lurker'].includes(e.type)) { e.vx = dx / d * 0.7 * L(); e.vy = dy / d * 0.7 * L(); }
+  e.t = M.parryStun || 1.2;
+  if (!M.rooted) { e.vx = dx / d * 0.7 * L(); e.vy = dy / d * 0.7 * L(); }
 }
-
-const TOUCHES = {
-  stalker: e => ['stalk', 'windup', 'lunge', 'recover'].includes(e.mode),
-  charger: e => ['aim', 'charge', 'recover'].includes(e.mode),
-  glowworm: e => e.mode === 'crawl' && e.cool <= 0,
-  rabbit: e => e.mode === 'dart',
-  gremlin: e => e.mode === 'dart',
-  thief: e => e.cornered && e.mode === 'dart',
-  warden: e => ['prowl', 'aim', 'charge', 'rear', 'recover'].includes(e.mode),
-};
 
 function updateEnemies(dt) {
   const h = state.hero;
   for (let i = state.enemies.length - 1; i >= 0; i--) {
-    const e = state.enemies[i];
+    const e = state.enemies[i], M = monster(e);
     const dx = h.x - e.x, dy = h.y - e.y, dist = Math.hypot(dx, dy) || 1;
     const ease = (tx, ty, rate) => { const k = 1 - Math.exp(-rate * dt); e.vx += (tx - e.vx) * k; e.vy += (ty - e.vy) * k; };
     e.t -= dt; e.cool -= dt; e.flash -= dt;
@@ -3887,29 +4120,28 @@ function updateEnemies(dt) {
       if (e.burnTick <= 0) { e.burnTick = 0.6; damage(e, 0.5, 'fire', 0, 0); if (Math.random() < 0.4) sfx.sizzle(); if (e.dead) continue; }
       if (Math.random() < dt * 14) state.fx.push({ x: e.x + (Math.random() - 0.5) * e.r, y: e.y - e.r * 0.3, vx: 0, vy: -UNIT * 1.4, t: 0, life: 0.5, color: Math.random() < 0.5 ? '#ffb347' : '#ff6a2a' });
     }
-    if (burning && e.type !== 'warden' && !['ceiling', 'submerged', 'ripple', 'sink'].includes(e.mode)) {
+    if (burning && !M.boss && !['ceiling', 'submerged', 'ripple', 'sink'].includes(e.mode)) {
       // too busy being on fire to fight: runs about wildly
       if ((e.panicT || 0) <= 0) { e.panicT = 0.35; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); }
       e.panicT -= dt;
       ease(e.lx * 0.35 * L(), e.ly * 0.35 * L(), 6);
-      if (e.type === 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
+      if (M.water) { e.x += e.vx * dt; e.y += e.vy * dt; }
     }
     else if (e.mode === 'stunned') { ease(0, 0, 4); if (e.t <= 0) resumeMode(e); }
     else if (e.taunter) { tauntAI(e, dx, dy, dist, dt); continue; }
-    else if (e.type === 'hawk') { hawkAI(e, dt); continue; }             // flies: its own movement, no walls
-    else if (e.type === 'mantis') mantisAI(e, dx, dy, dist, ease);
-    else AI[e.type](e, dx, dy, dist, ease, dt);
+    else if (M.flies) { M.ai(e, dx, dy, dist, ease, dt); continue; }   // its own movement, no walls
+    else M.ai(e, dx, dy, dist, ease, dt);
 
-    if (e.type !== 'lurker') { e.x += e.vx * dt; e.y += e.vy * dt; }
-    const ground = !(e.type === 'diver' && e.mode === 'ceiling') && e.type !== 'lurker';
+    if (!M.water) { e.x += e.vx * dt; e.y += e.vy * dt; }
+    const ground = !(M.airborne && M.airborne(e)) && !M.water;
     let bump = false;
-    const escaping = e.type === 'thief' && !e.cornered;       // the thief slips through anything on its way out
+    const escaping = !!(M.slips && M.slips(e));
     if (ground && !escaping) bump = collideSolids(e, e.r * 0.85);
     const lunging = e.mode === 'lunge' || e.mode === 'charge';
     if (bump && bump.kind === 'stalagmite' && lunging) quake(bump, e);
     if (!escaping) bump = clampTo(e, e.r) || clampCorridor(e, e.r, true) || bump;
     const scn = sceneDef();
-    if (ground && !escaping && e.type !== 'warden' && (scn.chasms || scn.river || scn.deep) && isChasm(e.x, e.y)) {
+    if (ground && !escaping && !M.boss && (scn.chasms || scn.river || scn.deep) && isChasm(e.x, e.y)) {
       const carried = ['dart', 'charge', 'lunge', 'flee'].includes(e.mode) || state.time - (e.hitT || -9) < 0.8 || (e.panicT || 0) > 0;
       if (carried) {                                   // no stopping at that speed: over the edge
         e.falling = 0.7; e.vx *= 0.3; e.vy *= 0.3; sfx.plummet(); spark(e.x, e.y, 'rgba(160,140,110,.8)', 6, 2);
@@ -3919,225 +4151,33 @@ function updateEnemies(dt) {
     if (lunging && h.dashT > 0 && !state.dodged && dist < e.r + UNIT * 1.3) {
       state.dodged = true; state.slowmo = state.inv.step >= 2 ? 0.7 : 0.45;
       zoomPulse(h.x, h.y, 'parry'); sfx.flip();
-      say('Perfect dodge!', h.x, h.y - UNIT * 1.2, { key: 'dodge', life: 1, color: '#ffe38a' });
+      heroNote('Perfect dodge!', 1.2, { key: 'dodge', life: 1, color: '#ffe38a' });
     }
     if (sceneDef().feat.falls && e.x > W - UNIT * 2.3 - e.r) { e.x = W - UNIT * 2.3 - e.r; bump = true; }
-    if (bump && (e.mode === 'charge' || e.mode === 'lunge') && e.type !== 'stalker') {
-      e.mode = 'stunned'; e.t = e.type === 'warden' ? 2.0 : 1.2;
-      state.shake = e.type === 'warden' ? 0.5 : 0.2; sfx.crash();
-      zoomPulse(e.x, e.y, e.type === 'warden' ? 'kill' : 'hit');
+    if (bump && lunging && M.crash !== false) {         // into a wall at full tilt
+      e.mode = 'stunned'; e.t = M.boss ? 2.0 : 1.2;
+      state.shake = M.boss ? 0.5 : 0.2; sfx.crash();
+      zoomPulse(e.x, e.y, M.boss ? 'kill' : 'hit');
       spark(e.x, e.y, '#8a7a6a', 10, 3);
     }
 
-    const touch = TOUCHES[e.type];
-    if (touch && touch(e) && !burning && h.invuln <= 0 && h.z < UNIT * 0.5 && dist < (e.r + UNIT * 0.45) * 0.95) {
+    if (M.touches && M.touches(e) && !burning && h.invuln <= 0 && h.z < UNIT * 0.5 && dist < (e.r + UNIT * 0.45) * 0.95) {
       const facing = (-dx * h.fx - dy * h.fy) / dist;
       if (slashActive() && facing > 0.2) parry(e);
-      else if (hurtHero(e.dmg, e.x, e.y)) afterHit(e);
+      else if (hurtHero(e.dmg, e.x, e.y) && M.afterHit) M.afterHit(e);
     }
   }
 }
-function afterHit(e) {
-  if (e.type === 'stalker' || e.type === 'charger') { e.mode = 'recover'; e.t = 1.1; e.cool = 1.8; e.vx *= -0.3; e.vy *= -0.3; }
-  if (e.type === 'rabbit' || e.type === 'gremlin' || e.type === 'thief') { e.mode = 'flee'; e.t = 1.0; e.cool = 2; }
-  if (e.type === 'glowworm') e.cool = 1.5;
-  if (e.type === 'warden') { e.mode = 'recover'; e.t = 1.0; }
-}
-
-const AI = {
-  stalker(e, dx, dy, dist, ease) {
-    switch (e.mode) {
-      case 'sleep':
-        if (e.t <= 0) { e.mode = 'stalk'; sfx.growl(); say('Something stirs in the dark', e.x, e.y - UNIT * 1.3, { key: 'wake' }); state.shake = 0.3; zoomPulse(e.x, e.y, 'hit'); }
-        break;
-      case 'stalk':
-        ease(dx / dist * 0.22 * L(), dy / dist * 0.22 * L(), 3);
-        if (dist < UNIT * 6 && e.cool <= 0) { e.mode = 'windup'; e.t = 0.45; e.lx = dx / dist; e.ly = dy / dist; sfx.windup(); }
-        break;
-      case 'windup': ease(0, 0, 10); if (e.t <= 0) { e.mode = 'lunge'; e.t = 0.45; e.vx = e.lx * 0.8 * L(); e.vy = e.ly * 0.8 * L(); } break;
-      case 'lunge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.7; e.cool = 1.4; } break;
-      case 'recover': ease(0, 0, 5); if (e.t <= 0) e.mode = 'stalk'; break;
-    }
-  },
-  charger(e, dx, dy, dist, ease) {
-    switch (e.mode) {
-      case 'sleep': if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9; sfx.growl(); state.shake = 0.3; } break;
-      case 'aim':
-        ease(0, 0, 8);
-        if (e.t > 0.25) { e.lx = dx / dist; e.ly = dy / dist; }
-        if (e.t <= 0) { e.mode = 'charge'; e.t = 1.2; e.vx = e.lx * 0.85 * L(); e.vy = e.ly * 0.85 * L(); sfx.snort(); }
-        break;
-      case 'charge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.9; } break;
-      case 'recover': ease(0, 0, 5); if (e.t <= 0) { e.mode = 'aim'; e.t = 0.9 + Math.random() * 0.6; } break;
-    }
-  },
-  glowworm(e, dx, dy, dist, ease, dt) {
-    e.seg += 0.1;
-    e.flashCool -= dt;
-    if (e.mode === 'glowup') {                      // their weapon: a blinding flash
-      ease(0, 0, 8);
-      if (e.t <= 0) {
-        e.mode = 'crawl'; e.flashCool = rr(4, 6);
-        sfx.flash(); spark(e.x, e.y, '#f4ffc0', 16, 5);
-        if (dist < UNIT * 5.5 && state.whirl) endWhirl('flash');
-        if (dist < UNIT * 4.5) {
-          if (state.inv.lumin > 0) say('Your own glow shrugs off the flash.', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5 });
-          else { state.blind = 1.8; zoomPulse(e.x, e.y, 'hurt'); say('Blinded!', state.hero.x, state.hero.y - UNIT, { key: 'blind', life: 1.5, color: '#ffffff' }); }
-        }
-      }
-      return;
-    }
-    if (dist < UNIT * 3.5 && e.flashCool <= 0) { e.mode = 'glowup'; e.t = 0.8; sfx.charge(); return; }
-    if (dist < UNIT * 5 && e.cool <= 0) ease(dx / dist * 0.07 * L(), dy / dist * 0.07 * L(), 2);
-    else { if (e.t <= 0) { e.t = 2; const a = Math.random() * 6.28; e.lx = Math.cos(a); e.ly = Math.sin(a); } ease(e.lx * 0.03 * L(), e.ly * 0.03 * L(), 2); }
-  },
-  gremlin(e, dx, dy, dist, ease, dt) { AI.rabbit(e, dx, dy, dist, ease, dt, 1.25); },
-  thief(e, dx, dy, dist, ease, dt) {
-    if (e.cornered) return AI.rabbit(e, dx, dy, dist, ease, dt, 1.45);   // nowhere left to run: it fights
-    if (e.mode === 'taunt') {                         // hops about waving the journal until you get close
-      ease(0, 0, 6);
-      if (e.t <= 0) { e.t = rr(1, 2); sfx.cackle(); }
-      if (dist < UNIT * 5) {
-        e.mode = 'flee';
-        const next = THIEF_ROUTE[e.route + 1], ex = sceneDef().exits.find(o => o.to === next);
-        const [fx, fy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2) : [0.98, 0.5];
-        e.lx = fx * W + (fx > 0.9 ? UNIT * 3 : fx < 0.1 ? -UNIT * 3 : 0); e.ly = fy * H + (fy > 0.9 ? UNIT * 3 : fy < 0.1 ? -UNIT * 3 : 0);
-        say('It\'s getting away!', e.x, e.y - UNIT * 1.3, { key: 'thief', life: 1.5 });
-      }
-    } else if (e.mode === 'flee') {                  // too quick to catch: it always makes the next screen
-      const tx = e.lx - e.x, ty = e.ly - e.y, td = Math.hypot(tx, ty) || 1;
-      ease(tx / td * 0.75 * L(), ty / td * 0.75 * L(), 8);
-      if (td < UNIT * 0.8 || e.x < -UNIT * 2 || e.x > W + UNIT * 2 || e.y < -UNIT * 2 || e.y > H + UNIT * 2) {
-        e.dead = true; e.mode = 'dead'; e.t = 0; state.inv.thiefAt = Math.min(THIEF_ROUTE.length - 1, e.route + 1);
-        say('Gone again. Follow the dropped pages.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'thief', life: 2.5 });
-      }
-    }
-  },
-  rabbit(e, dx, dy, dist, ease, dt, fast = 1) {
-    switch (e.mode) {
-      case 'idle':
-        ease(0, 0, 4);
-        if (e.t <= 0) { e.t = rr(0.5, 1.2); const a = Math.random() * 6.28; e.vx = Math.cos(a) * 0.3 * L(); e.vy = Math.sin(a) * 0.3 * L(); }
-        if (dist < UNIT * 5 && e.cool <= 0) { e.mode = 'rage'; e.t = 0.55; }   // the tell: it freezes and its eyes flash, then it comes
-        break;
-      case 'rage': ease(0, 0, 12); if (e.t <= 0) { e.mode = 'dart'; e.t = 1.1; } break;
-      case 'dart': {
-        const zig = Math.sin(state.time * 14) * 0.7, px = -dy / dist, py = dx / dist;
-        ease((dx / dist + px * zig) * 0.6 * fast * L(), (dy / dist + py * zig) * 0.6 * fast * L(), 8);
-        if (e.t <= 0) { e.mode = 'flee'; e.t = 0.8; e.cool = 1.5; }
-        break;
-      }
-      case 'flee': ease(-dx / dist * 0.45 * L(), -dy / dist * 0.45 * L(), 6); if (e.t <= 0) { e.mode = 'idle'; e.t = 0.5; } break;
-    }
-  },
-  diver(e, dx, dy, dist, ease, dt) {
-    const h = state.hero;
-    switch (e.mode) {
-      case 'ceiling':
-        e.hgt = 1;
-        ease(dx / dist * 0.22 * L(), dy / dist * 0.22 * L(), 2);
-        if (e.t <= 0 && dist < UNIT * 3) {
-          e.mode = 'descend'; e.t = 0.9;
-          e.lx = h.x + h.vx * 0.25; e.ly = h.y + h.vy * 0.25;
-          e.vx = 0; e.vy = 0; e.parried = false;
-          sfx.skitter(panOf(e.x));
-        }
-        break;
-      case 'descend':
-        e.x += (e.lx - e.x) * (1 - Math.exp(-10 * dt)); e.y += (e.ly - e.y) * (1 - Math.exp(-10 * dt));
-        e.hgt = Math.max(0, e.t / 0.9);
-        if (!e.parried && e.t < 0.28 && slashActive() && dist < UNIT * 1.9 && !wears('cap')) { e.parried = true; e.hgt = 0; parry(e); break; }
-        if (e.t <= 0) {
-          e.hgt = 0;
-          spark(e.x, e.y, '#4b3558', 8, 3);
-          if (dist < UNIT * 1.1 && h.z < UNIT * 0.5) {
-            if (wears('cap')) {
-              sfx.boing(); e.mode = 'stunned'; e.t = 1.6;
-              zoomPulse(h.x, h.y, 'parry');
-              say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 });
-              break;
-            }
-            hurtHero(e.dmg, e.x, e.y);
-          }
-          e.mode = 'floor'; e.t = 1.3;
-          spinWeb(e.x, e.y);
-        }
-        break;
-      case 'floor': ease(0, 0, 4); if (e.t <= 0) { e.mode = 'ascend'; e.t = 0.6; } break;
-      case 'ascend': e.hgt = 1 - Math.max(0, e.t) / 0.6; ease(0, 0, 6); if (e.t <= 0) { e.mode = 'ceiling'; e.t = rr(2, 3.5); } break;
-    }
-    if (e.mode === 'stunned') e.hgt = 0;
-  },
-  lurker(e, dx, dy, dist) {
-    const p = e.pool, h = state.hero;
-    if (!p) return;
-    switch (e.mode) {
-      case 'submerged': {
-        e.x = p.x; e.y = p.y;
-        if (e.cool <= 0 && Math.hypot(h.x - p.x, h.y - p.y) < p.r + UNIT * 2.6) {
-          const a = Math.atan2(h.y - p.y, h.x - p.x);
-          e.x = p.x + Math.cos(a) * p.r * 0.7; e.y = p.y + Math.sin(a) * p.r * 0.7;
-          e.mode = 'ripple'; e.t = 0.8; sfx.bubble();
-        }
-        break;
-      }
-      case 'ripple': if (e.t <= 0) { e.mode = 'bite'; e.t = 0.3; e.parried = false; sfx.splash(); spark(e.x, e.y, '#6a8a8a', 10, 3); } break;
-      case 'bite':
-        if (!e.parried && slashActive() && dist < UNIT * 1.9) { e.parried = true; parry(e); break; }
-        if (e.t <= 0) { if (dist < UNIT * 1.5 && state.hero.z < UNIT * 0.5) hurtHero(e.dmg, e.x, e.y); e.mode = 'risen'; e.t = 1.2; }
-        break;
-      case 'risen': if (e.t <= 0) { e.mode = 'sink'; e.t = 0.4; } break;
-      case 'sink': if (e.t <= 0) { e.mode = 'submerged'; e.cool = rr(1.5, 3); } break;
-    }
-  },
-  warden(e, dx, dy, dist, ease) {
-    const h = state.hero, fast = e.enraged ? 1.25 : 1;
-    switch (e.mode) {
-      case 'dormant':
-        if (h.x > W * 0.3 && !state.cut) { e.mode = 'talk'; startWardenTalk(e); }
-        break;
-      case 'talk': ease(0, 0, 8); break;
-      case 'intro': if (e.t <= 0) { state.cam.focus = null; e.mode = 'prowl'; e.t = 1.2; } break;
-      case 'prowl':
-        ease(dx / dist * 0.16 * fast * L(), dy / dist * 0.16 * fast * L(), 3);
-        if (e.t <= 0) {
-          if (dist > UNIT * 5 || Math.random() < 0.5) { e.mode = 'aim'; e.t = 0.8 / fast; sfx.snort(); }
-          else { e.mode = 'rear'; e.t = 0.7 / fast; sfx.growl(); }
-        }
-        break;
-      case 'aim':
-        ease(0, 0, 8);
-        if (e.t > 0.25) { e.lx = dx / dist; e.ly = dy / dist; }
-        if (e.t <= 0) { e.mode = 'charge'; e.t = 1.1; e.vx = e.lx * 0.9 * fast * L(); e.vy = e.ly * 0.9 * fast * L(); }
-        break;
-      case 'charge': if (e.t <= 0) { e.mode = 'recover'; e.t = 0.9; } break;
-      case 'rear':
-        ease(0, 0, 8);
-        if (e.t <= 0) {
-          sfx.crash(); state.shake = 0.6; zoomPulse(e.x, e.y, 'kill');
-          state.rings.push({ x: e.x, y: e.y, t: 0, dur: 0.9, r0: e.r, r1: e.r + UNIT * 6, hit: false });
-          const n = e.enraged ? 5 : 3;
-          for (let i = 0; i < n; i++) {
-            const a = Math.random() * 6.28, d = i === 0 ? 0 : UNIT * rr(1, 3.2);
-            state.hazards.push({ x: Math.max(UNIT, Math.min(W - UNIT * 3, h.x + Math.cos(a) * d)), y: Math.max(UNIT, Math.min(H - UNIT, h.y + Math.sin(a) * d)), t: -i * 0.15, dur: 1.0, r: UNIT * 0.8 });
-          }
-          e.mode = 'recover'; e.t = 1.1;
-        }
-        break;
-      case 'recover': ease(0, 0, 5); if (e.t <= 0) { e.mode = 'prowl'; e.t = rr(1.0, 2.0) / fast; } break;
-    }
-  },
-};
 
 // something lunging into a stalagmite shakes the stalactites above loose
 function quake(sg, e) {
   if ((state.stalCool[sg.key] || 0) > state.time) return;
   state.stalCool[sg.key] = state.time + 6;
   sfx.crash(); state.shake = 0.5;
-  const n = e.type === 'warden' ? 3 : 1;
+  const n = monster(e).boss ? 3 : 1;
   for (let i = 0; i < n; i++) {
     const a = Math.random() * 6.28, d = i ? UNIT * rr(0.2, 0.7) : 0;
-    state.hazards.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, t: -0.25 - i * 0.12, dur: 0.75, r: UNIT * 0.75, edmg: e.type === 'warden' ? 3 : 3, kind: 'stalactite' });
+    state.hazards.push({ x: e.x + Math.cos(a) * d, y: e.y + Math.sin(a) * d, t: -0.25 - i * 0.12, dur: 0.75, r: UNIT * 0.75, edmg: 3, kind: 'stalactite' });
   }
   say('The ceiling shakes loose!', sg.x, sg.y - UNIT * 1.6, { key: 'quake', tip: 'quake', life: 2.5 });
 }
@@ -4151,12 +4191,12 @@ function updateHazards(dt) {
       state.hazards.splice(i, 1);
       sfx.crash(); spark(z.x, z.y, '#7a6a5a', 8, 3); state.shake = Math.max(state.shake, 0.15);
       if (z.edmg) for (const e of state.enemies) if (!e.dead && e.mode !== 'ceiling' && Math.hypot(e.x - z.x, e.y - z.y) < z.r + e.r) {
-        damage(e, z.edmg, 'fire', 0, 1); if (!e.dead) { e.mode = 'stunned'; e.t = e.type === 'warden' ? 2.2 : 1.4; }
+        damage(e, z.edmg, 'fire', 0, 1); if (!e.dead) { e.mode = 'stunned'; e.t = monster(e).boss ? 2.2 : 1.4; }
         zoomPulse(e.x, e.y, 'kill');
       }
       if (state.whirl && Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 1.6) endWhirl('knocked');
       if (Math.hypot(h.x - z.x, h.y - z.y) < z.r + UNIT * 0.4 && h.z < UNIT * 0.5) {
-        if (wears('cap')) { sfx.boing(); say('Bonk! The scalp takes it.', h.x, h.y - UNIT * 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
+        if (wears('cap')) { sfx.boing(); heroNote('Bonk! The scalp takes it.', 1.2, { key: 'bonk', life: 1.8 }); zoomPulse(h.x, h.y, 'parry'); }
         else hurtHero(1, z.x, z.y);
       }
     }
@@ -4520,7 +4560,7 @@ function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
 function interactBedroll(sc, h, rt, nearPull) {
-  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); say('A quick nap. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
+  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); heroNote('A quick nap. Vigor restored.', 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
 }
 function interactChest(sc, h, rt, nearPull) {
   if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
@@ -4541,7 +4581,7 @@ function interactCampfire(sc, h, rt, nearPull) {
     if (d < UNIT * 2.2) say(`${K.act} to rest by the fire`, fx * W, fy * H - UNIT * 1.2, { key: 'fire', tip: 'rest', life: 3 });
     if (d < UNIT * 1.7 && pressedNow.act) {
       h.vig = maxVig(); sfx.crackle(); sfx.heart(); zoomPulse(fx * W, fy * H, 'pickup');
-      say('You rest by the fire. Vigor restored.', h.x, h.y - UNIT * 1.2, { key: 'item', life: 2.5 });
+      heroNote('You rest by the fire. Vigor restored.', 1.2, { key: 'item', life: 2.5 });
       say(`${K.menu} opens the menu. Save your progress there.`, h.x, h.y + UNIT * 2.2, { key: 'savetip', tip: 'save', life: 4 });
       return true;
     }
@@ -4645,7 +4685,7 @@ function travelOptions(from) {
 }
 function sporeJump(id, cost) {
   const inv = state.inv, h = state.hero;
-  if (inv.spores < cost) { say(`Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`, h.x, h.y - UNIT * 1.3, { key: 'spore', life: 2.5 }); return false; }
+  if (inv.spores < cost) { heroNote(`Not enough spores: ${inv.spores}/${cost}. Found mushrooms grow more over time.`, 1.3, { key: 'spore', life: 2.5 }); return false; }
   inv.spores -= cost;
   const to = WORLD[id].feat.shroom;
   sfx.spores();
@@ -4720,7 +4760,7 @@ function riverSideQuest(sc, h) {
         /* the Downriver quest announces itself (quest banner) */
       }
       say(rt.flags.salvaged ? 'Old Wick\'s half-built raft, picked clean.' : 'Old Wick\'s first raft, never finished.', wreck[0], wreck[1] - UNIT, { key: 'wreck', life: 2.5 });
-      if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); say('+2 driftwood', h.x, h.y - UNIT * 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
+      if (pressedNow.act && !rt.flags.salvaged) { rt.flags.salvaged = true; inv.mats.driftwood += 2; sfx.lift(); heroNote('+2 driftwood', 1.2, { key: 'matdrift', life: 2, color: '#ffe38a' }); return true; }
     }
     if (Math.hypot(h.x - door[0], h.y - door[1]) < UNIT * 1.3) {
       say(`${K.act} to go inside`, door[0], door[1] - UNIT, { key: 'door', life: 1.5 });
@@ -4839,7 +4879,7 @@ function updateRapids(dt) {
     const inv = state.inv; inv.raft = 1; inv.mats.driftwood += 2;
     const [ax, ay] = dockLanding();
     transitionTo('riverbank', ax, ay);
-    setTimeout(() => say('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'wreck', life: 5 }), 1100);
+    setTimeout(() => heroNote('You drag yourself ashore by the jetty, with two good logs. Build again and try another line.', 1.3, { key: 'wreck', life: 5 }), 1100);
   }
   h.x = r.x; h.y = ry; h.z = Math.abs(Math.sin(r.t * 5)) * UNIT * 0.08; h.vx = r.vx; h.vy = 0; h.fx = 0; h.fy = -1;
   updateCam(dt);
@@ -4866,7 +4906,7 @@ function startFishing(key, x, y) {
 function updateFishing(dt) {
   const f = state.fish, h = state.hero;
   if (!f) return;
-  if (pressedNow.jump || pressedNow.up || pressedNow.down || pressedNow.left || pressedNow.right) { state.fish = null; say('You reel in.', h.x, h.y - UNIT, { key: 'fish', life: 1 }); return; }
+  if (pressedNow.jump || pressedNow.up || pressedNow.down || pressedNow.left || pressedNow.right) { state.fish = null; heroNote('You reel in.', 1, { key: 'fish', life: 1 }); return; }
   f.t -= dt;
   if (f.phase === 'wait') {
     if (pressedNow.act) { state.fish = null; say('Too early. It swims off.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); state.fishCool[f.key] = state.playTime + 6; return; }
@@ -4879,7 +4919,7 @@ function updateFishing(dt) {
       if (rng() < 0.35) {                            // sometimes a seed in its belly
         const r = rng(), seed = r < 0.5 ? localSeed() : r < 0.75 ? 'thornseed' : r < 0.9 ? 'emberseed' : 'ironseed';
         state.items.push({ type: seed, x: h.x - h.fx * UNIT * 0.6 + UNIT * 0.5, y: h.y + UNIT * 0.6 });
-        say('Something was in its belly!', h.x, h.y - UNIT * 1.6, { key: 'belly', life: 2 });
+        heroNote('Something was in its belly!', 1.6, { key: 'belly', life: 2 });
       }
       train(0.5);
     } else if (f.t <= 0) { state.fish = null; state.fishCool[f.key] = state.playTime + 6; say('It got away.', f.x, f.y - UNIT * 1.2, { key: 'fish', life: 1.6 }); }
@@ -4981,7 +5021,7 @@ function radialLabel(o, slot) {
 function applyRadial(r) {
   const opt = r.opts[r.sel];
   if (!opt) return;
-  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; say(radialLabel(opt, r.slot), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
+  if (r.slot) { setSlot(r.slot, opt.kind === 'none' ? null : opt); sfx.tock(); const h = state.hero; heroNote(radialLabel(opt, r.slot), 1.2, { key: 'equip', life: 1.1, color: '#ffe38a' }); }
   else useEntry(opt);
 }
 // tap R: the F slot steps through your weapons
@@ -5128,7 +5168,7 @@ function updateShots(dt) {
       s.hit.add(e);
       if (!rock) skillUse('acorn', true);
       if (!rock && wears('embercharm')) { e.burn = Math.max(e.burn || 0, 2); spark(e.x, e.y, '#ffa04a', 6, 2); }   // the ember charm lights them
-      damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && SMALL.includes(e.type));
+      damage(e, (rock ? 3 : s.silk ? 2 : 1) * s.force * power(), rock ? 'stab' : 'slash', s.vx / d, s.vy / d, s.force > 1.2 && monster(e).small);
       if (s.silk >= 3 && !e.dead) { e.mode = 'stunned'; e.t = 1.2; }
       if (!(s.silk >= 2)) done = true;
     }
@@ -5207,7 +5247,7 @@ function updateGas(dt) {
     for (const e of state.enemies) {
       if (!hittable(e) || (e.burnCool || 0) > state.time || Math.hypot(e.x - b.x, e.y - b.y) > b.r + e.r) continue;
       e.burnCool = state.time + 0.5;
-      e.burn = Math.min(e.type === 'warden' ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
+      e.burn = Math.min(monster(e).boss ? 2 : 8, (e.burn || 0) + (state.inv.pepper > 0 ? 1.8 : 1.2) * (1 + state.inv.up.pouch * 0.25));   // it clings; more fire, longer panic
       damage(e, 1, 'fire', 0, 0);
     }
     for (const s of state.solids) if (s.bar && ['reeds', 'web', 'vine'].includes(s.kind) && Math.hypot(s.x - b.x, s.y - b.y) < b.r + s.r) { breakBarrier(s.bar, 'fire'); break; }
@@ -5923,7 +5963,7 @@ function updateCut(dt) {
     if ((c.gone && c.t > c.gone + 0.3) || c.t > 11) {
       p.show = false; p.follow = false; p.hz = 0; state.gremlins = null; state.cam.focus = null; state.cut = null;
       state.inv.pipTaken = true;
-      say('They ran off with Pip, deeper into the dark! After them!', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 3.5 });
+      heroNote('They ran off with Pip, deeper into the dark! After them!', 1.2, { key: 'npc', life: 3.5 });
     }
   } else if (c.type === 'ambush') {
     const p = state.pip, gs = state.gremlins, rt = rtFor('start');
@@ -5938,7 +5978,7 @@ function updateCut(dt) {
     if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
     if (at(7)) {
       p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      say('The gremlins piled thorns behind Pip. You need a way through.', h.x, h.y - UNIT * 1.2, { key: 'npc', life: 4 });
+      heroNote('The gremlins piled thorns behind Pip. You need a way through.', 1.2, { key: 'npc', life: 4 });
     }
   } else if (c.type === 'sword') {
     const R0 = 1.5, TAKE = 3.1, a = TAKE + 0.1, b = TAKE + 1.2;
@@ -5956,7 +5996,7 @@ function updateCut(dt) {
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
     if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'relic', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
-    if (c.t >= b + 2.6) { state.cut = null; say(`Tap ${K.act} to slash. Hold and release to stab.`, h.x, h.y - UNIT * 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
+    if (c.t >= b + 2.6) { state.cut = null; heroNote(`Tap ${K.act} to slash. Hold and release to stab.`, 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
   } else if (c.type === 'toad') {
     const [tx, ty] = npcPos(c.n);
     if (at(0.2)) sfx.munch();
@@ -5980,8 +6020,8 @@ function updateCut(dt) {
     h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
     h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y));
     if (Math.random() < 0.4) spark(h.x, h.y + UNIT * 0.4, 'rgba(210,235,245,.8)', 1, 2);
-    if (at(0.4)) say('The current takes the raft...', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 2.5, hold: false });
-    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; say('Rapids!', h.x, h.y - UNIT * 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
+    if (at(0.4)) heroNote('The current takes the raft...', 1.4, { key: 'npc', life: 2.5, hold: false });
+    if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; heroNote('Rapids!', 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
     if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
   } else if (c.type === 'warden') {
     updateWardenTalk(c, dt);
@@ -6056,7 +6096,7 @@ function learnRecipe(k, source) {
   const f = FORGE.find(o => o.k === k);
   sfx.pickup(); sfx.shing();
   showTitle(`Recipe: ${f.name}`, f.how, 'relic', 4.5);
-  say(source || 'Work it at the camp bench.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'recipe', life: 3 });
+  heroNote(source || 'Work it at the camp bench.', 1.3, { key: 'recipe', life: 3 });
 }
 const costText = c => Object.entries(c).map(([m, n]) => `${n} ${MATS[m]}`).join(', ');
 function forgeItems() {
@@ -6230,7 +6270,7 @@ function packCells(tab) {
     if (inv.journal >= 3) cells.push({ icon: 'journal', name: 'Pip\'s journal', line: 'maps: see the Map tab' });
     // everything else you've gained lives here too, so nothing is ever out of reach
     if (inv.lantern) cells.push({ col: 0, icon: 'lantern', name: 'Candle lantern', line: 'a warm pool of light, wherever you go' });
-    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; say(LETTER_TEXT, state.hero.x, state.hero.y - UNIT * 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
+    if (inv.letter) cells.push({ col: 0, icon: 'letter', name: 'Wick\'s letter', desc: 'from Old Wick: F to read', line: 'A letter from Old Wick, weighted with a pipe.', acts: [{ label: 'Read', fn: () => { state.menu = null; heroNote(LETTER_TEXT, 1.3, { key: 'npc', color: '#f2e6c8' }); } }] });
     if (inv.pages && inv.journal < 3) cells.push({ col: 0, icon: 'page', name: 'Journal pages', count: inv.pages, line: `torn from Pip's journal: ${inv.pages} so far` });
     if (inv.beans && inv.beans < BEANS) cells.push({ col: 0, icon: 'bean', name: 'Beans', count: inv.beans, line: `the toad's lunch: ${inv.beans} of ${BEANS}` });
     if (inv.tortoise) cells.push({ col: 1, icon: 'starpetal', name: 'Tortoise\'s blessing', line: 'the High Crags let you pass' });
@@ -6991,11 +7031,11 @@ function bladeWear(n) {
   const k = inv.woodsword;
   const tip = [h.x + h.fx * UNIT * 0.9, h.y + h.fy * UNIT * 0.9 - UNIT * 0.4];
   if (k > 0 && k <= 5) for (let i = 0; i < 3; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 3, vy: -UNIT * (0.5 + Math.random() * 1.5), t: 0, life: 0.5, color: '#b08a5a', size: UNIT * 0.06 });   // splinters
-  if (k === 4) say('It\'s splintering...', h.x, h.y - UNIT * 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
+  if (k === 4) heroNote('It\'s splintering...', 1.3, { key: 'wood', life: 1.6, color: '#d8b888' });
   if (k === 0) {                                   // shattered
     sfx.crash(); state.shake = 0.2; zoomPulse(h.x, h.y, 'parry');
     for (let i = 0; i < 16; i++) state.fx.push({ x: tip[0], y: tip[1], vx: (Math.random() - 0.5) * UNIT * 6, vy: -UNIT * (1 + Math.random() * 3), t: 0, life: 0.8, color: i % 2 ? '#b08a5a' : '#7a5a34', size: UNIT * 0.09 });
-    say('The wooden sword shatters!', h.x, h.y - UNIT * 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
+    heroNote('The wooden sword shatters!', 1.4, { key: 'wood', life: 2.2, color: '#ffb080' });
     state.atk = null; if (inv.aug && !inv.sword) inv.aug = null;
     tidySlots();
   }
@@ -7010,7 +7050,7 @@ function augBonus(e) {
   if (!a || !AUG[a.id]) return 0;
   const A = AUG[a.id];
   if (A.burn) { e.burn = Math.max(e.burn || 0, A.burn); spark(e.x, e.y, '#ffa04a', 5, 2); }
-  if (--a.n <= 0) { inv.aug = null; const h = state.hero; say(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, h.x, h.y - UNIT * 1.3, { key: 'aug', life: 1.8 }); }
+  if (--a.n <= 0) { inv.aug = null; const h = state.hero; heroNote(`The ${OUT_NAME[a.id].toLowerCase()} is used up.`, 1.3, { key: 'aug', life: 1.8 }); }
   return A.bonus;
 }
 function augGlint(len, w) {
@@ -7043,16 +7083,16 @@ function eatFood(food) {
   if (food === 'berries' && perk && h.vig < maxVig() / 2) amt *= 2;
   if (food === 'turnip') {                             // a turnip works slowly: its vigor comes back over ten seconds or so
     inv.turnipRegen = (inv.turnipRegen || 0) + amt * maxVig();
-    say(`+${Math.round(amt * maxVig())} vigor, slowly`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
-    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); say(`Sturdier. Max vigor ${maxVig()}`, h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
+    heroNote(`+${Math.round(amt * maxVig())} vigor, slowly`, 1.1, { key: 'eat', life: 1.6, color: '#b8f28a' });
+    if (inv.vigBonus < 40 && Math.random() < 0.3 + cropLevel('turnip') * 0.08) { inv.vigBonus = Math.min(40, inv.vigBonus + (perk ? 2 : 1)); sfx.grow(); heroNote(`Sturdier. Max vigor ${maxVig()}`, 1.5, { key: 'grow', life: 2, color: '#b8f28a' }); }
     refreshButtons(); return;
   }
   heal(amt);                                           // everything else, the carrot first among them, mends you on the spot
-  say(`+${Math.round(amt * maxVig())} vigor`, h.x, h.y - UNIT * 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
-  if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; say('Your vigor swells for a while.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
-  if (food === 'pepper') { inv.pepper = perk ? 90 : 60; say('Hot! Your marsh fire will burn bigger for a while.', h.x, h.y - UNIT * 1.4, { key: 'pep', life: 2.5 }); }
+  heroNote(`+${Math.round(amt * maxVig())} vigor`, 1.1, { key: 'eat', life: 1.4, color: '#b8f28a' });
+  if (food === 'fish') { inv.fishBuff = perk ? 180 : 120; heroNote('Your vigor swells for a while.', 1.5, { key: 'grow', life: 2, color: '#9fd4ff' }); }
+  if (food === 'pepper') { inv.pepper = perk ? 90 : 60; heroNote('Hot! Your marsh fire will burn bigger for a while.', 1.4, { key: 'pep', life: 2.5 }); }
   if (food === 'carrot' && perk) inv.carrotBuff = 15;
-  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); say('A spring in your step.', h.x, h.y - UNIT * 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
+  if (food === 'trailmix') { inv.carrotBuff = Math.max(inv.carrotBuff || 0, 12); heroNote('A spring in your step.', 1.5, { key: 'grow', life: 1.8, color: '#b8f28a' }); }
   if (food === 'salad') inv.turnipRegen = (inv.turnipRegen || 0) + maxVig() * 0.15;
   if (food === 'squash' && perk) inv.squashBuff = 20;
   refreshButtons();
@@ -7061,7 +7101,7 @@ function gainCropXp(k) {
   const inv = state.inv, xp = inv.cropXp || (inv.cropXp = {}), before = cropLevel(k), fBefore = farmLevel();
   xp[k] = (xp[k] || 0) + 1;
   const h = state.hero;
-  if (cropLevel(k) > before) { sfx.grow(); say(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, h.x, h.y - UNIT * 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
+  if (cropLevel(k) > before) { sfx.grow(); heroNote(`${k[0].toUpperCase() + k.slice(1)} growing: level ${cropLevel(k)}${cropLevel(k) === 3 ? '! ' + CROP_PERK[k] : ''}`, 1.8, { key: 'croplvl', life: 3.5, color: '#b8f28a' }); }
   if (farmLevel() > fBefore) showScroll(`Farming ${roman(farmLevel())}`, SKILL_INFO.farm(farmLevel()).replace(/^./, c => c.toUpperCase()) + '.', true);
 }
 // The mushroom's light: slow and erratic. Three slow waves, one of them wobbling its own speed, pushed through a steep
@@ -8672,7 +8712,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 175';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 176';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9213,122 +9253,131 @@ function drawGlints(it, hsh) {
   }
 }
 // ---------- enemies ----------
-function drawEnemy(e) {
-  if (e.type === 'hawk') { drawHawk(e); return; }
-  if (e.type === 'mantis') { drawMantis(e); return; }
+function drawEnemy(e) {                             // the fade and shrink of a death and the flash of a hit, then the monster's own draw
   const alpha = e.mode === 'dead' ? Math.max(0, e.t / 0.9) : 1;
   const scale = e.mode === 'dead' ? 0.5 + 0.5 * alpha : 1;
   const white = e.flash > 0;
   ctx.save(); ctx.globalAlpha = alpha;
-  const C = (c) => white ? '#fff' : c;
-  switch (e.type) {
-    case 'stalker': {
-      const bs = UNIT * 1.4 * scale * (e.mode === 'windup' ? 1.12 : 1);
-      ctx.fillStyle = C('#4a1414'); ctx.fillRect(e.x - bs / 2, e.y - bs / 2, bs, bs);
-      for (const s of [-1, 1]) {                  // ears, the same ones the scalp keeps
-        ctx.fillStyle = C('#4a1414'); ctx.beginPath(); ctx.moveTo(e.x + s * bs * 0.2, e.y - bs / 2); ctx.lineTo(e.x + s * bs * 0.48, e.y - bs * 0.95); ctx.lineTo(e.x + s * bs * 0.5, e.y - bs / 2); ctx.fill();
-        ctx.fillStyle = C('#b8736a'); ctx.beginPath(); ctx.moveTo(e.x + s * bs * 0.28, e.y - bs / 2); ctx.lineTo(e.x + s * bs * 0.45, e.y - bs * 0.82); ctx.lineTo(e.x + s * bs * 0.46, e.y - bs / 2); ctx.fill();
-      }
-      ctx.fillStyle = C('#2a0b0b');
-      for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(e.x + i * bs * 0.14 - bs * 0.06, e.y - bs / 2); ctx.lineTo(e.x + i * bs * 0.14, e.y - bs * 0.72); ctx.lineTo(e.x + i * bs * 0.14 + bs * 0.06, e.y - bs / 2); ctx.fill(); }
-      break;
-    }
-    case 'charger': {
-      const bw = UNIT * 1.6 * scale, bh = UNIT * 1.25 * scale;
-      ctx.fillStyle = C('#3b2a18'); ctx.fillRect(e.x - bw / 2, e.y - bh / 2, bw, bh);
-      ctx.fillStyle = C('#e6dcc0');
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * bw * 0.3, e.y - bh / 2); ctx.lineTo(e.x + s * bw * 0.62, e.y - bh / 2 - bh * 0.45); ctx.lineTo(e.x + s * bw * 0.45, e.y - bh / 2); ctx.fill(); }
-      if (e.mode === 'aim' && Math.random() < 0.3) spark(e.x - e.lx * bw * 0.6, e.y + bh * 0.4, '#5a4a3a', 1, 1.2);
-      break;
-    }
-    case 'glowworm': {
-      if (e.mode === 'glowup') { const k = 1 - e.t / 0.8, g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, UNIT * (0.6 + k * 1.4)); g.addColorStop(0, `rgba(245,255,200,${0.4 + k * 0.5})`); g.addColorStop(1, 'rgba(245,255,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, UNIT * (0.6 + k * 1.4), 0, 6.28); ctx.fill(); }
-      for (let i = 3; i >= 0; i--) {
-        const ox = Math.cos(e.seg + i * 0.8) * UNIT * 0.1 - i * UNIT * 0.22 * Math.sign(e.vx || 1), oy = Math.sin(e.seg * 1.3 + i) * UNIT * 0.08;
-        ctx.fillStyle = C(i === 0 ? '#d8f58a' : '#9ec65a'); ctx.beginPath(); ctx.arc(e.x + ox, e.y + oy, e.r * (1 - i * 0.15), 0, 6.28); ctx.fill();
-      }
-      break;
-    }
-    case 'thief': case 'gremlin': {
-      const hop = Math.abs(Math.sin(state.time * 18 + e.x)) * UNIT * (e.mode === 'dart' ? 0.2 : 0.08), y = e.y - hop, r = e.r * scale;
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.3, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#3c4a2a'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.85, r, 0, 0, 6.28); ctx.fill();
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.5, y - r * 0.5); ctx.lineTo(e.x + s * r * 1.5, y - r * 1.0); ctx.lineTo(e.x + s * r * 0.7, y - r * 0.1); ctx.fill(); }
-      ctx.fillStyle = '#ff4a2a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.3, y - r * 0.25, UNIT * 0.07, 0, 6.28); ctx.fill(); }
-      ctx.strokeStyle = '#e9e2d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, y + r * 0.1, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke();
-      if (e.type === 'thief') {                      // the stolen journal clutched overhead
-        ctx.fillStyle = '#7a3a2a'; ctx.fillRect(e.x - r * 0.45, y - r * 1.55, r * 0.9, r * 0.65);
-        ctx.fillStyle = '#f2e6c8'; ctx.fillRect(e.x - r * 0.38, y - r * 1.5, r * 0.76, r * 0.08);
-      }
-      break;
-    }
-    case 'rabbit': {
-      const hop = e.mode === 'idle' ? Math.abs(Math.sin(state.time * 8)) * UNIT * 0.15 : Math.abs(Math.sin(state.time * 16)) * UNIT * 0.25;
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r, e.r * 0.3, 0, 0, 6.28); ctx.fill();
-      const y = e.y - hop;
-      ctx.fillStyle = C('#a88a60'); ctx.beginPath(); ctx.ellipse(e.x, y, e.r, e.r * 0.8, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#8a6e48');
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(e.x + s * e.r * 0.3, y - e.r * 1.1, e.r * 0.18, e.r * 0.55, s * 0.2, 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = C('#f2eee4'); ctx.beginPath(); ctx.arc(e.x - Math.sign(e.vx || 1) * e.r * 0.9, y, e.r * 0.25, 0, 6.28); ctx.fill();
-      const rage = e.mode === 'rage', flash = rage && Math.sin(state.time * 30) > 0;
-      ctx.fillStyle = e.mode === 'dart' || flash ? '#ff3a2a' : '#1a1410';
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * (rage ? 0.09 : 0.06), 0, 6.28); ctx.fill(); }
-      if (flash) { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.2, 0, 6.28); ctx.fill(); } }
-      break;
-    }
-    case 'diver': {
-      const hgt = e.hgt || 0, y = e.y - hgt * UNIT * 6;
-      if (e.mode !== 'ceiling') {
-        const k = 1 - hgt;
-        ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.35 * k})`; ctx.beginPath(); ctx.ellipse(e.x, e.y + UNIT * 0.2, e.r * (0.4 + k * 0.8), e.r * (0.2 + k * 0.35), 0, 0, 6.28); ctx.fill();
-      } else {
-        ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r * 0.4, e.r * 0.2, 0, 0, 6.28); ctx.fill();
-        break;
-      }
-      const r = e.r * scale;
-      ctx.strokeStyle = C('#2a1c33'); ctx.lineWidth = Math.max(1.5, UNIT * 0.06);
-      for (let i = 0; i < 4; i++) for (const s of [-1, 1]) {
-        const a = (i - 1.5) * 0.45, wig = Math.sin(state.time * 12 + i) * 0.1;
-        ctx.beginPath(); ctx.moveTo(e.x, y); ctx.lineTo(e.x + s * r * 1.2 * Math.cos(a + wig), y + r * 0.9 * Math.sin(a + wig) - r * 0.3); ctx.lineTo(e.x + s * r * 1.5, y + r * (0.3 + i * 0.2)); ctx.stroke();
-      }
-      ctx.fillStyle = C('#4b3558'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.7, r * 0.6, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#362640'); ctx.beginPath(); ctx.ellipse(e.x, y + r * 0.5, r * 0.5, r * 0.4, 0, 0, 6.28); ctx.fill();
-      break;
-    }
-    case 'lurker': {
-      const p = e.pool; if (!p) break;
-      if (e.mode === 'submerged' || e.mode === 'ripple') {
-        const k = e.mode === 'ripple' ? 1 - e.t / 0.8 : 0.2;
-        ctx.strokeStyle = `rgba(170,200,190,${0.2 + k * 0.5})`; ctx.lineWidth = 1.5;
-        for (let i = 0; i < 3; i++) { const rr_ = UNIT * (0.3 + i * 0.3) * (0.6 + k); ctx.beginPath(); ctx.ellipse(e.x, e.y, rr_, rr_ * 0.6, 0, 0, 6.28); ctx.stroke(); }
-        if (Math.random() < 0.05 + k * 0.3) state.fx.push({ x: e.x + (Math.random() - 0.5) * UNIT, y: e.y, vx: 0, vy: -UNIT * 0.5, t: 0, life: 0.4, color: 'rgba(200,230,220,.6)' });
-        break;
-      }
-      const rise = e.mode === 'bite' ? 1 - Math.max(0, e.t) / 0.3 : e.mode === 'sink' ? Math.max(0, e.t) / 0.4 : 1;
-      const r = e.r * scale * (0.4 + 0.6 * rise), y = e.y - UNIT * 0.3 * rise;
-      ctx.fillStyle = C('#2f4a3e'); ctx.beginPath(); ctx.ellipse(e.x, y, r, r * 1.1, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#4d6d52');
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.8, y); ctx.lineTo(e.x + s * r * 1.5, y - r * 0.3); ctx.lineTo(e.x + s * r * 0.9, y + r * 0.4); ctx.fill(); }
-      ctx.fillStyle = C('#d8e0c8');
-      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + i * r * 0.22 - r * 0.08, y + r * 0.3); ctx.lineTo(e.x + i * r * 0.22, y + r * 0.6); ctx.lineTo(e.x + i * r * 0.22 + r * 0.08, y + r * 0.3); ctx.fill(); }
-      ctx.fillStyle = '#e9ff6a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.35, y - r * 0.3, UNIT * 0.08, 0, 6.28); ctx.fill(); }
-      break;
-    }
-    case 'warden': {
-      if (e.mode === 'dormant') { ctx.globalAlpha = 0.85; }
-      const rear = e.mode === 'rear' ? 1 + 0.15 * (1 - e.t / 0.7) : 1;
-      const bw = UNIT * 2.8 * scale * rear, bh = UNIT * 2.2 * scale * rear;
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + bh * 0.45, bw * 0.55, bh * 0.2, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#3a4c4a'); ctx.beginPath(); ctx.ellipse(e.x, e.y, bw / 2, bh / 2, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = C('#4f6b3e');
-      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(e.x + (i - 2) * bw * 0.18, e.y - bh * 0.32 + Math.abs(i - 2) * bh * 0.06, bw * 0.12, bh * 0.1, 0, 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = C('#e9e2d0');
-      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * bw * 0.18, e.y + bh * 0.15); ctx.quadraticCurveTo(e.x + s * bw * 0.36, e.y + bh * 0.3, e.x + s * bw * 0.3, e.y - bh * 0.05); ctx.lineTo(e.x + s * bw * 0.22, e.y + bh * 0.08); ctx.fill(); }
-      break;
-    }
-  }
+  MONSTERS[e.type].draw(e, C => white ? '#fff' : C, scale);
   ctx.restore();
 }
+function drawStalker(e, C, scale) {
+  const bs = UNIT * 1.4 * scale * (e.mode === 'windup' ? 1.12 : 1);
+  ctx.fillStyle = C('#4a1414'); ctx.fillRect(e.x - bs / 2, e.y - bs / 2, bs, bs);
+  for (const s of [-1, 1]) {                  // ears, the same ones the scalp keeps
+    ctx.fillStyle = C('#4a1414'); ctx.beginPath(); ctx.moveTo(e.x + s * bs * 0.2, e.y - bs / 2); ctx.lineTo(e.x + s * bs * 0.48, e.y - bs * 0.95); ctx.lineTo(e.x + s * bs * 0.5, e.y - bs / 2); ctx.fill();
+    ctx.fillStyle = C('#b8736a'); ctx.beginPath(); ctx.moveTo(e.x + s * bs * 0.28, e.y - bs / 2); ctx.lineTo(e.x + s * bs * 0.45, e.y - bs * 0.82); ctx.lineTo(e.x + s * bs * 0.46, e.y - bs / 2); ctx.fill();
+  }
+  ctx.fillStyle = C('#2a0b0b');
+  for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(e.x + i * bs * 0.14 - bs * 0.06, e.y - bs / 2); ctx.lineTo(e.x + i * bs * 0.14, e.y - bs * 0.72); ctx.lineTo(e.x + i * bs * 0.14 + bs * 0.06, e.y - bs / 2); ctx.fill(); }
+}
+function drawCharger(e, C, scale) {
+  const bw = UNIT * 1.6 * scale, bh = UNIT * 1.25 * scale;
+  ctx.fillStyle = C('#3b2a18'); ctx.fillRect(e.x - bw / 2, e.y - bh / 2, bw, bh);
+  ctx.fillStyle = C('#e6dcc0');
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * bw * 0.3, e.y - bh / 2); ctx.lineTo(e.x + s * bw * 0.62, e.y - bh / 2 - bh * 0.45); ctx.lineTo(e.x + s * bw * 0.45, e.y - bh / 2); ctx.fill(); }
+  if (e.mode === 'aim' && Math.random() < 0.3) spark(e.x - e.lx * bw * 0.6, e.y + bh * 0.4, '#5a4a3a', 1, 1.2);
+}
+function drawGlowworm(e, C, scale) {
+  if (e.mode === 'glowup') { const k = 1 - e.t / 0.8, g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, UNIT * (0.6 + k * 1.4)); g.addColorStop(0, `rgba(245,255,200,${0.4 + k * 0.5})`); g.addColorStop(1, 'rgba(245,255,200,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(e.x, e.y, UNIT * (0.6 + k * 1.4), 0, 6.28); ctx.fill(); }
+  for (let i = 3; i >= 0; i--) {
+    const ox = Math.cos(e.seg + i * 0.8) * UNIT * 0.1 - i * UNIT * 0.22 * Math.sign(e.vx || 1), oy = Math.sin(e.seg * 1.3 + i) * UNIT * 0.08;
+    ctx.fillStyle = C(i === 0 ? '#d8f58a' : '#9ec65a'); ctx.beginPath(); ctx.arc(e.x + ox, e.y + oy, e.r * (1 - i * 0.15), 0, 6.28); ctx.fill();
+  }
+}
+function drawGremlin(e, C, scale) {
+  const hop = Math.abs(Math.sin(state.time * 18 + e.x)) * UNIT * (e.mode === 'dart' ? 0.2 : 0.08), y = e.y - hop, r = e.r * scale;
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.3, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#3c4a2a'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.85, r, 0, 0, 6.28); ctx.fill();
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.5, y - r * 0.5); ctx.lineTo(e.x + s * r * 1.5, y - r * 1.0); ctx.lineTo(e.x + s * r * 0.7, y - r * 0.1); ctx.fill(); }
+  ctx.fillStyle = '#ff4a2a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.3, y - r * 0.25, UNIT * 0.07, 0, 6.28); ctx.fill(); }
+  ctx.strokeStyle = '#e9e2d0'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(e.x, y + r * 0.1, r * 0.35, 0.2, Math.PI - 0.2); ctx.stroke();
+  if (e.type === 'thief') {                      // the stolen journal clutched overhead
+    ctx.fillStyle = '#7a3a2a'; ctx.fillRect(e.x - r * 0.45, y - r * 1.55, r * 0.9, r * 0.65);
+    ctx.fillStyle = '#f2e6c8'; ctx.fillRect(e.x - r * 0.38, y - r * 1.5, r * 0.76, r * 0.08);
+  }
+}
+function drawRabbit(e, C, scale) {
+  const hop = e.mode === 'idle' ? Math.abs(Math.sin(state.time * 8)) * UNIT * 0.15 : Math.abs(Math.sin(state.time * 16)) * UNIT * 0.25;
+  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r, e.r * 0.3, 0, 0, 6.28); ctx.fill();
+  const y = e.y - hop;
+  ctx.fillStyle = C('#a88a60'); ctx.beginPath(); ctx.ellipse(e.x, y, e.r, e.r * 0.8, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#8a6e48');
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.ellipse(e.x + s * e.r * 0.3, y - e.r * 1.1, e.r * 0.18, e.r * 0.55, s * 0.2, 0, 6.28); ctx.fill(); }
+  ctx.fillStyle = C('#f2eee4'); ctx.beginPath(); ctx.arc(e.x - Math.sign(e.vx || 1) * e.r * 0.9, y, e.r * 0.25, 0, 6.28); ctx.fill();
+  const rage = e.mode === 'rage', flash = rage && Math.sin(state.time * 30) > 0;
+  ctx.fillStyle = e.mode === 'dart' || flash ? '#ff3a2a' : '#1a1410';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * (rage ? 0.09 : 0.06), 0, 6.28); ctx.fill(); }
+  if (flash) { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.2, 0, 6.28); ctx.fill(); } }
+}
+function drawDiver(e, C, scale) {
+  const hgt = e.hgt || 0, y = e.y - hgt * UNIT * 6;
+  if (e.mode !== 'ceiling') {
+    const k = 1 - hgt;
+    ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.35 * k})`; ctx.beginPath(); ctx.ellipse(e.x, e.y + UNIT * 0.2, e.r * (0.4 + k * 0.8), e.r * (0.2 + k * 0.35), 0, 0, 6.28); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r * 0.4, e.r * 0.2, 0, 0, 6.28); ctx.fill();
+    return;                                     // up in the dark: only its shadow
+  }
+  const r = e.r * scale;
+  ctx.strokeStyle = C('#2a1c33'); ctx.lineWidth = Math.max(1.5, UNIT * 0.06);
+  for (let i = 0; i < 4; i++) for (const s of [-1, 1]) {
+    const a = (i - 1.5) * 0.45, wig = Math.sin(state.time * 12 + i) * 0.1;
+    ctx.beginPath(); ctx.moveTo(e.x, y); ctx.lineTo(e.x + s * r * 1.2 * Math.cos(a + wig), y + r * 0.9 * Math.sin(a + wig) - r * 0.3); ctx.lineTo(e.x + s * r * 1.5, y + r * (0.3 + i * 0.2)); ctx.stroke();
+  }
+  ctx.fillStyle = C('#4b3558'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.7, r * 0.6, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#362640'); ctx.beginPath(); ctx.ellipse(e.x, y + r * 0.5, r * 0.5, r * 0.4, 0, 0, 6.28); ctx.fill();
+}
+function drawLurker(e, C, scale) {
+  const p = e.pool; if (!p) return;
+  if (e.mode === 'submerged' || e.mode === 'ripple') {          // under the water: rings and bubbles
+    const k = e.mode === 'ripple' ? 1 - e.t / 0.8 : 0.2;
+    ctx.strokeStyle = `rgba(170,200,190,${0.2 + k * 0.5})`; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) { const rr_ = UNIT * (0.3 + i * 0.3) * (0.6 + k); ctx.beginPath(); ctx.ellipse(e.x, e.y, rr_, rr_ * 0.6, 0, 0, 6.28); ctx.stroke(); }
+    if (Math.random() < 0.05 + k * 0.3) state.fx.push({ x: e.x + (Math.random() - 0.5) * UNIT, y: e.y, vx: 0, vy: -UNIT * 0.5, t: 0, life: 0.4, color: 'rgba(200,230,220,.6)' });
+    return;
+  }
+  const rise = e.mode === 'bite' ? 1 - Math.max(0, e.t) / 0.3 : e.mode === 'sink' ? Math.max(0, e.t) / 0.4 : 1;
+  const r = e.r * scale * (0.4 + 0.6 * rise), y = e.y - UNIT * 0.3 * rise;
+  ctx.fillStyle = C('#2f4a3e'); ctx.beginPath(); ctx.ellipse(e.x, y, r, r * 1.1, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#4d6d52');
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.8, y); ctx.lineTo(e.x + s * r * 1.5, y - r * 0.3); ctx.lineTo(e.x + s * r * 0.9, y + r * 0.4); ctx.fill(); }
+  ctx.fillStyle = C('#d8e0c8');
+  for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + i * r * 0.22 - r * 0.08, y + r * 0.3); ctx.lineTo(e.x + i * r * 0.22, y + r * 0.6); ctx.lineTo(e.x + i * r * 0.22 + r * 0.08, y + r * 0.3); ctx.fill(); }
+  ctx.fillStyle = '#e9ff6a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.35, y - r * 0.3, UNIT * 0.08, 0, 6.28); ctx.fill(); }
+}
+function drawWarden(e, C, scale) {
+  if (e.mode === 'dormant') { ctx.globalAlpha = 0.85; }
+  const rear = e.mode === 'rear' ? 1 + 0.15 * (1 - e.t / 0.7) : 1;
+  const bw = UNIT * 2.8 * scale * rear, bh = UNIT * 2.2 * scale * rear;
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + bh * 0.45, bw * 0.55, bh * 0.2, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#3a4c4a'); ctx.beginPath(); ctx.ellipse(e.x, e.y, bw / 2, bh / 2, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#4f6b3e');
+  for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(e.x + (i - 2) * bw * 0.18, e.y - bh * 0.32 + Math.abs(i - 2) * bh * 0.06, bw * 0.12, bh * 0.1, 0, 0, 6.28); ctx.fill(); }
+  ctx.fillStyle = C('#e9e2d0');
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * bw * 0.18, e.y + bh * 0.15); ctx.quadraticCurveTo(e.x + s * bw * 0.36, e.y + bh * 0.3, e.x + s * bw * 0.3, e.y - bh * 0.05); ctx.lineTo(e.x + s * bw * 0.22, e.y + bh * 0.08); ctx.fill(); }
+}
+function drawHawk(e, C) {                                            // its shadow on the ground, the bird up at its altitude
+  const u = UNIT, alt = e.alt || 0, t = state.time, sz = e.mode === 'dive' ? 1 + (1 - alt / (u * 3)) * 0.3 : 1, flap = e.mode === 'dive' ? 0.2 : Math.sin(t * 6 + e.ang);
+  ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.2 * (1 - alt / (u * 3.2))})`; ctx.beginPath(); ctx.ellipse(e.x, e.y, u * (0.3 + 0.5 * alt / (u * 3)), u * 0.14, 0, 0, 6.28); ctx.fill();
+  const y = e.y - alt - u * 0.3;
+  ctx.fillStyle = C('#5a4030'); ctx.beginPath(); ctx.moveTo(e.x - u * 1.0 * sz, y - flap * u * 0.35); ctx.quadraticCurveTo(e.x - u * 0.4, y - u * 0.2, e.x, y); ctx.quadraticCurveTo(e.x + u * 0.4, y - u * 0.2, e.x + u * 1.0 * sz, y - flap * u * 0.35); ctx.lineTo(e.x, y + u * 0.18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = C('#7a5a40'); ctx.beginPath(); ctx.ellipse(e.x, y + u * 0.05, u * 0.18, u * 0.32, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = '#e8c860'; ctx.beginPath(); ctx.moveTo(e.x - u * 0.06, y - u * 0.26); ctx.lineTo(e.x + u * 0.06, y - u * 0.26); ctx.lineTo(e.x, y - u * 0.38); ctx.fill();   // beak
+  if (e.mode === 'dive') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * u * 0.3, y - u * 0.4); ctx.lineTo(e.x + s * u * 0.5, y - u * 1.1); ctx.stroke(); } }   // whoosh
+}
+function drawMantis(e, C) {                                          // a big mountain mantis, green-grey, forelegs up
+  const u = UNIT, r = e.r, rear = e.mode === 'rear' ? 1 : 0, t = state.time;
+  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
+  ctx.strokeStyle = '#4a5a3a'; ctx.lineWidth = Math.max(2, r * 0.08);
+  for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y + i * r * 0.2); ctx.lineTo(e.x + s * r * 0.8, e.y + i * r * 0.3 + r * 0.3); ctx.stroke(); }
+  ctx.fillStyle = C('#7a8a5a'); ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.1, r * 0.35, r * 0.6, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = C('#8a9a6a'); ctx.beginPath(); ctx.moveTo(e.x - r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x + r * 0.25, e.y - r * 0.55); ctx.lineTo(e.x, e.y - r * 0.9); ctx.closePath(); ctx.fill();   // the triangle head
+  ctx.strokeStyle = '#5a6a44'; ctx.lineWidth = Math.max(3, r * 0.1);
+  for (const s of [-1, 1]) { const up = rear ? -0.9 : -0.4 + Math.sin(t * 2) * 0.05; ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y - r * 0.4); ctx.lineTo(e.x + s * r * 0.55, e.y - r * 0.4 + up * r); ctx.lineTo(e.x + s * r * 0.3, e.y - r * 0.6 + up * r * 0.6); ctx.stroke(); }   // the forelegs, raised to strike
+  ctx.fillStyle = rear ? '#ff4a3a' : '#1a1a12'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.12, e.y - r * 0.72, r * 0.05, 0, 6.28); ctx.fill(); }
+}
+
 function drawDiverThreads() {
   for (const e of state.enemies) if (e.type === 'diver' && e.mode !== 'ceiling' && e.mode !== 'dead') {
     const y = e.y - (e.hgt || 0) * UNIT * 6;
@@ -9336,33 +9385,35 @@ function drawDiverThreads() {
     ctx.beginPath(); ctx.moveTo(e.x, y); ctx.lineTo(e.x, -10); ctx.stroke();
   }
 }
-function drawEnemyEyes(e) {
+function drawEnemyEyes(e) {                         // in the dark: the monster's own eyes, and the stars of a stun
   if (e.mode === 'dead') return;
-  const h = state.hero, look = Math.atan2(h.y - e.y, h.x - e.x);
+  const h = state.hero, look = Math.atan2(h.y - e.y, h.x - e.x), M = MONSTERS[e.type];
   const ox = Math.cos(look) * UNIT * 0.1, oy = Math.sin(look) * UNIT * 0.08;
   const glow = (col, pts, r) => { ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = UNIT * 0.6; for (const [x, y] of pts) { ctx.beginPath(); ctx.arc(x, y, r, 0, 6.28); ctx.fill(); } ctx.shadowBlur = 0; };
-  if (e.type === 'stalker' || e.type === 'charger') {
-    const eyeY = e.y - UNIT * 0.2, d = UNIT * 0.28;
-    if (e.mode === 'sleep') { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) ctx.fillRect(e.x + s * d - UNIT * 0.1, eyeY, UNIT * 0.2, UNIT * 0.04); }
-    else {
-      const warn = e.mode === 'windup' || e.mode === 'aim';
-      glow(warn ? '#ffd23a' : e.type === 'charger' ? '#ff8a2a' : '#ff3b2a', [[e.x - d + ox, eyeY + oy], [e.x + d + ox, eyeY + oy]], UNIT * (warn ? 0.13 : 0.09));
-    }
-  }
-  if (e.type === 'diver') {
-    const y = e.y - (e.hgt || 0) * UNIT * 6;
-    if (e.mode === 'ceiling') {                   // tiny glints up in the dark
-      if (Math.sin(state.time * 2 + e.idx) > 0.6) glow('rgba(200,150,255,.6)', [[e.x - 4, e.y - UNIT * 0.2], [e.x + 4, e.y - UNIT * 0.2]], 1.5);
-    } else glow('#c89bff', [[e.x - UNIT * 0.15, y - UNIT * 0.1], [e.x + UNIT * 0.15, y - UNIT * 0.1], [e.x - UNIT * 0.06, y - UNIT * 0.2], [e.x + UNIT * 0.06, y - UNIT * 0.2]], UNIT * 0.05);
-  }
-  if (e.type === 'warden' && e.mode !== 'dormant') {
-    const warn = e.mode === 'aim' || e.mode === 'rear';
-    glow(warn ? '#e8f8ff' : '#6fc3f5', [[e.x - UNIT * 0.45 + ox, e.y - UNIT * 0.3 + oy], [e.x + UNIT * 0.45 + ox, e.y - UNIT * 0.3 + oy]], UNIT * (warn ? 0.16 : 0.12));
-  }
+  if (M.eyes) M.eyes(e, glow, ox, oy);
   if (e.mode === 'stunned') {
     ctx.fillStyle = '#ffe36a';
     for (let i = 0; i < 3; i++) { const a = state.time * 6 + i * 2.1; ctx.fillRect(e.x + Math.cos(a) * UNIT * 0.5 - 2, e.y - e.r - UNIT * 0.4 + Math.sin(a) * UNIT * 0.15 - 2, 4, 4); }
   }
+}
+function eyesGlare(e, glow, ox, oy, col) {          // stalker and charger: slits while asleep, then a glare that goes gold as it winds up
+  const eyeY = e.y - UNIT * 0.2, d = UNIT * 0.28;
+  if (e.mode === 'sleep') { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) ctx.fillRect(e.x + s * d - UNIT * 0.1, eyeY, UNIT * 0.2, UNIT * 0.04); }
+  else {
+    const warn = e.mode === 'windup' || e.mode === 'aim';
+    glow(warn ? '#ffd23a' : col, [[e.x - d + ox, eyeY + oy], [e.x + d + ox, eyeY + oy]], UNIT * (warn ? 0.13 : 0.09));
+  }
+}
+function eyesDiver(e, glow) {
+  const y = e.y - (e.hgt || 0) * UNIT * 6;
+  if (e.mode === 'ceiling') {                   // tiny glints up in the dark
+    if (Math.sin(state.time * 2 + e.idx) > 0.6) glow('rgba(200,150,255,.6)', [[e.x - 4, e.y - UNIT * 0.2], [e.x + 4, e.y - UNIT * 0.2]], 1.5);
+  } else glow('#c89bff', [[e.x - UNIT * 0.15, y - UNIT * 0.1], [e.x + UNIT * 0.15, y - UNIT * 0.1], [e.x - UNIT * 0.06, y - UNIT * 0.2], [e.x + UNIT * 0.06, y - UNIT * 0.2]], UNIT * 0.05);
+}
+function eyesWarden(e, glow, ox, oy) {
+  if (e.mode === 'dormant') return;
+  const warn = e.mode === 'aim' || e.mode === 'rear';
+  glow(warn ? '#e8f8ff' : '#6fc3f5', [[e.x - UNIT * 0.45 + ox, e.y - UNIT * 0.3 + oy], [e.x + UNIT * 0.45 + ox, e.y - UNIT * 0.3 + oy]], UNIT * (warn ? 0.16 : 0.12));
 }
 function drawEyesDaylight() { for (const e of state.enemies) if (e.mode === 'stunned') drawEnemyEyes(e); }
 

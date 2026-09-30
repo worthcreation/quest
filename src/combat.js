@@ -10,7 +10,6 @@ const STAB  = { dur: 0.22, cool: 0.1, reach: 2.2, charge: 0.35, chainCharge: 0.1
 // the vigor a sword swing costs (the lunge and the whirlwind have their own costs, below). Tune here.
 const SWING_COST = 0.35;
 const COMBO = { slashWindow: 0.7, stabWindow: 0.9 };
-const SMALL = ['rabbit', 'glowworm', 'gremlin', 'diver', 'lurker', 'stalker'];
 
 function updateCombat(dt) {
   const inv = state.inv, h = state.hero;
@@ -48,16 +47,16 @@ function updateCombat(dt) {
       if (ch.n >= WHIRL.chain) {
         ch.n = 0;
         if (h.vig >= 3) { startWhirl(); return; }
-        say('Too tired to spin', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' });
+        heroNote('Too tired to spin', 1.2, { key: 'tired', life: 1.2, color: '#ffb080' });
       }
-      if (ch.n >= 2) say('\u2022 '.repeat(ch.n).trim(), h.x, h.y - UNIT * 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
+      if (ch.n >= 2) heroNote('\u2022 '.repeat(ch.n).trim(), 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
       state.active = 'sword';
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
       skillUse('sword');
-      if (slow > 1.8) say('Your arm is heavy...', h.x, h.y - UNIT * 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
+      if (slow > 1.8) heroNote('Your arm is heavy...', 1.2, { key: 'tired', tip: 'tiredswing', life: 1.5, color: '#ffb080' });
       sfx.swoosh();
       if (state.bird) scareBird(h.x, h.y, 5);
       scareFlock(h.x, h.y, 5);
@@ -83,9 +82,9 @@ function updateCombat(dt) {
         state.atkCool = STAB.cool;
         h.dashT = 0.12 + cb.level * 0.05;                 // the lunge; you can slash out of it
         h.vx = h.fx * (0.75 + cb.level * 0.3) * L(); h.vy = h.fy * (0.75 + cb.level * 0.3) * L();
-        if (cb.level) { sfx.flipStrike(); zoomPulse(h.x, h.y, cb.level >= 3 ? 'kill' : 'parry'); say('x' + (cb.level + 1), h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.9, color: '#ffe38a', size: 1 + cb.level * 0.2 }); }
+        if (cb.level) { sfx.flipStrike(); zoomPulse(h.x, h.y, cb.level >= 3 ? 'kill' : 'parry'); heroNote('x' + (cb.level + 1), 1.2, { key: 'combo', life: 0.9, color: '#ffe38a', size: 1 + cb.level * 0.2 }); }
         else sfx.stab();
-        say('Stab, then slash while you lunge, then stab again: each chained stab goes farther.', h.x, h.y - UNIT * 1.6, { key: 'combotip', tip: 'combo', life: 5 });
+        heroNote('Stab, then slash while you lunge, then stab again: each chained stab goes farther.', 1.6, { key: 'combotip', tip: 'combo', life: 5 });
       }
       hold.on = false; hold.charged = false;
     }
@@ -115,7 +114,7 @@ function updateCombat(dt) {
       if (inv.slime > 0) dmg += 1;
       dmg = (dmg + augBonus(e)) * power() * (bladeKind() === 'wood' ? 0.6 : 1);
       if (a.type === 'stab' && a.woodBreak) dmg = Math.max(dmg, 2.2 * Math.max(0.5, power()));   // a wooden lunge is all or nothing: enough to fell a rabbit (it splits when the lunge ends)
-      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && SMALL.includes(e.type));
+      damage(e, dmg, a.type, dx / d, dy / d, a.type === 'stab' && a.level > 0 && monster(e).small);
       bladeWear(1); skillUse('sword', true);
     }
   }
@@ -139,12 +138,12 @@ const lungeK = () => 0.8 + 0.1 * swordLv();
 const WHIRL = { chain: 7, min: 0.26, max: 0.62, length: 3, first: 0.62, window: 0.13, shrink: 0.88, fastest: 0.26, bonus: 0.5 };
 function startWhirl() {
   const h = state.hero;
-  if (state.time < (state.whirlCool || 0)) { say('Too dizzy to spin again yet.', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
+  if (state.time < (state.whirlCool || 0)) { heroNote('Too dizzy to spin again yet.', 1.2, { key: 'tired', life: 1.2, color: '#ffb080' }); return; }
   state.atk = null; state.hold.on = false; state.hold.charged = false;
   spend(1.5);
   state.whirl = { wood: bladeKind() === 'wood', t: 0, end: state.time + whirlLen(), cap: state.time + whirlLen() * 1.6, ang: Math.atan2(h.fy, h.fx), beat: WHIRL.first, next: state.time + WHIRL.first, streak: 0, hit: new Set(), lastRev: 0 };
   sfx.spin(); zoomPulse(h.x, h.y, 'kill'); state.shake = 0.2; cutVines(h);
-  say('Whirlwind!', h.x, h.y - UNIT * 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
+  heroNote('Whirlwind!', 1.4, { key: 'combo', life: 1, color: '#ffe38a', size: 1.4 });
   say(`A short spin at first; practice makes it last. Strike ${K.act} as the ring closes to spin faster and longer. Jump to glide.`, h.x, h.y + UNIT * 2, { key: 'whirltip', tip: 'whirl', life: 5 });
 }
 function endWhirl(why) {
@@ -153,8 +152,8 @@ function endWhirl(why) {
   state.whirl = null;
   state.whirlCool = state.time + whirlRest();
   if (w.wood && bladeKind() === 'wood') bladeWear(999);   // three sticks can't take a whirlwind: it flies apart
-  if (why === 'done') { h.stun = 0.3; sfx.dizzy(); say('Whew.', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 0.8 }); }
-  if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); say(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', h.x, h.y - UNIT * 1.2, { key: 'combo', life: 1.2 }); }
+  if (why === 'done') { h.stun = 0.3; sfx.dizzy(); heroNote('Whew.', 1.2, { key: 'combo', life: 0.8 }); }
+  if (why === 'knocked' || why === 'flash') { h.stun = 0.35; state.shake = 0.3; sfx.crash(); heroNote(why === 'flash' ? 'The flash breaks your spin!' : 'Knocked out of your spin!', 1.2, { key: 'combo', life: 1.2 }); }
 }
 function updateWhirl(dt) {
   const w = state.whirl, h = state.hero, inv = state.inv;
@@ -172,7 +171,7 @@ function updateWhirl(dt) {
       w.beat = Math.max(WHIRL.fastest, w.beat * WHIRL.shrink);
       w.next = state.time + w.beat;
       cutVines(h); sfx.whirlUp(w.streak); zoomPulse(h.x, h.y, w.streak % 4 ? 'tap' : 'parry');
-      say('x' + (w.streak + 1), h.x, h.y - UNIT * 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
+      heroNote('x' + (w.streak + 1), 1.3, { key: 'combo', life: 0.6, color: '#ffe38a', size: 1 + Math.min(0.8, w.streak * 0.08) });
     }
   }
   const reach = UNIT * (1.9 + Math.min(0.8, w.streak * 0.06));
@@ -192,7 +191,7 @@ function updateWhirl(dt) {
 function bumpCrazy(label) {
   const c = state.crazy || (state.crazy = { n: 0, t: -9 }), h = state.hero;
   c.n = state.time - c.t < 2.5 ? c.n + 1 : 1; c.t = state.time;
-  if (c.n >= 2) say(`${label}! x${c.n}`, h.x, h.y - UNIT * 1.6, { key: 'crazy', life: 1.1, color: c.n >= 5 ? '#ffb347' : '#ffe38a', size: 1 + Math.min(0.8, c.n * 0.1) });
+  if (c.n >= 2) heroNote(`${label}! x${c.n}`, 1.6, { key: 'crazy', life: 1.1, color: c.n >= 5 ? '#ffb347' : '#ffe38a', size: 1 + Math.min(0.8, c.n * 0.1) });
 }
 const crazyMult = () => { const c = state.crazy; return c && state.time - c.t < 2.5 ? 1 + Math.min(1, c.n * 0.12) : 1; };
 function slamDown() {

@@ -164,16 +164,6 @@ function freePullable(pl, x, y) {
 // Drops: every monster leaves something tied to what it was
 // =====================================================================
 // Drop tables: rolled in order, first hit wins. Relics are rare and level up (to 3).
-const DROPS = {
-  stalker:  [['step', 0.1], ['ear', 0.25], ['hide', 0.15], ['ironseed', 0.05], ['wisp', 0.3]],
-  diver:    [['silk', 0.12], ['ironseed', 0.05], ['wisp', 0.3]],
-  charger:  [['horn', 0.14], ['ironseed', 0.08], ['wisp', 0.35]],
-  glowworm: [['lumin', 0.3], ['emberseed', 0.08]],
-  rabbit:   [['fluff', 0.3], ['carrot', 0.35], ['thornseed', 0.08], ['carrotseed', 0.12]],
-  lurker:   [['slime', 0.25], ['emberseed', 0.08], ['wisp', 0.2]],
-  gremlin:  [['thornseed', 0.1], ['turnipseed', 0.25], ['acorn', 0.3]],
-  warden:   [['warden', 1]],
-};
 // Seeds, rarest last. Vegetable seeds (crop) grow that vegetable, one to a few per seed; the rest grow materials.
 // Colours and shapes follow the real seeds: turnip seeds are tiny dark round beads, carrot seeds small tan ridged ovals,
 // pepper seeds flat pale discs, squash seeds cream teardrops with a rim.
@@ -214,7 +204,7 @@ function itemExists(type) {
 }
 function dropFor(e) {
   if (e.type === 'rabbit' && !campDone() && (campMissing().fluff || 0) > 0) return 'fluff';   // still short of fluff for camp: straight from the source
-  for (const [t, p] of DROPS[e.type] || []) {
+  for (const [t, p] of monster(e).drop || []) {
     if (rng() >= p) continue;
     if (RELICS[t] && ((state.inv[t] || 0) + (state.inv.mats[t + 'part'] || 0) >= 3 || itemExists(t))) return 'wisp';
     if (t === 'scalp' && (state.inv.scalp || itemExists('scalp'))) return 'wisp';
@@ -260,7 +250,7 @@ const LETTER_TEXT = 'A letter, weighted with a pipe: "If you\'re reading this, y
 function collect(it) {
   if ((it.type === 'spore' || it.type === 'spores7') && !state.inv.pipSaved) { state.inv.spores += it.type === 'spores7' ? 7 : 1; return; }   // pocketed without a word
   const inv = state.inv, h = state.hero;
-  const tell = (s, life = 4, tip) => say(s, h.x, h.y - UNIT * 1.1, { key: 'item', life, tip });
+  const tell = (s, life = 4, tip) => heroNote(s, 1.1, { key: 'item', life, tip });
   zoomPulse(it.x, it.y, 'pickup');
   if (RELICS[it.type] || it.type === 'scalp') { sfx.shing(); state.slowmo = 0.5; }
 
@@ -301,14 +291,14 @@ function collect(it) {
       inv.bag[it.type] = (inv.bag[it.type] || 0) + 1;
       const S = SEEDS[it.type];
       if (S.crop) tell(`${S.name}. Plant them in any patch of rich soil; ${CROP_NAME[S.crop].toLowerCase()} grow.`, 3.5, 'seed-' + S.crop);
-      else { say(`${S.name}! ${S.rarity}.`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
+      else { heroNote(`${S.name}! ${S.rarity}.`, 1.1, { key: 'item', life: 3, color: S.color }); say(`Rare seeds grow into materials for your gear. Work them at the camp bench.`, h.x, h.y + UNIT * 1.6, { key: 'seedtip', tip: 'rareseed', life: 5 }); }
       if (it.type === 'starseed' || it.type === 'ironseed') { state.slowmo = 0.4; sfx.shing(); }
       break;
     }
     case 'page': {
       inv.pages++;
       const note = PAGE_NOTES[(inv.pages - 1) % PAGE_NOTES.length];
-      say(`A page of Pip's journal: "${note}"`, h.x, h.y - UNIT * 1.3, { key: 'page', life: 6, color: '#fff3c8' });
+      heroNote(`A page of Pip's journal: "${note}"`, 1.3, { key: 'page', life: 6, color: '#fff3c8' });
       const lore = PAGE_LORE[(inv.pages - 1) % PAGE_NOTES.length];
       if (lore && hearRecipe(lore)) say(`That gives you an idea for the mat: ${OUT_NAME[lore]}.`, h.x, h.y + UNIT * 1.2, { key: 'lore', life: 4, color: '#c9a2ff' });
       break;
@@ -320,29 +310,29 @@ function collect(it) {
       break;
     case 'letter':
       inv.letter = true;                                  // kept: Gear > Wick's letter, to read again
-      say('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', h.x, h.y - UNIT * 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
+      heroNote('A letter, weighted with a pipe: "If you\'re reading this, you found my shack. Don\'t mind the smell. The pool downriver has fish as big as boots, so I lashed four logs of driftwood with thorn twine and went. The old jetty on the near bank still holds. Take the seeds, they\'ll only go to waste. Mind the rapids. Old Wick."', 1.3, { key: 'letter', life: 10, color: '#fff3c8' });
       break;
     case 'stick': case 'stone': case 'fluff':
       rawOf()[it.type] = (rawOf()[it.type] || 0) + 1;
-      say(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, h.x, h.y - UNIT * 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
+      heroNote(`+1 ${RAW[it.type].toLowerCase()} (${rawOf()[it.type]})`, 1.1, { key: 'raw' + it.type, life: 1.4, color: '#ffe38a' });
       break;
-    case 'driftwood': inv.mats.driftwood++; say(`+1 driftwood (${inv.mats.driftwood})`, h.x, h.y - UNIT * 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
+    case 'driftwood': inv.mats.driftwood++; heroNote(`+1 driftwood (${inv.mats.driftwood})`, 1.1, { key: 'matdrift', life: 1.8, color: '#ffe38a' }); break;
     case 'rod': inv.rod = true; showTitle('Old Wick\'s fishing rod', `stand by a ripple and press ${K.act} to cast`, 'relic', 3.5); break;
     case 'fish': inv.food.push('fish'); tell(`A gleaming fish! ${K.eat} to eat: vigor now, and more of it for a while.`, 4, 'fish'); break;
     case 'recipe_temper': learnRecipe('temper', 'A smith\'s scrap, half eaten by damp.'); break;
     case 'recipe_star': learnRecipe('star', 'Carved on the shrine stone.'); break;
-    case 'spores7': inv.spores += 7; if (inv.pipSaved) say('+7 spores', h.x, h.y - UNIT * 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
-    case 'spore': inv.spores++; if (inv.pipSaved) say(`+1 spore (${inv.spores})`, h.x, h.y - UNIT * 1.1, { key: 'spore', life: 1.2, color: '#e8d8ff' }); break;
+    case 'spores7': inv.spores += 7; if (inv.pipSaved) heroNote('+7 spores', 1.1, { key: 'item', life: 2, color: '#e8d8ff' }); break;   // silent until Pip explains them
+    case 'spore': inv.spores++; if (inv.pipSaved) heroNote(`+1 spore (${inv.spores})`, 1.1, { key: 'spore', life: 1.2, color: '#e8d8ff' }); break;
     case 'ear': case 'hide':
       inv.mats[it.type]++;
-      say(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
+      heroNote(`+1 ${MATS[it.type]} (ears ${inv.mats.ear}, hide ${inv.mats.hide})`, 1.1, { key: 'mat' + it.type, life: 2, color: '#ffe38a' });
       if (!inv.recipes.cap && !inv.scalp) setTimeout(() => learnRecipe('cap', 'Those ears would make a fine cap, with a scrap of hide to hold them.'), 0);
       break;
     case 'thorn': case 'ember': case 'ironwood': case 'starpetal': inv.mats[it.type]++;
-      if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); say(`+1 ${MATS[it.type]}`, h.x, h.y - UNIT * 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
+      if (it.type === 'thorn' && !inv.recipes.edge) setTimeout(() => learnRecipe('edge', 'You test a thorn on your thumb. Sharp. It could hone a blade.'), 0); heroNote(`+1 ${MATS[it.type]}`, 1.1, { key: 'mat' + it.type, life: 1.6, color: '#ffe38a' }); break;
     case 'bean':
       inv.beans++;
-      say(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, h.x, h.y - UNIT * 1.1, { key: 'item', life: 2.5 });
+      heroNote(inv.beans >= BEANS ? `All ${BEANS} beans! Back to the toad.` : `Bean ${inv.beans} of ${BEANS}`, 1.1, { key: 'item', life: 2.5 });
       break;
   }
   refreshButtons();

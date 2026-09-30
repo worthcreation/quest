@@ -50,6 +50,8 @@ function say(text, x, y, opts = {}) {
   while (state.texts.length > 6) state.texts.splice(state.texts.findIndex(o => o.text.length <= 110), 1);
 }
 function sayHero(text, opts) { say(text, null, null, opts); }
+// a note above the hero's head, `above` tiles up (the usual short game notes: too tired, +vigor, perfect dodge)
+function heroNote(text, above, opts) { const h = state.hero; say(text, h.x, h.y - UNIT * above, opts); }
 // level-ups and the like: a small parchment scroll in the lower half of the screen, a few seconds, then gone
 function showScroll(title, text, status) { const q = state.scrolls || (state.scrolls = []); const i = q.findIndex(s => s.feed && s.t > 0); if (i >= 0) q.splice(i, 1); q.push({ title, text, status, t: 0, life: 4.4 }); sfx.heart(); }   // a real alert bumps a pickup note   // status: add "Status has more" (level-ups)
 // split speech into pages of a sentence or two (about 80 characters at most)

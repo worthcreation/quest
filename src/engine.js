@@ -28,7 +28,7 @@ function breakBarrier(bar, how) {
     finds.forEach((t, k) => state.items.push({ type: t, x: x + (k - (finds.length - 1) / 2) * UNIT * 0.6, y: y + UNIT * 0.5 }));
     if (finds.length) { say(finds.some(t => t !== 'stone' && !CROP_SEEDS.includes(t)) ? 'Something rare inside!' : 'Something inside!', x, y - UNIT, { key: 'find', life: 2, color: '#ffe38a' }); sfx.pickup(); }
   }
-  if (bar === 'cave') { say('The great stone falls to pieces: a cave, going deep into the hill!', state.hero.x, state.hero.y - UNIT, { key: 'burrow', life: 3.5 }); }
+  if (bar === 'cave') { heroNote('The great stone falls to pieces: a cave, going deep into the hill!', 1, { key: 'burrow', life: 3.5 }); }
   if (bar === 'thicket') { setMusic('forest'); const s0 = sceneDef().solids.find(s => s.bar === bar); for (let i = 0; i < 2; i++) state.items.push({ type: 'thornseed', x: s0.fx * W - UNIT * (1 + i), y: s0.fy * H + UNIT * (2 + i) }); }
   for (const s of state.solids) if (s.bar === bar) spark(s.x, s.y, how === 'fire' ? '#ff9a3a' : s.kind === 'web' ? '#dcdcd0' : '#6a4a2a', 6, 3);
   refreshSceneGeometry();
@@ -65,7 +65,7 @@ function enterSceneIn(id, fx, fy) {
   // the dead come back if you've been away a while (never the boss); some only show up later
   state.enemies = sc.spawns.map((s, i) => {
     const d = rt.deadAt[i];
-    if (d != null && (s.type === 'warden' || state.playTime - d < 60)) return null;
+    if (d != null && (MONSTERS[s.type].boss || state.playTime - d < 60)) return null;
     if (s.req && !state.inv[s.req]) return null;
     delete rt.deadAt[i];
     return makeEnemy(s.type, s.fx * W, s.fy * H, i, s.pool);
@@ -91,7 +91,7 @@ function enterSceneIn(id, fx, fy) {
     zoomPulse(h.x, h.y, 'title');
   }
   state.glimpse = null;
-  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => say('They squeezed past that big stone. Break it! Big ones take a few hits.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
+  if (id === 'w3' && state.inv.pipTaken && !state.inv.pipSaved && !rt.flags.cave && !state.inv.caveTold) { state.inv.caveTold = true; setTimeout(() => heroNote('They squeezed past that big stone. Break it! Big ones take a few hits.', 1.2, { key: 'npc', life: 3.5, hold: false }), 0); }
   if (sc.feat.glimpse && !rt.flags.glimpse && state.inv.pipTaken && !state.inv.pipSaved && state.started) {
     // Pip, carried off by gremlins, always just ahead of you
     rt.flags.glimpse = true;
@@ -110,7 +110,7 @@ function enterSceneIn(id, fx, fy) {
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
     state.overFalls = false;
     for (const [fx, fy] of [[0.78, 0.4], [0.84, 0.62]]) state.items.push({ type: 'driftwood', x: fx * W, y: fy * H });
-    setTimeout(() => say('Over the falls! The raft breaks apart at the bottom. Two logs float free.', state.hero.x, state.hero.y - UNIT * 1.3, { key: 'falls', life: 4.5 }), 0);
+    setTimeout(() => heroNote('Over the falls! The raft breaks apart at the bottom. Two logs float free.', 1.3, { key: 'falls', life: 4.5 }), 0);
     state.shake = 0.6;
   }
   const ti = THIEF_ROUTE.indexOf(id);
@@ -124,7 +124,7 @@ function enterSceneIn(id, fx, fy) {
     else say('Cornered! It won\'t give the journal up without a fight.', t.x, t.y - UNIT * 1.4, { key: 'thief', life: 3, color: '#ffe38a' });
   }
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
-  if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
+  if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) heroNote(sc.msg, 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
   pipArrive(true);                                   // Pip: beside you, on his post, or out of sight (never popping in where he isn't)
   const bossAlive = id === 'c7' && !rt.bossDead;
@@ -174,7 +174,7 @@ function checkEdges() {
     if (ex.arrive === 'sinkhole') {
       const s = WORLD[ex.to].feat.cave;
       transitionTo(ex.to, s[0] - 2.6 * UNIT / W, s[1], true);   // back out of the cave mouth
-      if (ex.say) setTimeout(() => say(ex.say, state.hero.x, state.hero.y - UNIT, { key: 'climb', life: 2.5 }), 0);
+      if (ex.say) setTimeout(() => heroNote(ex.say, 1, { key: 'climb', life: 2.5 }), 0);
       return;
     }
     let al = Math.max(0.05, Math.min(0.95, along));
@@ -316,7 +316,7 @@ function updateWorld(dt) {
     if (inp.x || inp.y) { h.fx = inp.x; h.fy = inp.y; if (Math.abs(inp.x) > 0.3) h.side = Math.sign(inp.x); }
     let spd = sc.speed * (inMud(h.x, h.y + UNIT * 0.2) ? 0.55 : 1) * (state.inv.carrotBuff > 0 ? 1.12 : 1) * weakness() * (state.hold.charged ? 0.45 : 1) * (state.carry === 'rock' ? 0.6 : 1) * (state.whirl ? 0.55 : 1) * (state.aim.on ? 0.5 : 1);   // aiming a throw slows you
     if (inPool(h.x, h.y)) spd *= 0.55;
-    if (inWeb(h.x, h.y)) { spd *= 0.45; say('Sticky webs. They\'d burn nicely.', h.x, h.y - UNIT * 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
+    if (inWeb(h.x, h.y)) { spd *= 0.45; heroNote('Sticky webs. They\'d burn nicely.', 1.2, { key: 'webtip', tip: 'web', life: 3 }); }
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
@@ -335,7 +335,7 @@ function updateWorld(dt) {
       const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
       for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
         it.x += w[0] * k * L() * dt; it.y += w[1] * k * L() * dt;
-        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; say('Whoosh! The wind took a tuft of fluff.', h.x, h.y - UNIT * 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
+        if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; heroNote('Whoosh! The wind took a tuft of fluff.', 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
     }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
@@ -382,7 +382,7 @@ function sluggish() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1
 function frailty() { const h = state.hero, r = h.vig / maxVig(); if (h.vig <= 1) return 2; return r < 0.25 ? 1 + (0.25 - r) * 4 : 1; }
 function spend(cost) {
   const h = state.hero;
-  if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); say('Too tired...', h.x, h.y - UNIT, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
+  if (h.vig < cost * 0.5) { if (!state.tiredT || state.time - state.tiredT > 2) { state.tiredT = state.time; sfx.tired(); heroNote('Too tired...', 1, { key: 'tired', life: 1.2, color: '#ffb080' }); } return false; }
   h.vig = Math.max(0, h.vig - cost); h.rest = state.time;
   train(cost);
   return true;
@@ -395,7 +395,7 @@ function train(amount) {
   if (inv.xp >= need) {
     inv.xp -= need; inv.tlevel++;
     sfx.grow();
-    say(`Your vigor grows. ${maxVig()}`, state.hero.x, state.hero.y - UNIT * 1.4, { key: 'grow', life: 2.2, color: '#b8f28a' });
+    heroNote(`Your vigor grows. ${maxVig()}`, 1.4, { key: 'grow', life: 2.2, color: '#b8f28a' });
   }
 }
 
@@ -419,8 +419,9 @@ function clampTo(a, r) {
 }
 function collideSolids(a, r) {
   let hit = null;
+  const slim = monster(a).slim;                                        // gremlins slip through gaps you can't
   for (const o of state.solids) {
-    if (a.type === 'gremlin' && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;   // gremlins slip through gaps you can't
+    if (slim && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -474,7 +475,7 @@ function updateGlimpse(dt) {
   const p = Math.max(0, Math.min(1, (g.t - 0.9) / 1.4)), e = p * p;
   g.x = g.x0 + (g.x1 - g.x0) * e; g.y = g.y0 + (g.y1 - g.y0) * e;
   if (g.t > 0 && !g.said) { g.said = true; say(g.line, g.x, g.y - UNIT * 1.4, { key: 'glimpse', life: 2.2, color: '#9fd4ff' }); sfx.cackle(); zoomPulse(g.x, g.y, 'parry'); }
-  if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => say('Gone again. Always one step behind.', state.hero.x, state.hero.y - UNIT * 1.2, { key: 'miss', life: 2.5 }), 0); }
+  if (p >= 1 && !g.gone) { g.gone = true; if (g.down) sfx.fall(); setTimeout(() => heroNote('Gone again. Always one step behind.', 1.2, { key: 'miss', life: 2.5 }), 0); }
   if (g.t > 3) state.glimpse = null;
 }
 // ---------------- scene features ----------------
@@ -483,7 +484,7 @@ function updateFeatures(dt) {
   if (f.cave) {                                          // the cave mouth: heaped with boulders until you break the loose one
     const sx = f.cave[0] * W, sy = f.cave[1] * H, d = Math.hypot(h.x - sx, h.y - sy), open = !!rt.flags.cave;
     if (!open && d < UNIT * 5) say('A great stone over something dark. They squeezed through the gap beside it.', sx, sy - UNIT * 2.6, { key: 'cave', tip: 'cave' });
-    if (open && d < UNIT * 0.8) { say('Into the dark...', h.x, h.y - UNIT, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
+    if (open && d < UNIT * 0.8) { heroNote('Into the dark...', 1, { key: 'fall' }); sfx.fall(); zoomPulse(sx, sy, 'land'); transitionTo('c1', 0.08, 0.5); }
   }
   if (f.shrine && !rtFor(sc.id).flags.shrine && Math.hypot(h.x - f.shrine[0] * W, h.y - f.shrine[1] * H) < UNIT * 3) {
     rtFor(sc.id).flags.shrine = true;
@@ -495,7 +496,7 @@ function updateFeatures(dt) {
     const open = rt.bossDead && h.y > gap.a * H + UNIT * 0.5 && h.y < gap.b * H - UNIT * 0.5;
     if (h.x > lim && !open) { h.x = lim; h.vx = Math.min(0, h.vx); }
   }
-  if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) say(`Jump (${K.jump}) toward a stone to hop onto it.`, h.x, h.y - UNIT * 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
+  if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) heroNote(`Jump (${K.jump}) toward a stone to hop onto it.`, 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
   if (f.plants && f.plants.length && (sc.id === 'f1' || sc.id === 'f3')) { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
 }
 
@@ -514,7 +515,7 @@ function updateJump(dt) {
     // more vigor, higher and longer jumps, a little at a time; a tired hero barely leaves the ground
     const [f, g2] = jumpGrowth();
     h.vz = UNIT * (5.8 + 1.7 * f) * (1 + g2) * (0.6 + 0.4 * weakness()); h.z = 0.01; state.slam = false; h.jumpHold = 0; h.glideT = 0; h.airDist = 0;
-    if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); say(`${K.act} in the air to pound down`, h.x, h.y - UNIT * 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
+    if (state.whirl) { state.whirl.air = true; bumpCrazy('Glide'); heroNote(`${K.act} in the air to pound down`, 1.8, { key: 'glidetip', tip: 'glide', life: 3 }); }
     sfx.jump(); train(0.3);
     if (sc.gusts && state.gustPhase === 'blow' && rideGust(sc)) return;
   }
@@ -606,7 +607,7 @@ function updateRide(dt) {
     h.ride = null; h.z = 0;
     if (h.safe) { h.x = h.safe[0] * W; h.y = h.safe[1] * H; }
     sfx.land(); state.shake = 0.3;
-    say('The gust tumbles you back. Wait on the rock for it to pass.', h.x, h.y - UNIT, { key: 'blown', life: 3 });
+    heroNote('The gust tumbles you back. Wait on the rock for it to pass.', 1, { key: 'blown', life: 3 });
     return;
   }
   if (p >= 1 && r.hop) {
@@ -630,7 +631,7 @@ function updateFall(dt) {
     h.falling = 0;
     const s = h.safe || [state.entry.fx, state.entry.fy];
     h.x = s[0] * W; h.y = s[1] * H; h.vx = 0; h.vy = 0;
-    say(h.fallKind === 'deep' ? 'Too deep! You splash back to the shallows.' : h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', h.x, h.y - UNIT, { key: 'fall', life: 1.8 });
+    heroNote(h.fallKind === 'deep' ? 'Too deep! You splash back to the shallows.' : h.fallKind === 'water' ? 'The current sweeps you back to the bank.' : 'Ooof. Back up the bank.', 1, { key: 'fall', life: 1.8 });
     hurtHero(1, h.x, h.y, { noKnock: true, force: true });
   }
 }
@@ -673,7 +674,7 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
   if (!opts.force && (h.invuln > 0 || h.ride || state.cut)) return false;
   if (state.whirl) endWhirl('hit');
   h.vig -= dmg * 2 * (1 - 0.15 * state.inv.up.guard) * frailty() * (wears('stonecharm') ? 0.75 : 1); h.rest = state.time + 0.8; h.hurtT = state.time;
-  if (h.vig > 0 && h.vig <= 1) say('Exhausted...', h.x, h.y - UNIT * 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
+  if (h.vig > 0 && h.vig <= 1) heroNote('Exhausted...', 1.2, { key: 'tired', life: 1.5, color: '#ffb080' });
   h.invuln = 1.2;
   sfx.hit();
   state.shake = 0.35;
@@ -703,10 +704,10 @@ function hurtHero(dmg, fromX, fromY, opts = {}) {
 function heal(frac, label) {
   const h = state.hero, mv = maxVig(), before = h.vig;
   h.vig = Math.min(mv, h.vig + mv * frac);
-  say('+' + Math.round(h.vig - before), h.x, h.y - UNIT * 0.9, { key: 'heal', life: 1.2, color: '#b8f28a' });
+  heroNote('+' + Math.round(h.vig - before), 0.9, { key: 'heal', life: 1.2, color: '#b8f28a' });
 }
 function deepen(msg) {
   state.inv.depth++;
   state.hero.vig = maxVig();
-  say(msg + ` Vigor ${maxVig()}.`, state.hero.x, state.hero.y - UNIT * 1.1, { key: 'item', life: 5 });
+  heroNote(msg + ` Vigor ${maxVig()}.`, 1.1, { key: 'item', life: 5 });
 }
