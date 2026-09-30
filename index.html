@@ -2517,7 +2517,7 @@ function resetRun(seed) {
   state.items = []; state.enemies = []; state.carry = null;
   state.area = null; state.seen = {}; state.playTime = 0;
   state.won = false; state.cut = null; state.title = null; state.cam.focus = null; state.menu = null;
-  state.night = 0; state.rain = 0;
+  state.night = 0; state.rain = 0; state.fireLit = 1;   // the camp fire burns from the start, a loaded save included
   state.questQuiet = true; state.questT = -9; state.qlogOpen = false;
 }
 function newGame() {
@@ -2537,6 +2537,7 @@ function newGame() {
 // the rise is bigger than the screen: while it's the current scene, W and H are its size (sceneSize), for the game's
 // own code; drawing and the HUD use the screen (SW, SH)
 function update(dt) {
+  if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }   // a beat of slow motion (a dodge, a relic): counts down in real time
   const sv = [W, H]; [W, H] = sceneSize(state.scene);
   try { updateWorld(dt); } finally { [W, H] = sv; }
   if (state.rise) riseCamera(dt);
@@ -5261,7 +5262,6 @@ const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'ris
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
-  state.fireLit = 1;                                  // night and rain are already 0: resetRun always runs first
   rtFor('camp').flags.built_tent = true;               // Pip already pitched the tent at the camp spot
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());
@@ -8709,7 +8709,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 187';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 188';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9910,7 +9910,6 @@ const PARAMS = typeof location !== 'undefined' ? new URLSearchParams(location.se
 let last = performance.now();
 function loop(now) {
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }
   // a bad frame should never stop the game: log it once and keep going
   try { update(dt); draw(); } catch (e) { if (!loop.warned) { loop.warned = true; console.error('Frame error (game continues):', e); } }
   requestAnimationFrame(loop);

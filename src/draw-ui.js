@@ -939,7 +939,6 @@ const PARAMS = typeof location !== 'undefined' ? new URLSearchParams(location.se
 let last = performance.now();
 function loop(now) {
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }
   // a bad frame should never stop the game: log it once and keep going
   try { update(dt); draw(); } catch (e) { if (!loop.warned) { loop.warned = true; console.error('Frame error (game continues):', e); } }
   requestAnimationFrame(loop);

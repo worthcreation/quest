@@ -252,7 +252,8 @@ Struck through with the build number as each ships. Rows above still describe bu
    and fold startIntro's `night = 0; rain = 0; fireLit = 1` into resetRun. world.js keeps only `var state`.~~ Done,
    build 187: the block sits just above resetRun; startIntro's night and rain went (resetRun already zeroes them).
    fireLit stayed in startIntro: moving it changes play (see 11).
-3. Move the slowmo countdown from loop() (draw-ui.js) into update() (engine.js), where every other timer runs.
+3. ~~Move the slowmo countdown from loop() (draw-ui.js) into update() (engine.js), where every other timer runs.~~
+   Done, build 188 (with 11). Play in the browser is the same; the harness now runs slowmo too (it never did).
 4. One `setEquip(id)` in gear.js; the six direct `state.equip = ...` call it (goes with 1, since `active` sits on the
    same lines).
 5. One `pickUp(kind, seed)` in items.js that sets carry, carryT and carrySeed; interact.js:181 and items.js:158
@@ -266,7 +267,7 @@ Struck through with the build number as each ships. Rows above still describe bu
    calls; interact's five menu literals go through openView.
 10. Leave alone: cam (the camera update in input.js is a bigger question than a field; revisit if input.js is ever
     split), grab (part of the parked hawk work), inv, hero, fx, shake and flash (shared by design).
-11. Found in build 187, a play change for Ross to decide: `state.fireLit` is set only by startIntro and by building
+11. ~~Found in build 187, a play change for Ross to decide: `state.fireLit` is set only by startIntro and by building
     the fire, and draw.js gives the campfire its night glow only `if (state.fireLit)`. Load a save in a fresh session
     and it is undefined: the flame draws but gives no light at night. Fix: set it in resetRun (one line, and the one
-    in startIntro goes). Opus.
+    in startIntro goes). Opus.~~ Done, build 188 (Ross approved): resetRun sets it.

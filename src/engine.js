@@ -223,7 +223,7 @@ function resetRun(seed) {
   state.items = []; state.enemies = []; state.carry = null;
   state.area = null; state.seen = {}; state.playTime = 0;
   state.won = false; state.cut = null; state.title = null; state.cam.focus = null; state.menu = null;
-  state.night = 0; state.rain = 0;
+  state.night = 0; state.rain = 0; state.fireLit = 1;   // the camp fire burns from the start, a loaded save included
   state.questQuiet = true; state.questT = -9; state.qlogOpen = false;
 }
 function newGame() {
@@ -243,6 +243,7 @@ function newGame() {
 // the rise is bigger than the screen: while it's the current scene, W and H are its size (sceneSize), for the game's
 // own code; drawing and the HUD use the screen (SW, SH)
 function update(dt) {
+  if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }   // a beat of slow motion (a dodge, a relic): counts down in real time
   const sv = [W, H]; [W, H] = sceneSize(state.scene);
   try { updateWorld(dt); } finally { [W, H] = sv; }
   if (state.rise) riseCamera(dt);

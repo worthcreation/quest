@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 188: slowmo in update(); the camp fire glows after a load (state-owners moves 3 and 11)
+- The slowmo countdown moved from loop() in draw-ui.js to the top of update(); the browser plays the same, and the
+  harness now runs it too (before, 0.5 s of slowmo never ticked in tests; now a second of play is 0.64 s of game time).
+- Fix (Ross approved): resetRun sets fireLit = 1, so a save loaded in a fresh session has the fire's night light;
+  startIntro's line went. All 65 test outputs identical to build 187's; draw-record hash identical.
+
 ## Build 187: state literal beside resetRun (state-owners move 2)
 - The state literal, baseVig, newHero, newInv, newPull and maxVig moved from world.js to engine.js, just above
   resetRun; world.js keeps `var state;` (refreshK reads it at load). startIntro no longer zeroes night and rain
