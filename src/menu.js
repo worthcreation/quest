@@ -68,7 +68,6 @@ const SETTINGS_ITEMS = () => [
   ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
   ['back', 'Back'],
 ];
-const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
 const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Status', 'System'];
 // a tab shows only once there's something behind it
@@ -424,39 +423,6 @@ function menuSelect(i) {
 
 // every line of the inventory: [icon, title, detail]
 const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${k === 'turnip' ? ' over time, sometimes sturdies you' : ''}${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
-function inventoryLines() {
-  const inv = state.inv, L2 = [];
-  const sec = t => L2.push([null, t, null]);
-  sec('Gear');
-  if (inv.sword) L2.push(['acorn', 'Rusted sword', `${K.act}: slash, or hold and release to stab and lunge. Stab, slash, stab to chain. Three slashes in rhythm start a whirlwind. In the air: slam.`]);
-  if (inv.scalp) L2.push(['scalp', 'Stalker cap', 'Stitched from stalker ears and hide. Things that fall on your head bounce off.']);
-  for (const k of ['step', 'silk', 'horn']) if (inv[k]) L2.push([k, `${RELICS[k].name} ${'I'.repeat(inv[k])}`, RELICS[k].levels.slice(0, inv[k]).join(' ')]);
-  if (inv.fire) L2.push(['fire', 'Marsh fire', `${K.fire}: breathe gas. Standing still, it gathers around you and stays with you when lit. Moving, it trails behind. Let go to spark it.`]);
-  if (inv.tortoise) L2.push(['wisp', 'Tortoise\'s patience', 'Your vigor runs deeper.']);
-  if (L2.length === 1) L2.push([null, '  nothing yet', null]);
-  const foods = {}; inv.food.forEach(f => foods[f] = (foods[f] || 0) + 1);
-  if (Object.keys(foods).length || inv.acorns) {
-    sec('Food and throwables');
-    for (const [f, n] of Object.entries(foods)) L2.push([f, `${f[0].toUpperCase() + f.slice(1)} x${n}`, `${K.eat}: ${FOOD_INFO[f] || 'food'}.`]);
-    if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${inv.sword ? K.swap + ' to equip, then ' : ''}${K.act} throws; hold longer to throw faster and harder. Slash, pound or throw a rock at trees for more.`]);
-  }
-  const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
-  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : `Plant them; ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()} grow.`]); }
-  const mats = Object.keys(MATS).filter(k => inv.mats[k]);
-  if (mats.length) { sec('Materials'); for (const k of mats) { const uses = FORGE.filter(f => inv.recipes[f.k] && f.cost.some(c => c[k])).map(f => f.name); L2.push([k, `${MATS[k]} x${inv.mats[k]}`, uses.length ? `Used for: ${uses.join(', ')}.` : 'You haven\'t learned a use for this yet.']); } }
-  sec('Recipes');
-  for (const f of FORGE) {
-    if (inv.recipes[f.k]) L2.push([null, `${f.name}${inv.up[f.k] ? ' ' + 'I'.repeat(inv.up[f.k]) : ''}`, `${f.how} ${inv.up[f.k] >= (f.max || 3) ? 'Complete.' : 'Next: ' + costText(f.cost[inv.up[f.k]]) + '.'} ${f.what}`]);
-    else L2.push([null, '???', `Not yet found. Hint: ${f.from}.`]);
-  }
-  sec('You');
-  L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
-  if (false) L2.push(['page', `The stolen journal`, `The thief is somewhere along ${THIEF_ROUTE.join(', ')}. Pages found: ${state.inv.pages}.`]);
-  L2.push([null, `World seed ${SEED}`, `Open the game with ?overview=${SEED} to see this world as a map.`]);
-  L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
-  if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
-  return L2;
-}
 // ---------------- the tent chest: move things between your pack and the chest, one at a time ----------------
 function stashList(src) {
   const out = [];

@@ -251,15 +251,6 @@ const STONES = {
   granite: { name: 'Granite', dur: 2, tint: '#8f8a86', inside: [['stone', 1], ['stone', 0.6], ['ironseed', 0.12]] },
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
-const pickStone = () => { const r = rng(); return r < 0.5 ? 'sandstone' : r < 0.85 ? 'granite' : 'geode'; };
-function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
-  const n = Math.ceil(Math.PI * 2 * radU / 0.95);                  // a few smaller rough boulders, not a row of pebbles
-  for (let k = 0; k < n; k++) {
-    const a = k / n * Math.PI * 2;
-    if (gapAng != null && Math.abs(Math.atan2(Math.sin(a - gapAng), Math.cos(a - gapAng))) < gapHalf) continue;
-    sc.solids.push(solid(c[0] + Math.cos(a) * radU * UNIT / W, c[1] + Math.sin(a) * radU * UNIT / H, 0.55, 'wedge', null, { small: true }));
-  }
-}
 function newScene(o) {
   return Object.assign({ claims: [], solids: [], deco: [], spawns: [], pullables: [], exits: [], pools: [], paths: [], feat: {}, npcs: [], initItems: [], speed: 0.5, accel: 10, shade: 0 }, o);
 }

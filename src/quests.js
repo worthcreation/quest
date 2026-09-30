@@ -102,7 +102,7 @@ function drawQuestHud() {
     const g = r.glow, base = r.done ? r.fade : 1, bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
     const pop = g > 0 && state.time - r.t < 0.35 ? 1 + 0.06 * Math.sin((state.time - r.t) / 0.35 * Math.PI) : 1;
     ctx.save(); ctx.globalAlpha = base; ctx.translate(right, y + bh / 2); ctx.scale(pop, pop); ctx.translate(-right, -(y + bh / 2));
-    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; rounded(bx, y, bw, bh, 7); ctx.fill();
     if (g > 0) { ctx.shadowColor = r.done ? '#b8f28a' : '#ffcf5a'; ctx.shadowBlur = 14 * g; ctx.strokeStyle = r.done ? `rgba(184,242,138,${0.9 * g})` : `rgba(255,207,90,${0.9 * g})`; ctx.lineWidth = 1 + 1.5 * g; ctx.stroke(); ctx.shadowBlur = 0; }
     ctx.globalAlpha = base * (0.38 + 0.62 * g);                        // light and see-through, unless it just happened
     drawItemIcon(r.icon, bx + pad + icon * 0.5, y + bh / 2, icon);

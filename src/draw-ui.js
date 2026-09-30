@@ -608,7 +608,7 @@ function drawTexts() {
     // whoever is talking.
     ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : speech && !wait ? 'rgba(10,8,14,.5)' : 'rgba(10,8,14,.86)';
     if (speech && !wait) ctx.globalAlpha = a * 0.92;
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    rounded(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8); ctx.fill();
     if (b.panel || t.badge) { ctx.strokeStyle = t.badge ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = t.badge ? 2 : 1.5; ctx.stroke(); }
     if (speech && wait) { ctx.strokeStyle = t.color; ctx.lineWidth = 2; ctx.globalAlpha = a * (0.7 + 0.3 * Math.sin(state.time * 3)); ctx.stroke(); ctx.globalAlpha = a; }
     if (speech) {                                                            // the little tail toward the speaker
@@ -631,7 +631,7 @@ function drawReadOn(x, y, size) {
   const k = 0.55 + 0.45 * Math.abs(Math.sin(state.time * 3)), lab = TOUCH ? 'tap' : K.act.toUpperCase().slice(0, 5), fs = Math.round(Math.max(10, size * 0.62));
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(lab).width + fs * 0.9, h = fs * 1.35, bx = x - w * 0.5 - 4, by = y;
-  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx - w / 2, by - h / 2, w, h, h / 2) : ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill();
+  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; rounded(bx - w / 2, by - h / 2, w, h, h / 2); ctx.fill();
   ctx.fillStyle = '#2a1e10'; ctx.fillText(lab, bx, by + 1);
   ctx.restore();
 }
@@ -686,28 +686,15 @@ function drawCoach() {
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
   const B = bannerBelow(), label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = (B || 8) - (1 - k) * 10;   // under a banner, never over it
   ctx.globalAlpha = 0.6 + 0.4 * k;
-  ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(12,10,18,.9)'; rounded(x, y, w, h, h / 2); ctx.fill();
   ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.fillStyle = '#bfe4ff'; ctx.fillText(label, x + fs, y + h / 2 + 1);
+  ctx.fillStyle = PIP_COLOR; ctx.fillText(label, x + fs, y + h / 2 + 1);
   ctx.fillStyle = '#fdf6e3'; ctx.fillText(s.text, x + fs + ctx.measureText(label).width, y + h / 2 + 1);
   for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
   ctx.restore();
 }
 // the bottom-left feed: newest at the bottom, each line fades after a few seconds
-function drawFeed() {
-  const f = state.feed; if (!f || !f.length) return;
-  const fs = Math.round(Math.max(12, Math.min(15, UNIT * 0.4))), lh = fs * 1.45, x = 14; let y = H - 16;
-  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  for (let i = f.length - 1; i >= 0; i--) {
-    const n = f[i]; n.t += 1 / 60; const a = Math.min(1, n.t / 0.2, (4 - n.t) / 0.8); if (a <= 0) { f.splice(i, 1); continue; }
-    const w = ctx.measureText(n.text).width;
-    ctx.globalAlpha = a * 0.55; ctx.fillStyle = '#0c0a10'; ctx.fillRect(x - 6, y - fs - 3, w + 12, fs + 8);
-    ctx.globalAlpha = a; ctx.fillStyle = n.color; ctx.fillText(n.text, x, y);
-    y -= lh;
-  }
-  ctx.restore();
-}
 // top-left, small and faint: which screen you're on and the world's seed, and under it where you stand in the scene
 // (in tiles from its top-left corner), for reporting what you see. Each line switches off under System.
 const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
@@ -732,7 +719,7 @@ function drawScroll() {
   ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.84, 900)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
   const tH = S.title ? 2.4 : 1.1, w = Math.min(W - 24, Math.max(fs * 11, lw + fs * 3)), h = fs * (tH + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H - h - Math.max(18, H * 0.04) + (1 - Math.min(1, S.t / 0.35)) * 12;   // near the bottom edge
   ctx.fillStyle = 'rgba(232,216,176,.72)'; ctx.fillRect(x, y, w, h);                                   // the paper: see-through, but the ink stays readable
-  ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
+  ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { rounded(x - 8, yy, w + 16, 10, 5); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
   ctx.textAlign = 'center'; if (S.title) { ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9); }
   ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * ((S.title ? 3.2 : 1.9) + i * 1.25)));
@@ -1003,22 +990,6 @@ function drawHUD() {
 }
 
 // Pip's maps: every place you've been, blanks where you haven't, found mushrooms, a pulse where you are
-function drawJournalMap(ox, oy, aw, ah, fs) {
-  const ids = Object.keys(MAP_LAYOUT), cols = 15, rows = 13, cw = aw / cols, chh = ah / rows;
-  const at = id => [ox + MAP_LAYOUT[id][0] * cw + cw * 0.12, oy + MAP_LAYOUT[id][1] * chh + chh * 0.12];
-  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,190,170,.35)';
-  for (const id of ids) for (const ex of WORLD[id].exits) if (MAP_LAYOUT[ex.to] && state.seen[id] && state.seen[ex.to]) {
-    const [ax, ay] = at(id), [bx, by] = at(ex.to);
-    ctx.beginPath(); ctx.moveTo(ax + cw * 0.38, ay + chh * 0.38); ctx.lineTo(bx + cw * 0.38, by + chh * 0.38); ctx.stroke();
-  }
-  for (const id of ids) {
-    const [bx, by] = at(id), seen = state.seen[id], here = id === state.scene;
-    ctx.fillStyle = seen ? (REGION_COLOR[WORLD[id].area] || '#888') : 'rgba(255,255,255,.05)';
-    ctx.fillRect(bx, by, cw * 0.76, chh * 0.76);
-    if (here) { ctx.strokeStyle = `rgba(255,227,138,${0.6 + 0.4 * Math.sin(state.time * 6)})`; ctx.lineWidth = 3; ctx.strokeRect(bx - 2, by - 2, cw * 0.76 + 4, chh * 0.76 + 4); }
-    if (seen && WORLD[id].feat.shroom) { ctx.fillStyle = state.inv.shrooms[id] ? '#b48af0' : '#6a5a88'; ctx.beginPath(); ctx.arc(bx + cw * 0.62, by + chh * 0.2, Math.max(3, cw * 0.09), 0, 6.28); ctx.fill(); }
-  }
-}
 // the pack: a row of tabs, a grid of icons, one short line and a few actions for the selected icon
 function drawPack(m, x, y, pw, fs) {
   const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
@@ -1235,8 +1206,8 @@ function drawActionHint() {
   parts.forEach((q, i) => {
     const by = by0 + i * (hgt + gap), cw = kwMax + (q.w - q.kw);
     ctx.globalAlpha = i === 0 ? 1 : 0.85;
-    ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, hgt, hgt / 2) : ctx.rect(bx, by, cw, hgt); ctx.fill();
-    ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kwMax, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kwMax, hgt - 6); ctx.fill();
+    ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(bx, by, cw, hgt, hgt / 2); ctx.fill();
+    ctx.fillStyle = '#ffe38a'; rounded(bx + 3, by + 3, kwMax, hgt - 6, (hgt - 6) / 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.fillStyle = '#1a1420'; ctx.fillText(q.key, bx + 3 + kwMax / 2, by + hgt / 2 + 1);
     ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(q.verb, bx + kwMax + 9, by + hgt / 2 + 1);
   });
@@ -1302,7 +1273,7 @@ function drawBook(m) {
   // how to use the book: one small, plain pill under it, always the same words
   const hint = TOUCH ? 'swipe or tap \u2190 \u2192 to turn   \u00b7   tap F to close' : `\u2190 \u2192  turn pages   \u00b7   ${K.act.toUpperCase()}  close`, hfs = Math.round(Math.max(12, Math.min(15, fs * 0.8)));
   ctx.font = `bold ${hfs}px "Courier New", monospace`; const hw = ctx.measureText(hint).width + hfs * 2, hh = hfs * 1.9, hx = (W - hw) / 2, hy = y + ph + 16;
-  ctx.fillStyle = 'rgba(12,10,16,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(hx, hy, hw, hh, hh / 2) : ctx.rect(hx, hy, hw, hh); ctx.fill();
+  ctx.fillStyle = 'rgba(12,10,16,.85)'; rounded(hx, hy, hw, hh, hh / 2); ctx.fill();
   ctx.strokeStyle = 'rgba(242,230,200,.35)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#f2e6c8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, W / 2, hy + hh / 2 + 1);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';

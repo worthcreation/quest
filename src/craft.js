@@ -29,7 +29,6 @@ const RECIPES = [
 const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
 const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
-const PIECE_OF = { fire: 'tinder', bench: 'benchframe' };   // (older saves may still hold a whole firering / benchkit: those set down in one go)
 // Camp is built at its marks, a piece at a time: the fire ring takes CAMP_PARTS.fire.stones stones set by hand, then
 // tinder; the bench takes CAMP_PARTS.bench.frames frames. What's been set lives in rtFor('camp').flags.parts.
 const CAMP_PARTS = { fire: { stones: 5, tinder: 1 }, bench: { frames: 2 } };
@@ -271,4 +270,3 @@ function campHave() {                                    // raw counted with wha
   const tinder = fire ? 1 : (raw.tinder || 0) + P.tinder, frames = bench ? 2 : Math.min(2, (raw.benchframe || 0) + P.frames);
   return { stone: fire ? 5 : (raw.stone || 0) + P.stones, stick: (raw.stick || 0) + tinder * 2 + frames * 2, fluff: (raw.fluff || 0) + (raw.glue || 0) * 2 + frames * 2 };
 }
-function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }

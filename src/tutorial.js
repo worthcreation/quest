@@ -49,14 +49,14 @@ const TUTORIAL = [
   { id: 'tour-bench', done: () => TUT.noTour() || TUT.followed('tour-bench', TUT.mark('bench')) || campBuilt('bench'), scene: 'camp', spot: () => TUT.mark('bench'),
     say: () => 'And here, a workbench. Two frames of sticks and rabbit glue.' },
   { id: 'tour-tent', done: () => TUT.noTour() || state.scene === 'tentin' || TUT.saidAt('tour-inside') != null, scene: 'camp', spot: () => TUT.door(),
-    say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, after: true },
+    say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, to: 'tentin', after: true },
     remind: () => ['In you come! The flap\'s right here.', 'Come inside!'], remindAt: () => TUT.door() },
   { id: 'tour-inside', done: () => TUT.noTour() || TUT.since('tour-inside') > 7 || state.scene === 'camp' && TUT.saidAt('tour-inside') != null, scene: 'tentin', spot: () => { const b = WORLD.tentin.feat.book; return [b[0] * W, b[1] * H + UNIT]; },
     say: () => 'My book: rules and tips, with drawings. The chest has seeds and acorns. That\'s my bed. Nap there when you\'re worn out.' },
   { id: 'tour-out', done: () => TUT.noTour() || state.scene === 'camp' && TUT.saidAt('tour-out') != null || TUT.saidAt('tour-exit') != null, scene: 'tentin', spot: null,
-    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, after: true } },
+    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, to: 'camp', after: true } },
   { id: 'tour-exit', done: () => TUT.noTour() || state.scene !== 'camp' && TUT.saidAt('tour-exit') != null, scene: 'camp', spot: null, goal: () => 'start',
-    say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, after: true },
+    say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, to: 'start', after: true },
     remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },
   { id: 'sticks', done: () => !campMissing().stick, goal: () => 'start', scene: 'start', spot: () => TUT.nearItem('stick') && [TUT.nearItem('stick').x, TUT.nearItem('stick').y],
     say: () => 'Good sticks. Dry ones burn best. We need a couple.',
@@ -80,11 +80,11 @@ const TUTORIAL = [
   { id: 'homebase', done: () => gearOwned().includes('feather'), scene: 'camp', spot: null, hold: true, once: 'campdone', bounce: true,
     say: () => 'Home base! We did it! Here, I found this feather. It\'s for you.' },
 ];
-// where the current step wants Pip to walk (and whether he steps out of sight on arriving), once he's said his line
+// where the current step wants Pip to walk (and whether he steps out of sight on arriving, and to which screen), once he's said his line
 function tutorialLead(sc) {
   const s = tutorialStep(); if (!s || !s.lead || s.lead.scene !== sc.id) return null;
   if (s.lead.after && TUT.saidAt(s.id) == null) return null;
-  return { at: s.lead.at(), hide: s.lead.hide };
+  return { at: s.lead.at(), hide: s.lead.hide, to: s.lead.to };
 }
 function tutorialStep() {
   if (!state.inv || ARENA || PUZZLE || storyAt('adventure')) return null;
@@ -229,5 +229,5 @@ function coachUpdate() {
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }
   if (c.i >= steps.length) { state.coach = null; return; }
   const p = state.pip;                                  // out in the world, Pip says the current step (once), as himself
-  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; say(steps[c.i].text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false }); flashFor(steps[c.i].text); }
+  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; pipLine(steps[c.i].text); }
 }

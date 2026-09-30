@@ -126,7 +126,7 @@ function enterSceneIn(id, fx, fy) {
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
   if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
-  if (pipWithYou()) placePipNearHero();
+  pipArrive(true);                                   // Pip: beside you, on his post, or out of sight (never popping in where he isn't)
   const bossAlive = id === 'c7' && !rt.bossDead;
   const tense = sc.area === 'woods' && state.inv.pipTaken && !state.inv.sword;
   const night = state.dusk && ['camp', 'tentin', 'start', 'meadow', 'riverbank'].includes(id);   // after camp's set up: twilight around home

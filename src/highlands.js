@@ -186,12 +186,6 @@ function drawCrystalBug(s) {
 }
 
 // ---------- the view down: the valley far below, the clouds, birds rising from the surface ----------
-function vistaRect(sc) {
-  if (sc.vista === 'e') return [W * 0.74, 0, W, H];
-  if (sc.vista === 'clouds') return [0, 0, W * 0.18, H];
-  if (sc.vista === 'both') return null;
-  return null;
-}
 function drawValleyBelow(x0, y0, w, h, depth) {                   // the land below, close enough to read: treetops, a broad river, fields; it drifts slower than the ledge
   const cx = state.cam ? state.cam.x || W / 2 : W / 2, par = (cx - W / 2) * 0.15, u = UNIT, t = state.time;
   ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();

@@ -399,7 +399,7 @@ function drawRapidsHud() {
   const r = state.rapids;
   if (!r || state.menu) return;
   const w = Math.min(W * 0.6, 320), h = 30, x = (W - w) / 2, y = 10;
-  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(x, y, w, h, 8); ctx.fill();
   for (let i = 0; i < RAPIDS.planks; i++) { ctx.fillStyle = i < r.planks ? '#c9a46a' : 'rgba(255,255,255,.15)'; ctx.fillRect(x + 10 + i * 16, y + 7, 12, 16); }
   const px = x + 70, pw = w - 84;
   ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px, y + 12, pw, 6);
@@ -1224,16 +1224,9 @@ function drawFalls(open) {
   if (Math.random() < 0.4) state.fx.push({ x: x0 + Math.random() * UNIT, y: Math.random() * H, vx: -UNIT * (1 + Math.random() * 2), vy: (Math.random() - 0.5) * UNIT, t: 0, life: 1.2, color: 'rgba(220,240,255,.5)', size: UNIT * 0.25 });
 }
 
+// a rounded box path (roundRect where the browser has it, a plain rect where it doesn't); fill or stroke after
+function rounded(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 // ---------------- menu ----------------
-const EQUIP = [
-  ['sword', 'Rusted sword', `${K.act}: tap to slash, hold and release to stab and lunge. Stab, slash, stab in rhythm to chain.`],
-  ['scalp', 'Stalker cap', 'Things falling from above bounce off.'],
-  ['step', 'Stalker\'s Step', `${K.dash}: dodge. Last-moment dodges slow time.`],
-  ['horn', 'Charger horn', 'Stabs hit harder and always knock back.'],
-  ['silk', 'Diver silk', 'A sling for your acorns.'],
-  ['fire', 'Marsh fire', `${K.fire}: hold to breathe gas, let go to spark it. Wind scatters it.`],
-  ['tortoise', 'Tortoise\'s patience', 'Your vigor runs deeper.'],
-];
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
 function tipLibrary() {
   const inv = state.inv, t = [
@@ -1262,7 +1255,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 172';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 173';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

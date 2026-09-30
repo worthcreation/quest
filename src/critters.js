@@ -474,7 +474,7 @@ function scareBird(x, y, range) {
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
   if (drop) { state.items.push(freeItemSpot({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 })); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
   else if (lesson && state.pip && state.pip.show && !speakingNow()) {
-    const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
+    pipLine(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], { life: 2.6 });
   }
 }
 // Pip's garden lesson starts with the robin tucked away in its hollow tree. It won't come out on its own: you learn

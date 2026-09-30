@@ -52,7 +52,7 @@ bindHold(document.getElementById('fire'), 'btnfire');
 document.getElementById('menubtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state.started && !state.won) toggleMenu(); });
 const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
-  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact) || slotWeaponHeld(),
+  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
   jump:  () => kk('jump') || !!state.keys.btnjump,
   swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,

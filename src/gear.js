@@ -169,7 +169,6 @@ function drawShroomRipples(x, y, u, found, key) {
 const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Use' };
 function laneOf(e) { return e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }   // food and abilities: S first, then A
 const laneAllows = (k, e) => !e || (k === 'f' ? e.kind === 'weapon' && e.id !== 'acorn' : k === 'd' ? e.kind === 'weapon' && e.id === 'acorn' : e.kind === 'food' || e.kind === 'ability');   // F: blades only, D: throwables, A/S: the rest
-const laneOptions = k => slotOptions().filter(e => (k === 'a' || k === 's') ? laneOf(e) === 's' : laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
 const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
@@ -249,10 +248,6 @@ function tidySlots() {
     const order = laneOf(e) === 's' ? ['s', 'a'] : [laneOf(e)];                 // its own keys only: F for blades, D for throws, S then A for the rest
     const k = order.find(j => !sl[j]);
     if (k) { setSlot(k, e); changed = true; }
-    else if (false) {                                                  // its key is taken: it waits in the pack; holding that key picks between them
-      state.tipsSeen.slotsFull = true;
-      sayHero(`Your slots are full. Hold ${K.swap.toUpperCase()} and press a slot key to swap, or use the pack (${K.menu.toUpperCase()}).`, { life: 5, color: '#ffe38a' });
-    }
   }
   syncEquip();
   if (changed) refreshButtons();
@@ -299,14 +294,6 @@ function flashFor(text) {
 }
 function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
-// a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
-function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)
-function slotWeaponHeldOld() {
-  if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
-  const sl = slotsOf();
-  for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
-  return false;
-}
 // "put in slot" actions for pack cells
 function slotActs(entry) {
   return ALL_SLOTS.filter(k => laneAllows(k, entry)).map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));

@@ -45,17 +45,19 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - World: barrier()/breakBarrier [world/engine]; crag() + hitCrag (single boulders that crack, drops) [world/items];
   keystone()/hitStone [world/items]; pullable() + pullLocked [world/items]; claim()/freeSpot() [world];
   corridorSpan/fitToCorridor (mountain path) [world]; enterScene layout hooks; RT[id].flags.
-- Text: say() [text] (pages, holds), pipSay() [pip], showTitle() for quest start/end only, showScroll() for every
+- Text: say() [text] (pages, holds), pipLine() for anything Pip says (hold: true waits for F) and pipSay() for a once-only line [pip], showTitle() for quest start/end only, showScroll() for every
   other alert, notice() for pickups (a scroll too). There is no tell() and no questAlert; don't look for them.
 - Pip: PIP_LINES (one-off lines with when/at/text), TUTORIAL (ordered steps), COACH (pinned steps, shown only inside
-  the pack; outside Pip says them) [tutorial]; drawPip() is the only Pip drawing [draw]; PIP_PACE, PIP_SIZE.
+  the pack; outside Pip says them) [tutorial]; drawPip() is the only Pip drawing [draw]; PIP_PACE, PIP_SIZE;
+  pipPost/pipArrive decide where Pip is on a screen (enterScene and updatePip both call it), pipBackIn brings him in
+  from an edge, exitToward/exitPoint [pip].
 - Story: inv.story + STORY [craft], storyAt() [quests], campBuilt() [craft]; QUESTS + updateQuests + drawQuestHud
   [quests] (updateQuests watches flags, never drives them); inv.qtrack.
 - Progression: SKILLS/skillUse [skills]; FOOD [gear]; SEEDS [items]; plotStage() + PATCH [interact]; CROP_XP [gear];
   RECIPES [craft]; slots SLOT_KEYS/useSlot/flashSlot [gear]; the R wheel [actions].
 - Drawing: drawItemIcon for every icon [draw-ui]; drawJagged (optional context) for every rough stone; drawRock (seeded
   lumpy stone) and drawSoilLine (the zigzag where stone meets ground; soilLinePts gives its points, to clip a stone to
-  it) [draw]; drawHUD is bottom-right (vigor and
+  it) and rounded(x, y, w, h, r) for every rounded box [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - A scene bigger than the screen: give it sc.virt = [w, h] in tiles; sceneSize makes W and H its size while it's
@@ -64,7 +66,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   [rise]. Its solids are the collision; nothing else tests an edge there.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
-## 5. Audit (grep for callers, build 162)
+## 5. Audit (grep for callers, build 162; since build 173 `node tools/dead.js` lists unreferenced top-level names: want only startEnding)
 - Done in build 162: hopToStone, drawVane, drawWindPath, plate()/logGate()/updatePlates/plateOn, camp.feat.pip, the
   fiber/cloth/cord/stake/tentkit icons, seedSlotKey/seedSlotKeyOld, drawArenaSigns, the inline plant block, the
   "tent" lines, ZIG3/ZIG4. src/pip.js and src/puzzles.js were restored (build 161 deleted them by accident).

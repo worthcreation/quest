@@ -201,13 +201,16 @@ const cropOfPlot = (p, sc, i) => { const S = SEEDS[p.seed]; return S && S.crop ?
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / (SEEDS[p.seed] || SEEDS.turnipseed).grow)) : 0;
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
 // Travel costs spores by distance: 1 spore per 3 screens you'd otherwise walk (at least 1).
+let WORLD_ADJ = { world: null, adj: null };            // which screens touch which, built once per world (screensBetween runs every frame)
 function screensBetween(a, b) {
   if (a === b) return 0;
-  const adj = {};
-  const link = (x, y) => { (adj[x] = adj[x] || new Set()).add(y); (adj[y] = adj[y] || new Set()).add(x); };
-  for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) link(id, ex.to);
-  link('w3', 'c1');                                   // the sinkhole
-  const seen = { [a]: 0 }, q = [a];
+  if (WORLD_ADJ.world !== WORLD) {
+    const adj = {}, link = (x, y) => { (adj[x] = adj[x] || new Set()).add(y); (adj[y] = adj[y] || new Set()).add(x); };
+    for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) link(id, ex.to);
+    link('w3', 'c1');                                 // the sinkhole
+    WORLD_ADJ = { world: WORLD, adj };
+  }
+  const adj = WORLD_ADJ.adj, seen = { [a]: 0 }, q = [a];
   while (q.length) { const x = q.shift(); for (const y of adj[x] || []) if (seen[y] == null) { seen[y] = seen[x] + 1; if (y === b) return seen[y]; q.push(y); } }
   return 12;
 }
@@ -500,15 +503,6 @@ function spawnPages() {
   }
 }
 // once the toad has told you, the rest of his lunch turns up around the marsh
-function spawnBeans() {
-  for (const id of ['m1', 'm2', 'm3']) {
-    const rt = rtFor(id);
-    for (const q of WORLD[id].feat.beanSpots) {
-      if (id === state.scene) state.items.push({ type: 'bean', x: q[0] * W, y: q[1] * H });
-      else rt.items.push({ type: 'bean', fx: q[0], fy: q[1] });
-    }
-  }
-}
 function startTalk(n) {
   const { lines, then } = npcLines(n);
   state.npcTalk = { n, lines, i: -1, then };

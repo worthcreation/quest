@@ -1,5 +1,6 @@
 // Pip's pace: every move he makes (walking, running, pottering, hopping) at 53% of his old speed (build 116)
 const PIP_PACE = 0.53;
+const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];   // the screens Pip knows: off them, he says the woods are the other way
 // ===== pip.js: Pip: the opening on the jetty, leading and waiting, the garden, reminders, camp talk, gathering guidance, bounces.
 // =====================================================================
 // Cutscenes: intro storm, sword, toad, faint, ending
@@ -47,7 +48,7 @@ function updateIntro(dt) {
       p.side = Math.abs(dx) > UNIT * 0.2 ? (dx > 0 ? 1 : -1) : (h.x > p.x ? 1 : -1);
     } else p.side = h.x > p.x ? 1 : -1;
     if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
-    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); c.step++; }
+    if (c.step < INTRO_LINES.length) { pipLine(INTRO_LINES[c.step], { hold: true }); c.step++; }
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
@@ -70,24 +71,58 @@ function pipExit(sc) {                                // where Pip is heading: t
   const inv = state.inv;
   if (!storyAt('tocamp')) return null;                 // practising in the garden
   const goal = tutorialStep() ? tutorialGoal() : storyAt('adventure') ? 'w2' : 'camp';   // the tutorial says where next; after it, the woods
-  if (!goal) return null;
+  return goal ? exitToward(sc, goal) : null;
+}
+function exitToward(sc, goal) {                       // the exit of sc that brings the screen goal closest (null: here, or no way)
   if (sc.id === goal) return null;
   let best = null, bd = screensBetween(sc.id, goal);
   for (const ex of sc.exits) { const d = screensBetween(ex.to, goal); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
-  return best || null;
+  return best;
 }
 function placePipNearHero() {
   const old = state.pip && state.pip.visit;          // left before Pip got to say it: Pip can say it next time
   if (old && !old.said && state.inv.pipTips) delete state.inv.pipTips[old.key];
   // placed a few steps ahead of you toward where we're going (never behind you, so he never has to run around you)
-  const h = state.hero, sc0 = sceneDef(), ex = sc0 && pipExit(sc0), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [h.x + h.fx * UNIT * 3, h.y + h.fy * UNIT * 3];
+  const h = state.hero, sc0 = sceneDef(), ex = sc0 && pipExit(sc0), [gx, gy] = ex ? exitPoint(ex) : [h.x + h.fx * UNIT * 3, h.y + h.fy * UNIT * 3];
   const ddx = gx - h.x, ddy = gy - h.y, dd = Math.hypot(ddx, ddy) || 1, k0 = Math.min(dd, UNIT * 2.5);
   const bx = h.x + ddx / dd * k0 - ddy / dd * UNIT * 0.9, by = h.y + ddy / dd * k0 + ddx / dd * UNIT * 0.9;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
-// Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
+const exitPoint = ex => edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W));   // the middle of an exit, in px
+// Pip's post: the one screen he's on when he isn't beside you. By the garden while that lesson's on; wherever a
+// tutorial step walked him out of sight to (into the lean-to, out of it, on to the glade: state.pipAhead). Null: with you.
+function pipPost() { return state.inv.story === STORY.garden ? 'meadow' : state.pipAhead || null; }
+// Where Pip is on this screen: called by enterScene (fresh: a new screen, so he's placed anew) and every frame by
+// updatePip. He's placed beside you only when this is where he'd be: on his post he stays there (out of sight from
+// any other screen), and if you went a different way from where he led, he comes back in from that way to fetch you
+// after a few seconds (pipBackIn) rather than appearing at your side. Returns whether Pip is here to update.
+function pipArrive(fresh) {
+  const p = state.pip, id = state.scene, post = pipPost();
+  if (state.intro) return false;                     // the jetty: updateIntro has him
+  if (!pipWithYou()) { if (p && p.follow) p.show = false; return false; }
+  if (post === 'meadow' && id !== 'meadow') { if (p) p.show = false; return false; }
+  if (post && post !== id) {
+    if (p) p.show = false;
+    if (fresh || !state.pipSeekT) { state.pipSeekT = state.time; return false; }
+    if (state.time - state.pipSeekT < 4) return false;
+    const sc = sceneDef(), ex = exitToward(sc, post); if (!ex) return false;   // in from the way to where he went
+    const h = state.hero, [gx, gy] = exitPoint(ex), d = Math.hypot(gx - h.x, gy - h.y) || 1;
+    state.pip = { x: gx, y: gy, show: true, follow: true }; pipBackIn(gx, gy, (gx - h.x) / d, (gy - h.y) / d);
+  }
+  state.pipAhead = null; state.pipSeekT = 0;
+  if (post === 'meadow') { if (!p || !p.show || !p.atGarden) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; } return true; }
+  if (fresh || !state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
+  return true;
+}
+// Pip pops back in at the way on (gx, gy: the exit; ux, uy: the way out of it) to hurry you along, and walks in a little
+function pipBackIn(gx, gy, ux, uy) {
+  const p = state.pip, L0 = p.lead || (p.lead = { best: 1e9, idle: 0, n: 0 });
+  L0.phase = 'back'; L0.n++; p.x = gx + ux * UNIT * 0.8; p.y = gy + uy * UNIT * 0.8; p.waitAt = null;
+  pipLine(['Hurry up, slowpoke!', 'Come ON! It\'s this way!', 'Are you coming or not?', 'I\'m not getting any younger!'][(L0.n - 1) % 4], { at: [p.x - ux * UNIT * 2, p.y - uy * UNIT * 2 - UNIT * 1.3] });
+  p.hop = { t: 0, n: 3 };
+}
+// Pip's lines. The opening on the jetty and the few tutorial steps marked hold wait for you to read them; everything
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
-const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 let PIP_GAP = 8;                                    // (a let so the test harness can shorten it)
 const CROP_ROCKS = [3, 2, 2, 1, 1, 0];                   // rocks back and forth before a crop comes up, by farming level (0 = just F)
 const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
@@ -116,15 +151,22 @@ function pipRemind(sc, p, h) {
   let line = r.lines[k]; if (line === R.last) line = r.lines[(k + 1) % r.lines.length];
   R.last = line; R.t = state.time; R.n++; state.pipTalkT = state.time;
   if (r.at) p.visit = { x: r.at[0], y: r.at[1], t0: state.time, text: line, key: 'remind', site: { x: r.at[0], y: r.at[1], r: 9 } };
-  else say(line, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
+  else pipLine(line, { size: 0.9 });
+}
+const PIP_COLOR = '#bfe4ff';
+// The one way Pip speaks: a free aside above Pip that fades on its own, or with hold a line that waits for F
+// (key 'npc' so it holds like people's lines). o.at moves it (default: above Pip); life, size and site pass through.
+function pipLine(text, o = {}) {
+  const p = state.pip || state.hero, { at, hold, ...rest } = o, [x, y] = at || [p.x, p.y - UNIT * 1.3];
+  return say(text, x, y, hold ? { key: 'npc', who: 'pip', color: PIP_COLOR, ...rest } : { key: 'pip', color: PIP_COLOR, hold: false, ...rest });
 }
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < (PIP_HOLD.has(key) ? 2.2 : PIP_GAP) || speakingNow()) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site, hold: PIP_HOLD.has(key) ? undefined : false, size: PIP_HOLD.has(key) ? 1 : 0.9 });
+  pipLine(text, { site, size: 0.9 });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -142,16 +184,15 @@ function pipGatherTalk(sc, p) {
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
-  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const miss = campMissing(), left = Object.keys(miss), here = left.filter(k => local.has(k));
-  if (left.length && !local.size && home.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
+  if (left.length && !local.size && PIP_HOME.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
   const text = !left.length ? 'That\'s everything! Back to camp.'
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
   if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
+  pipLine(text, { size: 0.9 });
 }
 // Pip's spot beside something: on the side facing you, a step away from it
 function pipBeside(v) {
@@ -180,7 +221,7 @@ function tutorialTalk(sc, p, h) {
   const key = 'tut-' + s.id + '|' + (s.key ? s.key() : ''), line = s.say();
   if (!line || tips[key]) return;
   const at = s.spot ? s.spot() : null;
-  if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; say(line, p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
+  if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; pipLine(line, { hold: true }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
   else {
     state.pipTalkT = -99;                             // tutorial lines don't wait their turn: any small talk showing makes way
     for (const t of state.texts) if ((t.key === 'pip' || t.who === 'pip') && !t.hold && t.t < t.life - 0.35) t.life = t.t + 0.3;
@@ -204,15 +245,12 @@ function pipBounce(dt) {
 function updatePip(dt) {
   pipBounce(dt);
   if (state.intro) { updateIntro(dt); return; }
-  if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
+  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the lean-to, out of camp)
+  if (!pipArrive(false)) return;
   const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
-  if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
-  if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
-  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the tent, out of camp)
-  if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
-  const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
+  const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? exitPoint(ex) : [W / 2, H / 2];
   // Pip leads: out in front along the way to the exit, on one side of your line (his lane), and never loops around you.
   // Already a few steps ahead of you and roughly on the way? He waits there. Fallen behind (you ran past)? He
   // runs up his own side to get in front again.
@@ -226,8 +264,7 @@ function updatePip(dt) {
   let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
   if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }
   const TL = !p.visit && tutorialLead(sc);            // the tour: walk to the door / the flap / the way out, and slip out of sight there
-  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; p.show = false; } }
-  if (!TL && state.tutWait && !p.visit) { const w = state.tutWait; tx = w[0]; ty = w[1]; }   // Pip's post is the garden (a reminder can take him off it)
+  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; state.pipAhead = TL.to; p.show = false; } }
   // Early on, if you don't follow, Pip goes on ahead: after a while he walks right off the screen, then pops back in
   // from that side to hurry you up, and heads off again. Only when there's somewhere to lead you (the way to camp,
   // or the way on while gathering).
@@ -238,12 +275,9 @@ function updatePip(dt) {
   else if (!speakingNow()) L0.idle += dt;
   if (early && ex && !p.visit && !garden) {
     const [ox, oy] = [gx + ux * UNIT * 3, gy + uy * UNIT * 3];                         // just past the exit, off the screen
-    if (!L0.phase && L0.idle > 9) { L0.phase = 'going'; say(['I\'ll go on ahead!', 'This way! Come on!', 'Follow me!'][L0.n % 3], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (!L0.phase && L0.idle > 9) { L0.phase = 'going'; pipLine(['I\'ll go on ahead!', 'This way! Come on!', 'Follow me!'][L0.n % 3]); }
     if (L0.phase === 'going') { tx = ox; ty = oy; if (p.x < -UNIT || p.x > W + UNIT || p.y < -UNIT || p.y > H + UNIT) { L0.phase = 'away'; L0.t = state.time; } }
-    if (L0.phase === 'away') { tx = ox; ty = oy; if (state.time - L0.t > 6) {                      // back in to hurry you along
-      L0.phase = 'back'; L0.n++; p.x = gx + ux * UNIT * 0.8; p.y = gy + uy * UNIT * 0.8; p.waitAt = null;
-      say(['Hurry up, slowpoke!', 'Come ON! It\'s this way!', 'Are you coming or not?', 'I\'m not getting any younger!'][(L0.n - 1) % 4], p.x - ux * UNIT * 2, p.y - uy * UNIT * 2 - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' });
-      p.hop = { t: 0, n: 3 }; } }
+    if (L0.phase === 'away') { tx = ox; ty = oy; if (state.time - L0.t > 6) pipBackIn(gx, gy, ux, uy); }   // back in to hurry you along
     if (L0.phase === 'back') { tx = gx - ux * UNIT * 2.5; ty = gy - uy * UNIT * 2.5; if (Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.6) { L0.phase = null; L0.idle = 0; } }
   }
   const v = p.visit;
@@ -252,7 +286,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site: v.site, hold: PIP_HOLD.has(v.key) ? undefined : false, size: PIP_HOLD.has(v.key) ? 1 : 0.9 });
+      pipLine(v.text, { site: v.site, size: 0.9 });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -261,7 +295,7 @@ function updatePip(dt) {
       if (close && state.time - v.said > 0.8 && !reading) { p.visit = null; state.pipTalkT = state.time; }   // you came over and read it: carry on together
       else if (v.key === 'remind' && state.time - v.said > 12) p.visit = null;                          // a reminder doesn't wait forever
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
-        v.call = state.time; state.pipCalls = (state.pipCalls || 0) + 1; say(['Over here!', 'This way!', 'Come see!', 'Psst! Here!', 'Hey! Over here!'][(state.pipCalls - 1) % 5], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
+        v.call = state.time; state.pipCalls = (state.pipCalls || 0) + 1; pipLine(['Over here!', 'This way!', 'Come see!', 'Psst! Here!', 'Hey! Over here!'][(state.pipCalls - 1) % 5], { life: 1.8 });
       }
     }
   }
@@ -274,7 +308,7 @@ function updatePip(dt) {
   }
   if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, p.x, p.y) && p.show) {   // the wind shoves Pip too
     const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
-    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) say(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff', size: 0.9 }); }
+    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) pipLine(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], { size: 0.9 }); }
     if (state.gustPhase !== 'blow') p.windT = 0;
   }
   const offRoad = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'away');
@@ -282,10 +316,9 @@ function updatePip(dt) {
   if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   p.stuck = md > UNIT * 0.5 && Math.hypot(p.x - (p.lx ?? p.x), p.y - (p.ly ?? p.y)) < 0.5 ? (p.stuck || 0) + dt : 0; p.lx = p.x; p.ly = p.y;
   if (!p.visit && !garden && !offRoad && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
-  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
-  else if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
+  else if (!PIP_HOME.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};

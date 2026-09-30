@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 173: Pip stays put, and a redundancy pass
+- Pip no longer pops in beside you on a screen he isn't on. enterScene placed him near you whenever he was "with you",
+  ignoring his post (by the garden; ahead in the lean-to or out to the glade during the tour) and forgot the tour's
+  lead on every screen change. Now pipPost/pipArrive (one decision for enterScene and updatePip): on his post he stays;
+  elsewhere he's out of sight, and if you went a different way from where he led he comes back in from the way toward
+  his post after 4 s, calling you (pipBackIn, shared with the "gone ahead, back to hurry you" code). Test pip-post.
+- pipLine is the one way Pip speaks (22 hand-built say calls replaced; the empty PIP_HOLD set and state.tutWait gone).
+  The robin-lesson miss line held until F by accident; it fades as written now.
+- tools/dead.js lists top-level names nothing references; 16 deleted (cycleEquip, EQUIP, PIECE_OF, questState,
+  startAmbush, drawFeed, drawJournalMap, laneOptions, slotWeaponHeldOld, vistaRect, spawnBeans, isSeed, setIndex,
+  inventoryLines, pickStone, stoneRing), plus the slotWeaponHeld stub and two if (false) branches. startEnding stays.
+- Shared: rounded() for the 11 roundRect-or-rect boxes, exitToward/exitPoint, PIP_HOME; screensBetween caches the
+  map's adjacency once per world instead of rebuilding it several times a frame.
+
 ## Build 172: faster builds
 - tools/ship.sh does the whole build ritual in one call (BUILD, build, every test, overlap, zip only if all pass, the
   ship line and links); tools/links.js is the one list of play-test links. Renders only when asked; HANDOFF at a

@@ -9,13 +9,6 @@ function startAbduct() {
   state.gremlins = [0, 1, 2].map(i => ({ x: hole[0] * W, y: hole[1] * H + (i - 1) * UNIT * 0.3, show: true }));
   state.cam.focus = null;                              // no close-up: you're free to run at them
 }
-function startAmbush() {
-  const f = WORLD.start.feat.pip;
-  state.cut = { type: 'ambush', t: 0, step: 0 };
-  state.pip = { x: f[0] * W, y: f[1] * H, show: true, bound: 0 };
-  state.gremlins = [0, 1, 2].map(i => ({ x: W + UNIT * (1 + i), y: f[1] * H + (i - 1) * UNIT * 1.4, show: true }));
-  state.cam.focus = { z: 1.2, at: () => [W * 0.75, f[1] * H] };
-}
 // The blade comes out slowly: the old stump rumbles and cracks, light leaks out of it, the blade rises rust and all
 // with a line of light running up it, and only then is it yours: a leap, rays, the title.
 function startSwordCut() {
@@ -39,7 +32,7 @@ function startRescue() {
   state.cut = { type: 'sporehome', t: 0, step: 0 };
   state.cam.focus = { z: 1.35, at: () => [state.hero.x, state.hero.y] };
 }
-function startEnding() {
+function startEnding() {                             // (not wired yet: chapter 1's close, once the story after the rescue is in; tools/dead.js lists it on purpose)
   state.won = true;
   sfx.victory();
   const h = state.hero;
@@ -51,12 +44,11 @@ function updateCut(dt) {
   const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
   if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
   c.t += dt;
-  if (false) {
-  } else if (c.type === 'sporehome') {
+  if (c.type === 'sporehome') {
     const s = state.pip;
     const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.3 + Math.random() * 1.2), sp = UNIT * (3 + Math.random() * 5);   // sparks of spore light that zip away and fizzle out
       state.fx.push({ x: h.x + Math.cos(a) * r, y: h.y - UNIT * 0.4 + Math.sin(a) * r * 0.7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - UNIT, t: 0, life: 0.5 + Math.random() * 0.6, color: 'spore', size: UNIT * (0.06 + Math.random() * 0.08) }); } };
-    if (at(0.1)) { sfx.spores(); say('Hold on tight!', s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (at(0.1)) { sfx.spores(); pipLine('Hold on tight!', { at: [s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3] }); }
     if (c.t < 2.6) swirl(Math.min(5, 1 + Math.floor(c.t * 2)));                             // the spores gather and spin faster
     if (c.t > 0.8 && c.t < 2.6 && Math.random() < 0.12) sfx.spores();   // little mushroom puffs
     state.sporeTint = Math.min(0.85, Math.max(0, (c.t - 0.6) / 2));
@@ -69,18 +61,18 @@ function updateCut(dt) {
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) say('Home! I\'ve never been so happy to see that lean-to.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.3)) pipLine('Home! I\'ve never been so happy to see that lean-to.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(4.5)) pipLine('You were amazing back there. Kettle\'s on. Then sleep.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(4.7)) pipLine('Tomorrow we finish the map. All of it.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
-    if (at(6.2)) say('Z z z...', q.x, q.y - UNIT * 1.2, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff', life: 2.2 });
+    if (at(6.2)) pipLine('Z z z...', { at: [q.x, q.y - UNIT * 1.2], life: 2.2 });
     if (at(7.4)) {                                                                          // morning
       state.dusk = false; state.dawn = state.time; state.hero.vig = maxVig(); setMusic('forest'); setAmbience('none');
       state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
     }
-    if (at(8.4)) say('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(8.6)) say('The gremlins! One of them ran off with it. Every map I ever drew is in there!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(8.8)) say('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(8.4)) pipLine('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(8.6)) pipLine('The gremlins! One of them ran off with it. Every map I ever drew is in there!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(8.8)) pipLine('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
     if (at(9.2)) {
       state.cut = null; state.cam.focus = null; state.sporeTint = 0;
       const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)
@@ -96,7 +88,7 @@ function updateCut(dt) {
     const q = state.pip;
     if (at(2.2)) say('...and THAT\'S why we cannot wait until tomorrow!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
+    if (at(8.4)) pipLine('Grab the lantern by my bed. Come on, come ON!', { at: [q.x, q.y - UNIT * 1.3], life: 2.4 });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }

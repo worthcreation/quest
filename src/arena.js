@@ -110,7 +110,7 @@ function drawArenaBanner() {
   const fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.55)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
   const w = ctx.measureText(label).width + 28, h = fs * 1.9, x = (W - w) / 2, y = 10;
-  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(x, y, w, h, 8); ctx.fill();
   for (let i = 0; i < n; i++) { ctx.fillStyle = i < a.wave || a.phase === 'done' ? '#b8f28a' : i === a.wave ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.fillRect(x + 14 + i * ((w - 28) / n), y + h - 6, (w - 28) / n - 3, 3); }
   ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, y + h / 2 - 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';

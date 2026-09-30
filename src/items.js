@@ -189,7 +189,6 @@ const SEEDS = {
 };
 const SEED_OF = { turnip: 'turnipseed', carrot: 'carrotseed', pepper: 'pepperseed', squash: 'squashseed' };
 const CROP_SEEDS = Object.keys(SEED_OF).map(k => SEED_OF[k]);
-const isSeed = t => !!SEEDS[t];
 // the seed that grows what this place grows (a stray "seed" drop becomes the local one)
 function localSeed(sc) { sc = sc || sceneDef(); return SEED_OF[CROP[sc.area]] || 'turnipseed'; }
 const PAGE_NOTES = [

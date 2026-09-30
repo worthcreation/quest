@@ -25,14 +25,6 @@ function applyRadial(r) {
   else useEntry(opt);
 }
 // tap R: the F slot steps through your weapons
-function cycleEquip() {
-  const ws = slotOptions().filter(e => e.kind === 'weapon' && e.id !== 'acorn');   // tap R: between your blades
-  if (!ws.length) return;
-  const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
-  if (sameEntry(next, f)) return;
-  setSlot('f', next); sfx.tock();
-  const h = state.hero; say(radialLabel(next, 'f'), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
-}
 
 // =====================================================================
 // Abilities: dash, eat, throw, marsh fire. All draw on vigor.

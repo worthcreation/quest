@@ -308,15 +308,6 @@ const STONES = {
   granite: { name: 'Granite', dur: 2, tint: '#8f8a86', inside: [['stone', 1], ['stone', 0.6], ['ironseed', 0.12]] },
   geode: { name: 'Geode', dur: 3, tint: '#7a6a8a', inside: [['emberseed', 0.5], ['starseed', 0.08], ['thornseed', 0.4]] },
 };
-const pickStone = () => { const r = rng(); return r < 0.5 ? 'sandstone' : r < 0.85 ? 'granite' : 'geode'; };
-function stoneRing(sc, c, radU, gapAng = null, gapHalf = 0.5) {
-  const n = Math.ceil(Math.PI * 2 * radU / 0.95);                  // a few smaller rough boulders, not a row of pebbles
-  for (let k = 0; k < n; k++) {
-    const a = k / n * Math.PI * 2;
-    if (gapAng != null && Math.abs(Math.atan2(Math.sin(a - gapAng), Math.cos(a - gapAng))) < gapHalf) continue;
-    sc.solids.push(solid(c[0] + Math.cos(a) * radU * UNIT / W, c[1] + Math.sin(a) * radU * UNIT / H, 0.55, 'wedge', null, { small: true }));
-  }
-}
 function newScene(o) {
   return Object.assign({ claims: [], solids: [], deco: [], spawns: [], pullables: [], exits: [], pools: [], paths: [], feat: {}, npcs: [], initItems: [], speed: 0.5, accel: 10, shade: 0 }, o);
 }
@@ -1194,12 +1185,6 @@ function drawCrystalBug(s) {
 }
 
 // ---------- the view down: the valley far below, the clouds, birds rising from the surface ----------
-function vistaRect(sc) {
-  if (sc.vista === 'e') return [W * 0.74, 0, W, H];
-  if (sc.vista === 'clouds') return [0, 0, W * 0.18, H];
-  if (sc.vista === 'both') return null;
-  return null;
-}
 function drawValleyBelow(x0, y0, w, h, depth) {                   // the land below, close enough to read: treetops, a broad river, fields; it drifts slower than the ledge
   const cx = state.cam ? state.cam.x || W / 2 : W / 2, par = (cx - W / 2) * 0.15, u = UNIT, t = state.time;
   ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
@@ -1910,7 +1895,7 @@ bindHold(document.getElementById('fire'), 'btnfire');
 document.getElementById('menubtn').addEventListener('pointerdown', e => { e.preventDefault(); if (state.started && !state.won) toggleMenu(); });
 const kk = a => !!state.keys[state.settings.keys[a]];
 const held = {
-  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact) || slotWeaponHeld(),
+  act:   () => kk('act') || !!(state.keys.enter || state.keys.btnact),
   jump:  () => kk('jump') || !!state.keys.btnjump,
   swap:  () => kk('swap') || !!state.keys.btnswap,
   dash:  () => kk('dash') || !!state.keys.btndash,
@@ -2511,7 +2496,7 @@ function enterSceneIn(id, fx, fy) {
   if (id === 'gleampool' && !state.inv.tunnel) { state.inv.tunnel = true; state.inv.raft = 3; }
   if (sc.msg && !state.seen[id] && !pipWithYou() && !titled) say(sc.msg, h.x, h.y - UNIT * 0.8, { key: 'scene', life: 3.5 });   // with Pip along, Pip does the talking
   state.seen[id] = true;
-  if (pipWithYou()) placePipNearHero();
+  pipArrive(true);                                   // Pip: beside you, on his post, or out of sight (never popping in where he isn't)
   const bossAlive = id === 'c7' && !rt.bossDead;
   const tense = sc.area === 'woods' && state.inv.pipTaken && !state.inv.sword;
   const night = state.dusk && ['camp', 'tentin', 'start', 'meadow', 'riverbank'].includes(id);   // after camp's set up: twilight around home
@@ -3286,7 +3271,6 @@ const SEEDS = {
 };
 const SEED_OF = { turnip: 'turnipseed', carrot: 'carrotseed', pepper: 'pepperseed', squash: 'squashseed' };
 const CROP_SEEDS = Object.keys(SEED_OF).map(k => SEED_OF[k]);
-const isSeed = t => !!SEEDS[t];
 // the seed that grows what this place grows (a stray "seed" drop becomes the local one)
 function localSeed(sc) { sc = sc || sceneDef(); return SEED_OF[CROP[sc.area]] || 'turnipseed'; }
 const PAGE_NOTES = [
@@ -4246,7 +4230,7 @@ function scareBird(x, y, range) {
   if (lesson && !state.inv.firstBirdSeed) { drop = true; state.inv.firstBirdSeed = true; }
   if (drop) { state.items.push(freeItemSpot({ type: 'turnipseed', x: b.x, y: b.y + UNIT * 1.4 })); spark(b.x, b.y + UNIT, '#c9a86a', 3, 1); }
   else if (lesson && state.pip && state.pip.show && !speakingNow()) {
-    const p = state.pip; say(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 2.6, color: '#bfe4ff' });
+    pipLine(['Doesn\'t always work. Let\'s try again!', 'Nothing that time! Wait for it to come back.', 'Ha, it kept them. Again!', 'So close! The robin always comes back.'][(state.robinMiss = ((state.robinMiss || 0) + 1)) % 4], { life: 2.6 });
   }
 }
 // Pip's garden lesson starts with the robin tucked away in its hollow tree. It won't come out on its own: you learn
@@ -4642,13 +4626,16 @@ const cropOfPlot = (p, sc, i) => { const S = SEEDS[p.seed]; return S && S.crop ?
 const plotStage = p => p.s ? Math.min(3, Math.floor((state.playTime - p.t) * patchOf(p).speed / (SEEDS[p.seed] || SEEDS.turnipseed).grow)) : 0;
 const SPORE_TIME = 90;                               // seconds for a mushroom to grow one spore (holds up to 3)
 // Travel costs spores by distance: 1 spore per 3 screens you'd otherwise walk (at least 1).
+let WORLD_ADJ = { world: null, adj: null };            // which screens touch which, built once per world (screensBetween runs every frame)
 function screensBetween(a, b) {
   if (a === b) return 0;
-  const adj = {};
-  const link = (x, y) => { (adj[x] = adj[x] || new Set()).add(y); (adj[y] = adj[y] || new Set()).add(x); };
-  for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) link(id, ex.to);
-  link('w3', 'c1');                                   // the sinkhole
-  const seen = { [a]: 0 }, q = [a];
+  if (WORLD_ADJ.world !== WORLD) {
+    const adj = {}, link = (x, y) => { (adj[x] = adj[x] || new Set()).add(y); (adj[y] = adj[y] || new Set()).add(x); };
+    for (const [id, sc] of Object.entries(WORLD)) for (const ex of sc.exits) link(id, ex.to);
+    link('w3', 'c1');                                 // the sinkhole
+    WORLD_ADJ = { world: WORLD, adj };
+  }
+  const adj = WORLD_ADJ.adj, seen = { [a]: 0 }, q = [a];
   while (q.length) { const x = q.shift(); for (const y of adj[x] || []) if (seen[y] == null) { seen[y] = seen[x] + 1; if (y === b) return seen[y]; q.push(y); } }
   return 12;
 }
@@ -4941,15 +4928,6 @@ function spawnPages() {
   }
 }
 // once the toad has told you, the rest of his lunch turns up around the marsh
-function spawnBeans() {
-  for (const id of ['m1', 'm2', 'm3']) {
-    const rt = rtFor(id);
-    for (const q of WORLD[id].feat.beanSpots) {
-      if (id === state.scene) state.items.push({ type: 'bean', x: q[0] * W, y: q[1] * H });
-      else rt.items.push({ type: 'bean', fx: q[0], fy: q[1] });
-    }
-  }
-}
 function startTalk(n) {
   const { lines, then } = npcLines(n);
   state.npcTalk = { n, lines, i: -1, then };
@@ -5007,14 +4985,6 @@ function applyRadial(r) {
   else useEntry(opt);
 }
 // tap R: the F slot steps through your weapons
-function cycleEquip() {
-  const ws = slotOptions().filter(e => e.kind === 'weapon' && e.id !== 'acorn');   // tap R: between your blades
-  if (!ws.length) return;
-  const f = slotsOf().f, i = ws.findIndex(e => sameEntry(e, f)), next = ws[(i + 1) % ws.length];
-  if (sameEntry(next, f)) return;
-  setSlot('f', next); sfx.tock();
-  const h = state.hero; say(radialLabel(next, 'f'), h.x, h.y - UNIT * 1.2, { key: 'equip', life: 0.9, color: '#ffe38a' });
-}
 
 // =====================================================================
 // Abilities: dash, eat, throw, marsh fire. All draw on vigor.
@@ -5247,6 +5217,7 @@ function updateGas(dt) {
 }
 // Pip's pace: every move he makes (walking, running, pottering, hopping) at 53% of his old speed (build 116)
 const PIP_PACE = 0.53;
+const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];   // the screens Pip knows: off them, he says the woods are the other way
 // ===== pip.js: Pip: the opening on the jetty, leading and waiting, the garden, reminders, camp talk, gathering guidance, bounces.
 // =====================================================================
 // Cutscenes: intro storm, sword, toad, faint, ending
@@ -5294,7 +5265,7 @@ function updateIntro(dt) {
       p.side = Math.abs(dx) > UNIT * 0.2 ? (dx > 0 ? 1 : -1) : (h.x > p.x ? 1 : -1);
     } else p.side = h.x > p.x ? 1 : -1;
     if (heldText() || state.time - (state.dismissedAt || -9) < 0.35) return;
-    if (c.step < INTRO_LINES.length) { say(INTRO_LINES[c.step], p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); c.step++; }
+    if (c.step < INTRO_LINES.length) { pipLine(INTRO_LINES[c.step], { hold: true }); c.step++; }
     else { c.gone = true; c.t0 = state.time; }
     return;
   }
@@ -5317,24 +5288,58 @@ function pipExit(sc) {                                // where Pip is heading: t
   const inv = state.inv;
   if (!storyAt('tocamp')) return null;                 // practising in the garden
   const goal = tutorialStep() ? tutorialGoal() : storyAt('adventure') ? 'w2' : 'camp';   // the tutorial says where next; after it, the woods
-  if (!goal) return null;
+  return goal ? exitToward(sc, goal) : null;
+}
+function exitToward(sc, goal) {                       // the exit of sc that brings the screen goal closest (null: here, or no way)
   if (sc.id === goal) return null;
   let best = null, bd = screensBetween(sc.id, goal);
   for (const ex of sc.exits) { const d = screensBetween(ex.to, goal); if (d < bd && !(ex.locked && ex.locked())) { bd = d; best = ex; } }
-  return best || null;
+  return best;
 }
 function placePipNearHero() {
   const old = state.pip && state.pip.visit;          // left before Pip got to say it: Pip can say it next time
   if (old && !old.said && state.inv.pipTips) delete state.inv.pipTips[old.key];
   // placed a few steps ahead of you toward where we're going (never behind you, so he never has to run around you)
-  const h = state.hero, sc0 = sceneDef(), ex = sc0 && pipExit(sc0), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [h.x + h.fx * UNIT * 3, h.y + h.fy * UNIT * 3];
+  const h = state.hero, sc0 = sceneDef(), ex = sc0 && pipExit(sc0), [gx, gy] = ex ? exitPoint(ex) : [h.x + h.fx * UNIT * 3, h.y + h.fy * UNIT * 3];
   const ddx = gx - h.x, ddy = gy - h.y, dd = Math.hypot(ddx, ddy) || 1, k0 = Math.min(dd, UNIT * 2.5);
   const bx = h.x + ddx / dd * k0 - ddy / dd * UNIT * 0.9, by = h.y + ddy / dd * k0 + ddx / dd * UNIT * 0.9;
   state.pip = { x: Math.max(UNIT, Math.min(W - UNIT, bx)), y: Math.max(UNIT, Math.min(H - UNIT, by)), show: true, follow: true };
 }
-// Pip's lines. The few that open the game and teach the garden wait for you to read them (PIP_HOLD); everything
+const exitPoint = ex => edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W));   // the middle of an exit, in px
+// Pip's post: the one screen he's on when he isn't beside you. By the garden while that lesson's on; wherever a
+// tutorial step walked him out of sight to (into the lean-to, out of it, on to the glade: state.pipAhead). Null: with you.
+function pipPost() { return state.inv.story === STORY.garden ? 'meadow' : state.pipAhead || null; }
+// Where Pip is on this screen: called by enterScene (fresh: a new screen, so he's placed anew) and every frame by
+// updatePip. He's placed beside you only when this is where he'd be: on his post he stays there (out of sight from
+// any other screen), and if you went a different way from where he led, he comes back in from that way to fetch you
+// after a few seconds (pipBackIn) rather than appearing at your side. Returns whether Pip is here to update.
+function pipArrive(fresh) {
+  const p = state.pip, id = state.scene, post = pipPost();
+  if (state.intro) return false;                     // the jetty: updateIntro has him
+  if (!pipWithYou()) { if (p && p.follow) p.show = false; return false; }
+  if (post === 'meadow' && id !== 'meadow') { if (p) p.show = false; return false; }
+  if (post && post !== id) {
+    if (p) p.show = false;
+    if (fresh || !state.pipSeekT) { state.pipSeekT = state.time; return false; }
+    if (state.time - state.pipSeekT < 4) return false;
+    const sc = sceneDef(), ex = exitToward(sc, post); if (!ex) return false;   // in from the way to where he went
+    const h = state.hero, [gx, gy] = exitPoint(ex), d = Math.hypot(gx - h.x, gy - h.y) || 1;
+    state.pip = { x: gx, y: gy, show: true, follow: true }; pipBackIn(gx, gy, (gx - h.x) / d, (gy - h.y) / d);
+  }
+  state.pipAhead = null; state.pipSeekT = 0;
+  if (post === 'meadow') { if (!p || !p.show || !p.atGarden) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; } return true; }
+  if (fresh || !state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
+  return true;
+}
+// Pip pops back in at the way on (gx, gy: the exit; ux, uy: the way out of it) to hurry you along, and walks in a little
+function pipBackIn(gx, gy, ux, uy) {
+  const p = state.pip, L0 = p.lead || (p.lead = { best: 1e9, idle: 0, n: 0 });
+  L0.phase = 'back'; L0.n++; p.x = gx + ux * UNIT * 0.8; p.y = gy + uy * UNIT * 0.8; p.waitAt = null;
+  pipLine(['Hurry up, slowpoke!', 'Come ON! It\'s this way!', 'Are you coming or not?', 'I\'m not getting any younger!'][(L0.n - 1) % 4], { at: [p.x - ux * UNIT * 2, p.y - uy * UNIT * 2 - UNIT * 1.3] });
+  p.hop = { t: 0, n: 3 };
+}
+// Pip's lines. The opening on the jetty and the few tutorial steps marked hold wait for you to read them; everything
 // else is a light aside that fades on its own, and Pip leaves a good gap between them (PIP_GAP seconds).
-const PIP_HOLD = new Set([]);                        // (the opening on the jetty is the only speech that waits; it isn't a pipSay)
 let PIP_GAP = 8;                                    // (a let so the test harness can shorten it)
 const CROP_ROCKS = [3, 2, 2, 1, 1, 0];                   // rocks back and forth before a crop comes up, by farming level (0 = just F)
 const cropNeed = () => CROP_ROCKS[Math.min(CROP_ROCKS.length - 1, farmLevel())];
@@ -5363,15 +5368,22 @@ function pipRemind(sc, p, h) {
   let line = r.lines[k]; if (line === R.last) line = r.lines[(k + 1) % r.lines.length];
   R.last = line; R.t = state.time; R.n++; state.pipTalkT = state.time;
   if (r.at) p.visit = { x: r.at[0], y: r.at[1], t0: state.time, text: line, key: 'remind', site: { x: r.at[0], y: r.at[1], r: 9 } };
-  else say(line, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
+  else pipLine(line, { size: 0.9 });
+}
+const PIP_COLOR = '#bfe4ff';
+// The one way Pip speaks: a free aside above Pip that fades on its own, or with hold a line that waits for F
+// (key 'npc' so it holds like people's lines). o.at moves it (default: above Pip); life, size and site pass through.
+function pipLine(text, o = {}) {
+  const p = state.pip || state.hero, { at, hold, ...rest } = o, [x, y] = at || [p.x, p.y - UNIT * 1.3];
+  return say(text, x, y, hold ? { key: 'npc', who: 'pip', color: PIP_COLOR, ...rest } : { key: 'pip', color: PIP_COLOR, hold: false, ...rest });
 }
 function pipSay(key, text, at, sight = 7, site = null) {
   const tips = state.inv.pipTips || (state.inv.pipTips = {}), p = state.pip;
-  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < (PIP_HOLD.has(key) ? 2.2 : PIP_GAP) || speakingNow()) return false;
+  if (tips[key] || p.visit || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return false;
   if (at && Math.hypot(state.hero.x - at[0], state.hero.y - at[1]) > UNIT * sight) return false;   // wait until you're near enough to see it
   tips[key] = true; state.pipTalkT = state.time;
   if (at) { p.visit = { x: at[0], y: at[1], t0: state.time, text, key, site: site || { x: at[0], y: at[1], r: 8 } }; return true; }   // go over there first
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site, hold: PIP_HOLD.has(key) ? undefined : false, size: PIP_HOLD.has(key) ? 1 : 0.9 });
+  pipLine(text, { site, size: 0.9 });
   return true;
 }
 // out gathering for the camp: on a screen with camp materials (or off the usual paths), Pip says whether this
@@ -5389,16 +5401,15 @@ function pipGatherTalk(sc, p) {
   if (sc.id === 'camp' || sc.id === 'tentin' || p.visit) return;
   const local = new Set((sc.initItems || []).map(o => o.type).filter(t => t in CAMP_NEED));
   if ((sc.spawns || []).some(o => o.type === 'rabbit')) local.add('fluff');
-  const home = ['start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const miss = campMissing(), left = Object.keys(miss), here = left.filter(k => local.has(k));
-  if (left.length && !local.size && home.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
+  if (left.length && !local.size && PIP_HOME.includes(sc.id)) return;   // nothing to gather here and not lost: nothing to say
   const text = !left.length ? 'That\'s everything! Back to camp.'
     : local.size && !here.length ? `We have what we need from here. Still need ${needWords(miss)}.`
     : `Let's keep looking around. Still need ${needWords(miss)}.`;
   const key = left.length ? sc.id + '|' + text : 'all';        // "everything" is said once, wherever you are
   if (state.pipGatherKey === key || state.time - (state.pipTalkT || -9) < PIP_GAP || speakingNow()) return;
   state.pipGatherKey = key; state.pipTalkT = state.time;
-  say(text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false, size: 0.9 });
+  pipLine(text, { size: 0.9 });
 }
 // Pip's spot beside something: on the side facing you, a step away from it
 function pipBeside(v) {
@@ -5427,7 +5438,7 @@ function tutorialTalk(sc, p, h) {
   const key = 'tut-' + s.id + '|' + (s.key ? s.key() : ''), line = s.say();
   if (!line || tips[key]) return;
   const at = s.spot ? s.spot() : null;
-  if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; say(line, p.x, p.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
+  if (s.hold) { tips[key] = true; if (s.once) tips[s.once] = true; pipLine(line, { hold: true }); if (s.bounce) p.hop = { t: 0, n: 3 }; }
   else {
     state.pipTalkT = -99;                             // tutorial lines don't wait their turn: any small talk showing makes way
     for (const t of state.texts) if ((t.key === 'pip' || t.who === 'pip') && !t.hold && t.t < t.life - 0.35) t.life = t.t + 0.3;
@@ -5451,15 +5462,12 @@ function pipBounce(dt) {
 function updatePip(dt) {
   pipBounce(dt);
   if (state.intro) { updateIntro(dt); return; }
-  if (!pipWithYou()) { if (state.pip && state.pip.follow) state.pip.show = false; return; }
+  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the lean-to, out of camp)
+  if (!pipArrive(false)) return;
   const garden = state.inv.story === STORY.garden;     // Pip went ahead and is waiting by the garden, and stays there
-  if (garden && state.scene !== 'meadow') { if (state.pip) state.pip.show = false; return; }
-  if (garden && (!state.pip || !state.pip.show || !state.pip.atGarden)) { const [gx, gy] = gardenSpot(); state.pip = { x: gx, y: gy, show: true, follow: true, side: -1, atGarden: true }; }
-  if (state.pipGone === state.scene) { if (state.pip) state.pip.show = false; tutorialTalk(sceneDef(), state.pip || {}, state.hero); return; }   // Pip went on ahead (into the tent, out of camp)
-  if (!state.pip || !state.pip.follow || !state.pip.show) placePipNearHero();
   const p = state.pip, h = state.hero, sc = sceneDef(), rt = rtFor(sc.id);
   // lead: stand a couple of steps from you, toward where we're going
-  const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? edgePoint(ex.side, (ex.a + ex.b) / 2).map((v, i) => v * (i ? H : W)) : [W / 2, H / 2];
+  const ex = sc.id === 'w2' ? null : pipExit(sc), [gx, gy] = ex ? exitPoint(ex) : [W / 2, H / 2];
   // Pip leads: out in front along the way to the exit, on one side of your line (his lane), and never loops around you.
   // Already a few steps ahead of you and roughly on the way? He waits there. Fallen behind (you ran past)? He
   // runs up his own side to get in front again.
@@ -5473,8 +5481,7 @@ function updatePip(dt) {
   let tx = waiting ? p.waitAt[0] + pot(1)[0] : h.x + ux * lead - uy * p.lane * UNIT * 0.9, ty = waiting ? p.waitAt[1] + pot(1)[1] : h.y + uy * lead + ux * p.lane * UNIT * 0.9;
   if (garden && !p.visit) { const g = gardenSpot(), o = pot(3); tx = g[0] + o[0]; ty = g[1] + o[1]; }
   const TL = !p.visit && tutorialLead(sc);            // the tour: walk to the door / the flap / the way out, and slip out of sight there
-  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; p.show = false; } }
-  if (!TL && state.tutWait && !p.visit) { const w = state.tutWait; tx = w[0]; ty = w[1]; }   // Pip's post is the garden (a reminder can take him off it)
+  if (TL && TL.at) { [tx, ty] = TL.at; if (TL.hide && Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.7) { state.pipGone = sc.id; state.pipAhead = TL.to; p.show = false; } }
   // Early on, if you don't follow, Pip goes on ahead: after a while he walks right off the screen, then pops back in
   // from that side to hurry you up, and heads off again. Only when there's somewhere to lead you (the way to camp,
   // or the way on while gathering).
@@ -5485,12 +5492,9 @@ function updatePip(dt) {
   else if (!speakingNow()) L0.idle += dt;
   if (early && ex && !p.visit && !garden) {
     const [ox, oy] = [gx + ux * UNIT * 3, gy + uy * UNIT * 3];                         // just past the exit, off the screen
-    if (!L0.phase && L0.idle > 9) { L0.phase = 'going'; say(['I\'ll go on ahead!', 'This way! Come on!', 'Follow me!'][L0.n % 3], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (!L0.phase && L0.idle > 9) { L0.phase = 'going'; pipLine(['I\'ll go on ahead!', 'This way! Come on!', 'Follow me!'][L0.n % 3]); }
     if (L0.phase === 'going') { tx = ox; ty = oy; if (p.x < -UNIT || p.x > W + UNIT || p.y < -UNIT || p.y > H + UNIT) { L0.phase = 'away'; L0.t = state.time; } }
-    if (L0.phase === 'away') { tx = ox; ty = oy; if (state.time - L0.t > 6) {                      // back in to hurry you along
-      L0.phase = 'back'; L0.n++; p.x = gx + ux * UNIT * 0.8; p.y = gy + uy * UNIT * 0.8; p.waitAt = null;
-      say(['Hurry up, slowpoke!', 'Come ON! It\'s this way!', 'Are you coming or not?', 'I\'m not getting any younger!'][(L0.n - 1) % 4], p.x - ux * UNIT * 2, p.y - uy * UNIT * 2 - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff' });
-      p.hop = { t: 0, n: 3 }; } }
+    if (L0.phase === 'away') { tx = ox; ty = oy; if (state.time - L0.t > 6) pipBackIn(gx, gy, ux, uy); }   // back in to hurry you along
     if (L0.phase === 'back') { tx = gx - ux * UNIT * 2.5; ty = gy - uy * UNIT * 2.5; if (Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.6) { L0.phase = null; L0.idle = 0; } }
   }
   const v = p.visit;
@@ -5499,7 +5503,7 @@ function updatePip(dt) {
     const there = Math.hypot(p.x - tx, p.y - ty) < UNIT * 0.9;
     if (!v.said && (there || state.time - v.t0 > 2)) {
       v.said = state.time; v.spot = [p.x, p.y];      // this is where Pip stays
-      say(v.text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', site: v.site, hold: PIP_HOLD.has(v.key) ? undefined : false, size: PIP_HOLD.has(v.key) ? 1 : 0.9 });
+      pipLine(v.text, { site: v.site, size: 0.9 });
       p.side = v.x > p.x ? 1 : -1;
     }
     if (v.said) {
@@ -5508,7 +5512,7 @@ function updatePip(dt) {
       if (close && state.time - v.said > 0.8 && !reading) { p.visit = null; state.pipTalkT = state.time; }   // you came over and read it: carry on together
       else if (v.key === 'remind' && state.time - v.said > 12) p.visit = null;                          // a reminder doesn't wait forever
       else if (!close && state.time - (v.call || v.said) > 7 && !speakingNow()) {                // still waiting: a nudge now and then
-        v.call = state.time; state.pipCalls = (state.pipCalls || 0) + 1; say(['Over here!', 'This way!', 'Come see!', 'Psst! Here!', 'Hey! Over here!'][(state.pipCalls - 1) % 5], p.x, p.y - UNIT * 1.3, { key: 'pip', life: 1.8, color: '#bfe4ff', hold: false });
+        v.call = state.time; state.pipCalls = (state.pipCalls || 0) + 1; pipLine(['Over here!', 'This way!', 'Come see!', 'Psst! Here!', 'Hey! Over here!'][(state.pipCalls - 1) % 5], { life: 1.8 });
       }
     }
   }
@@ -5521,7 +5525,7 @@ function updatePip(dt) {
   }
   if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, p.x, p.y) && p.show) {   // the wind shoves Pip too
     const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
-    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) say(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], p.x, p.y - UNIT * 1.3, { key: 'pip', hold: false, color: '#bfe4ff', size: 0.9 }); }
+    if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) pipLine(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], { size: 0.9 }); }
     if (state.gustPhase !== 'blow') p.windT = 0;
   }
   const offRoad = p.lead && (p.lead.phase === 'going' || p.lead.phase === 'away');
@@ -5529,10 +5533,9 @@ function updatePip(dt) {
   if (garden || (waiting && !p.visit)) p.side = h.x > p.x ? 1 : -1;   // waiting up ahead: looking back at you
   p.stuck = md > UNIT * 0.5 && Math.hypot(p.x - (p.lx ?? p.x), p.y - (p.ly ?? p.y)) < 0.5 ? (p.stuck || 0) + dt : 0; p.lx = p.x; p.ly = p.y;
   if (!p.visit && !garden && !offRoad && (p.stuck > 1.5 || Math.hypot(p.x - h.x, p.y - h.y) > UNIT * 14)) placePipNearHero();   // only if truly stuck or lost: no popping in from nowhere
-  const home = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'rise'];
   const gathering = storyAt('gather') && !campDone();
   if (gathering) pipGatherTalk(sc, p);
-  else if (!home.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
+  else if (!PIP_HOME.includes(sc.id) && !rt.flags.pipOff) { rt.flags.pipOff = true; state.pipTalkT = -9; pipSay('off-' + sc.id, 'The woods are the other way.'); }
   // what Pip explains, once each, as it comes up
   const near = (fx, fy, r) => Math.hypot(h.x - fx * W, h.y - fy * H) < UNIT * r, f = sc.feat, inv = state.inv;
   const P = q => [q[0] * W, q[1] * H], raw = rawOf(), known = inv.known || {};
@@ -5610,14 +5613,14 @@ const TUTORIAL = [
   { id: 'tour-bench', done: () => TUT.noTour() || TUT.followed('tour-bench', TUT.mark('bench')) || campBuilt('bench'), scene: 'camp', spot: () => TUT.mark('bench'),
     say: () => 'And here, a workbench. Two frames of sticks and rabbit glue.' },
   { id: 'tour-tent', done: () => TUT.noTour() || state.scene === 'tentin' || TUT.saidAt('tour-inside') != null, scene: 'camp', spot: () => TUT.door(),
-    say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, after: true },
+    say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, to: 'tentin', after: true },
     remind: () => ['In you come! The flap\'s right here.', 'Come inside!'], remindAt: () => TUT.door() },
   { id: 'tour-inside', done: () => TUT.noTour() || TUT.since('tour-inside') > 7 || state.scene === 'camp' && TUT.saidAt('tour-inside') != null, scene: 'tentin', spot: () => { const b = WORLD.tentin.feat.book; return [b[0] * W, b[1] * H + UNIT]; },
     say: () => 'My book: rules and tips, with drawings. The chest has seeds and acorns. That\'s my bed. Nap there when you\'re worn out.' },
   { id: 'tour-out', done: () => TUT.noTour() || state.scene === 'camp' && TUT.saidAt('tour-out') != null || TUT.saidAt('tour-exit') != null, scene: 'tentin', spot: null,
-    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, after: true } },
+    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, to: 'camp', after: true } },
   { id: 'tour-exit', done: () => TUT.noTour() || state.scene !== 'camp' && TUT.saidAt('tour-exit') != null, scene: 'camp', spot: null, goal: () => 'start',
-    say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, after: true },
+    say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, to: 'start', after: true },
     remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },
   { id: 'sticks', done: () => !campMissing().stick, goal: () => 'start', scene: 'start', spot: () => TUT.nearItem('stick') && [TUT.nearItem('stick').x, TUT.nearItem('stick').y],
     say: () => 'Good sticks. Dry ones burn best. We need a couple.',
@@ -5641,11 +5644,11 @@ const TUTORIAL = [
   { id: 'homebase', done: () => gearOwned().includes('feather'), scene: 'camp', spot: null, hold: true, once: 'campdone', bounce: true,
     say: () => 'Home base! We did it! Here, I found this feather. It\'s for you.' },
 ];
-// where the current step wants Pip to walk (and whether he steps out of sight on arriving), once he's said his line
+// where the current step wants Pip to walk (and whether he steps out of sight on arriving, and to which screen), once he's said his line
 function tutorialLead(sc) {
   const s = tutorialStep(); if (!s || !s.lead || s.lead.scene !== sc.id) return null;
   if (s.lead.after && TUT.saidAt(s.id) == null) return null;
-  return { at: s.lead.at(), hide: s.lead.hide };
+  return { at: s.lead.at(), hide: s.lead.hide, to: s.lead.to };
 }
 function tutorialStep() {
   if (!state.inv || ARENA || PUZZLE || storyAt('adventure')) return null;
@@ -5790,7 +5793,7 @@ function coachUpdate() {
   while (c.i < steps.length && steps[c.i].done()) { c.i++; c.t = state.time; sfx.tock(); c.said = false; }
   if (c.i >= steps.length) { state.coach = null; return; }
   const p = state.pip;                                  // out in the world, Pip says the current step (once), as himself
-  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; say(steps[c.i].text, p.x, p.y - UNIT * 1.3, { key: 'pip', color: '#bfe4ff', hold: false }); flashFor(steps[c.i].text); }
+  if (!state.menu && !c.said && p && p.show && !heldText()) { c.said = true; pipLine(steps[c.i].text); }
 }
 // ===== cutscenes.js: Scripted moments: dusk and the lantern, the abduction, the sword reveal, the toad, the rescue, the ending, the warden talk.
 // in the woods, right before the sword: the gremlins take Pip, and the journal with them
@@ -5802,13 +5805,6 @@ function startAbduct() {
   const hole = sceneDef().feat.hole || [1.02, p.y / H];
   state.gremlins = [0, 1, 2].map(i => ({ x: hole[0] * W, y: hole[1] * H + (i - 1) * UNIT * 0.3, show: true }));
   state.cam.focus = null;                              // no close-up: you're free to run at them
-}
-function startAmbush() {
-  const f = WORLD.start.feat.pip;
-  state.cut = { type: 'ambush', t: 0, step: 0 };
-  state.pip = { x: f[0] * W, y: f[1] * H, show: true, bound: 0 };
-  state.gremlins = [0, 1, 2].map(i => ({ x: W + UNIT * (1 + i), y: f[1] * H + (i - 1) * UNIT * 1.4, show: true }));
-  state.cam.focus = { z: 1.2, at: () => [W * 0.75, f[1] * H] };
 }
 // The blade comes out slowly: the old stump rumbles and cracks, light leaks out of it, the blade rises rust and all
 // with a line of light running up it, and only then is it yours: a leap, rays, the title.
@@ -5833,7 +5829,7 @@ function startRescue() {
   state.cut = { type: 'sporehome', t: 0, step: 0 };
   state.cam.focus = { z: 1.35, at: () => [state.hero.x, state.hero.y] };
 }
-function startEnding() {
+function startEnding() {                             // (not wired yet: chapter 1's close, once the story after the rescue is in; tools/dead.js lists it on purpose)
   state.won = true;
   sfx.victory();
   const h = state.hero;
@@ -5845,12 +5841,11 @@ function updateCut(dt) {
   const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
   if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
   c.t += dt;
-  if (false) {
-  } else if (c.type === 'sporehome') {
+  if (c.type === 'sporehome') {
     const s = state.pip;
     const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.3 + Math.random() * 1.2), sp = UNIT * (3 + Math.random() * 5);   // sparks of spore light that zip away and fizzle out
       state.fx.push({ x: h.x + Math.cos(a) * r, y: h.y - UNIT * 0.4 + Math.sin(a) * r * 0.7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - UNIT, t: 0, life: 0.5 + Math.random() * 0.6, color: 'spore', size: UNIT * (0.06 + Math.random() * 0.08) }); } };
-    if (at(0.1)) { sfx.spores(); say('Hold on tight!', s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff' }); }
+    if (at(0.1)) { sfx.spores(); pipLine('Hold on tight!', { at: [s ? s.x : h.x, (s ? s.y : h.y) - UNIT * 1.3] }); }
     if (c.t < 2.6) swirl(Math.min(5, 1 + Math.floor(c.t * 2)));                             // the spores gather and spin faster
     if (c.t > 0.8 && c.t < 2.6 && Math.random() < 0.12) sfx.spores();   // little mushroom puffs
     state.sporeTint = Math.min(0.85, Math.max(0, (c.t - 0.6) / 2));
@@ -5863,18 +5858,18 @@ function updateCut(dt) {
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) say('Home! I\'ve never been so happy to see that lean-to.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(4.5)) say('You were amazing back there. Kettle\'s on. Then sleep.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(4.7)) say('Tomorrow we finish the map. All of it.', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(4.3)) pipLine('Home! I\'ve never been so happy to see that lean-to.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(4.5)) pipLine('You were amazing back there. Kettle\'s on. Then sleep.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(4.7)) pipLine('Tomorrow we finish the map. All of it.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
-    if (at(6.2)) say('Z z z...', q.x, q.y - UNIT * 1.2, { key: 'pip', who: 'pip', hold: false, color: '#bfe4ff', life: 2.2 });
+    if (at(6.2)) pipLine('Z z z...', { at: [q.x, q.y - UNIT * 1.2], life: 2.2 });
     if (at(7.4)) {                                                                          // morning
       state.dusk = false; state.dawn = state.time; state.hero.vig = maxVig(); setMusic('forest'); setAmbience('none');
       state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
     }
-    if (at(8.4)) say('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(8.6)) say('The gremlins! One of them ran off with it. Every map I ever drew is in there!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
-    if (at(8.8)) say('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', q.x, q.y - UNIT * 1.3, { key: 'npc', who: 'pip', color: '#bfe4ff' });
+    if (at(8.4)) pipLine('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(8.6)) pipLine('The gremlins! One of them ran off with it. Every map I ever drew is in there!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    if (at(8.8)) pipLine('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
     if (at(9.2)) {
       state.cut = null; state.cam.focus = null; state.sporeTint = 0;
       const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)
@@ -5890,7 +5885,7 @@ function updateCut(dt) {
     const q = state.pip;
     if (at(2.2)) say('...and THAT\'S why we cannot wait until tomorrow!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(8.4)) say('Grab the lantern by my bed. Come on, come ON!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.4, who: 'pip', hold: false, color: '#bfe4ff' });
+    if (at(8.4)) pipLine('Grab the lantern by my bed. Come on, come ON!', { at: [q.x, q.y - UNIT * 1.3], life: 2.4 });
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
@@ -6109,7 +6104,6 @@ const SETTINGS_ITEMS = () => [
   ['tips', `Tips: ${state.settings.tips === 'intro' ? 'introductions only' : 'always show'}`],
   ['back', 'Back'],
 ];
-const setIndex = key => SETTINGS_ITEMS().findIndex(o => o[0] === key);
 // ---------------- the pack: tabs of icons, one short line for whatever is selected ----------------
 const PACK_TABS = ['Gear', 'Craft', 'Food', 'Seeds', 'Materials', 'Quests', 'Map', 'Status', 'System'];
 // a tab shows only once there's something behind it
@@ -6465,39 +6459,6 @@ function menuSelect(i) {
 
 // every line of the inventory: [icon, title, detail]
 const FOOD_INFO = new Proxy({}, { get: (_, k) => { const [lo, hi] = foodRange(k), l = cropLevel(k); return `restores ${Math.round(lo * 100)}-${Math.round(hi * 100)}% vigor${k === 'turnip' ? ' over time, sometimes sturdies you' : ''}${l ? ` \u00b7 level ${l}` : ''}${l >= 3 ? ', ' + CROP_PERK[k] : ''}`; } });
-function inventoryLines() {
-  const inv = state.inv, L2 = [];
-  const sec = t => L2.push([null, t, null]);
-  sec('Gear');
-  if (inv.sword) L2.push(['acorn', 'Rusted sword', `${K.act}: slash, or hold and release to stab and lunge. Stab, slash, stab to chain. Three slashes in rhythm start a whirlwind. In the air: slam.`]);
-  if (inv.scalp) L2.push(['scalp', 'Stalker cap', 'Stitched from stalker ears and hide. Things that fall on your head bounce off.']);
-  for (const k of ['step', 'silk', 'horn']) if (inv[k]) L2.push([k, `${RELICS[k].name} ${'I'.repeat(inv[k])}`, RELICS[k].levels.slice(0, inv[k]).join(' ')]);
-  if (inv.fire) L2.push(['fire', 'Marsh fire', `${K.fire}: breathe gas. Standing still, it gathers around you and stays with you when lit. Moving, it trails behind. Let go to spark it.`]);
-  if (inv.tortoise) L2.push(['wisp', 'Tortoise\'s patience', 'Your vigor runs deeper.']);
-  if (L2.length === 1) L2.push([null, '  nothing yet', null]);
-  const foods = {}; inv.food.forEach(f => foods[f] = (foods[f] || 0) + 1);
-  if (Object.keys(foods).length || inv.acorns) {
-    sec('Food and throwables');
-    for (const [f, n] of Object.entries(foods)) L2.push([f, `${f[0].toUpperCase() + f.slice(1)} x${n}`, `${K.eat}: ${FOOD_INFO[f] || 'food'}.`]);
-    if (inv.acorns) L2.push(['acorn', `Acorns x${inv.acorns}`, `${inv.sword ? K.swap + ' to equip, then ' : ''}${K.act} throws; hold longer to throw faster and harder. Slash, pound or throw a rock at trees for more.`]);
-  }
-  const seeds = Object.keys(SEEDS).filter(k => inv.bag[k]);
-  if (seeds.length) { sec('Seeds'); for (const k of seeds) L2.push([k, `${SEEDS[k].name} x${inv.bag[k]}  (${SEEDS[k].rarity})`, SEEDS[k].yields ? `Plant it; it grows ${MATS[SEEDS[k].yields[0]]}.` : `Plant them; ${SEEDS[k].n[0]} to ${SEEDS[k].n[1]} ${CROP_NAME[SEEDS[k].crop].toLowerCase()} grow.`]); }
-  const mats = Object.keys(MATS).filter(k => inv.mats[k]);
-  if (mats.length) { sec('Materials'); for (const k of mats) { const uses = FORGE.filter(f => inv.recipes[f.k] && f.cost.some(c => c[k])).map(f => f.name); L2.push([k, `${MATS[k]} x${inv.mats[k]}`, uses.length ? `Used for: ${uses.join(', ')}.` : 'You haven\'t learned a use for this yet.']); } }
-  sec('Recipes');
-  for (const f of FORGE) {
-    if (inv.recipes[f.k]) L2.push([null, `${f.name}${inv.up[f.k] ? ' ' + 'I'.repeat(inv.up[f.k]) : ''}`, `${f.how} ${inv.up[f.k] >= (f.max || 3) ? 'Complete.' : 'Next: ' + costText(f.cost[inv.up[f.k]]) + '.'} ${f.what}`]);
-    else L2.push([null, '???', `Not yet found. Hint: ${f.from}.`]);
-  }
-  sec('You');
-  L2.push(['wisp', `Vigor ${Math.ceil(state.hero.vig)}/${maxVig()}`, `Depth ${inv.depth}, training ${inv.tlevel}, turnips eaten ${inv.vigBonus}.`]);
-  if (false) L2.push(['page', `The stolen journal`, `The thief is somewhere along ${THIEF_ROUTE.join(', ')}. Pages found: ${state.inv.pages}.`]);
-  L2.push([null, `World seed ${SEED}`, `Open the game with ?overview=${SEED} to see this world as a map.`]);
-  L2.push([null, `Mushrooms found ${Object.keys(inv.shrooms).length}/${Object.keys(SHROOM_NAMES).length}`, Object.keys(inv.shrooms).map(k => SHROOM_NAMES[k]).join(', ') || 'none yet']);
-  if (inv.beans && !inv.fire) L2.push(['bean', `Beans ${inv.beans}/${BEANS}`, 'For the toad\'s lunch.']);
-  return L2;
-}
 // ---------------- the tent chest: move things between your pack and the chest, one at a time ----------------
 function stashList(src) {
   const out = [];
@@ -6624,7 +6585,6 @@ const RECIPES = [
 const OUT_NAME = { woodsword: 'Wooden sword', thornwrap: 'Thorn wrap', emberoil: 'Ember oil', mash: 'Root mash', salad: 'Garden salad', trailmix: 'Trail mix' };
 const outName = r => RAW[r.out] || OUT_NAME[r.out] || (WEAR[r.out] && WEAR[r.out].name) || r.out;
 const recipeKey = r => r.out + (r.kind === 'wear' ? '_w' : '');
-const PIECE_OF = { fire: 'tinder', bench: 'benchframe' };   // (older saves may still hold a whole firering / benchkit: those set down in one go)
 // Camp is built at its marks, a piece at a time: the fire ring takes CAMP_PARTS.fire.stones stones set by hand, then
 // tinder; the bench takes CAMP_PARTS.bench.frames frames. What's been set lives in rtFor('camp').flags.parts.
 const CAMP_PARTS = { fire: { stones: 5, tinder: 1 }, bench: { frames: 2 } };
@@ -6866,7 +6826,6 @@ function campHave() {                                    // raw counted with wha
   const tinder = fire ? 1 : (raw.tinder || 0) + P.tinder, frames = bench ? 2 : Math.min(2, (raw.benchframe || 0) + P.frames);
   return { stone: fire ? 5 : (raw.stone || 0) + P.stones, stick: (raw.stick || 0) + tinder * 2 + frames * 2, fluff: (raw.fluff || 0) + (raw.glue || 0) * 2 + frames * 2 };
 }
-function questState(q) { const qs = state.inv.quests || (state.inv.quests = {}); return qs[q.id] || null; }
 // ===== quests.js: QUESTS, steps, tracking, the quest HUD, the quest log.
 const storyAt = k => (state.inv.story || 0) >= STORY[k];
 // ---------------- the quest log ----------------
@@ -6971,7 +6930,7 @@ function drawQuestHud() {
     const g = r.glow, base = r.done ? r.fade : 1, bh = lh + r.lines.length * lh * 0.9 + pad * 1.4;
     const pop = g > 0 && state.time - r.t < 0.35 ? 1 + 0.06 * Math.sin((state.time - r.t) / 0.35 * Math.PI) : 1;
     ctx.save(); ctx.globalAlpha = base; ctx.translate(right, y + bh / 2); ctx.scale(pop, pop); ctx.translate(-right, -(y + bh / 2));
-    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, y, bw, bh, 7) : ctx.rect(bx, y, bw, bh); ctx.fill();
+    ctx.fillStyle = `rgba(10,8,14,${0.14 + 0.5 * g})`; rounded(bx, y, bw, bh, 7); ctx.fill();
     if (g > 0) { ctx.shadowColor = r.done ? '#b8f28a' : '#ffcf5a'; ctx.shadowBlur = 14 * g; ctx.strokeStyle = r.done ? `rgba(184,242,138,${0.9 * g})` : `rgba(255,207,90,${0.9 * g})`; ctx.lineWidth = 1 + 1.5 * g; ctx.stroke(); ctx.shadowBlur = 0; }
     ctx.globalAlpha = base * (0.38 + 0.62 * g);                        // light and see-through, unless it just happened
     drawItemIcon(r.icon, bx + pad + icon * 0.5, y + bh / 2, icon);
@@ -7165,7 +7124,6 @@ function drawShroomRipples(x, y, u, found, key) {
 const LANE_NAME = { f: 'Blade', d: 'Throw', s: 'Use', a: 'Use' };
 function laneOf(e) { return e.kind === 'weapon' ? (e.id === 'acorn' ? 'd' : 'f') : 's'; }   // food and abilities: S first, then A
 const laneAllows = (k, e) => !e || (k === 'f' ? e.kind === 'weapon' && e.id !== 'acorn' : k === 'd' ? e.kind === 'weapon' && e.id === 'acorn' : e.kind === 'food' || e.kind === 'ability');   // F: blades only, D: throwables, A/S: the rest
-const laneOptions = k => slotOptions().filter(e => (k === 'a' || k === 's') ? laneOf(e) === 's' : laneOf(e) === k);
 const SLOT_KEYS = ['a', 's', 'd'];                       // the three extra keys; F is 'f' and is also the action key
 const ALL_SLOTS = ['a', 's', 'd', 'f'];
 const SLOT_ACTION = { a: 'dash', s: 'eat', d: 'slotd', f: 'act' };
@@ -7245,10 +7203,6 @@ function tidySlots() {
     const order = laneOf(e) === 's' ? ['s', 'a'] : [laneOf(e)];                 // its own keys only: F for blades, D for throws, S then A for the rest
     const k = order.find(j => !sl[j]);
     if (k) { setSlot(k, e); changed = true; }
-    else if (false) {                                                  // its key is taken: it waits in the pack; holding that key picks between them
-      state.tipsSeen.slotsFull = true;
-      sayHero(`Your slots are full. Hold ${K.swap.toUpperCase()} and press a slot key to swap, or use the pack (${K.menu.toUpperCase()}).`, { life: 5, color: '#ffe38a' });
-    }
   }
   syncEquip();
   if (changed) refreshButtons();
@@ -7295,14 +7249,6 @@ function flashFor(text) {
 }
 function useSlot(k) { state.slotLit = state.time; return useEntry(slotsOf()[k]); }
 const slotHeld = id => ALL_SLOTS.some(k => { const s = slotsOf()[k]; return s && s.kind === 'ability' && s.id === id && held[SLOT_ACTION[k]](); });
-// a weapon slotted on A, S or D: holding that key is holding the weapon (the same swing, stab and throw code as F)
-function slotWeaponHeld() { return false; }            // (build 91: F alone swings; the throw key throws)
-function slotWeaponHeldOld() {
-  if (!state.started || state.menu || state.choice || state.radial || state.carry || state.swapT != null || !state.inv) return false;
-  const sl = slotsOf();
-  for (const k of SLOT_KEYS) { const e = sl[k]; if (e && e.kind === 'weapon' && entryCount(e) && held[SLOT_ACTION[k]]()) { state.equip = e.id; state.slotAct = true; return true; } }
-  return false;
-}
 // "put in slot" actions for pack cells
 function slotActs(entry) {
   return ALL_SLOTS.filter(k => laneAllows(k, entry)).map(k => ({ label: sameEntry(slotsOf()[k], entry) ? `In ${slotLabel(k)}` : `Slot ${slotLabel(k)}`, fn: () => setSlot(k, entry) }));
@@ -7870,7 +7816,7 @@ function drawRapidsHud() {
   const r = state.rapids;
   if (!r || state.menu) return;
   const w = Math.min(W * 0.6, 320), h = 30, x = (W - w) / 2, y = 10;
-  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(x, y, w, h, 8); ctx.fill();
   for (let i = 0; i < RAPIDS.planks; i++) { ctx.fillStyle = i < r.planks ? '#c9a46a' : 'rgba(255,255,255,.15)'; ctx.fillRect(x + 10 + i * 16, y + 7, 12, 16); }
   const px = x + 70, pw = w - 84;
   ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px, y + 12, pw, 6);
@@ -8695,16 +8641,9 @@ function drawFalls(open) {
   if (Math.random() < 0.4) state.fx.push({ x: x0 + Math.random() * UNIT, y: Math.random() * H, vx: -UNIT * (1 + Math.random() * 2), vy: (Math.random() - 0.5) * UNIT, t: 0, life: 1.2, color: 'rgba(220,240,255,.5)', size: UNIT * 0.25 });
 }
 
+// a rounded box path (roundRect where the browser has it, a plain rect where it doesn't); fill or stroke after
+function rounded(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 // ---------------- menu ----------------
-const EQUIP = [
-  ['sword', 'Rusted sword', `${K.act}: tap to slash, hold and release to stab and lunge. Stab, slash, stab in rhythm to chain.`],
-  ['scalp', 'Stalker cap', 'Things falling from above bounce off.'],
-  ['step', 'Stalker\'s Step', `${K.dash}: dodge. Last-moment dodges slow time.`],
-  ['horn', 'Charger horn', 'Stabs hit harder and always knock back.'],
-  ['silk', 'Diver silk', 'A sling for your acorns.'],
-  ['fire', 'Marsh fire', `${K.fire}: hold to breathe gas, let go to spark it. Wind scatters it.`],
-  ['tortoise', 'Tortoise\'s patience', 'Your vigor runs deeper.'],
-];
 // tips live here: one at a time, scrolling right to left along the bottom of the menu
 function tipLibrary() {
   const inv = state.inv, t = [
@@ -8733,7 +8672,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 172';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 173';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9603,7 +9542,7 @@ function drawTexts() {
     // whoever is talking.
     ctx.fillStyle = b.panel ? 'rgba(20,16,12,.9)' : speech && !wait ? 'rgba(10,8,14,.5)' : 'rgba(10,8,14,.86)';
     if (speech && !wait) ctx.globalAlpha = a * 0.92;
-    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8) : ctx.rect(b.x, y, b.w, b.h); ctx.fill();
+    rounded(b.x, y, b.w, b.h, t.badge ? b.h / 2 : speech && !wait ? 12 : 8); ctx.fill();
     if (b.panel || t.badge) { ctx.strokeStyle = t.badge ? '#ffe38a' : 'rgba(255,227,138,.5)'; ctx.lineWidth = t.badge ? 2 : 1.5; ctx.stroke(); }
     if (speech && wait) { ctx.strokeStyle = t.color; ctx.lineWidth = 2; ctx.globalAlpha = a * (0.7 + 0.3 * Math.sin(state.time * 3)); ctx.stroke(); ctx.globalAlpha = a; }
     if (speech) {                                                            // the little tail toward the speaker
@@ -9626,7 +9565,7 @@ function drawReadOn(x, y, size) {
   const k = 0.55 + 0.45 * Math.abs(Math.sin(state.time * 3)), lab = TOUCH ? 'tap' : K.act.toUpperCase().slice(0, 5), fs = Math.round(Math.max(10, size * 0.62));
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const w = ctx.measureText(lab).width + fs * 0.9, h = fs * 1.35, bx = x - w * 0.5 - 4, by = y;
-  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx - w / 2, by - h / 2, w, h, h / 2) : ctx.rect(bx - w / 2, by - h / 2, w, h); ctx.fill();
+  ctx.globalAlpha *= k; ctx.fillStyle = '#ffe38a'; rounded(bx - w / 2, by - h / 2, w, h, h / 2); ctx.fill();
   ctx.fillStyle = '#2a1e10'; ctx.fillText(lab, bx, by + 1);
   ctx.restore();
 }
@@ -9681,28 +9620,15 @@ function drawCoach() {
   ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`;
   const B = bannerBelow(), label = 'Pip: ', tw = ctx.measureText(label + s.text).width, dots = steps.length * fs * 0.6, w = Math.min(W - 24, tw + dots + fs * 2.4), h = fs * 2.1, x = (W - w) / 2, y = (B || 8) - (1 - k) * 10;   // under a banner, never over it
   ctx.globalAlpha = 0.6 + 0.4 * k;
-  ctx.fillStyle = 'rgba(12,10,18,.9)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, h / 2) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(12,10,18,.9)'; rounded(x, y, w, h, h / 2); ctx.fill();
   ctx.strokeStyle = `rgba(191,228,255,${0.5 + 0.3 * Math.sin(state.time * 3)})`; ctx.lineWidth = 2; ctx.stroke();
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  ctx.fillStyle = '#bfe4ff'; ctx.fillText(label, x + fs, y + h / 2 + 1);
+  ctx.fillStyle = PIP_COLOR; ctx.fillText(label, x + fs, y + h / 2 + 1);
   ctx.fillStyle = '#fdf6e3'; ctx.fillText(s.text, x + fs + ctx.measureText(label).width, y + h / 2 + 1);
   for (let i = 0; i < steps.length; i++) { ctx.fillStyle = i < c.i ? '#b8f28a' : i === c.i ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.beginPath(); ctx.arc(x + w - fs * 0.9 - (steps.length - 1 - i) * fs * 0.6, y + h / 2, fs * 0.18, 0, 6.28); ctx.fill(); }
   ctx.restore();
 }
 // the bottom-left feed: newest at the bottom, each line fades after a few seconds
-function drawFeed() {
-  const f = state.feed; if (!f || !f.length) return;
-  const fs = Math.round(Math.max(12, Math.min(15, UNIT * 0.4))), lh = fs * 1.45, x = 14; let y = H - 16;
-  ctx.save(); ctx.font = `bold ${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  for (let i = f.length - 1; i >= 0; i--) {
-    const n = f[i]; n.t += 1 / 60; const a = Math.min(1, n.t / 0.2, (4 - n.t) / 0.8); if (a <= 0) { f.splice(i, 1); continue; }
-    const w = ctx.measureText(n.text).width;
-    ctx.globalAlpha = a * 0.55; ctx.fillStyle = '#0c0a10'; ctx.fillRect(x - 6, y - fs - 3, w + 12, fs + 8);
-    ctx.globalAlpha = a; ctx.fillStyle = n.color; ctx.fillText(n.text, x, y);
-    y -= lh;
-  }
-  ctx.restore();
-}
 // top-left, small and faint: which screen you're on and the world's seed, and under it where you stand in the scene
 // (in tiles from its top-left corner), for reporting what you see. Each line switches off under System.
 const placeTag = () => `${state.scene} \u00b7 ${SEED}`;
@@ -9727,7 +9653,7 @@ function drawScroll() {
   ctx.font = HAND(Math.round(fs * 1.15), false); const lines = wrap(S.text, Math.min(W * 0.84, 900)); const lw = Math.max(tw, ...lines.map(l => ctx.measureText(l).width));
   const tH = S.title ? 2.4 : 1.1, w = Math.min(W - 24, Math.max(fs * 11, lw + fs * 3)), h = fs * (tH + lines.length * 1.25 + (S.status ? 1.3 : 0.4)), x = (W - w) / 2, y = H - h - Math.max(18, H * 0.04) + (1 - Math.min(1, S.t / 0.35)) * 12;   // near the bottom edge
   ctx.fillStyle = 'rgba(232,216,176,.72)'; ctx.fillRect(x, y, w, h);                                   // the paper: see-through, but the ink stays readable
-  ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x - 8, yy, w + 16, 10, 5) : ctx.rect(x - 8, yy, w + 16, 10); ctx.fill(); }   // the rolled ends
+  ctx.fillStyle = 'rgba(201,180,138,.8)'; for (const yy of [y - 5, y + h - 5]) { rounded(x - 8, yy, w + 16, 10, 5); ctx.fill(); }   // the rolled ends
   ctx.strokeStyle = 'rgba(90,60,30,.35)'; ctx.lineWidth = 1; ctx.strokeRect(x + 4, y + 6, w - 8, h - 12);
   ctx.textAlign = 'center'; if (S.title) { ctx.fillStyle = '#5a3a1a'; ctx.font = HAND(Math.round(fs * 1.35), true); ctx.fillText(S.title, W / 2, y + fs * 1.9); }
   ctx.fillStyle = '#3e2a1a'; ctx.font = HAND(Math.round(fs * 1.15), false); lines.forEach((l, i) => ctx.fillText(l, W / 2, y + fs * ((S.title ? 3.2 : 1.9) + i * 1.25)));
@@ -9998,22 +9924,6 @@ function drawHUD() {
 }
 
 // Pip's maps: every place you've been, blanks where you haven't, found mushrooms, a pulse where you are
-function drawJournalMap(ox, oy, aw, ah, fs) {
-  const ids = Object.keys(MAP_LAYOUT), cols = 15, rows = 13, cw = aw / cols, chh = ah / rows;
-  const at = id => [ox + MAP_LAYOUT[id][0] * cw + cw * 0.12, oy + MAP_LAYOUT[id][1] * chh + chh * 0.12];
-  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(200,190,170,.35)';
-  for (const id of ids) for (const ex of WORLD[id].exits) if (MAP_LAYOUT[ex.to] && state.seen[id] && state.seen[ex.to]) {
-    const [ax, ay] = at(id), [bx, by] = at(ex.to);
-    ctx.beginPath(); ctx.moveTo(ax + cw * 0.38, ay + chh * 0.38); ctx.lineTo(bx + cw * 0.38, by + chh * 0.38); ctx.stroke();
-  }
-  for (const id of ids) {
-    const [bx, by] = at(id), seen = state.seen[id], here = id === state.scene;
-    ctx.fillStyle = seen ? (REGION_COLOR[WORLD[id].area] || '#888') : 'rgba(255,255,255,.05)';
-    ctx.fillRect(bx, by, cw * 0.76, chh * 0.76);
-    if (here) { ctx.strokeStyle = `rgba(255,227,138,${0.6 + 0.4 * Math.sin(state.time * 6)})`; ctx.lineWidth = 3; ctx.strokeRect(bx - 2, by - 2, cw * 0.76 + 4, chh * 0.76 + 4); }
-    if (seen && WORLD[id].feat.shroom) { ctx.fillStyle = state.inv.shrooms[id] ? '#b48af0' : '#6a5a88'; ctx.beginPath(); ctx.arc(bx + cw * 0.62, by + chh * 0.2, Math.max(3, cw * 0.09), 0, 6.28); ctx.fill(); }
-  }
-}
 // the pack: a row of tabs, a grid of icons, one short line and a few actions for the selected icon
 function drawPack(m, x, y, pw, fs) {
   const hits = state.packHits = [], tab = PACK_TABS[m.tab] || 'Gear';
@@ -10230,8 +10140,8 @@ function drawActionHint() {
   parts.forEach((q, i) => {
     const by = by0 + i * (hgt + gap), cw = kwMax + (q.w - q.kw);
     ctx.globalAlpha = i === 0 ? 1 : 0.85;
-    ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, cw, hgt, hgt / 2) : ctx.rect(bx, by, cw, hgt); ctx.fill();
-    ctx.fillStyle = '#ffe38a'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx + 3, by + 3, kwMax, hgt - 6, (hgt - 6) / 2) : ctx.rect(bx + 3, by + 3, kwMax, hgt - 6); ctx.fill();
+    ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(bx, by, cw, hgt, hgt / 2); ctx.fill();
+    ctx.fillStyle = '#ffe38a'; rounded(bx + 3, by + 3, kwMax, hgt - 6, (hgt - 6) / 2); ctx.fill();
     ctx.textAlign = 'center'; ctx.fillStyle = '#1a1420'; ctx.fillText(q.key, bx + 3 + kwMax / 2, by + hgt / 2 + 1);
     ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'left'; ctx.fillText(q.verb, bx + kwMax + 9, by + hgt / 2 + 1);
   });
@@ -10297,7 +10207,7 @@ function drawBook(m) {
   // how to use the book: one small, plain pill under it, always the same words
   const hint = TOUCH ? 'swipe or tap \u2190 \u2192 to turn   \u00b7   tap F to close' : `\u2190 \u2192  turn pages   \u00b7   ${K.act.toUpperCase()}  close`, hfs = Math.round(Math.max(12, Math.min(15, fs * 0.8)));
   ctx.font = `bold ${hfs}px "Courier New", monospace`; const hw = ctx.measureText(hint).width + hfs * 2, hh = hfs * 1.9, hx = (W - hw) / 2, hy = y + ph + 16;
-  ctx.fillStyle = 'rgba(12,10,16,.85)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(hx, hy, hw, hh, hh / 2) : ctx.rect(hx, hy, hw, hh); ctx.fill();
+  ctx.fillStyle = 'rgba(12,10,16,.85)'; rounded(hx, hy, hw, hh, hh / 2); ctx.fill();
   ctx.strokeStyle = 'rgba(242,230,200,.35)'; ctx.lineWidth = 1; ctx.stroke();
   ctx.fillStyle = '#f2e6c8'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(hint, W / 2, hy + hh / 2 + 1);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -10919,7 +10829,7 @@ function drawArenaBanner() {
   const fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.55)));
   ctx.font = `bold ${fs}px "Courier New", monospace`;
   const w = ctx.measureText(label).width + 28, h = fs * 1.9, x = (W - w) / 2, y = 10;
-  ctx.fillStyle = 'rgba(10,8,14,.82)'; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, 8) : ctx.rect(x, y, w, h); ctx.fill();
+  ctx.fillStyle = 'rgba(10,8,14,.82)'; rounded(x, y, w, h, 8); ctx.fill();
   for (let i = 0; i < n; i++) { ctx.fillStyle = i < a.wave || a.phase === 'done' ? '#b8f28a' : i === a.wave ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.fillRect(x + 14 + i * ((w - 28) / n), y + h - 6, (w - 28) / n - 3, 3); }
   ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, y + h / 2 - 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
