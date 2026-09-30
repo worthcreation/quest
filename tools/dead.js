@@ -1,6 +1,6 @@
 // node tools/dead.js: top-level functions, consts and lets in src/ that nothing else names (src, tests, tools).
 // A hook kept on purpose carries "keep:" in a comment on its definition line and isn't listed. Exits 1 when anything
-// is listed, so tools/ship.sh stops: delete it in the same build (WAYS principle 10) or mark it keep: with a reason.
+// is listed, so tools/ship-local.js stops: delete it in the same build (WAYS principle 10) or mark it keep: with a reason.
 // tools/audit.js reuses unused() for its report.
 const fs = require('fs'), path = require('path');
 const root = path.join(__dirname, '..');

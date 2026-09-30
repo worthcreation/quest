@@ -1,27 +1,43 @@
-# Quest: handoff (build 175, 30 Sep 2026)
+# Quest: handoff (build 177, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
-QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
+QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
+
+## Two ways to work, one ship script
+- Claude Code (Ross's PC, the clone at ~\quest): edit, test, `node tools/ship-local.js NN "..."`; Ross reviews the
+  diff and runs the printed commit line.
+- Chat (the Linux container): `git clone https://github.com/worthcreation/quest.git` into /home/claude, `node
+  tools/build.js`, read Next task, work, `node tools/ship-local.js NN "..." --zip`, deliver
+  /mnt/user-data/outputs/quest-bNN.zip as a download. Ross unzips it into ~\quest and pushes (the printed line does
+  both); then the chat's clone resets to origin/main (`git fetch; git reset --hard origin/main`) before more work.
+- One writer at a time. After a push from either side, the other pulls (`git pull`) or resets before starting.
+- Neither side ever commits or pushes: Ross does.
 
 ## Build, test, ship
-- Build: `sh build.sh` concatenates src/head.html and the files in src/ORDER into index.html, then checks the script
-  parses (fails the build if not). BUILD number: `const BUILD` in src/draw.js (shown bottom-right in game).
+- Build: `node tools/build.js` (`sh build.sh` runs it too) concatenates src/head.html and the files in src/ORDER into
+  index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
+  `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 65 tests, about 2 minutes (one core: they run one after another), one call. Each prints `errs N`; 0 is a pass
-  (robin-drop prints none and passes).
-  `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
-- Ship: `sh tools/ship.sh NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists an
-  unused top-level name (delete it, or mark it `// keep: <reason>`), runs every test and the overlap check,
-  packages /mnt/user-data/outputs/quest-bNN.zip only if all pass, and prints the ship line and links (tools/links.js).
+  seed 1000003, TEST_MODE on). 65 tests, one after another: about 23 s on Ross's PC,
+  about 2 minutes in the chat container. Each prints `errs N`; 0 is a pass
+  (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
+  `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
+- Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
+  an unused top-level name (delete it, or mark it `// keep: <reason>`), runs every test and the overlap check, stopping
+  at the first failure, then prints the commit line and links (tools/links.js --local). With `--zip` (chat container
+  only; it needs the zip command, so it can't run on Windows) it then packages /mnt/user-data/outputs/quest-bNN.zip
+  (older ones removed) and prints the zip form of the line (tools/links.js without --local).
+- Claude never commits or pushes. Ross reviews and runs the printed line (Windows PowerShell, shown in a
+  ```powershell block): `cd ~\quest -ErrorAction Stop; git add -A; git commit -m "Build NN: ..."; git push`. The zip
+  form puts `Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip;` before git add.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
   handoff updates docs/audit-baseline.json. Last run (build 175): audit: 10914 lines, 0 unused, 4 functions over 150,
   5 repeats, 162 state fields, frames avg 0.55 ms (2 slow, 0 errors). Frame times swing with
-  container load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
-- Model: the first line of every chat's first reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops there.
-- Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
-  mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots: the way in, along it, the way out; plus the tiles;
-  SW=390 SH=844 for a phone).
-- Ship (Windows PowerShell, shown in a ```powershell block): one download quest-bNN.zip laid out like the repo root, then
-  `cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push`
+  machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
+- Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until /model switches.
+- Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp
+  (on Windows node that's C:\tmp, which must exist). MOCK4=1 is the mountainside still (it and tools/render.js still
+  write to /mnt/user-data/outputs, a container path: repoint before use); B139/B150/B154 are the climb screens; B165 is
+  the rise (seven spots: the way in, along it, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
   shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
@@ -66,8 +82,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
-docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: ship.sh, links.js,
-shot.js, overlap.js.
+docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: build.js, ship-local.js,
+links.js, dead.js, audit.js, shot.js, overlap.js.
 
 ## World layout (MAP_LAYOUT, x across, y down)
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
@@ -134,17 +150,12 @@ bump them, f2's two island pickups (a stick or an acorn each), which the rise do
 seams: the rise's way in is at its far west and its way out at its far east, while f1's south opening and f3's north
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
-## Next task (on FABLE: WAYS 7a)
-The MONSTERS table, no change in play. Today one monster lives in up to eight places across four files: the
-makeEnemy switch, AI and TOUCHES (critters.js), SMALL (combat.js), special cases in damage() and kill() (warden
-enrage, diver/lurker stun, thief journal, warden passage), the drawEnemy and drawEnemyEyes switches and dropFor
-(draw-ui.js, items), plus hawk and mantis on their own path (makeHighCritter, drawHawk, drawMantis in highlands.js).
-Make one MONSTERS entry per type holding stats, ai, touches, small, draw, eyes, drop and optional onHit/onKill hooks;
-makeEnemy, updateEnemies, damage, kill and drawEnemy read the entry; hawk and mantis join it. Adding a monster
-becomes one entry. Proof: the whole suite passes unchanged (combat-rhythm, combat-crops, woods, woods-gremlins,
-rabbits, arena, high-reaches, scene-smoke cover every type), dead.js 0, and the audit's longest-function list loses
-drawEnemy. Same build: a hero-note helper for the audit's top repeat, say(text, h.x, h.y - UNIT * n, {...}), 25
-times in 8 files.
+## Next task (on Opus: WAYS 7a)
+The hawk timer, waiting on Ross's say. Found in build 176 and kept as it plays: the hawk counts its timer down
+twice a frame (once in updateEnemies, once in its own ai in MONSTERS.hawk). Fixing it halves the timer's speed, so
+its circle and dive get slower and the High Reaches play differently. Options: fix it and halve the hawk's timer
+values so it plays the same, fix it and let it slow down, or keep it and note it in MONSTERS.hawk. Don't change it
+until Ross picks. Proof for any choice: high-reaches, scene-smoke and arena pass.
 
 Cleanup list (from the audit, each its own build when its area is next touched): genWorld 533 lines (split by region,
 but after the climb decision), drawSolid 216, drawItemIcon 203, updateCut 163; 162 state fields with no owner map.
@@ -153,7 +164,3 @@ The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being
 yet). When he's ready (FABLE): which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Don't touch the climb unasked.
-
-## Working from Cowork
-The container never commits or pushes: Ross ships each zip from his PC. After he pushes, `git fetch` and
-`git reset --hard origin/main` so the clone matches main. Deliver the zip as a download (not a preview).

@@ -1,6 +1,23 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 178: two ways to work, one ship script
+- tools/ship-local.js --zip (chat container only; needs zip, fails clearly without it, before touching anything):
+  after every check passes, packages /mnt/user-data/outputs/quest-bNN.zip (older ones removed) and prints the
+  unzip-then-commit line (tools/links.js without --local). Without --zip, as before.
+- HANDOFF, WAYS (3, 6, 8), PROJECT_INSTRUCTIONS and CLAUDE.md describe both routes (Claude Code in ~\quest; chat
+  clones into /home/claude, ships --zip, resets to origin/main after Ross pushes), one writer at a time, never commit
+  or push. Suite time: about 23 s on Ross's PC, about 2 minutes in the container.
+- .gitattributes (* text=auto eol=lf); .claude/settings.json makes git commit and git push always ask.
+
+## Build 177: Claude Code on Ross's PC is the way to work
+- tools/build.js builds index.html (byte-identical to sh build.sh's output); build.sh now just runs it.
+- tools/ship-local.js: bump, build, dead.js, every test, overlap, stopping at the first failure; prints the commit
+  line and links (tools/links.js --local). No zip. tools/ship.sh (container only) retired.
+- tests/run.js runs each test from the OS temp folder (was /tmp, which Windows node doesn't have).
+- HANDOFF, WAYS (sections 3, 5, 6, 7a, 8), PROJECT_INSTRUCTIONS and a new CLAUDE.md rewritten for Claude Code: no
+  container, no zip, never commit or push, /model to switch to Fable. Next task: the hawk timer decision.
+
 ## Build 176: the MONSTERS table, heroNote
 - MONSTERS (top of critters.js): one entry per kind holding stats, ai, touches, hittable, resume, afterHit, onHit,
   onKill, onParry, parryStun, drop, draw, eyes, small and a few flags (boss, water, rooted, flies, slips, airborne,
