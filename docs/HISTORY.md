@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 174: the audit tool, and when to use Fable
+- node tools/audit.js: unused names, size, longest functions, repeated statement shapes, per-screen frame cost, each
+  against docs/audit-baseline.json (--save at a handoff). About 6 s. First baseline: 10914 lines, 0 unused, 4
+  functions over 150 lines, 5 repeats, 162 state fields, frames avg 1.0 ms, 4 screens over 2 ms, 0 errors.
+- tools/ship.sh now stops if tools/dead.js lists an unused top-level name; hooks on purpose carry // keep: (startEnding).
+- WAYS 5 rewritten around the tool; WAYS 7a and PROJECT_INSTRUCTIONS: which model, FABLE or Opus, stated in the
+  first line of every chat, and a hard stop when a Fable task is on Opus.
+
 ## Build 173: Pip stays put, and a redundancy pass
 - Pip no longer pops in beside you on a screen he isn't on. enterScene placed him near you whenever he was "with you",
   ignoring his post (by the garden; ahead in the lean-to or out to the glade during the tour) and forgot the tour's

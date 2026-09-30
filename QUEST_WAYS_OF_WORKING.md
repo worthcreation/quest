@@ -66,15 +66,24 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   [rise]. Its solids are the collision; nothing else tests an edge there.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
-## 5. Audit (grep for callers, build 162; since build 173 `node tools/dead.js` lists unreferenced top-level names: want only startEnding)
-- Done in build 162: hopToStone, drawVane, drawWindPath, plate()/logGate()/updatePlates/plateOn, camp.feat.pip, the
-  fiber/cloth/cord/stake/tentkit icons, seedSlotKey/seedSlotKeyOld, drawArenaSigns, the inline plant block, the
-  "tent" lines, ZIG3/ZIG4. src/pip.js and src/puzzles.js were restored (build 161 deleted them by accident).
-- Still to decide with the climb: the crag() painter inside paintClimb and climbBand fixed at 12 (ledge closures off
-  while testing). Keep ZIG1/zig() until the climb design settles.
+## 5. Audit
+- `node tools/audit.js` is the report card: unused names, size (lines per file, lines over 200 characters, distinct
+  state.* fields), the longest functions (over 150 lines flagged), statement shapes written 5+ times (a helper
+  waiting to happen), and update plus draw cost per screen in the harness (over 2 ms flagged, errors listed). About
+  6 seconds. It compares against docs/audit-baseline.json.
+- Run it at the start of a cleanup chat and at every handoff; not every build. At a handoff: `node tools/audit.js
+  --save`, and copy its last line (the summary) into HANDOFF.md.
+- It informs; it doesn't block. Only `node tools/dead.js` stops a ship (tools/ship.sh runs it right after the build):
+  a top-level name nothing references is deleted in the same build, or marked `// keep: <reason>` on its definition
+  line if it's a hook on purpose (startEnding is).
+- What it flags goes on HANDOFF's cleanup list and gets its own build, separate from feature builds. The fix for a
+  flagged function is to split it the next time a feature touches it, unless Ross asks for a cleanup build.
+- Baseline (build 174): 10914 lines, 0 unused, 4 functions over 150 (genWorld 533, drawSolid 216, drawItemIcon 203,
+  updateCut 163), 5 repeats (top: a note above the hero, say(..., h.x, h.y - UNIT * n, ...), 25 times in 8 files),
+  162 state fields, frames avg 1.0 ms, 4 over 2 ms (rise, climb3, climb4, f5), 0 errors.
 - Watch for: the ship command's Remove-Item globs; p*.js also matched pip.js and puzzles.js. Never glob-delete in src/.
-- No longer true: "bump BUILD in p7.js" (src/draw.js); "t21...t65 sweep" (tests are named by topic now, run all
-  with tests/run.js); "state.settings.autoTalk" (gone; tests press F through held lines); "drawHUD owns the top strip".
+- Still to decide with the climb: the crag() painter inside paintClimb and climbBand fixed at 12. Keep ZIG1/zig()
+  until the climb design settles.
 
 ## 6. Definition of done
 - `sh tools/ship.sh` finished: build parses, every test passes, 0 overlaps, zip packaged, BUILD bumped.
@@ -88,6 +97,24 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 Say what the player should see and feel, and the rule. Batch related changes into one build. For visuals: one
 reference image plus a few words; "render a still" gets a mockup, no build. If a chat compacts, say so. Start a
 fresh chat every 5 or 6 builds or when the topic changes: long chats are slower, and HANDOFF carries everything.
+
+## 7a. Which model: FABLE or Opus (enforce this, every chat)
+Claude says which model the task needs IN THE FIRST LINE OF ITS FIRST REPLY, before any work, and again the moment a
+task changes size mid-chat. When the answer is Fable and the chat is on Opus, Claude STOPS and says so plainly:
+"Switch to Fable for this: <reason>. Start a fresh chat on Fable and paste the task." It does not start the work on
+the wrong model to be helpful, and it does not soften it to a suggestion.
+
+USE FABLE when any of these is true:
+- the plan changes more than about four files in ways that depend on each other;
+- it's a refactor with no change in play across a system (splitting genWorld by region, a MONSTERS table if it
+  also reshapes combat or drawing, mapping or moving who owns which state.* fields);
+- it joins or restructures parts of the world (the climb into the world, retiring f3 to f6, a new region);
+- it designs a new system from nothing (a new mechanic, a new menu, a save format);
+- an audit shows problems spread across many files and the job is deciding what to do about them;
+- two tries on Opus haven't fixed a bug, or the cause spans several systems.
+STAY ON OPUS for: one feature in one or two files, tuning numbers, a bug with a known cause, running the audit,
+mechanical moves (dead code, a helper replacing repeats), docs and handoffs, mockups.
+If unsure, Fable. Fable's extra safeguards cover biology, cybersecurity and AI research; none of that touches this game.
 
 ## 8. Handoff between chats
 1. Each build: one download, quest-bNN.zip, laid out like the repo root. Ship (Windows PowerShell, in a ```powershell

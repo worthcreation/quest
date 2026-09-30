@@ -32,7 +32,7 @@ function startRescue() {
   state.cut = { type: 'sporehome', t: 0, step: 0 };
   state.cam.focus = { z: 1.35, at: () => [state.hero.x, state.hero.y] };
 }
-function startEnding() {                             // (not wired yet: chapter 1's close, once the story after the rescue is in; tools/dead.js lists it on purpose)
+function startEnding() {                             // keep: chapter 1's close, wired once the story after the rescue is in
   state.won = true;
   sfx.victory();
   const h = state.hero;
