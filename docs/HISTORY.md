@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 187: state literal beside resetRun (state-owners move 2)
+- The state literal, baseVig, newHero, newInv, newPull and maxVig moved from world.js to engine.js, just above
+  resetRun; world.js keeps `var state;` (refreshK reads it at load). startIntro no longer zeroes night and rain
+  (resetRun always has). All 65 test outputs identical to build 186's; draw-record hash identical (5843 calls).
+- Found, not fixed: fireLit is unset after loading a save in a fresh session, so the campfire gives no night light.
+  Item 11 in docs/state-owners.md.
+
 ## Build 186: dead state fields gone (state-owners move 1)
 - Deleted state.active (5 writes, never read), enterT, frameDt, and clouds2 (only ever set to 0; its two reads in
   drawSky went with it). tutStep marked keep (read by tests). tests/rocks-banners.js: state.qT was a stale name,

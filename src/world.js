@@ -17,7 +17,7 @@ function refreshK() {
   if (TOUCH) Object.assign(K, { act: 'A', jump: 'jump', swap: 'swap', dash: 'dodge', eat: 'eat', slotd: 'D', fire: 'fire', menu: 'menu', l: '\u25C0', r: '\u25B6', u: '\u25B2' });
   else { const m = (state && state.settings && state.settings.keys) || DEFAULT_KEYS; for (const a in DEFAULT_KEYS) K[a] = keyName(m[a]); K.l = K.left; K.r = K.right; K.u = K.up; }
 }
-var state;
+var state;                                           // declared here (refreshK reads it at load); built in engine.js beside resetRun
 refreshK();
 document.getElementById('startHint').textContent = TOUCH ? 'd-pad to move, A to act' : 'arrow keys to move, F to act, Space to jump, M for menu';
 let W = window.innerWidth, H = window.innerHeight, UNIT = 32, DPR = window.devicePixelRatio || 1;
@@ -812,30 +812,6 @@ function rtFor(id) {
 }
 const broken = (id, bar) => !!(RT[id] && RT[id].flags[bar]);
 
-// vigor grows geometrically with depth (relics, the tortoise) and a little with training
-const baseVig = depth => Math.round(8 * Math.pow(1.5, depth));
-function newHero() { return { x: W * 0.5, y: H * 0.5, vx: 0, vy: 0, z: 0, stun: 0, invuln: 0, hurtT: -9, fx: 0, fy: 1, side: 1, vig: 8, rest: 0, dashT: 0, dashCool: 0, ride: null, falling: 0, safe: null }; }
-// step, silk, horn are levelled relics (0 = not found, up to 3)
-// seeds: vegetable seeds (turnip, carrot, pepper, squash) grow that vegetable; rarer seeds grow crafting materials
-function newInv() { return { story: 0, chest: { bag: { turnipseed: 2 }, acorns: 3 }, chestStocked: true, raw: {}, known: {}, craftSlots: 3, pipTaken: false, pipTips: {}, favFood: null, favSeed: null, journal: 0, thiefAt: 0, pages: 0, raft: 0, rod: false, tunnel: false, fishBuff: 0, spores: 0, sporeAt: {}, pipSaved: false, recipes: {}, shrooms: {}, bag: { turnipseed: 0, carrotseed: 0, pepperseed: 0, squashseed: 0, thornseed: 0, emberseed: 0, ironseed: 0, starseed: 0 }, mats: { thorn: 0, ember: 0, ironwood: 0, starpetal: 0, ear: 0, hide: 0, driftwood: 0 }, up: { edge: 0, temper: 0, guard: 0, pouch: 0, star: 0, cap: 0 }, vigBonus: 0, xp: 0, tlevel: 0, sword: false, scalp: false, step: 0, silk: 0, horn: 0, fire: false, food: [], acorns: 0, seeds: 0, beans: 0, lumin: 0, slime: 0, pepper: 0, depth: 0, tortoise: false, skill: {}, quests: {}, qlog: [], harvests: 0 }; }
-function newPull(id) { return { id, grip: false, wiggle: 0, lastSide: 0, tilt: 0, tries: 0, hinted: false }; }
-const maxVig = () => Math.round((baseVig(state.inv.depth + state.inv.tlevel * 0.25 + (state.inv.up.star ? 1 : 0)) + state.inv.vigBonus) * (state.inv.fishBuff > 0 ? 1.3 : 1));
-
-state = {
-  scene: 'camp', hero: null, inv: newInv(), pull: newPull(null),
-  enemies: [], items: [], hazards: [], rings: [], fx: [], texts: [], solids: [], pools: [], shots: [], gas: [],
-  drops: [], splashes: [], dripTimer: 1, bird: null, clouds: [], gust: 0, gustT: 0, gustIdx: 0, gustPhase: 'lull',
-  atk: null, atkCool: 0, hold: { on: false, t: 0, charged: false }, aim: { on: false, t: 0 }, fireHold: { on: false, emit: 0 }, spark: null,
-  carry: null, combo: { step: null, t: -9, level: 0 }, treeCool: {}, treeShake: {}, stalCool: {}, flock: [], blind: 0, slowmo: 0,
-  cut: null, title: null, menu: null, npcTalk: null,
-  night: 0, rain: 0, flash: 0, playTime: 0,
-  cam: { z: 1, x: 0, y: 0, focus: null, pulses: [], ez: 1, ex: 0, ey: 0 },
-  started: false, won: false, busy: false, fade: 0, fadeTarget: 0, fadeRate: 4,
-  shake: 0, time: 0, keys: {}, prevKeys: {}, entry: null, area: null, seen: {}, tipsSeen: {},
-  settings: { tips: 'intro', keys: { ...DEFAULT_KEYS } }, remap: null, slam: false, equip: 'sword',
-  choice: null, whirl: null, chain: { n: 0, t: -9 }, fish: null, fishCool: {},
-};
-state.hero = newHero();
 
 
 // =====================================================================

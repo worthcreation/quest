@@ -6,7 +6,7 @@ const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'ris
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
-  state.night = 0; state.rain = 0; state.fireLit = 1;
+  state.fireLit = 1;                                  // night and rain are already 0: resetRun always runs first
   rtFor('camp').flags.built_tent = true;               // Pip already pitched the tent at the camp spot
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());

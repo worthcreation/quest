@@ -240,17 +240,18 @@ tqDone is tests/speech.js's own quest flag). 140 have one clear owner and at mos
 | inv | mutated by 15 files (engine 5, critters 6, pip 5, interact 4, cutscenes 4, tutorial 2, menu 2, draw-ui 2, save 2, climb 2, quests, gear, craft, highlands, items); read by 24 | shared by design: it is the save. newInv lives in world.js with the state literal |
 
 ## Where the literal lives
-`state = { ... }`, newHero, newInv, newPull and maxVig sit in world.js (lines 816 to 837), a file that otherwise only
-reads state in renderOverview. resetRun, which rebuilds them, is in engine.js. The declaration and the reset are
-two halves of one thing in two files.
+Build 185: `state = { ... }`, newHero, newInv, newPull and maxVig sat in world.js, away from resetRun in engine.js.
+Since build 187 they sit just above resetRun; world.js keeps `var state;` because refreshK reads it at load.
 
 ## Proposed moves (Ross picks; one build each, no change in play, suite diffed before and after as WAYS 5 says)
 Struck through with the build number as each ships. Rows above still describe build 185.
 1. ~~Delete the dead fields: `active` (5 writes), `enterT`, `frameDt`, `clouds2` (its write and draw's two reads).
    Mark `tutStep` `// keep: read by tests`. Fix tests/rocks-banners.js `state.qT` to `state.questT`.~~ Done, build 186
    (158 fields).
-2. Move the state literal, newHero, newInv, newPull, maxVig from world.js to the top of engine.js beside resetRun,
-   and fold startIntro's `night = 0; rain = 0; fireLit = 1` into resetRun. world.js keeps only `var state`.
+2. ~~Move the state literal, newHero, newInv, newPull, maxVig from world.js to the top of engine.js beside resetRun,
+   and fold startIntro's `night = 0; rain = 0; fireLit = 1` into resetRun. world.js keeps only `var state`.~~ Done,
+   build 187: the block sits just above resetRun; startIntro's night and rain went (resetRun already zeroes them).
+   fireLit stayed in startIntro: moving it changes play (see 11).
 3. Move the slowmo countdown from loop() (draw-ui.js) into update() (engine.js), where every other timer runs.
 4. One `setEquip(id)` in gear.js; the six direct `state.equip = ...` call it (goes with 1, since `active` sits on the
    same lines).
@@ -265,3 +266,7 @@ Struck through with the build number as each ships. Rows above still describe bu
    calls; interact's five menu literals go through openView.
 10. Leave alone: cam (the camera update in input.js is a bigger question than a field; revisit if input.js is ever
     split), grab (part of the parked hawk work), inv, hero, fx, shake and flash (shared by design).
+11. Found in build 187, a play change for Ross to decide: `state.fireLit` is set only by startIntro and by building
+    the fire, and draw.js gives the campfire its night glow only `if (state.fireLit)`. Load a save in a fresh session
+    and it is undefined: the flame draws but gives no light at night. Fix: set it in resetRun (one line, and the one
+    in startIntro goes). Opus.
