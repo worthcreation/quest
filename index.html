@@ -5876,12 +5876,10 @@ function startEnding() {                             // keep: chapter 1's close,
   zoomPulse(h.x, h.y, 'boss');
   showTitle('To be continued', TOUCH ? 'tap to begin a new adventure' : 'press R to begin a new adventure', 'end', 9999);
 }
-function updateCut(dt) {
-  const c = state.cut, h = state.hero;
-  const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
-  if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
-  c.t += dt;
-  if (c.type === 'sporehome') {
+// Each cutscene's steps, read by updateCut: steps(c, dt, h, at) with c the scene (c.t its clock), h the hero and
+// at(t) true once when the clock passes t. A scene ends itself by clearing state.cut.
+const CUT_STEPS = {
+  sporehome(c, dt, h, at) {
     const s = state.pip;
     const swirl = n => { for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, r = UNIT * (0.3 + Math.random() * 1.2), sp = UNIT * (3 + Math.random() * 5);   // sparks of spore light that zip away and fizzle out
       state.fx.push({ x: h.x + Math.cos(a) * r, y: h.y - UNIT * 0.4 + Math.sin(a) * r * 0.7, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7 - UNIT, t: 0, life: 0.5 + Math.random() * 0.6, color: 'spore', size: UNIT * (0.06 + Math.random() * 0.08) }); } };
@@ -5915,7 +5913,9 @@ function updateCut(dt) {
       const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)
       showScroll('Morning', 'The world is your oyster. Explore, and keep filling in Pip\'s map.');
     }
-  } else if (c.type === 'dusk') {                       // later that day: twilight in the lean-to, and Pip can't sit still
+  },
+  // later that day: twilight in the lean-to, and Pip can't sit still
+  dusk(c, dt, h, at) {
     const p = state.pip;
     if (at(0.1)) { state.fadeTarget = 1; state.fadeRate = 3; }
     if (at(1.2)) {
@@ -5929,7 +5929,10 @@ function updateCut(dt) {
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
     // (the lantern has been by the bed all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
-  } else if (c.type === 'abduct') {                    // an ambush: they burst out of the woods ahead, grab Pip and run east, deeper into the dark. You can run at them the whole time; they hop clear at the last moment, every time
+  },
+  // an ambush: they burst out of the woods ahead, grab Pip and run east, deeper into the dark. You can run at them
+  // the whole time; they hop clear at the last moment, every time
+  abduct(c, dt, h, at) {
     const p = state.pip, gs = state.gremlins;
     const hole = sceneDef().feat.hole || [1.02, p.y / H], hx = hole[0] * W, hy = hole[1] * H;
     { const v = inputVector(), sp = L() * sceneDef().speed * dt;           // your legs still work
@@ -5965,22 +5968,8 @@ function updateCut(dt) {
       state.inv.pipTaken = true;
       heroNote('They ran off with Pip, deeper into the dark! After them!', 1.2, { key: 'npc', life: 3.5 });
     }
-  } else if (c.type === 'ambush') {
-    const p = state.pip, gs = state.gremlins, rt = rtFor('start');
-    if (at(0.4)) say('Come on, slowpoke! The woods are right...', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2 });
-    if (c.t > 2 && c.t < 3) gs.forEach((g, i) => { g.x += (p.x + (i - 1) * UNIT * 0.8 - g.x) * (1 - Math.exp(-6 * dt)); g.y += (p.y + (i - 1) * UNIT * 0.6 - g.y) * (1 - Math.exp(-6 * dt)); });
-    if (at(1.6)) setMusic('sinister');
-    if (at(2.1)) { sfx.cackle(); state.shake = 0.3; }
-    if (at(2.8)) { p.bound = 1; sfx.rustle(); say('Hey! Let go! HELP! That\'s my journal!', p.x, p.y - UNIT * 1.3, { key: 'npc', life: 2.2 }); zoomPulse(p.x, p.y, 'parry'); gs[1].book = true; }
-    if (c.t > 3.8 && c.t < 5.5) { p.x += UNIT * 5 * dt; gs.forEach((g, i) => { if (i < 2) g.x += UNIT * 5 * dt; }); }
-    if (c.t > 4.2 && c.t < 5.4) { const g = gs[2]; g.x += (W * 0.95 - g.x) * (1 - Math.exp(-4 * dt)); }
-    if (at(5.5)) { rt.flags.ambush = true; refreshSceneGeometry(); sfx.crash(); state.shake = 0.4; zoomPulse(W * 0.95, H * 0.5, 'kill'); sfx.cackle(); }
-    if (c.t > 5.5) gs[2].x += UNIT * 6 * dt;
-    if (at(7)) {
-      p.show = false; state.gremlins = null; state.cam.focus = null; state.cut = null;
-      heroNote('The gremlins piled thorns behind Pip. You need a way through.', 1.2, { key: 'npc', life: 4 });
-    }
-  } else if (c.type === 'sword') {
+  },
+  sword(c, dt, h, at) {
     const R0 = 1.5, TAKE = 3.1, a = TAKE + 0.1, b = TAKE + 1.2;
     if (c.t < TAKE) {                                   // the stump gives it up: rumble, moss and bark, light through the cracks
       if (Math.random() < 0.35) state.shake = Math.max(state.shake, 0.06 + 0.08 * c.t / TAKE);
@@ -5997,7 +5986,8 @@ function updateCut(dt) {
     if (!c.titled && c.t >= b + 0.2) { c.titled = true; sfx.flash(); showTitle('The Blade', 'rusted, waiting, and yours', 'relic', 3.6); }
     if (c.t >= b + 2.2) state.cam.focus = null;
     if (c.t >= b + 2.6) { state.cut = null; heroNote(`Tap ${K.act} to slash. Hold and release to stab.`, 1.2, { key: 'tip', life: 5, tip: 'sword' }); }
-  } else if (c.type === 'toad') {
+  },
+  toad(c, dt, h, at) {
     const [tx, ty] = npcPos(c.n);
     if (at(0.2)) sfx.munch();
     if (at(0.9)) sfx.munch();
@@ -6014,7 +6004,8 @@ function updateCut(dt) {
       showTitle('Marsh Fire', `hold ${K.fire} to breathe it out, let go to light it`, 'area', 3.5);
       say('Doesn\'t care much for wind, mind. Come back and see me once you\'ve grown some embers. I know a trick.', tx, ty - UNIT * 1.4, { key: 'npc', life: 5 });
     }
-  } else if (c.type === 'raft') {
+  },
+  raft(c, dt, h, at) {
     // drift along the river to the edge of the screen, then the rapids take over
     const pts = c.pts, seg = pts.length - 1, p = Math.min(1, c.t / 3.2) * seg, i2 = Math.min(seg - 1, Math.floor(p)), u = p - i2;
     h.x = (pts[i2][0] + (pts[i2 + 1][0] - pts[i2][0]) * u) * W; h.y = (pts[i2][1] + (pts[i2 + 1][1] - pts[i2][1]) * u) * H;
@@ -6023,9 +6014,11 @@ function updateCut(dt) {
     if (at(0.4)) heroNote('The current takes the raft...', 1.4, { key: 'npc', life: 2.5, hold: false });
     if (at(3.4)) { sfx.whoosh(); sfx.crash(); state.shake = 0.8; state.flash = 0.4; heroNote('Rapids!', 1.4, { key: 'npc', life: 1.5, color: '#ffe38a', hold: false }); }
     if (at(4.2)) { state.cut = null; state.cam.focus = null; transitionTo('rapids', 0.5, RAPIDS.raftY, true); }
-  } else if (c.type === 'warden') {
+  },
+  warden(c, dt) {
     updateWardenTalk(c, dt);
-  } else if (c.type === 'faint') {
+  },
+  faint(c, dt, h) {
     if (c.t > 1.3 && !c.moved) {
       c.moved = true;
       h.vig = maxVig();
@@ -6037,7 +6030,14 @@ function updateCut(dt) {
       sayHero('You come to, a little wiser.');
     }
     if (c.t > 2.2) state.cut = null;
-  }
+  },
+};
+function updateCut(dt) {
+  const c = state.cut, h = state.hero;
+  const at = (t) => c.t >= t && c.step < t * 10 + 1 && (c.step = t * 10 + 1);
+  if (heldText()) return;                              // a line is waiting to be read: the scene holds for it
+  c.t += dt;
+  const steps = CUT_STEPS[c.type]; if (steps) steps(c, dt, h, at);
 }
 
 // ---------------- the Falls Warden has had a day ----------------
@@ -8714,7 +8714,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 180';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 181';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

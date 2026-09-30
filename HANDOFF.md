@@ -71,7 +71,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - actions.js    throwing, the R wheel and lanes, abilities (fire, dodge), shots
 - pip.js        Pip: following, leading, pottering, PIP_PACE, pipWithYou, tutorial talk
 - tutorial.js   TUTORIAL steps, PIP_LINES, COACH
-- cutscenes.js  dusk, abduction, sword reveal, spore homecoming, rescue, ending
+- cutscenes.js  dusk, abduction, sword reveal, spore homecoming, rescue, ending: each scene's steps in CUT_STEPS,
+                read by updateCut
 - menu.js       the pack (icon belt, tabs, Map as pages of places, Status, System, Testing rows)
 - save.js       saves, settings, migrations
 - craft.js      camp building, RECIPES, the craft mat, STORY, campBuilt
@@ -161,13 +162,12 @@ opening sit wherever the seed put them (moving them to the matching side means r
 Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
 any of these; the whole suite passes unchanged, and the audit is run before and after each. In this order, one
 build each, and take the next one off this list when it ships:
-1. updateCut (163): one step list per cutscene.
-2. The three remaining audit repeats (menu tab switching in menu.js, cutscene pipLine at() lines, one L() icon
+1. The three remaining audit repeats (menu tab switching in menu.js, cutscene pipLine at() lines, one L() icon
    shape in draw-ui.js).
-3. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
-4. genWorld (533): split by region, after the climb decision.
+2. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
+3. genWorld (533): split by region, after the climb decision.
 Done: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS) since build 180; tools/draw-record.js proved the
-canvas calls unchanged.
+canvas calls unchanged. updateCut reads CUT_STEPS since build 181 (every test's output identical before and after).
 Parked until the list is done: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
 MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
 the same; Ross picks.

@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 181: cutscenes as a step table (no change in play)
+- updateCut (163 lines) reads CUT_STEPS[type](c, dt, h, at), one entry per cutscene (sporehome, dusk, abduct, sword,
+  toad, raft, warden, faint); updateCut is 7 lines and leaves the audit's over-150 list (2 to 1: genWorld).
+- The 'ambush' scene is gone: nothing had started it since the abduct scene replaced it, and nothing read the flag it
+  set. (tests/text-layout.js and tools/shot.js still set RT.start.flags.ambush; harmless, left as is.)
+- Proof: all 65 tests' full output recorded before and after: byte-identical.
+
 ## Build 180: draw tables, chat-only docs (no change in play)
 - drawSolid and drawItemIcon are tables now: SOLID_DRAW[kind](s, x, y, r, u) in draw.js and ICONS[type](s, type) in
   draw-ui.js, one small draw each, the way drawEnemy reads MONSTERS[type].draw. Both leave the audit's over-150 list
