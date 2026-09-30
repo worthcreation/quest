@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 172: faster builds
+- tools/ship.sh does the whole build ritual in one call (BUILD, build, every test, overlap, zip only if all pass, the
+  ship line and links); tools/links.js is the one list of play-test links. Renders only when asked; HANDOFF at a
+  handoff, HISTORY every build (WAYS sections 3 and 6).
+- Suite 162 s to about 130 s: acorn-skill (32 s to 3 s: 150 throws a level, flights not drawn; still 29% at level 0,
+  81% at level 3), tour 240 frames a screen (was 400), and the rise's ground rows are made on first draw instead of
+  with the world (loading the game in a test: about 350 ms to 215 ms). One core in the container, so no parallel runs.
+
 ## Build 171: wind on the rise
 - The rise has f1's wind: the same gusts, so you, Pip and loose fluff are nudged by the gentle ones and shoved by the
   strong one; five clumps of tall grass lean ahead of each gust; cloud shadows drift across it (as many per screen's

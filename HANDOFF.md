@@ -1,4 +1,4 @@
-# Quest: handoff (build 171, 29 Sep 2026)
+# Quest: handoff (build 172, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -6,16 +6,17 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - Build: `sh build.sh` concatenates src/head.html and the files in src/ORDER into index.html, then checks the script
   parses (fails the build if not). BUILD number: `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 64 tests, about 2 minutes, one call. Each prints `errs N`; 0 is a pass
+  seed 1000003, TEST_MODE on). 64 tests, about 2 minutes (one core: they run one after another), one call. Each prints `errs N`; 0 is a pass
   (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
-- Render: `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
+- Ship: `sh tools/ship.sh NN "Build NN: ..." [scene]` bumps BUILD, builds, runs every test and the overlap check,
+  packages /mnt/user-data/outputs/quest-bNN.zip only if all pass, and prints the ship line and links (tools/links.js).
+- Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
   mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots: the way in, along it, the way out; plus the tiles;
   SW=390 SH=844 for a phone).
 - Ship (Windows PowerShell, shown in a ```powershell block): one download quest-bNN.zip laid out like the repo root, then
   `cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push`
-- Links (every reply that ships gives all of them, full URLs on https://worthcreation.github.io/quest/, each checked
-  against the source that build): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
+- Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
   shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
@@ -59,7 +60,8 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
-docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: shot.js, overlap.js.
+docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: ship.sh, links.js,
+shot.js, overlap.js.
 
 ## World layout (MAP_LAYOUT, x across, y down)
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
@@ -123,7 +125,7 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task
-None set after build 171 (the rise in place of f2, with f1's wind; reeds at x 20 close it for now). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
+None set after build 172 (faster builds: tools/ship.sh; the rise in place of f2, with f1's wind; reeds at x 20 close it). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
 world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
 Until then, wait for Ross's request; don't touch the climb unasked.

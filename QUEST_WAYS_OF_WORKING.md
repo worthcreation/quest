@@ -18,7 +18,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 4. Guaranteed first, chance after. Tutorials never fail on the first try.
 5. Words are part of the mechanic. On every rework, grep the old words and retire them.
 6. Test with numbers. "7 of 7 hops, 0 falls" is a claim; "should work" is not.
-7. Render it. A PNG catches what a passing test misses. Look at it before shipping.
+7. Render only when Ross asks (a still, a mockup, a look to check). Tests carry the proof otherwise.
 8. Dialogue: Pip and NPC lines (say key 'pip'/'npc') hold until F; tutorial and coach lines are free (hold:false) so
    the player can keep moving. Story flags advance from the player's actions, never from a line ending.
 9. Source lives in git. Chats end.
@@ -33,11 +33,13 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
    changes what gets built. Otherwise decide and state the assumption.
 2. Reuse before adding (section 4). New system only when nothing fits.
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
-4. `sh build.sh`, `node tests/run.js` (64 tests, about 2 minutes, one call), `node tools/overlap.js` (0 overlaps),
-   render a PNG for anything visual (tools/shot.js blocks, env var per build), look at it.
-5. Deliver: what changed (grouped by what the player sees), what was tested with numbers, the ship command, and every
-   play-test link (HANDOFF.md, Links), current as of that build, with a fresh 7-digit prime seed. Bump `const BUILD` in src/draw.js every time.
-6. For unsettled looks, iterate on still mockups first (no build). The climb took eight stills.
+4. While working: `sh build.sh` and `node tests/<name>.js` for the tests it touches. No renders unless asked.
+5. Write the one short HISTORY entry, then ship in one call: `sh tools/ship.sh NN "Build NN: ..." [scene]`. It bumps
+   BUILD, builds, runs every test (about 2 minutes) and the overlap check, packages quest-bNN.zip only if all pass,
+   and prints the ship line and every play-test link with a fresh prime (tools/links.js holds the list).
+6. Deliver: what changed (grouped by what the player sees), what was tested with numbers, then the printed ship line
+   and links as they came out.
+7. For unsettled looks, iterate on still mockups first (no build), when Ross asks for them.
 
 ## 4. Reuse table (checked against source; file in brackets)
 - World: barrier()/breakBarrier [world/engine]; crag() + hitCrag (single boulders that crack, drops) [world/items];
@@ -73,14 +75,17 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   with tests/run.js); "state.settings.autoTalk" (gone; tests press F through held lines); "drawHUD owns the top strip".
 
 ## 6. Definition of done
-- `sh build.sh` succeeds (it checks the script parses), `node tests/run.js` all pass, `node tools/overlap.js` 0.
-- Both screen shapes (1280x800 and 390x844) for anything laid out in tiles. Grep for stale words. BUILD bumped.
-- HANDOFF.md updated: the current-state sections, plus one short entry at the top of docs/HISTORY.md.
-- Reply ends with the ship command and every play-test link, full URLs, checked against the source (HANDOFF.md, Links).
+- `sh tools/ship.sh` finished: build parses, every test passes, 0 overlaps, zip packaged, BUILD bumped.
+- Anything laid out in tiles is tested at both screen shapes (1280x800 and 390x844) by numbers. Grep for stale words.
+- One short entry at the top of docs/HISTORY.md every build. HANDOFF.md's current-state sections at a handoff (end of
+  a chat, or when asked), not every build.
+- Reply ends with the ship line and links as tools/ship.sh printed them. If a link is added or renamed in src/, update
+  tools/links.js in the same build.
 
 ## 7. Talking to the model
 Say what the player should see and feel, and the rule. Batch related changes into one build. For visuals: one
-reference image plus a few words; "render a still" gets a mockup, no build. If a chat compacts, say so.
+reference image plus a few words; "render a still" gets a mockup, no build. If a chat compacts, say so. Start a
+fresh chat every 5 or 6 builds or when the topic changes: long chats are slower, and HANDOFF carries everything.
 
 ## 8. Handoff between chats
 1. Each build: one download, quest-bNN.zip, laid out like the repo root. Ship (Windows PowerShell, in a ```powershell

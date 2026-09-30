@@ -7,7 +7,7 @@ state.solids=[]; state.items=[]; state.enemies=[];
 // a rabbit that keeps darting across the line of fire: each trial it starts 5 tiles ahead, offset a little, moving sideways
 function trial(lvl){
   setSkillLevel('acorn', lvl); const s=skillOf('acorn'); s.lvl=lvl;   // hold the level: reset counters so practice during the trial cannot raise it
-  let hits=0, N=300;
+  let hits=0, N=150;                                               // (150 throws a level: the gap between levels stays clear, at half the time)
   for(let i=0;i<N;i++){
     state.enemies=[]; state.shots=[]; state.texts=[];
     h.x=W*0.3; h.y=H*0.5; h.fx=1; h.fy=0; h.vx=h.vy=0; h.vig=maxVig(); h.z=0;
@@ -18,7 +18,7 @@ function trial(lvl){
     inv.acorns=30; state.equip='acorn';
     const hit0=s.hits;
     launch('acorn', 0.6);
-    run(60);
+    for(let k=0;k<60;k++) update(1/60);                               // (flight only: nothing here needs drawing)
     if(s.hits>hit0) hits++;
     s.hits=hit0; s.n=0; s.lvl=lvl;                                  // hold the level
   }
@@ -26,7 +26,7 @@ function trial(lvl){
 }
 inv.silk=0;
 ACORN_HOME.push(0); ACORN_SPREAD.push(0); const base=trial(5); ACORN_HOME.pop(); ACORN_SPREAD.pop(); console.log('no spread, no homing (build 61 behaviour):', (base*100).toFixed(0)+'%'); const rates=[0,1,2,3,4].map(trial); console.log('by level 0..4:', rates.map(r=>(r*100).toFixed(0)+'%').join(' ')); const r0=rates[0], r3=rates[3];
-console.log('hit rate vs crossing rabbit, 300 throws each: level 0', (r0*100).toFixed(0)+'%', '| level 3', (r3*100).toFixed(0)+'%', '| better', r3>r0+0.1);
+console.log('hit rate vs crossing rabbit, 150 throws each: level 0', (r0*100).toFixed(0)+'%', '| level 3', (r3*100).toFixed(0)+'%', '| better', r3>r0+0.1);
 // homing only inside the cone: a rabbit off to the side is ignored
 setSkillLevel('acorn',3); state.enemies=[]; state.shots=[]; h.x=W*0.3; h.y=H*0.5; h.fx=1; h.fy=0;
 const side=makeEnemy('rabbit', h.x+UNIT*1, h.y-UNIT*4, -1); side.mode='idle'; side.t=9; side.cool=9; side.hp=99; state.enemies.push(side);

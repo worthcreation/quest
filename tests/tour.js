@@ -24,7 +24,7 @@ hero.x=W*0.8-UNIT*1.3; hero.y=H*0.5; for(let k=0;k<12 && !state.inv.pipSaved;k++
 // tour with strict stub
 for (const id of Object.keys(WORLD)) {
   enterScene(id); state.cut=null; state.hero.vig=maxVig();
-  for(let f=0;f<400;f++){
+  for(let f=0;f<240;f++){
     const dirs=['arrowup','arrowdown','arrowleft','arrowright'];
     if(f%40===0){dirs.forEach(d=>state.keys[d]=false); state.keys[dirs[Math.floor(Math.random()*4)]]=true;}
     state.keys.f=(f%23)<9; state.keys.a=f%90===0; state.keys.s=f%300===0; state.keys.d=(f%50)<5; state.keys.e=(f%200)<40; state.keys[' ']=f%70===0;

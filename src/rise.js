@@ -61,12 +61,6 @@ let RISE_LAND = null;
 function riseLand() {
   if (RISE_LAND) return RISE_LAND;
   const { X0, X1, Y0, Y1 } = RISE, xs = []; for (let x = X0; x <= X1; x++) xs.push(x);
-  const rows = []; let y = Y0;
-  while (y < Y1) {
-    const st = Math.abs(y - RISE.mid) < 3.5 ? 0.25 : 0.5, y2 = y + st, ym = y + st / 2;                  // finer rows where the path wanders
-    rows.push({ y, y2, top: xs.map(x => riseH(x, y)), bot: xs.map(x => riseH(x, y2)), cols: xs.map(x => riseColor(x, ym)), grad: null });
-    y = y2;
-  }
   let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const props = [], put = (k, x, y, r, solid) => props.push({ k, x, y, r, solid, seed: rnd() * 9, v: Math.floor(rnd() * 3), by: y + (k === 'tuft' ? 0.1 : k === 'tree' ? 0.3 : r * 0.9) });
   const clearOf = (x, y, r) => !props.some(p => p.solid && Math.hypot(p.x - x, p.y - y) < p.r + r + 0.2);
@@ -97,7 +91,18 @@ function riseLand() {
   // what stands inside the scene is a solid the game tests; the rest (tufts, the far land) is only drawn
   const inside = p => p.solid && p.x > -2 && p.x < RISE.len + 2 && p.y > -2 && p.y < RISE.D + 2;
   const deco = props.filter(p => !inside(p)).sort((a, b) => a.by - b.by);
-  return (RISE_LAND = { xs, rows, solids: props.filter(inside), deco });
+  return (RISE_LAND = { xs, rows: null, solids: props.filter(inside), deco });
+}
+// the ground's rows, made the first time the rise is drawn (the world is built without them: tests load faster)
+function riseRows(land = riseLand()) {
+  if (land.rows) return land.rows;
+  const { Y0, Y1 } = RISE, xs = land.xs, rows = []; let y = Y0;
+  while (y < Y1) {
+    const st = Math.abs(y - RISE.mid) < 3.5 ? 0.25 : 0.5, y2 = y + st, ym = y + st / 2;                  // finer rows where the path wanders
+    rows.push({ y, y2, top: xs.map(x => riseH(x, y)), bot: xs.map(x => riseH(x, y2)), cols: xs.map(x => riseColor(x, ym)), grad: null });
+    y = y2;
+  }
+  return (land.rows = rows);
 }
 // collision radius as the game scales it for each kind (engine's refreshSceneGeometry): a stone collides at its drawn size
 const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
@@ -171,7 +176,7 @@ function drawRise() {
   for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
   list.sort((a, b) => a[0] - b[0]);
   let li = 0;
-  for (const row of land.rows) {
+  for (const row of riseRows(land)) {
     const yT = row.y, yB = row.y2;
     if (!row.grad) { row.grad = ctx.createLinearGradient(RISE.X0, 0, RISE.X1, 0); row.cols.forEach((c, i) => { if (i % 2 === 0 || i === row.cols.length - 1) row.grad.addColorStop(i / (land.xs.length - 1), c); }); }   // a stop every other tile is plenty
     let lo = Infinity, hi = -Infinity; const tp = idx.map(i => { const v = sy(yT, row.top[i]); lo = Math.min(lo, v); hi = Math.max(hi, v); return v; });
