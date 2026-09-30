@@ -1,4 +1,4 @@
-# Quest: handoff (build 177, 30 Sep 2026)
+# Quest: handoff (build 179, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -30,8 +30,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   ```powershell block): `cd ~\quest -ErrorAction Stop; git add -A; git commit -m "Build NN: ..."; git push`. The zip
   form puts `Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip;` before git add.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 175): audit: 10914 lines, 0 unused, 4 functions over 150,
-  5 repeats, 162 state fields, frames avg 0.55 ms (2 slow, 0 errors). Frame times swing with
+  handoff updates docs/audit-baseline.json. Last run (build 179): audit: 10965 lines, 0 unused, 4 functions over 150,
+  3 repeats, 162 state fields, frames avg 0.72 ms (3 slow, 0 errors). Frame times swing with
   machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until /model switches.
 - Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp
@@ -150,15 +150,20 @@ bump them, f2's two island pickups (a stick or an acorn each), which the rise do
 seams: the rise's way in is at its far west and its way out at its far east, while f1's south opening and f3's north
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
-## Next task (on Opus: WAYS 7a)
-The hawk timer, waiting on Ross's say. Found in build 176 and kept as it plays: the hawk counts its timer down
-twice a frame (once in updateEnemies, once in its own ai in MONSTERS.hawk). Fixing it halves the timer's speed, so
-its circle and dive get slower and the High Reaches play differently. Options: fix it and halve the hawk's timer
-values so it plays the same, fix it and let it slow down, or keep it and note it in MONSTERS.hawk. Don't change it
-until Ross picks. Proof for any choice: high-reaches, scene-smoke and arena pass.
-
-Cleanup list (from the audit, each its own build when its area is next touched): genWorld 533 lines (split by region,
-but after the climb decision), drawSolid 216, drawItemIcon 203, updateCut 163; 162 state fields with no owner map.
+## Next task (on Opus unless marked: WAYS 7a)
+Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
+any of these; the whole suite passes unchanged, and the audit is run before and after each. In this order, one
+build each, and take the next one off this list when it ships:
+1. drawSolid (216 lines) and drawItemIcon (203): split each switch into one small draw per kind, read from a table,
+   the way drawEnemy went in build 176 (MONSTERS[type].draw). Both should leave the audit's over-150 list.
+2. updateCut (163): one step list per cutscene.
+3. The three remaining audit repeats (menu tab switching in menu.js, cutscene pipLine at() lines, one L() icon
+   shape in draw-ui.js).
+4. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
+5. genWorld (533): split by region, after the climb decision.
+Parked until the list is done: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
+MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
+the same; Ross picks.
 
 The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the world
 yet). When he's ready (FABLE): which of climb1 to climb5 to keep, where they join (between the windy fields and the

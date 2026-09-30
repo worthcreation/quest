@@ -80,9 +80,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   line if it's a hook on purpose (startEnding is).
 - What it flags goes on HANDOFF's cleanup list and gets its own build, separate from feature builds. The fix for a
   flagged function is to split it the next time a feature touches it, unless Ross asks for a cleanup build.
-- Baseline (build 174): 10914 lines, 0 unused, 4 functions over 150 (genWorld 533, drawSolid 216, drawItemIcon 203,
-  updateCut 163), 5 repeats (top: a note above the hero, say(..., h.x, h.y - UNIT * n, ...), 25 times in 8 files),
-  162 state fields, frames avg 1.0 ms, 4 over 2 ms (rise, climb3, climb4, f5), 0 errors.
+- Baseline (build 179): 10965 lines, 0 unused, 4 functions over 150 (genWorld 533, drawSolid 216, drawItemIcon 203,
+  updateCut 163), 3 repeats, 162 state fields, frames avg 0.72 ms, 3 over 2 ms (rise, climb3, climb4), 0 errors.
 - Never glob-delete in src/ (an old p*.js cleanup also matched pip.js and puzzles.js).
 - Still to decide with the climb: the crag() painter inside paintClimb and climbBand fixed at 12. Keep ZIG1/zig()
   until the climb design settles.
@@ -98,12 +97,13 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 ## 7. Talking to the model
 Say what the player should see and feel, and the rule. Batch related changes into one build. For visuals: one
 reference image plus a few words; "render a still" gets a mockup, no build. If a chat compacts, say so. Start a
-fresh chat every 5 or 6 builds or when the topic changes: long chats are slower, and HANDOFF carries everything.
+fresh chat or session when the topic changes, after a heavy one (a big refactor, many large reads), or after a
+compaction; otherwise keep going. HANDOFF carries everything, so a handoff comes first.
 
 ## 7a. Which model: FABLE or Opus (enforce this, every chat)
-Claude says which model the task needs IN THE FIRST LINE OF ITS FIRST REPLY, before any work, and again the moment a
-task changes size mid-chat. When the answer is Fable and the session is on Opus, Claude STOPS and says so plainly:
-"Switch to Fable for this: <reason>. Run /model to switch, then continue." It does not start the work on the wrong
+Every reply opens with a line naming the model the task in it needs, "Model: FABLE" or "Model: Opus" and a few
+words why, before any work (questions included, so Ross never has to wonder). When the answer is Fable and the session is on Opus, Claude STOPS and says so plainly:
+"Switch to Fable for this: <reason>. Run /model (Claude Code) or pick it in the model menu (chat), then continue." It does not start the work on the wrong
 model to be helpful, and it does not soften it to a suggestion.
 
 USE FABLE when any of these is true:

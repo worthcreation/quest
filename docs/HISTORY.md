@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 179: handoff (chat)
+- HANDOFF's Next task is the cleanup list, in order (drawSolid and drawItemIcon first); the hawk timer is parked
+  until it's done. Audit baseline re-saved (the HANDOFF line was from build 175).
+- Fresh chats by trigger (topic change, a heavy chat, a compaction), not every 5 or 6 builds (WAYS 7,
+  PROJECT_INSTRUCTIONS). Every reply names the model (WAYS 7a). The chat zip also carries .gitattributes and
+  .claude/settings.json.
+
 ## Build 178: two ways to work, one ship script
 - tools/ship-local.js --zip (chat container only; needs zip, fails clearly without it, before touching anything):
   after every check passes, packages /mnt/user-data/outputs/quest-bNN.zip (older ones removed) and prints the
