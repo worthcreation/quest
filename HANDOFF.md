@@ -162,12 +162,11 @@ opening sit wherever the seed put them (moving them to the matching side means r
 Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
 any of these; the whole suite passes unchanged, and the audit is run before and after each. In this order, one
 build each, and take the next one off this list when it ships:
-1. The three remaining audit repeats (menu tab switching in menu.js, cutscene pipLine at() lines, one L() icon
-   shape in draw-ui.js).
-2. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
-3. genWorld (533): split by region, after the climb decision.
+1. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
+2. genWorld (533): split by region, after the climb decision.
 Done: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS) since build 180; tools/draw-record.js proved the
-canvas calls unchanged. updateCut reads CUT_STEPS since build 181 (every test's output identical before and after).
+canvas calls unchanged. updateCut reads CUT_STEPS since build 181 (every test's output identical before and after). The audit's repeats are 0
+since build 182 (openView and MENU_VIEWS in menu.js, pipHold in the spore homecoming, seg in drawDoodle).
 Parked until the list is done: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
 MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
 the same; Ross picks.

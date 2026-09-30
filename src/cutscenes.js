@@ -58,19 +58,20 @@ const CUT_STEPS = {
     }
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
+    const pipHold = (at_, line) => at_ && pipLine(line, { hold: true, at: [q.x, q.y - UNIT * 1.3] });   // Pip by the fire, a line that waits for F
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) pipLine('Home! I\'ve never been so happy to see that lean-to.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(4.5)) pipLine('You were amazing back there. Kettle\'s on. Then sleep.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(4.7)) pipLine('Tomorrow we finish the map. All of it.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    pipHold(at(4.3), 'Home! I\'ve never been so happy to see that lean-to.');
+    pipHold(at(4.5), 'You were amazing back there. Kettle\'s on. Then sleep.');
+    pipHold(at(4.7), 'Tomorrow we finish the map. All of it.');
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
     if (at(6.2)) pipLine('Z z z...', { at: [q.x, q.y - UNIT * 1.2], life: 2.2 });
     if (at(7.4)) {                                                                          // morning
       state.dusk = false; state.dawn = state.time; state.hero.vig = maxVig(); setMusic('forest'); setAmbience('none');
       state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
     }
-    if (at(8.4)) pipLine('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(8.6)) pipLine('The gremlins! One of them ran off with it. Every map I ever drew is in there!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(8.8)) pipLine('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    pipHold(at(8.4), 'Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?');
+    pipHold(at(8.6), 'The gremlins! One of them ran off with it. Every map I ever drew is in there!');
+    pipHold(at(8.8), 'I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!');
     if (at(9.2)) {
       state.cut = null; state.cam.focus = null; state.sporeTint = 0;
       const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)

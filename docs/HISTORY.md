@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 182: the audit's three repeats (no change in play)
+- menu.js: MENU_VIEWS says what each menu page starts with and openView(m, key) opens it (the touch note for Keys
+  included); systemSelect and menuSelect call it instead of seven copied Object.assign lines.
+- cutscenes.js: pipHold(at(t), line) for Pip's six held lines by the fire in the spore homecoming.
+- draw-ui.js: seg(x0, y0, x1, y1, c) in drawDoodle for a two-point line in doodle units (14 lines).
+- Audit repeats 3 to 0. Proof: every doodle's canvas calls (36 recordings) and the menu after every pick in the System,
+  main and Settings lists, touch and keys (34 picks), old build against new: identical. All 65 tests' output identical.
+
 ## Build 181: cutscenes as a step table (no change in play)
 - updateCut (163 lines) reads CUT_STEPS[type](c, dt, h, at), one entry per cutscene (sporehome, dusk, abduct, sword,
   toad, raft, warden, faint); updateCut is 7 lines and leaves the audit's over-150 list (2 to 1: genWorld).

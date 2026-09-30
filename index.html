@@ -5895,19 +5895,20 @@ const CUT_STEPS = {
     }
     if (c.t > 3.1) { state.sporeTint = Math.max(0, 0.85 - (c.t - 3.1) * 0.8); if (c.t < 4.2) swirl(2); }
     const hn = WORLD.camp.npcs.find(n => n.kind === 'pip' && n.home), q = hn ? { x: hn.fx * W, y: hn.fy * H, hop: null } : { x: h.x, y: h.y };
+    const pipHold = (at_, line) => at_ && pipLine(line, { hold: true, at: [q.x, q.y - UNIT * 1.3] });   // Pip by the fire, a line that waits for F
     if (c.t > 3.1 && c.t < 8.4 && Math.random() < 0.05) { const a = Math.random() * 6.28; state.fx.push({ x: h.x + Math.cos(a) * UNIT * 3, y: h.y + Math.sin(a) * UNIT * 2, vx: (Math.random() - 0.5) * UNIT * 0.4, vy: -UNIT * (0.15 + Math.random() * 0.25), t: 0, life: 3 + Math.random() * 2, color: 'spore', size: UNIT * 0.05 }); }   // a few spores still drifting about
-    if (at(4.3)) pipLine('Home! I\'ve never been so happy to see that lean-to.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(4.5)) pipLine('You were amazing back there. Kettle\'s on. Then sleep.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(4.7)) pipLine('Tomorrow we finish the map. All of it.', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    pipHold(at(4.3), 'Home! I\'ve never been so happy to see that lean-to.');
+    pipHold(at(4.5), 'You were amazing back there. Kettle\'s on. Then sleep.');
+    pipHold(at(4.7), 'Tomorrow we finish the map. All of it.');
     if (at(5.2)) { state.fadeTarget = 1; state.fadeRate = 1.2; }                              // lights out
     if (at(6.2)) pipLine('Z z z...', { at: [q.x, q.y - UNIT * 1.2], life: 2.2 });
     if (at(7.4)) {                                                                          // morning
       state.dusk = false; state.dawn = state.time; state.hero.vig = maxVig(); setMusic('forest'); setAmbience('none');
       state.fadeTarget = 0; state.fadeRate = 0.6; sfx.heart();
     }
-    if (at(8.4)) pipLine('Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(8.6)) pipLine('The gremlins! One of them ran off with it. Every map I ever drew is in there!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
-    if (at(8.8)) pipLine('I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!', { hold: true, at: [q.x, q.y - UNIT * 1.3] });
+    pipHold(at(8.4), 'Morning! Sleep well? I dreamt of maps. Speaking of which... where\'s my journal?');
+    pipHold(at(8.6), 'The gremlins! One of them ran off with it. Every map I ever drew is in there!');
+    pipHold(at(8.8), 'I saw one sneaking back toward the glade. Follow the torn pages. Please get it back!');
     if (at(9.2)) {
       state.cut = null; state.cam.focus = null; state.sporeTint = 0;
       const inv2 = state.inv; if (!inv2.journal) { inv2.journal = 1; inv2.thiefAt = 0; spawnPages(); }   // the journal quest begins (its banner follows)
@@ -6179,6 +6180,13 @@ function toSystem(key) {                              // sub-screens return to t
   const i = SYSTEM_ITEMS().findIndex(o => o[0] === key);
   Object.assign(state.menu, { view: 'pack', tab: SYS_TAB(), focus: 'grid', sys: Math.max(0, i), note: '' });
 }
+// the menu pages you open from a list: what each one starts with (Object.assign onto state.menu)
+const MENU_VIEWS = { pack: { tab: 0, sel: 0, focus: 'grid', act: 0 }, settings: { sel: 0 }, save: { sel: 0, note: '' }, load: { sel: 0, note: '' },
+  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+function openView(m, key) {
+  if (key === 'keys' && TOUCH) { m.note = 'Controls are the on-screen buttons on this device'; return; }
+  const v = MENU_VIEWS[key]; Object.assign(m, { view: key, ...(typeof v === 'function' ? v() : v) });
+}
 function systemSelect(i) {
   const m = state.menu, key = (SYSTEM_ITEMS()[i] || [])[0];
   sfx.pickup();
@@ -6188,18 +6196,13 @@ function systemSelect(i) {
   if (key === 'rezone') { state.menu = null; enterZone(state.arena.key); }
   if (key === 'glade') { state.menu = null; state.arena = null; transitionTo('arena', 0.5, 0.55, true); }
   if (key === 'acornskill') setSkillLevel('acorn', (skillLevel('acorn') + 1) % (SKILLS.acorn.steps.length + 1));
-  if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
-  if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
-  if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
-  if (key === 'levels') Object.assign(m, { view: 'levels', sel: 0, note: '' });
+  if (['save', 'load', 'keys', 'levels', 'new', 'spores'].includes(key)) openView(m, key);
   if (key === 'tiles') { state.settings.tiles = !state.settings.tiles; state.tileCache = null; saveSettings(); }
   if (key === 'sound') setSound(!soundOn);
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
   if (key === 'labels') { state.settings.labels = state.settings.labels === false; saveSettings(); }
   if (key === 'tag' || key === 'coords') { state.settings[key] = state.settings[key] === false; saveSettings(); }
-  if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
-  if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
 }
 const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
@@ -6459,15 +6462,10 @@ function menuSelect(i) {
   if (m.view === 'main') {
     const key = (MAIN_ITEMS()[i] || [])[0];
     if (key === 'resume') state.menu = null;
-    if (key === 'pack') Object.assign(m, { view: 'pack', tab: 0, sel: 0, focus: 'grid', act: 0 });
-    if (key === 'settings') Object.assign(m, { view: 'settings', sel: 0 });
-    if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
-    if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
-    if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
-    if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
+    if (['pack', 'settings', 'save', 'load', 'new', 'spores'].includes(key)) openView(m, key);
   } else if (m.view === 'settings') {
     const key = (SETTINGS_ITEMS()[i] || [])[0];
-    if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
+    if (key === 'keys') openView(m, key);
     if (key === 'sound') setSound(!soundOn);
     if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
     if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
@@ -8714,7 +8712,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 181';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 182';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -10506,29 +10504,29 @@ const circlePts = (cx, cy, rx, ry, n = 14, a0 = 0, a1 = 6.28) => Array.from({ le
 function drawDoodle(name, cx, cy, s, seed) {
   const L = (pts, c) => wobbleLine(pts, seed + (c || 0)), O = (x0, y0, rx, ry, c) => wobbleLine(circlePts(x0, y0, rx, ry), seed + (c || 0), true);
   const tint = (col, f) => { ctx.fillStyle = col; ctx.globalAlpha = 0.45; f(); ctx.fill(); ctx.globalAlpha = 1; };
-  const r = s / 2;
+  const r = s / 2, seg = (x0, y0, x1, y1, c) => L([[cx + r * x0, cy + r * y0], [cx + r * x1, cy + r * y1]], c);   // a line in doodle units
   ctx.save(); ctx.strokeStyle = '#4a3420'; ctx.lineWidth = Math.max(1.5, s * 0.03); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   const guy = (x0, y0, k = 1) => { O(x0, y0 - r * 0.45 * k, r * 0.14 * k, r * 0.14 * k, 1); L([[x0, y0 - r * 0.31 * k], [x0, y0 + r * 0.05 * k]], 2); L([[x0 - r * 0.15 * k, y0 - r * 0.15 * k], [x0 + r * 0.15 * k, y0 - r * 0.15 * k]], 3); L([[x0 - r * 0.12 * k, y0 + r * 0.3 * k], [x0, y0 + r * 0.05 * k], [x0 + r * 0.12 * k, y0 + r * 0.3 * k]], 4); };
   switch (name) {
     case 'snack': tint('#b884d8', () => { ctx.beginPath(); ctx.arc(cx, cy + r * 0.1, r * 0.4, 0, 6.28); }); O(cx, cy + r * 0.1, r * 0.4, r * 0.4); L([[cx, cy - r * 0.3], [cx - r * 0.2, cy - r * 0.7]], 5); L([[cx, cy - r * 0.3], [cx + r * 0.15, cy - r * 0.75]], 6); L([[cx - r * 0.12, cy + r * 0.1], [cx - r * 0.05, cy + r * 0.2], [cx + r * 0.08, cy + r * 0.1]], 7); break;   // a happy turnip
     case 'gremlin': tint('#7aa05a', () => { ctx.beginPath(); ctx.arc(cx, cy, r * 0.45, 0, 6.28); }); O(cx, cy, r * 0.45, r * 0.42); L([[cx - r * 0.4, cy - r * 0.25], [cx - r * 0.7, cy - r * 0.6], [cx - r * 0.3, cy - r * 0.4]], 1); L([[cx + r * 0.4, cy - r * 0.25], [cx + r * 0.7, cy - r * 0.6], [cx + r * 0.3, cy - r * 0.4]], 2);
       L([[cx - r * 0.25, cy + r * 0.1], [cx, cy + r * 0.28], [cx + r * 0.25, cy + r * 0.1]], 3); O(cx - r * 0.15, cy - r * 0.1, r * 0.05, r * 0.05, 4); O(cx + r * 0.15, cy - r * 0.1, r * 0.05, r * 0.05, 5);
-      ctx.strokeStyle = '#c0304a'; L([[cx + r * 0.55, cy - r * 0.05], [cx + r * 0.85, cy + r * 0.25]], 6); L([[cx + r * 0.55, cy + r * 0.25], [cx + r * 0.85, cy - r * 0.05]], 7); break;   // smiling = no
-    case 'poke': tint('#b48af0', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 10, Math.PI, 6.28), 1); L([[cx + r * 0.2, cy - r * 0.2], [cx + r * 0.2, cy + r * 0.5]], 2);
-      L([[cx - r * 0.8, cy + r * 0.5], [cx - r * 0.05, cy - r * 0.05]], 3); for (const [dx, dy] of [[0.35, -0.7], [0.65, -0.55], [0.0, -0.65]]) { L([[cx + dx * r, cy + dy * r - r * 0.08], [cx + dx * r, cy + dy * r + r * 0.08]], 4); L([[cx + dx * r - r * 0.08, cy + dy * r], [cx + dx * r + r * 0.08, cy + dy * r]], 5); } break;
+      ctx.strokeStyle = '#c0304a'; seg(0.55, -0.05, 0.85, 0.25, 6); seg(0.55, 0.25, 0.85, -0.05, 7); break;   // smiling = no
+    case 'poke': tint('#b48af0', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.2, cy - r * 0.2, r * 0.4, r * 0.25, 10, Math.PI, 6.28), 1); seg(0.2, -0.2, 0.2, 0.5, 2);
+      seg(-0.8, 0.5, -0.05, -0.05, 3); for (const [dx, dy] of [[0.35, -0.7], [0.65, -0.55], [0.0, -0.65]]) { L([[cx + dx * r, cy + dy * r - r * 0.08], [cx + dx * r, cy + dy * r + r * 0.08]], 4); L([[cx + dx * r - r * 0.08, cy + dy * r], [cx + dx * r + r * 0.08, cy + dy * r]], 5); } break;
     case 'arrows': for (const [dx, dy, a] of [[0, -0.5, -1.57], [0, 0.35, 1.57], [-0.45, 0.35, 3.14], [0.45, 0.35, 0]]) { const bx = cx + dx * r, by = cy + dy * r; L([[bx - r * 0.2, by - r * 0.2], [bx + r * 0.2, by - r * 0.2], [bx + r * 0.2, by + r * 0.2], [bx - r * 0.2, by + r * 0.2], [bx - r * 0.2, by - r * 0.2]], 1 + dx * 9 + dy * 7); L([[bx - Math.cos(a) * r * 0.1, by - Math.sin(a) * r * 0.1], [bx + Math.cos(a) * r * 0.1, by + Math.sin(a) * r * 0.1]], 2); } break;
-    case 'jump': ctx.setLineDash([3, 4]); L(circlePts(cx, cy + r * 0.45, r * 0.7, r * 0.9, 12, Math.PI, 6.28), 1); ctx.setLineDash([]); guy(cx, cy - r * 0.2, 0.9); L([[cx - r * 0.9, cy + r * 0.6], [cx + r * 0.9, cy + r * 0.6]], 2); break;
+    case 'jump': ctx.setLineDash([3, 4]); L(circlePts(cx, cy + r * 0.45, r * 0.7, r * 0.9, 12, Math.PI, 6.28), 1); ctx.setLineDash([]); guy(cx, cy - r * 0.2, 0.9); seg(-0.9, 0.6, 0.9, 0.6, 2); break;
     case 'goldf': tint('#f2c94c', () => { ctx.beginPath(); ctx.arc(cx, cy, r * 0.42, 0, 6.28); }); O(cx, cy, r * 0.42, r * 0.42); ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.6), true); ctx.textAlign = 'center'; ctx.fillText(K.act.toUpperCase(), cx, cy + r * 0.2); ctx.textAlign = 'left';
       for (const a of [0.3, 1.2, 2.2, 3.4, 4.6, 5.6]) L([[cx + Math.cos(a) * r * 0.55, cy + Math.sin(a) * r * 0.55], [cx + Math.cos(a) * r * 0.75, cy + Math.sin(a) * r * 0.75]], a * 10); break;
     case 'slash': guy(cx - r * 0.4, cy + r * 0.2); L(circlePts(cx - r * 0.1, cy, r * 0.7, r * 0.6, 8, -1.2, 1.0), 5); L(circlePts(cx - r * 0.1, cy, r * 0.8, r * 0.7, 8, -1.1, 0.9), 6); break;
-    case 'stab': guy(cx - r * 0.55, cy + r * 0.2); L([[cx - r * 0.3, cy], [cx + r * 0.8, cy]], 5); L([[cx + r * 0.6, cy - r * 0.15], [cx + r * 0.85, cy], [cx + r * 0.6, cy + r * 0.15]], 6); L([[cx - r * 0.1, cy - r * 0.3], [cx + r * 0.3, cy - r * 0.3]], 7); L([[cx - r * 0.1, cy + r * 0.3], [cx + r * 0.3, cy + r * 0.3]], 8); break;
-    case 'pound': guy(cx, cy - r * 0.35, 0.8); L([[cx, cy + r * 0.05], [cx, cy + r * 0.35]], 5); L([[cx - r * 0.1, cy + r * 0.25], [cx, cy + r * 0.38], [cx + r * 0.1, cy + r * 0.25]], 6); for (const a of [-2.6, -2.1, -1.0, -0.5]) L([[cx + Math.cos(a) * r * 0.25, cy + r * 0.62 + Math.sin(a) * r * 0.1], [cx + Math.cos(a) * r * 0.7, cy + r * 0.62 + Math.sin(a) * r * 0.35]], a * 10); L([[cx - r * 0.9, cy + r * 0.65], [cx + r * 0.9, cy + r * 0.65]], 7); break;
+    case 'stab': guy(cx - r * 0.55, cy + r * 0.2); L([[cx - r * 0.3, cy], [cx + r * 0.8, cy]], 5); L([[cx + r * 0.6, cy - r * 0.15], [cx + r * 0.85, cy], [cx + r * 0.6, cy + r * 0.15]], 6); seg(-0.1, -0.3, 0.3, -0.3, 7); seg(-0.1, 0.3, 0.3, 0.3, 8); break;
+    case 'pound': guy(cx, cy - r * 0.35, 0.8); L([[cx, cy + r * 0.05], [cx, cy + r * 0.35]], 5); L([[cx - r * 0.1, cy + r * 0.25], [cx, cy + r * 0.38], [cx + r * 0.1, cy + r * 0.25]], 6); for (const a of [-2.6, -2.1, -1.0, -0.5]) L([[cx + Math.cos(a) * r * 0.25, cy + r * 0.62 + Math.sin(a) * r * 0.1], [cx + Math.cos(a) * r * 0.7, cy + r * 0.62 + Math.sin(a) * r * 0.35]], a * 10); seg(-0.9, 0.65, 0.9, 0.65, 7); break;
     case 'seed': tint('#6a4a2a', () => { ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.45, r * 0.8, r * 0.25, 0, Math.PI, 0); }); L(circlePts(cx, cy + r * 0.45, r * 0.8, r * 0.25, 10, Math.PI, 6.28), 1); O(cx, cy - r * 0.45, r * 0.08, r * 0.1, 2); L([[cx, cy - r * 0.25], [cx, cy + r * 0.1]], 3); L([[cx - r * 0.1, cy], [cx, cy + r * 0.12], [cx + r * 0.1, cy]], 4); break;
-    case 'compost': tint('#a0662a', () => { ctx.beginPath(); ctx.ellipse(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 0, 0, 6.28); }); O(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 1); L([[cx - r * 0.65, cy - r * 0.45], [cx - r * 0.25, cy - r * 0.45]], 2);
-      L([[cx - r * 0.1, cy - r * 0.2], [cx + r * 0.3, cy - r * 0.2]], 3); L([[cx + r * 0.2, cy - r * 0.3], [cx + r * 0.32, cy - r * 0.2], [cx + r * 0.2, cy - r * 0.1]], 4); tint('#4a3018', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 10, Math.PI, 6.28), 5);
+    case 'compost': tint('#a0662a', () => { ctx.beginPath(); ctx.ellipse(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 0, 0, 6.28); }); O(cx - r * 0.45, cy - r * 0.25, r * 0.2, r * 0.25, 1); seg(-0.65, -0.45, -0.25, -0.45, 2);
+      seg(-0.1, -0.2, 0.3, -0.2, 3); L([[cx + r * 0.2, cy - r * 0.3], [cx + r * 0.32, cy - r * 0.2], [cx + r * 0.2, cy - r * 0.1]], 4); tint('#4a3018', () => { ctx.beginPath(); ctx.ellipse(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 0, Math.PI, 0); }); L(circlePts(cx + r * 0.3, cy + r * 0.4, r * 0.55, r * 0.22, 10, Math.PI, 6.28), 5);
       for (const dx of [-0.1, 0.3, 0.7]) L([[cx + dx * r, cy + r * 0.2], [cx + dx * r + r * 0.04, cy + r * 0.05]], dx * 10 + 6); break;
     case 'sprout': L(circlePts(cx, cy + r * 0.5, r * 0.8, r * 0.22, 10, Math.PI, 6.28), 1); tint('#b884d8', () => { ctx.beginPath(); ctx.arc(cx, cy + r * 0.3, r * 0.25, Math.PI, 0); }); L(circlePts(cx, cy + r * 0.3, r * 0.25, r * 0.25, 8, Math.PI, 6.28), 2);
-      L([[cx, cy + r * 0.05], [cx - r * 0.2, cy - r * 0.5]], 3); L([[cx, cy + r * 0.05], [cx + r * 0.22, cy - r * 0.55]], 4); L([[cx + r * 0.6, cy - r * 0.6], [cx + r * 0.6, cy - r * 0.1]], 5); L([[cx + r * 0.5, cy - r * 0.25], [cx + r * 0.6, cy - r * 0.1], [cx + r * 0.7, cy - r * 0.25]], 6); break;
+      L([[cx, cy + r * 0.05], [cx - r * 0.2, cy - r * 0.5]], 3); L([[cx, cy + r * 0.05], [cx + r * 0.22, cy - r * 0.55]], 4); seg(0.6, -0.6, 0.6, -0.1, 5); L([[cx + r * 0.5, cy - r * 0.25], [cx + r * 0.6, cy - r * 0.1], [cx + r * 0.7, cy - r * 0.25]], 6); break;
     case 'mat': for (const [dx, ch] of [[-0.7, ''], [-0.05, '']]) { L([[cx + dx * r - r * 0.25, cy - r * 0.25], [cx + dx * r + r * 0.25, cy - r * 0.25], [cx + dx * r + r * 0.25, cy + r * 0.25], [cx + dx * r - r * 0.25, cy + r * 0.25], [cx + dx * r - r * 0.25, cy - r * 0.25]], dx * 10 + 1); }
       ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.55), true); ctx.textAlign = 'center'; ctx.fillText('+', cx - r * 0.38, cy + r * 0.15); ctx.fillText('=', cx + r * 0.33, cy + r * 0.15); ctx.fillText('?', cx + r * 0.72, cy + r * 0.18); ctx.textAlign = 'left'; break;
     case 'glue': for (const dx of [-0.6, -0.1]) { tint('#ffffff', () => { ctx.beginPath(); ctx.arc(cx + dx * r, cy, r * 0.2, 0, 6.28); }); O(cx + dx * r, cy, r * 0.2, r * 0.18, dx * 10); }
@@ -10538,9 +10536,9 @@ function drawDoodle(name, cx, cy, s, seed) {
       for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28; O(cx + Math.cos(a) * r * 0.55, cy - r * 0.35 + Math.sin(a) * r * 0.2, r * 0.1, r * 0.08, k + 3); } L([[cx, cy - r * 0.5], [cx, cy - r * 0.2]], 9); L([[cx, cy - r * 0.2], [cx + r * 0.04, cy + r * 0.0]], 10); break;
     case 'zzz': guy(cx - r * 0.3, cy + r * 0.2, 0.9); ctx.fillStyle = '#4a3420'; ctx.font = HAND(Math.round(r * 0.45), true); ctx.fillText('z', cx + r * 0.05, cy - r * 0.2); ctx.fillText('Z', cx + r * 0.3, cy - r * 0.45); ctx.fillText('Z', cx + r * 0.6, cy - r * 0.75); break;
     case 'fire': tint('#ff9a4a', () => { ctx.beginPath(); ctx.moveTo(cx, cy - r * 0.6); ctx.quadraticCurveTo(cx + r * 0.4, cy, cx, cy + r * 0.3); ctx.quadraticCurveTo(cx - r * 0.4, cy, cx, cy - r * 0.6); });
-      L([[cx, cy - r * 0.6], [cx + r * 0.3, cy - r * 0.1], [cx + r * 0.15, cy + r * 0.3], [cx - r * 0.15, cy + r * 0.3], [cx - r * 0.3, cy - r * 0.1], [cx, cy - r * 0.6]], 1); L([[cx - r * 0.5, cy + r * 0.45], [cx + r * 0.5, cy + r * 0.3]], 2); L([[cx - r * 0.5, cy + r * 0.3], [cx + r * 0.5, cy + r * 0.45]], 3); break;
+      L([[cx, cy - r * 0.6], [cx + r * 0.3, cy - r * 0.1], [cx + r * 0.15, cy + r * 0.3], [cx - r * 0.15, cy + r * 0.3], [cx - r * 0.3, cy - r * 0.1], [cx, cy - r * 0.6]], 1); seg(-0.5, 0.45, 0.5, 0.3, 2); seg(-0.5, 0.3, 0.5, 0.45, 3); break;
     case 'carrot': tint('#e8792a', () => { ctx.beginPath(); ctx.moveTo(cx - r * 0.2, cy - r * 0.35); ctx.lineTo(cx + r * 0.2, cy - r * 0.35); ctx.lineTo(cx, cy + r * 0.6); ctx.closePath(); });
-      L([[cx - r * 0.2, cy - r * 0.35], [cx + r * 0.2, cy - r * 0.35], [cx, cy + r * 0.6], [cx - r * 0.2, cy - r * 0.35]], 1); L([[cx, cy - r * 0.35], [cx - r * 0.15, cy - r * 0.7]], 2); L([[cx, cy - r * 0.35], [cx + r * 0.15, cy - r * 0.7]], 3); L([[cx - r * 0.05, cy - r * 0.1], [cx + r * 0.08, cy - r * 0.05]], 4); break;
+      L([[cx - r * 0.2, cy - r * 0.35], [cx + r * 0.2, cy - r * 0.35], [cx, cy + r * 0.6], [cx - r * 0.2, cy - r * 0.35]], 1); L([[cx, cy - r * 0.35], [cx - r * 0.15, cy - r * 0.7]], 2); L([[cx, cy - r * 0.35], [cx + r * 0.15, cy - r * 0.7]], 3); seg(-0.05, -0.1, 0.08, -0.05, 4); break;
   }
   ctx.restore();
 }

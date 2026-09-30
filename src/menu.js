@@ -103,6 +103,13 @@ function toSystem(key) {                              // sub-screens return to t
   const i = SYSTEM_ITEMS().findIndex(o => o[0] === key);
   Object.assign(state.menu, { view: 'pack', tab: SYS_TAB(), focus: 'grid', sys: Math.max(0, i), note: '' });
 }
+// the menu pages you open from a list: what each one starts with (Object.assign onto state.menu)
+const MENU_VIEWS = { pack: { tab: 0, sel: 0, focus: 'grid', act: 0 }, settings: { sel: 0 }, save: { sel: 0, note: '' }, load: { sel: 0, note: '' },
+  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+function openView(m, key) {
+  if (key === 'keys' && TOUCH) { m.note = 'Controls are the on-screen buttons on this device'; return; }
+  const v = MENU_VIEWS[key]; Object.assign(m, { view: key, ...(typeof v === 'function' ? v() : v) });
+}
 function systemSelect(i) {
   const m = state.menu, key = (SYSTEM_ITEMS()[i] || [])[0];
   sfx.pickup();
@@ -112,18 +119,13 @@ function systemSelect(i) {
   if (key === 'rezone') { state.menu = null; enterZone(state.arena.key); }
   if (key === 'glade') { state.menu = null; state.arena = null; transitionTo('arena', 0.5, 0.55, true); }
   if (key === 'acornskill') setSkillLevel('acorn', (skillLevel('acorn') + 1) % (SKILLS.acorn.steps.length + 1));
-  if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
-  if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
-  if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
-  if (key === 'levels') Object.assign(m, { view: 'levels', sel: 0, note: '' });
+  if (['save', 'load', 'keys', 'levels', 'new', 'spores'].includes(key)) openView(m, key);
   if (key === 'tiles') { state.settings.tiles = !state.settings.tiles; state.tileCache = null; saveSettings(); }
   if (key === 'sound') setSound(!soundOn);
   if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
   if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
   if (key === 'labels') { state.settings.labels = state.settings.labels === false; saveSettings(); }
   if (key === 'tag' || key === 'coords') { state.settings[key] = state.settings[key] === false; saveSettings(); }
-  if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
-  if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
 }
 const MAT_USE = { thorn: 'edge, temper, raft', ember: 'temper, pouch', ironwood: 'edge, temper, guard', starpetal: 'guard, pouch, hilt', ear: 'stalker cap', hide: 'stalker cap', driftwood: 'raft' };
 const UP_ICON = { edge: 'thorn', temper: 'ember', guard: 'ironwood', pouch: 'ember', star: 'starpetal' };
@@ -383,15 +385,10 @@ function menuSelect(i) {
   if (m.view === 'main') {
     const key = (MAIN_ITEMS()[i] || [])[0];
     if (key === 'resume') state.menu = null;
-    if (key === 'pack') Object.assign(m, { view: 'pack', tab: 0, sel: 0, focus: 'grid', act: 0 });
-    if (key === 'settings') Object.assign(m, { view: 'settings', sel: 0 });
-    if (key === 'save') Object.assign(m, { view: 'save', sel: 0, note: '' });
-    if (key === 'load') Object.assign(m, { view: 'load', sel: 0, note: '' });
-    if (key === 'new') Object.assign(m, { view: 'new', sel: 1 });
-    if (key === 'spores') Object.assign(m, { view: 'spores', sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` });
+    if (['pack', 'settings', 'save', 'load', 'new', 'spores'].includes(key)) openView(m, key);
   } else if (m.view === 'settings') {
     const key = (SETTINGS_ITEMS()[i] || [])[0];
-    if (key === 'keys') { if (TOUCH) m.note = 'Controls are the on-screen buttons on this device'; else Object.assign(m, { view: 'keys', sel: 0 }); }
+    if (key === 'keys') openView(m, key);
     if (key === 'sound') setSound(!soundOn);
     if (key === 'fs') { if (inFullscreen()) exitFullscreen(); else goFullscreen(); }
     if (key === 'tips') { state.settings.tips = state.settings.tips === 'intro' ? 'always' : 'intro'; saveSettings(); }
