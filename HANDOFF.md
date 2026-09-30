@@ -1,4 +1,4 @@
-# Quest: handoff (build 180, 30 Sep 2026)
+# Quest: handoff (build 183, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -28,8 +28,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 179): audit: 10965 lines, 0 unused, 4 functions over 150,
-  3 repeats, 162 state fields, frames avg 0.72 ms (3 slow, 0 errors). Frame times swing with
+  handoff updates docs/audit-baseline.json. Last run (build 183): audit: 11018 lines, 0 unused, 1 functions over 150,
+  0 repeats, 162 state fields, frames avg 0.6 ms (2 slow, 0 errors). Frame times swing with
   machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
@@ -160,13 +160,16 @@ opening sit wherever the seed put them (moving them to the matching side means r
 
 ## Next task (on Opus unless marked: WAYS 7a)
 Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
-any of these; the whole suite passes unchanged, and the audit is run before and after each. In this order, one
-build each, and take the next one off this list when it ships:
-1. The state-field owner map: which file owns each of the 162 state.* fields (FABLE, design: do it in chat).
+any of these; the whole suite passes unchanged, and the audit is run before and after each. One build each, and take
+it off this list when it ships:
+1. The state-field owner map (FABLE, design): which file owns each of the 162 state.* fields, who else reads or
+   writes it, and where the owner is unclear or split. Deliver the map first (a doc, docs/state-owners.md) and agree
+   with Ross what, if anything, moves; moving fields is its own build after that.
 2. genWorld (533): split by region, after the climb decision.
-Done: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS) since build 180; tools/draw-record.js proved the
-canvas calls unchanged. updateCut reads CUT_STEPS since build 181 (every test's output identical before and after). The audit's repeats are 0
-since build 182 (openView and MENU_VIEWS in menu.js, pipHold in the spore homecoming, seg in drawDoodle).
+Done this chat: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS, build 180); updateCut reads CUT_STEPS
+(build 181; the unreachable 'ambush' scene went with it); the audit's repeats are 0 (build 182: openView and
+MENU_VIEWS in menu.js, pipHold in the spore homecoming, seg in drawDoodle). Each was proved by numbers, as WAYS 5
+describes.
 Parked until the list is done: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
 MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
 the same; Ross picks.

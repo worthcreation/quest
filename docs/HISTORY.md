@@ -1,6 +1,11 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 183: handoff (chat)
+- HANDOFF: Next task is the state-field owner map (FABLE, map first, moves after), then genWorld after the climb
+  decision; audit line and baseline re-saved (1 over 150, 0 repeats). WAYS 5: the new baseline and how builds 180 to
+  182 proved no change in play.
+
 ## Build 182: the audit's three repeats (no change in play)
 - menu.js: MENU_VIEWS says what each menu page starts with and openView(m, key) opens it (the touch note for Keys
   included); systemSelect and menuSelect call it instead of seven copied Object.assign lines.
