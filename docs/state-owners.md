@@ -262,7 +262,8 @@ Struck through with the build number as each ships. Rows above still describe bu
    `liftRock(seed)` (carry is only ever 'rock', and pickUpHere already exists). The clears stay where they are.
 6. ~~`swallowKeys()` in input.js for the four `state.keys = {}; state.prevKeys = {}` lines (interact 3, menu 1).~~
    Done, build 191: five lines (input.js's key remap had one too); swallowKeys is now the only place either is reset.
-7. quests.js:69: call showTitle instead of building the herald title by hand (check showTitle can take the note).
+7. ~~quests.js:69: call showTitle instead of building the herald title by hand (check showTitle can take the note).~~
+   Done, build 192: showTitle takes an optional note; quests.js no longer writes title or titleQ.
 8. climbReturn: `startClimb(id, from)` in climb.js; menu's two Testing rows call it.
 9. Small strays, one build together: qlogOpen toggled through one `toggleQlog()` in menu.js; choiceRects moved to
    draw-ui.js with the other rects; the rapids meter in draw.js stores its rect as `state.bannerRect`-style field of

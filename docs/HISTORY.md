@@ -1,6 +1,11 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 192: quest-complete banner through showTitle (state-owners move 7)
+- text.js: showTitle takes an optional sixth argument, note (the line under a finished quest), added only when given.
+  quests.js calls it instead of building the herald title and queueing it by hand. All 65 test outputs identical to
+  build 191's.
+
 ## Build 191: swallowKeys (state-owners move 6)
 - input.js: swallowKeys() forgets keys held and pressed; the five places that did it by hand (the key remap, the Map
   tab, the forge, ask(), toggleMenu) call it. All 65 test outputs identical to build 190's.

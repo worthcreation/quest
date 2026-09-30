@@ -66,7 +66,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { const tt = { text: q.name, sub: 'quest complete', style: 'herald', t: 0, life: 4.6, at: state.time, hold: false, note: QUEST_DID[q.id] || '' }; if (speakingNow()) (state.titleQ = state.titleQ || []).push(tt); else state.title = tt; sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 4.6, false, QUEST_DID[q.id] || ''); sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }

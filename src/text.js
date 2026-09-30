@@ -83,11 +83,12 @@ function dismissHeld() {
 }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
-function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+function showTitle(text, sub, style = 'area', life = 3, hold = false, note) {   // note: the line under a finished quest
   // Only quests get the big banner (their start and their end, from quests.js). Everything else notable (items,
   // recipes, relics, level-ups) is a small scroll in the lower half: unobtrusive, a few seconds.
   if (style === 'relic' || style === 'quest') { showScroll(text, sub ? sub[0].toUpperCase() + sub.slice(1) : ''); return; }
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
+  if (note !== undefined) t.note = note;
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
 }

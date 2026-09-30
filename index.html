@@ -2269,11 +2269,12 @@ function dismissHeld() {
 }
 function unsay(key) { state.texts = state.texts.filter(o => o.key !== key); }
 // a title with hold: true (quest alerts) waits on screen until you clear it with the action key
-function showTitle(text, sub, style = 'area', life = 3, hold = false) {
+function showTitle(text, sub, style = 'area', life = 3, hold = false, note) {   // note: the line under a finished quest
   // Only quests get the big banner (their start and their end, from quests.js). Everything else notable (items,
   // recipes, relics, level-ups) is a small scroll in the lower half: unobtrusive, a few seconds.
   if (style === 'relic' || style === 'quest') { showScroll(text, sub ? sub[0].toUpperCase() + sub.slice(1) : ''); return; }
   const t = { text, sub, style, t: 0, life: hold ? 1e9 : life, at: state.time, hold };
+  if (note !== undefined) t.note = note;
   if (speakingNow()) { (state.titleQ = state.titleQ || []).push(t); return; }   // wait until nobody is talking
   state.title = t;
 }
@@ -6934,7 +6935,7 @@ function updateQuests(force) {
       log.push({ q: q.id, s: q.steps[s.step].id, t });
       s.step++;
       if (!quiet) pulse[q.id] = state.time;              // a milestone: the HUD row lights up, then fades back
-      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { const tt = { text: q.name, sub: 'quest complete', style: 'herald', t: 0, life: 4.6, at: state.time, hold: false, note: QUEST_DID[q.id] || '' }; if (speakingNow()) (state.titleQ = state.titleQ || []).push(tt); else state.title = tt; sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
+      if (s.step >= q.steps.length) { s.done = t; if (!quiet) { showTitle(q.name, 'quest complete', 'herald', 4.6, false, QUEST_DID[q.id] || ''); sfx.fanfare(); if (q.reward) q.reward(); if (tracked(q.id)) (state.qDone = state.qDone || []).push({ q, t: state.time }); } }
     }
   }
 }
@@ -8715,7 +8716,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 191';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 192';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
