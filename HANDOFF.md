@@ -1,4 +1,4 @@
-# Quest: handoff (build 172, 30 Sep 2026)
+# Quest: handoff (build 175, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 
@@ -6,11 +6,17 @@ QUEST_WAYS_OF_WORKING.md. Read both before touching anything.
 - Build: `sh build.sh` concatenates src/head.html and the files in src/ORDER into index.html, then checks the script
   parses (fails the build if not). BUILD number: `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 64 tests, about 2 minutes (one core: they run one after another), one call. Each prints `errs N`; 0 is a pass
+  seed 1000003, TEST_MODE on). 65 tests, about 2 minutes (one core: they run one after another), one call. Each prints `errs N`; 0 is a pass
   (robin-drop prints none and passes).
   `node tests/<name>.js` runs one. `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
-- Ship: `sh tools/ship.sh NN "Build NN: ..." [scene]` bumps BUILD, builds, runs every test and the overlap check,
+- Ship: `sh tools/ship.sh NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists an
+  unused top-level name (delete it, or mark it `// keep: <reason>`), runs every test and the overlap check,
   packages /mnt/user-data/outputs/quest-bNN.zip only if all pass, and prints the ship line and links (tools/links.js).
+- Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
+  handoff updates docs/audit-baseline.json. Last run (build 175): audit: 10914 lines, 0 unused, 4 functions over 150,
+  5 repeats, 162 state fields, frames avg 0.55 ms (2 slow, 0 errors). Frame times swing with
+  container load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
+- Model: the first line of every chat's first reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops there.
 - Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp. MOCK4=1 is the
   mountainside still; B139/B150/B154 are the climb screens; B165 is the rise (seven spots: the way in, along it, the way out; plus the tiles;
   SW=390 SH=844 for a phone).
@@ -81,12 +87,16 @@ shot.js, overlap.js.
 - Collision and drawing share one shape function (chasmSpan, corridorSpan, gap(x, z)); never draw an edge the game
   doesn't test.
 - Anything that takes over update() (state.rapids, state.climb) handles its own death, menus and text.
+- Pip speaks only through pipLine (hold: true waits for F) or pipSay (once-only). Where Pip is on a screen is decided
+  in one place, pipArrive (enterScene and updatePip): on his post (pipPost: the garden, or state.pipAhead after a tour
+  lead with to:) he stays; elsewhere he's out of sight and comes back in from an edge after 4 s (pipBackIn).
+- Rounded boxes: rounded(x, y, w, h, r). Exits: exitToward(sc, goal), exitPoint(ex).
 
 ## Tests (tests/, by topic)
 acorn-skill arena book-tiles camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson misc-51 mountain-side opening pack patch-hints pickup-sparkles
-pip-ahead pip-bounce pip-brambles pip-leading pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
+pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
 robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
@@ -124,11 +134,25 @@ bump them, f2's two island pickups (a stick or an acorn each), which the rise do
 seams: the rise's way in is at its far west and its way out at its far east, while f1's south opening and f3's north
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
-## Next task
-None set after build 172 (faster builds: tools/ship.sh; the rise in place of f2, with f1's wind; reeds at x 20 close it). The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the
-world yet). When he's ready: which of climb1 to climb5 to keep, where they join (between the windy fields and the
+## Next task (on FABLE: WAYS 7a)
+The MONSTERS table, no change in play. Today one monster lives in up to eight places across four files: the
+makeEnemy switch, AI and TOUCHES (critters.js), SMALL (combat.js), special cases in damage() and kill() (warden
+enrage, diver/lurker stun, thief journal, warden passage), the drawEnemy and drawEnemyEyes switches and dropFor
+(draw-ui.js, items), plus hawk and mantis on their own path (makeHighCritter, drawHawk, drawMantis in highlands.js).
+Make one MONSTERS entry per type holding stats, ai, touches, small, draw, eyes, drop and optional onHit/onKill hooks;
+makeEnemy, updateEnemies, damage, kill and drawEnemy read the entry; hawk and mantis join it. Adding a monster
+becomes one entry. Proof: the whole suite passes unchanged (combat-rhythm, combat-crops, woods, woods-gremlins,
+rabbits, arena, high-reaches, scene-smoke cover every type), dead.js 0, and the audit's longest-function list loses
+drawEnemy. Same build: a hero-note helper for the audit's top repeat, say(text, h.x, h.y - UNIT * n, {...}), 25
+times in 8 files.
+
+Cleanup list (from the audit, each its own build when its area is next touched): genWorld 533 lines (split by region,
+but after the climb decision), drawSolid 216, drawItemIcon 203, updateCut 163; 162 state fields with no owner map.
+
+The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the world
+yet). When he's ready (FABLE): which of climb1 to climb5 to keep, where they join (between the windy fields and the
 crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
-Until then, wait for Ross's request; don't touch the climb unasked.
+Don't touch the climb unasked.
 
 ## Working from Cowork
 The container never commits or pushes: Ross ships each zip from his PC. After he pushes, `git fetch` and

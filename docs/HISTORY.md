@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 175: handoff
+- HANDOFF brought to build 175: the audit and model rules, pipArrive/pipLine conventions, 65 tests, next task the
+  MONSTERS table (on Fable) with the audit's cleanup list. PROJECT_INSTRUCTIONS refined. Audit baseline re-saved.
+
 ## Build 174: the audit tool, and when to use Fable
 - node tools/audit.js: unused names, size, longest functions, repeated statement shapes, per-screen frame cost, each
   against docs/audit-baseline.json (--save at a handoff). About 6 s. First baseline: 10914 lines, 0 unused, 4
