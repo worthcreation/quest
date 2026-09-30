@@ -264,11 +264,15 @@ Struck through with the build number as each ships. Rows above still describe bu
    Done, build 191: five lines (input.js's key remap had one too); swallowKeys is now the only place either is reset.
 7. ~~quests.js:69: call showTitle instead of building the herald title by hand (check showTitle can take the note).~~
    Done, build 192: showTitle takes an optional note; quests.js no longer writes title or titleQ.
-8. climbReturn: `startClimb(id, from)` in climb.js; menu's two Testing rows call it.
-9. Small strays, one build together: qlogOpen toggled through one `toggleQlog()` in menu.js; choiceRects moved to
+8. climbReturn: `startClimb(id, from)` in climb.js; menu's two Testing rows call it. Parked (Ross, 30 Sep): it's
+   test plumbing that the climb decision will rewrite or retire; do it with the climb, not before.
+9. ~~Small strays, one build together: qlogOpen toggled through one `toggleQlog()` in menu.js; choiceRects moved to
    draw-ui.js with the other rects; the rapids meter in draw.js stores its rect as `state.bannerRect`-style field of
    its own (or reuses bannerRect) instead of arenaBanner; highTitle created by a highlands hook that enterScene
-   calls; interact's five menu literals go through openView.
+   calls; interact's five menu literals go through openView.~~ Done, build 193: toggleQlog and openMenu(key, extra)
+   in menu.js (poses, chest, book and forge joined MENU_VIEWS); drawChoice lives in draw-ui.js; arenaBanner is
+   topBanner (the arena's wave banner or the rapids meter, whichever is up); enterHighlands(id) makes the title
+   card and resets the vista birds.
 10. Leave alone: cam (the camera update in input.js is a bigger question than a field; revisit if input.js is ever
     split), grab (part of the parked hawk work), inv, hero, fx, shake and flash (shared by design).
 11. ~~Found in build 187, a play change for Ross to decide: `state.fireLit` is set only by startIntro and by building

@@ -105,7 +105,11 @@ function toSystem(key) {                              // sub-screens return to t
 }
 // the menu pages you open from a list: what each one starts with (Object.assign onto state.menu)
 const MENU_VIEWS = { pack: { tab: 0, sel: 0, focus: 'grid', act: 0 }, settings: { sel: 0 }, save: { sel: 0, note: '' }, load: { sel: 0, note: '' },
-  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, poses: { sel: 0, note: '' }, chest: { col: 0, sel: 0, note: '' }, book: { page: 0 }, forge: { sel: 0, note: '' }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+// the quest log on the Quests tab, folded or open (the row's key in menu.js, its tap in draw-ui.js)
+function toggleQlog() { state.qlogOpen = !state.qlogOpen; }
+// a fresh menu on one view, plus anything the caller sets (a tab, a note); the pack itself opens in toggleMenu
+function openMenu(key, extra) { const m = {}; openView(m, key); if (extra) Object.assign(m, extra); state.menu = m; }
 function openView(m, key) {
   if (key === 'keys' && TOUCH) { m.note = 'Controls are the on-screen buttons on this device'; return; }
   const v = MENU_VIEWS[key]; Object.assign(m, { view: key, ...(typeof v === 'function' ? v() : v) });
@@ -272,7 +276,7 @@ function updatePack() {
     if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.focus = 'tabs'; sfx.tock(); }
     if (pressedNow.right) { m.tab = stepTab(m.tab, 1); m.focus = 'tabs'; sfx.tock(); }
     const row = questRows(v)[m.qsel];
-    if (pressedNow.act && row && row.kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    if (pressedNow.act && row && row.kind === 'loghead') { toggleQlog(); sfx.tock(); }
     if (pressedNow.act && row && row.kind === 'cur') { trackQuest(row.c.q.id, !tracked(row.c.q.id)); sfx.tock(); }   // active on the HUD, or not
     return;
   }

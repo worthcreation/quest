@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 193: the strays (state-owners move 9) and handoff
+- menu.js: toggleQlog (the log row's key and its tap both call it) and openMenu(key, extra); poses, chest, book and
+  forge joined MENU_VIEWS, so interact.js's five menu literals are gone. drawChoice moved from draw.js to draw-ui.js
+  with the other rects. arenaBanner renamed topBanner: the arena's wave banner or the rapids meter, whichever is up.
+  highlands.js: enterHighlands(id) (the hr3 title card, the vista birds), called from enterScene. All 65 test
+  outputs identical to build 192's; the five menu objects, the choice rects and an hr3 entry compared equal; draw hash
+  identical.
+- Handoff: cleanup list done (moves 1 to 7, 9, 11; 8 parked with the climb). Next: two hammocks in the lean-to.
+  Audit baseline re-saved.
+
 ## Build 192: quest-complete banner through showTitle (state-owners move 7)
 - text.js: showTitle takes an optional sixth argument, note (the line under a finished quest), added only when given.
   quests.js calls it instead of building the herald title and queueing it by hand. All 65 test outputs identical to

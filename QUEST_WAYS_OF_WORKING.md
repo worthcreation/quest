@@ -79,8 +79,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   line if it's a hook on purpose (startEnding is).
 - What it flags goes on HANDOFF's cleanup list and gets its own build, separate from feature builds. The fix for a
   flagged function is to split it the next time a feature touches it, unless Ross asks for a cleanup build.
-- Baseline (build 183): 11018 lines, 0 unused, 1 function over 150 (genWorld 533), 0 repeats, 162 state fields,
-  frames avg 0.6 ms, 2 over 2 ms (rise, climb3), 0 errors.
+- Baseline (build 193): 11031 lines, 0 unused, 1 function over 150 (genWorld 533), 0 repeats, 158 state fields,
+  frames avg 0.5 ms, 1 over 2 ms (rise), 0 errors.
 - Proving a refactor with no change in play (builds 180 to 182): save every test's full output before (run each
   tests/*.js except harness.js and run.js, one file per test) and diff after, ignoring the BUILD label; for drawing,
   `node tools/draw-record.js` records every canvas call per solid kind and item type (compare its total hash); for

@@ -196,6 +196,11 @@ function drawHighVista(sc) {
   for (const [x0, y0, x1, y1] of sc.chasms) { const r = [x0 * W, y0 * H, (x1 - x0) * W, (y1 - y0) * H]; sc.vista === 'clouds' ? drawCloudSea(...r) : drawValleyBelow(...r, 1); }
 }
 // the first time you come up above the clouds: a vista card, the title of the place
+// at every enterScene: the vista birds start over, and the first time above the clouds gets its title card
+function enterHighlands(id) {
+  if (id === 'hr3' && !state.inv.sawHighTitle) { state.inv.sawHighTitle = true; state.highTitle = { t: 0 }; }
+  state.vistaBirds = [];
+}
 function drawHighTitle() {
   const T = state.highTitle; if (!T) return;
   try { drawHighTitleInner(T); } catch (e) { state.highTitle = null; }   // never let the card stop the game

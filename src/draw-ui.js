@@ -585,13 +585,35 @@ function wrap(text, maxW) {
   return lines;
 }
 // ---------- floating text: laid out so no two boxes, the HUD, the title or the touch buttons overlap ----------
+// a question in a bubble (interact.js's ask); its option rects are kept for taps (text.js)
+function drawChoice() {
+  const c = state.choice; if (!c) return;
+  const fs = Math.round(Math.max(14, Math.min(19, UNIT * 0.52)));
+  ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const optW = c.options.map(o => ctx.measureText(o).width + 28), total = optW.reduce((a, b) => a + b, 0) + 10 * (c.options.length - 1);
+  const bw = Math.max(ctx.measureText(c.text).width + 30, total + 20), bh = fs * 3.6;
+  let [sx, sy] = toScreen(c.x, c.y); sy -= bh; if (sy < 50) sy = 50;
+  sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
+  ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(sx - bw / 2, sy, bw, bh);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(c.text, sx, sy + fs * 1.3);
+  let ox = sx - total / 2;
+  state.choiceRects = [];
+  c.options.forEach((o, i) => {
+    const sel = i === c.sel;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(ox, sy + fs * 1.9, optW[i], fs * 1.4);
+    ctx.fillStyle = sel ? '#ffe38a' : '#fdf6e3'; ctx.fillText(o, ox + optW[i] / 2, sy + fs * 2.95);
+    state.choiceRects.push({ x: ox, y: sy + fs * 1.9, w: optW[i], h: fs * 1.4, i });
+    ox += optW[i] + 10;
+  });
+  ctx.textAlign = 'left';
+}
 const TEXT = { min: 14, max: 19, pad: 8, gap: 6, readChars: 110, maxShown: 4 };
 // areas of the screen text must stay out of
 function reservedRects() {
   const r = [];
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
-  if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.topBanner) r.push(state.topBanner);   // the arena's wave banner or the rapids meter, whichever is up
   // (the quest HUD is background: text is drawn over it rather than steering round it)
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
@@ -1125,7 +1147,7 @@ function drawPack(m, x, y, pw, fs) {
         ctx.fill();
         ctx.fillText(`Log (${r.n})`, lx + 34, yy + rh * 0.66);
         ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(state.qlogOpen ? 'newest first' : `${K.act} to open`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
-        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; state.qlogOpen = !state.qlogOpen; } });
+        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; toggleQlog(); } });
       } else {
         const e = r.e;
         ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(lx + 16, yy + rh * 0.5); ctx.lineTo(lx + 20, yy + rh * 0.66); ctx.lineTo(lx + 27, yy + rh * 0.3); ctx.stroke();

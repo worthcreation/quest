@@ -104,7 +104,7 @@ function updateArena(dt) {
 // wave status, top centre, kept out of the text layout
 function drawArenaBanner() {
   const a = ARENA && state.arena;
-  state.arenaBanner = null;
+  state.topBanner = null;
   if (!a || state.menu) return;
   const n = a.zone.waves.length, label = a.phase === 'done' ? `${a.zone.name}: cleared` : a.phase === 'ready' ? `${a.zone.name}: wave ${a.wave + 1} of ${n} in ${Math.max(0, Math.ceil(a.t))}` : `${a.zone.name}: wave ${a.wave + 1} of ${n}, ${a.left || 0} left`;
   const fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.55)));
@@ -114,5 +114,5 @@ function drawArenaBanner() {
   for (let i = 0; i < n; i++) { ctx.fillStyle = i < a.wave || a.phase === 'done' ? '#b8f28a' : i === a.wave ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.fillRect(x + 14 + i * ((w - 28) / n), y + h - 6, (w - 28) / n - 3, 3); }
   ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, y + h / 2 - 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  state.arenaBanner = { x, y, w, h };
+  state.topBanner = { x, y, w, h };
 }

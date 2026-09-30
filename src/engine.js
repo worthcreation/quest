@@ -52,8 +52,8 @@ function enterSceneIn(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
-  if (id === 'hr3' && !state.inv.sawHighTitle) { state.inv.sawHighTitle = true; state.highTitle = { t: 0 }; }   // above the clouds for the first time
-  state.grab = null; state.vistaBirds = [];
+  enterHighlands(id);
+  state.grab = null;
   state.pipGone = null;                              // Pip is wherever the new screen puts him
   syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);

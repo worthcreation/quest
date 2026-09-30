@@ -1171,6 +1171,11 @@ function drawHighVista(sc) {
   for (const [x0, y0, x1, y1] of sc.chasms) { const r = [x0 * W, y0 * H, (x1 - x0) * W, (y1 - y0) * H]; sc.vista === 'clouds' ? drawCloudSea(...r) : drawValleyBelow(...r, 1); }
 }
 // the first time you come up above the clouds: a vista card, the title of the place
+// at every enterScene: the vista birds start over, and the first time above the clouds gets its title card
+function enterHighlands(id) {
+  if (id === 'hr3' && !state.inv.sawHighTitle) { state.inv.sawHighTitle = true; state.highTitle = { t: 0 }; }
+  state.vistaBirds = [];
+}
 function drawHighTitle() {
   const T = state.highTitle; if (!T) return;
   try { drawHighTitleInner(T); } catch (e) { state.highTitle = null; }   // never let the card stop the game
@@ -2349,8 +2354,8 @@ function enterSceneIn(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
-  if (id === 'hr3' && !state.inv.sawHighTitle) { state.inv.sawHighTitle = true; state.highTitle = { t: 0 }; }   // above the clouds for the first time
-  state.grab = null; state.vistaBirds = [];
+  enterHighlands(id);
+  state.grab = null;
   state.pipGone = null;                              // Pip is wherever the new screen puts him
   syncMudRocks(sc);                                  // rocks sunk in this screen's mud (they outlive leaving and saving)
   state.pull = newPull(null);
@@ -4501,7 +4506,7 @@ function interactPickup(sc, h, rt, nearPull) {
   if (pressedNow.act && pickUpHere()) return true;  // something at your feet: F picks it up (it sparkles harder as you near it)
 }
 function interactMirror(sc, h, rt, nearPull) {
-  if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { state.menu = { view: 'poses', sel: 0, note: '' }; sfx.tock(); return true; }
+  if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { openMenu('poses'); sfx.tock(); return true; }
 }
 function interactPortals(sc, h, rt, nearPull) {
   for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
@@ -4559,7 +4564,7 @@ function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick
   const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
   sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
 }
-function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; swallowKeys(); sfx.tock(); }
+function openMapTab() { openMenu('pack', { tab: PACK_TABS.indexOf('Map'), note: '' }); swallowKeys(); sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -4567,10 +4572,10 @@ function interactBedroll(sc, h, rt, nearPull) {
   if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); heroNote('A quick nap. Vigor restored.', 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
 }
 function interactChest(sc, h, rt, nearPull) {
-  if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
+  if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { openMenu('chest'); sfx.tock(); return true; }
 }
 function interactBook(sc, h, rt, nearPull) {
-  if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { state.menu = { view: 'book', page: 0 }; sfx.tock(); return true; }
+  if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { openMenu('book'); sfx.tock(); return true; }
 }
 function interactBuild(sc, h, rt, nearPull) {
   for (const b of sc.feat.buildSpots || []) {
@@ -4595,7 +4600,7 @@ function interactBench(sc, h, rt, nearPull) {
   if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
-    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; swallowKeys(); sfx.tock(); return true; }
+    if (d < UNIT * 1.9 && pressedNow.act) { openMenu('forge'); swallowKeys(); sfx.tock(); return true; }
   }
 }
 function interactPatches(sc, h, rt, nearPull) {
@@ -6185,7 +6190,11 @@ function toSystem(key) {                              // sub-screens return to t
 }
 // the menu pages you open from a list: what each one starts with (Object.assign onto state.menu)
 const MENU_VIEWS = { pack: { tab: 0, sel: 0, focus: 'grid', act: 0 }, settings: { sel: 0 }, save: { sel: 0, note: '' }, load: { sel: 0, note: '' },
-  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+  levels: { sel: 0, note: '' }, keys: { sel: 0 }, new: { sel: 1 }, poses: { sel: 0, note: '' }, chest: { col: 0, sel: 0, note: '' }, book: { page: 0 }, forge: { sel: 0, note: '' }, spores: () => ({ sel: 0, note: `You have ${state.inv.spores} spores. Farther jumps cost more.` }) };
+// the quest log on the Quests tab, folded or open (the row's key in menu.js, its tap in draw-ui.js)
+function toggleQlog() { state.qlogOpen = !state.qlogOpen; }
+// a fresh menu on one view, plus anything the caller sets (a tab, a note); the pack itself opens in toggleMenu
+function openMenu(key, extra) { const m = {}; openView(m, key); if (extra) Object.assign(m, extra); state.menu = m; }
 function openView(m, key) {
   if (key === 'keys' && TOUCH) { m.note = 'Controls are the on-screen buttons on this device'; return; }
   const v = MENU_VIEWS[key]; Object.assign(m, { view: key, ...(typeof v === 'function' ? v() : v) });
@@ -6352,7 +6361,7 @@ function updatePack() {
     if (pressedNow.left) { m.tab = stepTab(m.tab, -1); m.focus = 'tabs'; sfx.tock(); }
     if (pressedNow.right) { m.tab = stepTab(m.tab, 1); m.focus = 'tabs'; sfx.tock(); }
     const row = questRows(v)[m.qsel];
-    if (pressedNow.act && row && row.kind === 'loghead') { state.qlogOpen = !state.qlogOpen; sfx.tock(); }
+    if (pressedNow.act && row && row.kind === 'loghead') { toggleQlog(); sfx.tock(); }
     if (pressedNow.act && row && row.kind === 'cur') { trackQuest(row.c.q.id, !tracked(row.c.q.id)); sfx.tock(); }   // active on the HUD, or not
     return;
   }
@@ -7622,27 +7631,6 @@ function drawScene(sc) {
   }
   if (state.blind > 0) { ctx.fillStyle = `rgba(250,255,235,${Math.min(0.92, state.blind / 1.8)})`; ctx.fillRect(-W, -H, W * 3, H * 3); }
 }
-function drawChoice() {
-  const c = state.choice; if (!c) return;
-  const fs = Math.round(Math.max(14, Math.min(19, UNIT * 0.52)));
-  ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const optW = c.options.map(o => ctx.measureText(o).width + 28), total = optW.reduce((a, b) => a + b, 0) + 10 * (c.options.length - 1);
-  const bw = Math.max(ctx.measureText(c.text).width + 30, total + 20), bh = fs * 3.6;
-  let [sx, sy] = toScreen(c.x, c.y); sy -= bh; if (sy < 50) sy = 50;
-  sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
-  ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(sx - bw / 2, sy, bw, bh);
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(c.text, sx, sy + fs * 1.3);
-  let ox = sx - total / 2;
-  state.choiceRects = [];
-  c.options.forEach((o, i) => {
-    const sel = i === c.sel;
-    ctx.fillStyle = sel ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(ox, sy + fs * 1.9, optW[i], fs * 1.4);
-    ctx.fillStyle = sel ? '#ffe38a' : '#fdf6e3'; ctx.fillText(o, ox + optW[i] / 2, sy + fs * 2.95);
-    state.choiceRects.push({ x: ox, y: sy + fs * 1.9, w: optW[i], h: fs * 1.4, i });
-    ox += optW[i] + 10;
-  });
-  ctx.textAlign = 'left';
-}
 function drawWebs() {
   for (const w of state.webs || []) {
     if (w.burn) {
@@ -7865,7 +7853,7 @@ function drawRapidsHud() {
   ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px, y + 12, pw, 6);
   ctx.fillStyle = '#9fd4ff'; ctx.fillRect(px, y + 12, pw * Math.min(1, r.dist / RAPIDS.len), 6);
   ctx.fillStyle = '#f2f8fb'; ctx.fillRect(px + pw - 3, y + 8, 3, 14);
-  state.arenaBanner = { x, y, w, h };
+  state.topBanner = { x, y, w, h };
 }
 // the gleaming pool: shallows everywhere, a deep blue middle, the falls down the east side
 function drawWaterScreen(sc) {
@@ -8716,7 +8704,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 192';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 193';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9563,13 +9551,35 @@ function wrap(text, maxW) {
   return lines;
 }
 // ---------- floating text: laid out so no two boxes, the HUD, the title or the touch buttons overlap ----------
+// a question in a bubble (interact.js's ask); its option rects are kept for taps (text.js)
+function drawChoice() {
+  const c = state.choice; if (!c) return;
+  const fs = Math.round(Math.max(14, Math.min(19, UNIT * 0.52)));
+  ctx.font = `bold ${fs}px "Courier New", monospace`;
+  const optW = c.options.map(o => ctx.measureText(o).width + 28), total = optW.reduce((a, b) => a + b, 0) + 10 * (c.options.length - 1);
+  const bw = Math.max(ctx.measureText(c.text).width + 30, total + 20), bh = fs * 3.6;
+  let [sx, sy] = toScreen(c.x, c.y); sy -= bh; if (sy < 50) sy = 50;
+  sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
+  ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(sx - bw / 2, sy, bw, bh);
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(c.text, sx, sy + fs * 1.3);
+  let ox = sx - total / 2;
+  state.choiceRects = [];
+  c.options.forEach((o, i) => {
+    const sel = i === c.sel;
+    ctx.fillStyle = sel ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(ox, sy + fs * 1.9, optW[i], fs * 1.4);
+    ctx.fillStyle = sel ? '#ffe38a' : '#fdf6e3'; ctx.fillText(o, ox + optW[i] / 2, sy + fs * 2.95);
+    state.choiceRects.push({ x: ox, y: sy + fs * 1.9, w: optW[i], h: fs * 1.4, i });
+    ox += optW[i] + 10;
+  });
+  ctx.textAlign = 'left';
+}
 const TEXT = { min: 14, max: 19, pad: 8, gap: 6, readChars: 110, maxShown: 4 };
 // areas of the screen text must stay out of
 function reservedRects() {
   const r = [];
   if (state.hudRect) r.push(state.hudRect);
   if (state.title) r.push({ x: W * 0.1, y: H * 0.22 - UNIT * 1.6, w: W * 0.8, h: UNIT * (state.title.style === 'quest' || state.title.style === 'herald' ? 5.5 : 3.8) });
-  if (state.arenaBanner) r.push(state.arenaBanner);
+  if (state.topBanner) r.push(state.topBanner);   // the arena's wave banner or the rapids meter, whichever is up
   // (the quest HUD is background: text is drawn over it rather than steering round it)
   if (state.actionHint && state.hintRect) r.push(state.hintRect);   // floating text keeps clear of the action label
   if (state.started && state.hero) {                  // never cover the hero
@@ -10103,7 +10113,7 @@ function drawPack(m, x, y, pw, fs) {
         ctx.fill();
         ctx.fillText(`Log (${r.n})`, lx + 34, yy + rh * 0.66);
         ctx.fillStyle = 'rgba(253,246,227,.45)'; ctx.textAlign = 'right'; ctx.fillText(state.qlogOpen ? 'newest first' : `${K.act} to open`, lx + lw - 12, yy + rh * 0.66); ctx.textAlign = 'left';
-        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; state.qlogOpen = !state.qlogOpen; } });
+        hits.push({ x: lx, y: yy, w: lw, h: rh, fn: () => { m.qsel = i; m.focus = 'grid'; toggleQlog(); } });
       } else {
         const e = r.e;
         ctx.strokeStyle = '#b8f28a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(lx + 16, yy + rh * 0.5); ctx.lineTo(lx + 20, yy + rh * 0.66); ctx.lineTo(lx + 27, yy + rh * 0.3); ctx.stroke();
@@ -10930,7 +10940,7 @@ function updateArena(dt) {
 // wave status, top centre, kept out of the text layout
 function drawArenaBanner() {
   const a = ARENA && state.arena;
-  state.arenaBanner = null;
+  state.topBanner = null;
   if (!a || state.menu) return;
   const n = a.zone.waves.length, label = a.phase === 'done' ? `${a.zone.name}: cleared` : a.phase === 'ready' ? `${a.zone.name}: wave ${a.wave + 1} of ${n} in ${Math.max(0, Math.ceil(a.t))}` : `${a.zone.name}: wave ${a.wave + 1} of ${n}, ${a.left || 0} left`;
   const fs = Math.round(Math.max(15, Math.min(20, UNIT * 0.55)));
@@ -10940,7 +10950,7 @@ function drawArenaBanner() {
   for (let i = 0; i < n; i++) { ctx.fillStyle = i < a.wave || a.phase === 'done' ? '#b8f28a' : i === a.wave ? '#ffe38a' : 'rgba(255,255,255,.25)'; ctx.fillRect(x + 14 + i * ((w - 28) / n), y + h - 6, (w - 28) / n - 3, 3); }
   ctx.fillStyle = '#fdf6e3'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, W / 2, y + h / 2 - 2);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  state.arenaBanner = { x, y, w, h };
+  state.topBanner = { x, y, w, h };
 }
 // ===== puzzles.js: ?puzzle mode: the puzzle hub and runs.
 

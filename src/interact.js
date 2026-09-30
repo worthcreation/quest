@@ -32,7 +32,7 @@ function interactPickup(sc, h, rt, nearPull) {
   if (pressedNow.act && pickUpHere()) return true;  // something at your feet: F picks it up (it sparkles harder as you near it)
 }
 function interactMirror(sc, h, rt, nearPull) {
-  if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { state.menu = { view: 'poses', sel: 0, note: '' }; sfx.tock(); return true; }
+  if (sc.feat.mirror && pressedNow.act && Math.hypot(h.x - sc.feat.mirror[0] * W, h.y - sc.feat.mirror[1] * H) < UNIT * 1.8) { openMenu('poses'); sfx.tock(); return true; }
 }
 function interactPortals(sc, h, rt, nearPull) {
   for (const q of sc.feat.portals || []) if (pressedNow.act && Math.hypot(h.x - q.fx * W, h.y - q.fy * H) < UNIT * 1.6) {
@@ -90,7 +90,7 @@ function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick
   const t = sc.feat.trapdoor; if (!t || !pressedNow.act || Math.hypot(h.x - t[0] * W, h.y - t[1] * H) > UNIT * 1.2) return;
   sfx.tock(); transitionTo('cellar', 0.5, 0.2); return true;
 }
-function openMapTab() { state.menu = { view: 'pack', tab: PACK_TABS.indexOf('Map'), sel: 0, focus: 'grid', act: 0, note: '' }; swallowKeys(); sfx.tock(); }
+function openMapTab() { openMenu('pack', { tab: PACK_TABS.indexOf('Map'), note: '' }); swallowKeys(); sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
 }
@@ -98,10 +98,10 @@ function interactBedroll(sc, h, rt, nearPull) {
   if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); heroNote('A quick nap. Vigor restored.', 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
 }
 function interactChest(sc, h, rt, nearPull) {
-  if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { state.menu = { view: 'chest', col: 0, sel: 0, note: '' }; sfx.tock(); return true; }
+  if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { openMenu('chest'); sfx.tock(); return true; }
 }
 function interactBook(sc, h, rt, nearPull) {
-  if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { state.menu = { view: 'book', page: 0 }; sfx.tock(); return true; }
+  if (sc.feat.book && pressedNow.act && Math.hypot(h.x - sc.feat.book[0] * W, h.y - sc.feat.book[1] * H) < UNIT * 1.6) { openMenu('book'); sfx.tock(); return true; }
 }
 function interactBuild(sc, h, rt, nearPull) {
   for (const b of sc.feat.buildSpots || []) {
@@ -126,7 +126,7 @@ function interactBench(sc, h, rt, nearPull) {
   if (sc.feat.bench && (sc.id !== 'camp' || campBuilt('bench'))) {
     const [bx, by] = sc.feat.bench, d = Math.hypot(h.x - bx * W, h.y - by * H);
     if (d < UNIT * 2.4) say(`${K.act} to work at the bench`, bx * W, by * H - UNIT * 1.2, { key: 'bench', tip: 'bench', life: 3 });
-    if (d < UNIT * 1.9 && pressedNow.act) { state.menu = { view: 'forge', sel: 0, note: '' }; swallowKeys(); sfx.tock(); return true; }
+    if (d < UNIT * 1.9 && pressedNow.act) { openMenu('forge'); swallowKeys(); sfx.tock(); return true; }
   }
 }
 function interactPatches(sc, h, rt, nearPull) {

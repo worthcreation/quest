@@ -1,4 +1,4 @@
-# Quest: handoff (build 183, 30 Sep 2026)
+# Quest: handoff (build 193, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -28,8 +28,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 183): audit: 11018 lines, 0 unused, 1 functions over 150,
-  0 repeats, 162 state fields, frames avg 0.6 ms (2 slow, 0 errors). Frame times swing with
+  handoff updates docs/audit-baseline.json. Last run (build 193): audit: 11031 lines, 0 unused, 1 functions over 150,
+  0 repeats, 158 state fields, frames avg 0.5 ms (1 slow, 0 errors). Frame times swing with
   machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
@@ -52,7 +52,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 ## File map (src/, in load order)
 - world.js      world generation: every screen, solids, exits, barriers, crag(), pullable(), corridorSpan and
                 fitToCorridor (mountain path), MAP_LAYOUT/MAP_NAMES, SHROOM_NAMES, the cellar
-- highlands.js  the High Reaches (hr1-hr3): vistas, hawks, mantises, crystal bugs, worms, the red beetle
+- highlands.js  the High Reaches (hr1-hr3): enterHighlands (title card, vista birds), vistas, hawks, mantises,
+                crystal bugs, worms, the red beetle
 - climb.js      the climb screens (climb1-climb5): CLIMBS table, trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - rise.js       the rise (id 'rise', where f2 was): RISE table, riseH (height), riseHalf (the way's half-width,
@@ -85,7 +86,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 ravines (drawBrokenChasm), mountain sides, hero, Pip (drawPip), enemies, items, drawJagged, drawRock,
                 drawSoilLine (and soilLinePts, its points), BUILD
 - draw-ui.js    item icons (ICONS: one small draw per type, drawItemIcon reads it; RAW ones are drawRawIcon in
-                craft.js), enemies (MONSTERS[type].draw), HUD (bottom-right), the place tag (top-left: screen id and seed, and under it your position in tiles;
+                craft.js), enemies (MONSTERS[type].draw), HUD (bottom-right), the choice bubble (drawChoice), the place tag (top-left: screen id and seed, and under it your position in tiles;
                 placeTag/placeCoords/drawPlaceTag, each line toggled in System), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
@@ -162,22 +163,20 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
-any of these; the whole suite passes unchanged, and the audit is run before and after each. One build each, and take
-it off this list when it ships:
-1. The state-field moves: the ten at the end of docs/state-owners.md (map made in build 185), one build each,
-   struck through there as they ship. Order agreed with Ross: 1 to 8 on Opus (4 done on Opus too); 9 on
-   FABLE; 10 is leave alone; 11 (the fireLit bug) went with 3.
+1. Two hammocks in the lean-to instead of Pip's one bed (Ross, 30 Sep). A feature: read docs/design-rules.md first.
+   What it touches: the 'bed' solid in tentin (world.js:290; the shack's bed at 403 is Wick's and stays), its drawing
+   in SOLID_DRAW (draw.js), the lean-to interior painter (craft.js:219), Pip's "the lantern by my bed" line in the
+   twilight cutscene (cutscenes.js:92) and his tour line "That's my bed. Nap there" (tutorial.js:55); check what a
+   nap does (sc.feat.bedroll, interact.js:98 and 247) before moving it. The look is unsettled: a still mockup first, then the build. Opus.
 2. genWorld (533): split by region, after the climb decision.
-Done this chat: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS, build 180); updateCut reads CUT_STEPS
-(build 181; the unreachable 'ambush' scene went with it); the audit's repeats are 0 (build 182: openView and
-MENU_VIEWS in menu.js, pipHold in the spore homecoming, seg in drawDoodle). Each was proved by numbers, as WAYS 5
-describes.
-Parked until the list is done: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
+The cleanup list (Ross, 30 Sep) is done: docs/state-owners.md moves 1 to 7, 9 and 11 shipped as builds 186 to 193,
+each with every test's output identical before and after and the draw-record hash unchanged (WAYS 5). Move 8
+(startClimb) is parked with the climb below. 162 state fields to 158.
+Parked until asked: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
 MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
 the same; Ross picks.
 
 The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the world
 yet). When he's ready (FABLE): which of climb1 to climb5 to keep, where they join (between the windy fields and the
-crags), retiring the f3-f6 mountain-path screens, and the crag() painter in paintClimb and climbBand fixed at 12.
-Don't touch the climb unasked.
+crags), retiring the f3-f6 mountain-path screens, the crag() painter in paintClimb and climbBand fixed at 12, and
+state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows). Don't touch the climb unasked.

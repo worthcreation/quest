@@ -162,27 +162,6 @@ function drawScene(sc) {
   }
   if (state.blind > 0) { ctx.fillStyle = `rgba(250,255,235,${Math.min(0.92, state.blind / 1.8)})`; ctx.fillRect(-W, -H, W * 3, H * 3); }
 }
-function drawChoice() {
-  const c = state.choice; if (!c) return;
-  const fs = Math.round(Math.max(14, Math.min(19, UNIT * 0.52)));
-  ctx.font = `bold ${fs}px "Courier New", monospace`;
-  const optW = c.options.map(o => ctx.measureText(o).width + 28), total = optW.reduce((a, b) => a + b, 0) + 10 * (c.options.length - 1);
-  const bw = Math.max(ctx.measureText(c.text).width + 30, total + 20), bh = fs * 3.6;
-  let [sx, sy] = toScreen(c.x, c.y); sy -= bh; if (sy < 50) sy = 50;
-  sx = Math.max(bw / 2 + 8, Math.min(W - bw / 2 - 8, sx));
-  ctx.fillStyle = 'rgba(10,8,14,.8)'; ctx.fillRect(sx - bw / 2, sy, bw, bh);
-  ctx.textAlign = 'center'; ctx.fillStyle = '#fdf6e3'; ctx.fillText(c.text, sx, sy + fs * 1.3);
-  let ox = sx - total / 2;
-  state.choiceRects = [];
-  c.options.forEach((o, i) => {
-    const sel = i === c.sel;
-    ctx.fillStyle = sel ? 'rgba(242,201,76,.35)' : 'rgba(255,255,255,.08)'; ctx.fillRect(ox, sy + fs * 1.9, optW[i], fs * 1.4);
-    ctx.fillStyle = sel ? '#ffe38a' : '#fdf6e3'; ctx.fillText(o, ox + optW[i] / 2, sy + fs * 2.95);
-    state.choiceRects.push({ x: ox, y: sy + fs * 1.9, w: optW[i], h: fs * 1.4, i });
-    ox += optW[i] + 10;
-  });
-  ctx.textAlign = 'left';
-}
 function drawWebs() {
   for (const w of state.webs || []) {
     if (w.burn) {
@@ -405,7 +384,7 @@ function drawRapidsHud() {
   ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(px, y + 12, pw, 6);
   ctx.fillStyle = '#9fd4ff'; ctx.fillRect(px, y + 12, pw * Math.min(1, r.dist / RAPIDS.len), 6);
   ctx.fillStyle = '#f2f8fb'; ctx.fillRect(px + pw - 3, y + 8, 3, 14);
-  state.arenaBanner = { x, y, w, h };
+  state.topBanner = { x, y, w, h };
 }
 // the gleaming pool: shallows everywhere, a deep blue middle, the falls down the east side
 function drawWaterScreen(sc) {
@@ -1256,7 +1235,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 192';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 193';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
