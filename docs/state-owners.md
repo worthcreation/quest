@@ -8,7 +8,7 @@ end are for Ross to pick from, one build each.
 How to read it:
 - Owner: the file whose logic gives the field its meaning, usually the one that creates, updates or consumes it. A
   reset in `enterScene` or `resetRun` (engine.js) does not make engine the owner; that pattern is normal and is
-  written "reset" below. The `state = { ... }` literal in world.js declares 74 fields; the other 88 appear on first
+  written "reset" below. The `state = { ... }` literal (world.js then, engine.js since build 187) declares 69 fields; the other 93 appear on first
   assignment ("ad hoc").
 - Others: `w` writes the field itself, `m` mutates something inside it, `r` reads. Direct `state.x` accesses only:
   a field read into a local and mutated through the alias (`const cb = state.combo; cb.step = ...`) counts as a
@@ -17,7 +17,7 @@ How to read it:
   with it), dead (written and never read in src), test-only (src writes it for the harness).
 - Tests and tools/shot.js poke almost everything; they are not owners and are left out of the rows.
 
-Counts: 162 fields in src. 74 in the literal, 88 ad hoc. 4 dead or never set (active, enterT, frameDt, clouds2),
+Counts: 162 fields in src. 69 in the literal, 93 ad hoc (74/88 in the first version of this doc was a miscount). 4 dead or never set (active, enterT, frameDt, clouds2),
 1 test-only (tutStep), 2 more fields exist only in tests (qT in tests/rocks-banners.js is a stale name for questT;
 tqDone is tests/speech.js's own quest flag). 140 have one clear owner and at most resets elsewhere; 22 are flagged.
 
@@ -254,8 +254,9 @@ Struck through with the build number as each ships. Rows above still describe bu
    fireLit stayed in startIntro: moving it changes play (see 11).
 3. ~~Move the slowmo countdown from loop() (draw-ui.js) into update() (engine.js), where every other timer runs.~~
    Done, build 188 (with 11). Play in the browser is the same; the harness now runs slowmo too (it never did).
-4. One `setEquip(id)` in gear.js; the six direct `state.equip = ...` call it (goes with 1, since `active` sits on the
-   same lines).
+4. ~~One `setEquip(id)` in gear.js; the six direct `state.equip = ...` call it (goes with 1, since `active` sits on the
+   same lines).~~ Done, build 189: there were seven (gear had two); setEquip sits beside syncEquip and is the only
+   write left.
 5. One `pickUp(kind, seed)` in items.js that sets carry, carryT and carrySeed; interact.js:181 and items.js:158
    call it. Owner of carry becomes items; actions still throws, engine still drops.
 6. `swallowKeys()` in input.js for the four `state.keys = {}; state.prevKeys = {}` lines (interact 3, menu 1).

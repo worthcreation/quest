@@ -284,7 +284,7 @@ function collect(it) {
     case 'warden': deepen('The Warden\'s heart. Your vigor runs deeper.'); break;
     case 'acorn':
       inv.acorns = Math.min(30, inv.acorns + 1);
-      if (!inv.sword) state.equip = 'acorn';
+      if (!inv.sword) setEquip('acorn');
       tell(inv.sword ? `Acorn. ${K.swap} swaps to acorns; then ${K.act} throws, and holding it throws harder.` : `Acorn. ${K.act} throws it; hold for a harder throw.`, 4, 'acorn');
       break;
     case 'turnipseed': case 'carrotseed': case 'pepperseed': case 'squashseed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {

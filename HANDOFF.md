@@ -166,7 +166,7 @@ Cleanup first: get the code base in shape before anything is changed or added (R
 any of these; the whole suite passes unchanged, and the audit is run before and after each. One build each, and take
 it off this list when it ships:
 1. The state-field moves: the ten at the end of docs/state-owners.md (map made in build 185), one build each,
-   struck through there as they ship. Order agreed with Ross: 1, 2, 3 on Opus; 4 on FABLE; 5 to 8 on Opus; 9 on
+   struck through there as they ship. Order agreed with Ross: 1 to 8 on Opus (4 done on Opus too); 9 on
    FABLE; 10 is leave alone; 11 (the fireLit bug) went with 3.
 2. genWorld (533): split by region, after the climb decision.
 Done this chat: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS, build 180); updateCut reads CUT_STEPS

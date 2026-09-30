@@ -225,13 +225,15 @@ function setSlot(k, e) {
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
-  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; }
+  if (e && e.kind === 'weapon' && k === 'f') setEquip(e.id);
   refreshButtons();
 }
+// the weapon in hand ('sword', 'woodsword', 'acorn' or null): every change goes through here
+function setEquip(id) { state.equip = id; }
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
 function syncEquip() {
   const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
-  state.equip = sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null;   // the hand holds F's blade
+  setEquip(sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null);   // the hand holds F's blade
 }
 // a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
 function tidySlots() {

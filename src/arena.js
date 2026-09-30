@@ -42,7 +42,7 @@ function arenaKit() {
     Object.assign(inv.mats, { thorn: 4, ember: 2, ironwood: 3, starpetal: 1, ear: 2, hide: 1 });
   }
   while (inv.food.length < 6) inv.food.push(['squash', 'carrot', 'fish', 'turnip'][inv.food.length % 4]);
-  state.equip = 'sword';
+  setEquip('sword');
   state.hero.vig = maxVig();
   refreshButtons();
 }

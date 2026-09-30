@@ -44,9 +44,9 @@ for (const [dir, name] of [...srcFiles, ...others]) {
   RE.lastIndex = 0;
   while ((m = RE.exec(src))) touch(m[1], file, classify(src, m.index + m[0].length));
 }
-// declaration: the state = { ... } literal in world.js, and any state.x = in a function that first sets it
-const world = fs.readFileSync(path.join(ROOT, 'src/world.js'), 'utf8');
-const lit = world.slice(world.indexOf('\nstate = {'), world.indexOf('\n};', world.indexOf('\nstate = {')));
+// declaration: the state = { ... } literal (engine.js since build 187), found in whichever src file has it
+const all = srcFiles.map(([d, n]) => fs.readFileSync(path.join(ROOT, d, n), 'utf8')).find(t => t.includes('\nstate = {')) || '';
+const lit = all.slice(all.indexOf('\nstate = {'), all.indexOf('\n};', all.indexOf('\nstate = {')));
 for (const k of Object.keys(fields)) fields[k].declared = new RegExp(`(^|[\\s,{])${k.replace(/\$/g, '\\$')}\\s*:`).test(lit) ? 'literal' : 'ad hoc';
 
 const names = Object.keys(fields).sort();

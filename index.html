@@ -2600,7 +2600,7 @@ function updateWorld(dt) {
     if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
-      if (f && f.kind === 'weapon') { state.equip = f.id; }
+      if (f && f.kind === 'weapon') setEquip(f.id);
       else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
     }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
@@ -3316,7 +3316,7 @@ function collect(it) {
     case 'warden': deepen('The Warden\'s heart. Your vigor runs deeper.'); break;
     case 'acorn':
       inv.acorns = Math.min(30, inv.acorns + 1);
-      if (!inv.sword) state.equip = 'acorn';
+      if (!inv.sword) setEquip('acorn');
       tell(inv.sword ? `Acorn. ${K.swap} swaps to acorns; then ${K.act} throws, and holding it throws harder.` : `Acorn. ${K.act} throws it; hold for a harder throw.`, 4, 'acorn');
       break;
     case 'turnipseed': case 'carrotseed': case 'pepperseed': case 'squashseed': case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
@@ -5068,7 +5068,7 @@ function updateAbilities(dt) {
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
   }
-  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; }
+  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) setEquip('sword');
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
   // A carried rock throws with F. Acorns throw with their own key (D), on their own: you can wind up an acorn and
@@ -5978,7 +5978,7 @@ const CUT_STEPS = {
     if (at(0.6)) sfx.crash();
     if (at(1.5)) sfx.hum && sfx.hum();
     if (at(2.4)) { sfx.shing(); state.flash = 0.25; }
-    if (at(TAKE)) { state.inv.sword = true; setSlot('f', { kind: 'weapon', id: 'sword' }); state.equip = 'sword'; sfx.fanfare(); zoomPulse(h.x, h.y, 'boss'); state.flash = 0.5; }   // held up high: the old steel, not the sticks
+    if (at(TAKE)) { state.inv.sword = true; setSlot('f', { kind: 'weapon', id: 'sword' }); setEquip('sword'); sfx.fanfare(); zoomPulse(h.x, h.y, 'boss'); state.flash = 0.5; }   // held up high: the old steel, not the sticks
     h.z = c.t > a && c.t < b ? Math.sin(Math.PI * (c.t - a) / (b - a)) * UNIT * 2.6 : 0;
     if (c.t > a && c.t < b && Math.random() < 0.6) spark(h.x, h.y - h.z - UNIT, '#fff3c0', 1, 2);
     if (!c.landed && c.t >= b) { c.landed = true; h.z = 0; sfx.land(); state.shake = 0.35; zoomPulse(h.x, h.y, 'land'); spark(h.x, h.y + UNIT * 0.4, '#8a7a5a', 16, 3.5); }
@@ -7216,13 +7216,15 @@ function setSlot(k, e) {
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
-  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; }
+  if (e && e.kind === 'weapon' && k === 'f') setEquip(e.id);
   refreshButtons();
 }
+// the weapon in hand ('sword', 'woodsword', 'acorn' or null): every change goes through here
+function setEquip(id) { state.equip = id; }
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
 function syncEquip() {
   const sl = slotsOf(), inv = state.inv, ws = ALL_SLOTS.map(k => sl[k]).filter(e => e && e.kind === 'weapon' && entryCount(e));
-  state.equip = sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null;   // the hand holds F's blade
+  setEquip(sl.f && sl.f.kind === 'weapon' && sl.f.id !== 'acorn' && entryCount(sl.f) ? sl.f.id : inv.sword ? 'sword' : inv.woodsword > 0 ? 'woodsword' : null);   // the hand holds F's blade
 }
 // a few times a second: empty slots whose thing ran out, and drop new things into empty slots (never over anything)
 function tidySlots() {
@@ -8709,7 +8711,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 188';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 189';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -10861,7 +10863,7 @@ function arenaKit() {
     Object.assign(inv.mats, { thorn: 4, ember: 2, ironwood: 3, starpetal: 1, ear: 2, hide: 1 });
   }
   while (inv.food.length < 6) inv.food.push(['squash', 'carrot', 'fish', 'turnip'][inv.food.length % 4]);
-  state.equip = 'sword';
+  setEquip('sword');
   state.hero.vig = maxVig();
   refreshButtons();
 }

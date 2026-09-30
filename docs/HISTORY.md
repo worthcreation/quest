@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 189: setEquip (state-owners move 4)
+- gear.js: setEquip(id) beside syncEquip; the seven direct `state.equip = ...` (actions, arena, cutscenes, engine,
+  items, gear x2) call it. All 65 test outputs identical to build 188's.
+- tools/state-owners.js finds the state literal wherever it lives (it looked only in world.js). docs/state-owners.md:
+  the literal holds 69 fields, 93 ad hoc (the first version said 74/88, a miscount).
+
 ## Build 188: slowmo in update(); the camp fire glows after a load (state-owners moves 3 and 11)
 - The slowmo countdown moved from loop() in draw-ui.js to the top of update(); the browser plays the same, and the
   harness now runs it too (before, 0.5 s of slowmo never ticked in tests; now a second of play is 0.64 s of game time).

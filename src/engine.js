@@ -306,7 +306,7 @@ function updateWorld(dt) {
     if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
-      if (f && f.kind === 'weapon') { state.equip = f.id; }
+      if (f && f.kind === 'weapon') setEquip(f.id);
       else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
     }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
