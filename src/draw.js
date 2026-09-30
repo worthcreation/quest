@@ -601,222 +601,224 @@ function drawSoilLine(x, y, w, amp, seed = 1, g = ctx) {
   soilLinePts(x, y, w, amp, seed).forEach(([xx, yy], i) => i ? g.lineTo(xx, yy) : g.moveTo(xx, yy));
   g.stroke(); g.lineJoin = 'miter';
 }
-function drawSolid(s) {
-  const { x, y, vis: r, kind } = s, u = UNIT;
-  switch (kind) {
-    case 'stalagmite': {
-      const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
-      ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
-      if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
-      break;
+// Solids, one small draw per kind, read by drawSolid(s): draw(s, x, y, r, u), with x, y the spot, r the drawn size (vis)
+// and u UNIT. A kind with no entry (wall, tree) draws nothing here: the room draws its walls, drawTree the trees.
+const SOLID_DRAW = {
+  stalagmite(s, x, y, r) {
+    const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
+    ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
+    if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
+  },
+  vine(s, x, y, r) {
+    ctx.strokeStyle = '#2f5a26'; ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { const a = i * 2.1 + s.fx * 7; ctx.beginPath(); ctx.arc(x, y, r * (0.6 + i * 0.2), a, a + 2.4); ctx.stroke(); }
+    ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
+  },
+  boulder(s, x, y, r) {
+    if (s.kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
+      drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
+      const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
+      for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
+      return;
     }
-    case 'vine':
-      ctx.strokeStyle = '#2f5a26'; ctx.lineWidth = 4;
-      for (let i = 0; i < 3; i++) { const a = i * 2.1 + s.fx * 7; ctx.beginPath(); ctx.arc(x, y, r * (0.6 + i * 0.2), a, a + 2.4); ctx.stroke(); }
-      ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
-      break;
-    case 'boulder': case 'cavewall': case 'pillar': {
-      if (kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
-        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
-        drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
-        const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
-        for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
-        break;
+    const cave = s.kind !== 'boulder', moss = s.pal === 'moss';
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
+    ctx.beginPath(); ctx.ellipse(x - r * 0.25 * (s.flip ? -1 : 1), y - r * 0.25, r * 0.5, r * 0.35, -0.3, 0, 6.28); ctx.fill();
+    if (!cave) { ctx.fillStyle = '#6f7a58'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.4, r * 0.35, r * 0.18, 0, 0, 6.28); ctx.fill(); }
+  },
+  stump(s, x, y, r, u) {
+    ctx.fillStyle = '#4a321c'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * 0.6, u * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillRect(x - u * 0.6, y - u * 0.1, u * 1.2, u * 0.25);
+    ctx.fillStyle = '#7d6242'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6, u * 0.32, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = '#5d4630'; ctx.lineWidth = 1.5;
+    for (const k of [0.56, 0.29]) { ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6 * k, u * 0.32 * k, 0, 0, 6.28); ctx.stroke(); }
+  },
+  campfire(s, x, y, r, u) {
+    for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 - 1.57; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
+    ctx.strokeStyle = '#4a2f1a'; ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - u * 0.25, y + u * 0.1); ctx.lineTo(x + u * 0.25, y - u * 0.1); ctx.moveTo(x - u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.25, y + u * 0.1); ctx.stroke();
+    if (state.fireLit !== 0) {
+      const fl = 1 + 0.15 * Math.sin(state.time * 17) + 0.1 * Math.sin(state.time * 29);
+      const g = ctx.createRadialGradient(x, y - u * 0.2, 0, x, y - u * 0.2, u * 0.5 * fl);
+      g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.5 * fl, 0, 6.28); ctx.fill();
+      if (Math.random() < 0.1) state.fx.push({ x, y: y - u * 0.4, vx: (Math.random() - 0.5) * u, vy: -u * 1.5, t: 0, life: 0.8, color: '#ffb347' });
+    } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
+  },
+  shroom(s, x, y, r, u) {
+    // traveler's mushroom: tall pale stem, glowing violet cap
+    const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
+    drawShroomRipples(x, y, u, found, sceneDef().id);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
+    drawTravelShroom(x, y, u, found, glow, sceneDef().id);
+    if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
+  },
+  stone(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
+  },
+  wedge(s, x, y, r) {
+    // one big irregular boulder each, jammed against its neighbours; moss in the joins
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
+    ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
+  },
+  crystalbug(s) { drawCrystalBug(s); },
+  crate(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke();
+  },
+  barrel(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); }
+  },
+  crag(s, x, y, r, u) {
+    const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
+    if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
+    drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
+    { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
+      ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.25, by + r * 0.5);
+      for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3; ctx.lineTo(xx, by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04); }
+      ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
+      for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
       }
-      const cave = kind !== 'boulder', moss = s.pal === 'moss';
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
-      ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
-      ctx.beginPath(); ctx.ellipse(x - r * 0.25 * (s.flip ? -1 : 1), y - r * 0.25, r * 0.5, r * 0.35, -0.3, 0, 6.28); ctx.fill();
-      if (!cave) { ctx.fillStyle = '#6f7a58'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.4, r * 0.35, r * 0.18, 0, 0, 6.28); ctx.fill(); }
-      break;
+    ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
+    let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
+    const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
+    for (let c = 0; c < cracks; c++) { const a = rnd() * 6.28, l = r * (0.35 + rnd() * 0.5) * (0.6 + k * 0.6); ctx.lineWidth = 1.5 + k * 2; ctx.beginPath(); let cx = x + Math.cos(a) * r * 0.15, cy = y - r * 0.15 + Math.sin(a) * r * 0.1; ctx.moveTo(cx, cy);
+      for (let seg = 0; seg < 3; seg++) { cx += Math.cos(a + (rnd() - 0.5) * 0.9) * l / 3; cy += Math.sin(a + (rnd() - 0.5) * 0.9) * l / 3 * 0.8; ctx.lineTo(cx, cy); } ctx.stroke(); }
+    ctx.lineCap = 'butt';
+  },
+  cracked(s, x, y, r) {
+    if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
+    const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
+    drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64'], ST && ST.tint);   // big, faceted, rough: nothing like a smooth throwing stone
+    if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
+    ctx.strokeStyle = 'rgba(30,22,14,.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.7); ctx.lineTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x - r * 0.12, y + r * 0.05); ctx.lineTo(x + r * 0.15, y + r * 0.45); ctx.moveTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x + r * 0.45, y - r * 0.2); ctx.stroke();
+    for (let k = 0; k < hits; k++) { ctx.beginPath(); ctx.moveTo(x - r * 0.6 + k * r * 0.4, y - r * 0.5); ctx.lineTo(x - r * 0.3 + k * r * 0.4, y + r * 0.2); ctx.lineTo(x - r * 0.5 + k * r * 0.4, y + r * 0.6); ctx.stroke(); }   // each good hit adds a crack
+  },
+  burrow(s, x, y, r) {
+    // a knot of roots and rock around a small, odd hole
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.5, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#5a5048'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.9, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#6e645a'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.5, r * 0.35, -0.4, 0, 6.28); ctx.fill();
+    if (s.holeMid) {
+      ctx.fillStyle = '#120c10'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.32, r * 0.26, 0.2, 0, 6.28); ctx.fill();
+      ctx.fillStyle = `rgba(150,110,200,${0.25 + 0.15 * Math.sin(state.time * 2 + x)})`; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.2, r * 0.14, 0, 0, 6.28); ctx.fill();   // something glows faintly down there
     }
-    case 'stump':
-      ctx.fillStyle = '#4a321c'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * 0.6, u * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillRect(x - u * 0.6, y - u * 0.1, u * 1.2, u * 0.25);
-      ctx.fillStyle = '#7d6242'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6, u * 0.32, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#5d4630'; ctx.lineWidth = 1.5;
-      for (const k of [0.56, 0.29]) { ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6 * k, u * 0.32 * k, 0, 0, 6.28); ctx.stroke(); }
-      break;
-    case 'campfire': {
-      for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 - 1.57; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
-      ctx.strokeStyle = '#4a2f1a'; ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - u * 0.25, y + u * 0.1); ctx.lineTo(x + u * 0.25, y - u * 0.1); ctx.moveTo(x - u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.25, y + u * 0.1); ctx.stroke();
-      if (state.fireLit !== 0) {
-        const fl = 1 + 0.15 * Math.sin(state.time * 17) + 0.1 * Math.sin(state.time * 29);
-        const g = ctx.createRadialGradient(x, y - u * 0.2, 0, x, y - u * 0.2, u * 0.5 * fl);
-        g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.5 * fl, 0, 6.28); ctx.fill();
-        if (Math.random() < 0.1) state.fx.push({ x, y: y - u * 0.4, vx: (Math.random() - 0.5) * u, vy: -u * 1.5, t: 0, life: 0.8, color: '#ffb347' });
-      } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
-      break;
+    ctx.strokeStyle = '#3e2c1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.9, y - r * 0.2); ctx.quadraticCurveTo(x - r * 0.4, y - r * 0.7, x + r * 0.2, y - r * 0.5); ctx.moveTo(x + r * 0.5, y + r * 0.6); ctx.quadraticCurveTo(x + r * 0.9, y + r * 0.2, x + r * 1.0, y - r * 0.3); ctx.stroke();
+  },
+  chest(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.55, y + u * 0.2, u * 1.15, u * 0.2);
+    ctx.fillStyle = '#7a5230'; ctx.fillRect(x - u * 0.55, y - u * 0.35, u * 1.1, u * 0.6);
+    ctx.fillStyle = '#8a6238'; ctx.fillRect(x - u * 0.58, y - u * 0.55, u * 1.16, u * 0.25);
+    ctx.fillStyle = '#c9a46a'; ctx.fillRect(x - u * 0.06, y - u * 0.35, u * 0.12, u * 0.16);
+  },
+  lectern(s, x, y, r, u) {
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.3, u * 0.9, u * 0.55);
+    ctx.fillStyle = '#8a3a2a'; ctx.fillRect(x - u * 0.38, y - u * 0.5, u * 0.36, u * 0.26); ctx.fillStyle = '#9a4a3a'; ctx.fillRect(x + u * 0.02, y - u * 0.5, u * 0.36, u * 0.26);
+    ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x - u * 0.34, y - u * 0.47, u * 0.3, u * 0.2); ctx.fillRect(x + u * 0.05, y - u * 0.47, u * 0.3, u * 0.2);
+  },
+  mirror(s, x, y, r, u) {
+    // a standing mirror in a wooden frame
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 1.5, u * 0.9, u * 1.6); ctx.fillRect(x - u * 0.55, y + u * 0.05, u * 1.1, u * 0.15);
+    ctx.fillStyle = '#a8c8d8'; ctx.fillRect(x - u * 0.34, y - u * 1.4, u * 0.68, u * 1.35);
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x - u * 0.3, y - u * 0.9); ctx.lineTo(x - u * 0.05, y - u * 1.35); ctx.lineTo(x + u * 0.05, y - u * 1.35); ctx.lineTo(x - u * 0.3, y - u * 0.7); ctx.fill();
+  },
+  cliff(s, x, y, r, u) {
+    // a knee-high rock step, lit on top
+    ctx.fillStyle = '#5e5953'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, s.r * 1.15, s.r * 0.75, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9b958d'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.12, s.r * 1.05, s.r * 0.55, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,36,32,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s.r * 0.5, y - u * 0.1); ctx.lineTo(x - s.r * 0.1, y + u * 0.1); ctx.stroke();
+  },
+  cairn(s, x, y, r, u) {
+    for (let i = 0; i < 4; i++) { const w0 = u * (0.9 - i * 0.18); ctx.fillStyle = i % 2 ? '#8e8880' : '#a7a197'; ctx.beginPath(); ctx.ellipse(x, y - i * u * 0.32, w0, u * 0.22, 0, 0, 6.28); ctx.fill(); }
+  },
+  bed(s, x, y, r, u) {
+    ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
+    ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
+    ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.85, y - u * 0.55, u * 0.6, u * 0.5);
+    ctx.fillStyle = '#6a4a3a'; ctx.fillRect(x - u * 0.2, y - u * 0.6, u * 1.1, u * 1.2);
+  },
+  table(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.8, y + u * 0.3, u * 1.7, u * 0.25);
+    ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - u * 0.9, y - u * 0.5, u * 1.8, u * 0.9);
+    ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.arc(x + u * 0.4, y - u * 0.1, u * 0.18, 0, 6.28); ctx.fill();   // a chipped cup
+    ctx.fillStyle = '#3a2616'; ctx.fillRect(x - u * 0.6, y - u * 0.2, u * 0.4, u * 0.08);                            // a pipe
+  },
+  stove(s, x, y, r, u) {
+    ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
+    ctx.fillStyle = '#2a2a2e'; ctx.fillRect(x - u * 0.2, y - u * 1.4, u * 0.4, u * 0.8);
+    ctx.fillStyle = '#4a2a1a'; ctx.fillRect(x - u * 0.35, y - u * 0.1, u * 0.7, u * 0.35);
+  },
+  bench(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
+    ctx.fillRect(x - u * 0.6, y - u * 0.05, u * 0.12, u * 0.35); ctx.fillRect(x + u * 0.48, y - u * 0.05, u * 0.12, u * 0.35);
+    ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
+    ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
+  },
+  tent(s, x, y, r, u) {
+    // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
+    const jj = k => Math.sin(k * 12.9898) * 0.5;
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
+    for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
+      const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
+      ctx.strokeStyle = k % 4 === 1 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#7a5c3a'; ctx.lineWidth = u * (0.1 + 0.03 * jj(k + 2));
+      ctx.beginPath(); ctx.moveTo(bx, y + u * 0.5); ctx.lineTo(bx + jj(k + 5) * u * 0.25, y + u * 0.5 - len); ctx.stroke();
     }
-    case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
-      drawShroomRipples(x, y, u, found, sceneDef().id);
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
-      drawTravelShroom(x, y, u, found, glow, sceneDef().id);
-      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
-      break;
-    }
-    case 'stone':
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
-      break;
-    case 'wedge': {                                // one big irregular boulder each, jammed against its neighbours; moss in the joins
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
-      drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
-      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
-      break;
-    }
-    case 'wall': break;                                // the room draws its own walls
-    case 'crystalbug': drawCrystalBug(s); break;
-    case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
-    case 'barrel': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); } break;
-    case 'crag': {
-      const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
-      if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
-      drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
-      { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
-        ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.25, by + r * 0.5);
-        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3; ctx.lineTo(xx, by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04); }
-        ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
-        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
-        }
-      ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
-      let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
-      const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
-      for (let c = 0; c < cracks; c++) { const a = rnd() * 6.28, l = r * (0.35 + rnd() * 0.5) * (0.6 + k * 0.6); ctx.lineWidth = 1.5 + k * 2; ctx.beginPath(); let cx = x + Math.cos(a) * r * 0.15, cy = y - r * 0.15 + Math.sin(a) * r * 0.1; ctx.moveTo(cx, cy);
-        for (let seg = 0; seg < 3; seg++) { cx += Math.cos(a + (rnd() - 0.5) * 0.9) * l / 3; cy += Math.sin(a + (rnd() - 0.5) * 0.9) * l / 3 * 0.8; ctx.lineTo(cx, cy); } ctx.stroke(); }
-      ctx.lineCap = 'butt';
-      break;
-    }
-    case 'cracked': {
-      if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
-      const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
-      drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64'], ST && ST.tint);   // big, faceted, rough: nothing like a smooth throwing stone
-      if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
-      ctx.strokeStyle = 'rgba(30,22,14,.85)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.7); ctx.lineTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x - r * 0.12, y + r * 0.05); ctx.lineTo(x + r * 0.15, y + r * 0.45); ctx.moveTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x + r * 0.45, y - r * 0.2); ctx.stroke();
-      for (let k = 0; k < hits; k++) { ctx.beginPath(); ctx.moveTo(x - r * 0.6 + k * r * 0.4, y - r * 0.5); ctx.lineTo(x - r * 0.3 + k * r * 0.4, y + r * 0.2); ctx.lineTo(x - r * 0.5 + k * r * 0.4, y + r * 0.6); ctx.stroke(); }   // each good hit adds a crack
-      break;
-    }
-    case 'burrow': {                                   // a knot of roots and rock around a small, odd hole
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.5, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#5a5048'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.9, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#6e645a'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.5, r * 0.35, -0.4, 0, 6.28); ctx.fill();
-      if (s.holeMid) {
-        ctx.fillStyle = '#120c10'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.32, r * 0.26, 0.2, 0, 6.28); ctx.fill();
-        ctx.fillStyle = `rgba(150,110,200,${0.25 + 0.15 * Math.sin(state.time * 2 + x)})`; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.2, r * 0.14, 0, 0, 6.28); ctx.fill();   // something glows faintly down there
+    ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(x + r * 0.15, y - r * 0.65); ctx.lineTo(x + r * 0.95, y - r * 0.6); ctx.lineTo(x + r * 1.0, y + u * 0.2); ctx.lineTo(x + r * 0.2, y + u * 0.3); ctx.fill();   // the blanket
+    ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.3); ctx.lineTo(x + r * 0.97, y - r * 0.28); ctx.stroke();
+    ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.moveTo(x - r * 1.05, y - r * 0.62); ctx.lineTo(x + r * 1.08, y - r * 0.7); ctx.stroke();   // crossbar, a bit crooked
+    ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - r * 1.0, y + u * 0.5); ctx.lineTo(x - r * 1.0, y - r * 0.75); ctx.moveTo(x + r * 1.03, y + u * 0.5); ctx.lineTo(x + r * 1.06, y - r * 0.8); ctx.stroke();   // forked uprights
+    ctx.fillStyle = '#5f8a3a'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x - r * 0.6 + k * r * 0.25, y - r * 0.6 + jj(k) * 4, u * 0.2, u * 0.08, jj(k + 1), 0, 6.28); ctx.fill(); }   // leafy branches on top
+  },
+  bramble(s, x, y, r) {
+    // storm-piled thorns
+    ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 2.5;
+    for (let i = 0; i < 5; i++) { const a = i * 1.3 + s.fy * 20; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3, r * (0.5 + i * 0.1), a, a + 3.5); ctx.stroke(); }
+    ctx.fillStyle = '#5a3e22'; for (let i = 0; i < 8; i++) { const a = i * 0.8 + s.fx * 9; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8); ctx.lineTo(x + Math.cos(a) * r * 1.1, y + Math.sin(a) * r * 1.1); ctx.lineTo(x + Math.cos(a + 0.2) * r * 0.8, y + Math.sin(a + 0.2) * r * 0.8); ctx.fill(); }
+    ctx.fillStyle = '#355a28'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, 6.28); ctx.fill();
+  },
+  reeds(s, x, y, r) {
+    // a wall of great dark reeds: thick stalks, saw-edged blades hanging over, black bulrush heads
+    const t = state.time, seed = s.fx * 97 + s.fy * 13;
+    ctx.fillStyle = 'rgba(10,14,8,.55)'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 1.35, r * 0.45, 0, 0, 6.28); ctx.fill();   // the dark mass at their feet
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1) - 0.5, hx = x + k * r * 2.2, ht = r * (1.9 + 0.7 * Math.abs(Math.sin(seed + i * 1.7))), sway = Math.sin(t * 0.7 + i * 0.9 + seed) * r * 0.08;
+      const top = [hx + sway + k * r * 0.4, y + r * 0.5 - ht], w = Math.max(4, r * 0.16);
+      const g = ctx.createLinearGradient(0, y + r * 0.6, 0, top[1]); g.addColorStop(0, '#12180c'); g.addColorStop(0.5, '#2e3a1c'); g.addColorStop(1, '#4a5228');
+      ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, y + r * 0.6); ctx.quadraticCurveTo(hx + sway * 0.5, y - ht * 0.3, top[0], top[1]); ctx.stroke();
+      if (i % 2 === 0) {                                                                         // a bulrush head: long, black-brown, a spike on top
+        ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(top[0], top[1] + r * 0.28, w * 0.9, r * 0.32, sway * 0.02, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#1a120a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(top[0] + sway * 0.3, top[1] - r * 0.3); ctx.stroke();
+      } else {                                                                                   // a blade bowing out and down, serrated
+        const dir = (i % 4 === 1 ? -1 : 1), bx0 = top[0], by0 = top[1] + r * 0.2, bx1 = bx0 + dir * r * 0.9, by1 = by0 + r * 0.55;
+        ctx.fillStyle = '#34401e'; ctx.beginPath(); ctx.moveTo(bx0, by0); ctx.quadraticCurveTo(bx0 + dir * r * 0.5, by0 - r * 0.25, bx1, by1);
+        for (let j = 5; j >= 0; j--) { const q = j / 5; ctx.lineTo(bx0 + (bx1 - bx0) * q + dir * (j % 2 ? 3 : 0), by0 + (by1 - by0) * q + (j % 2 ? 5 : 1)); }   // the saw teeth
+        ctx.closePath(); ctx.fill();
       }
-      ctx.strokeStyle = '#3e2c1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.9, y - r * 0.2); ctx.quadraticCurveTo(x - r * 0.4, y - r * 0.7, x + r * 0.2, y - r * 0.5); ctx.moveTo(x + r * 0.5, y + r * 0.6); ctx.quadraticCurveTo(x + r * 0.9, y + r * 0.2, x + r * 1.0, y - r * 0.3); ctx.stroke();
-      break;
     }
-    case 'chest':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.55, y + u * 0.2, u * 1.15, u * 0.2);
-      ctx.fillStyle = '#7a5230'; ctx.fillRect(x - u * 0.55, y - u * 0.35, u * 1.1, u * 0.6);
-      ctx.fillStyle = '#8a6238'; ctx.fillRect(x - u * 0.58, y - u * 0.55, u * 1.16, u * 0.25);
-      ctx.fillStyle = '#c9a46a'; ctx.fillRect(x - u * 0.06, y - u * 0.35, u * 0.12, u * 0.16);
-      break;
-    case 'lectern':
-      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.3, u * 0.9, u * 0.55);
-      ctx.fillStyle = '#8a3a2a'; ctx.fillRect(x - u * 0.38, y - u * 0.5, u * 0.36, u * 0.26); ctx.fillStyle = '#9a4a3a'; ctx.fillRect(x + u * 0.02, y - u * 0.5, u * 0.36, u * 0.26);
-      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x - u * 0.34, y - u * 0.47, u * 0.3, u * 0.2); ctx.fillRect(x + u * 0.05, y - u * 0.47, u * 0.3, u * 0.2);
-      break;
-    case 'mirror':                                     // a standing mirror in a wooden frame
-      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 1.5, u * 0.9, u * 1.6); ctx.fillRect(x - u * 0.55, y + u * 0.05, u * 1.1, u * 0.15);
-      ctx.fillStyle = '#a8c8d8'; ctx.fillRect(x - u * 0.34, y - u * 1.4, u * 0.68, u * 1.35);
-      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x - u * 0.3, y - u * 0.9); ctx.lineTo(x - u * 0.05, y - u * 1.35); ctx.lineTo(x + u * 0.05, y - u * 1.35); ctx.lineTo(x - u * 0.3, y - u * 0.7); ctx.fill();
-      break;
-    case 'cliff': {                                    // a knee-high rock step, lit on top
-      ctx.fillStyle = '#5e5953'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, s.r * 1.15, s.r * 0.75, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9b958d'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.12, s.r * 1.05, s.r * 0.55, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = 'rgba(40,36,32,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s.r * 0.5, y - u * 0.1); ctx.lineTo(x - s.r * 0.1, y + u * 0.1); ctx.stroke();
-      break;
-    }
-    case 'cairn':
-      for (let i = 0; i < 4; i++) { const w0 = u * (0.9 - i * 0.18); ctx.fillStyle = i % 2 ? '#8e8880' : '#a7a197'; ctx.beginPath(); ctx.ellipse(x, y - i * u * 0.32, w0, u * 0.22, 0, 0, 6.28); ctx.fill(); }
-      break;
-    case 'bed':
-      ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
-      ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
-      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.85, y - u * 0.55, u * 0.6, u * 0.5);
-      ctx.fillStyle = '#6a4a3a'; ctx.fillRect(x - u * 0.2, y - u * 0.6, u * 1.1, u * 1.2);
-      break;
-    case 'table':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.8, y + u * 0.3, u * 1.7, u * 0.25);
-      ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - u * 0.9, y - u * 0.5, u * 1.8, u * 0.9);
-      ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.arc(x + u * 0.4, y - u * 0.1, u * 0.18, 0, 6.28); ctx.fill();   // a chipped cup
-      ctx.fillStyle = '#3a2616'; ctx.fillRect(x - u * 0.6, y - u * 0.2, u * 0.4, u * 0.08);                            // a pipe
-      break;
-    case 'stove':
-      ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
-      ctx.fillStyle = '#2a2a2e'; ctx.fillRect(x - u * 0.2, y - u * 1.4, u * 0.4, u * 0.8);
-      ctx.fillStyle = '#4a2a1a'; ctx.fillRect(x - u * 0.35, y - u * 0.1, u * 0.7, u * 0.35);
-      break;
-    case 'bench':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
-      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
-      ctx.fillRect(x - u * 0.6, y - u * 0.05, u * 0.12, u * 0.35); ctx.fillRect(x + u * 0.48, y - u * 0.05, u * 0.12, u * 0.35);
-      ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
-      ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
-      break;
-    case 'tent': {                                     // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
-      const jj = k => Math.sin(k * 12.9898) * 0.5;
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
-      for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
-        const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
-        ctx.strokeStyle = k % 4 === 1 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#7a5c3a'; ctx.lineWidth = u * (0.1 + 0.03 * jj(k + 2));
-        ctx.beginPath(); ctx.moveTo(bx, y + u * 0.5); ctx.lineTo(bx + jj(k + 5) * u * 0.25, y + u * 0.5 - len); ctx.stroke();
-      }
-      ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(x + r * 0.15, y - r * 0.65); ctx.lineTo(x + r * 0.95, y - r * 0.6); ctx.lineTo(x + r * 1.0, y + u * 0.2); ctx.lineTo(x + r * 0.2, y + u * 0.3); ctx.fill();   // the blanket
-      ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.3); ctx.lineTo(x + r * 0.97, y - r * 0.28); ctx.stroke();
-      ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.moveTo(x - r * 1.05, y - r * 0.62); ctx.lineTo(x + r * 1.08, y - r * 0.7); ctx.stroke();   // crossbar, a bit crooked
-      ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - r * 1.0, y + u * 0.5); ctx.lineTo(x - r * 1.0, y - r * 0.75); ctx.moveTo(x + r * 1.03, y + u * 0.5); ctx.lineTo(x + r * 1.06, y - r * 0.8); ctx.stroke();   // forked uprights
-      ctx.fillStyle = '#5f8a3a'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x - r * 0.6 + k * r * 0.25, y - r * 0.6 + jj(k) * 4, u * 0.2, u * 0.08, jj(k + 1), 0, 6.28); ctx.fill(); }   // leafy branches on top
-      break;
-    }
-    case 'bramble':                                // storm-piled thorns
-      ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 2.5;
-      for (let i = 0; i < 5; i++) { const a = i * 1.3 + s.fy * 20; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3, r * (0.5 + i * 0.1), a, a + 3.5); ctx.stroke(); }
-      ctx.fillStyle = '#5a3e22'; for (let i = 0; i < 8; i++) { const a = i * 0.8 + s.fx * 9; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8); ctx.lineTo(x + Math.cos(a) * r * 1.1, y + Math.sin(a) * r * 1.1); ctx.lineTo(x + Math.cos(a + 0.2) * r * 0.8, y + Math.sin(a + 0.2) * r * 0.8); ctx.fill(); }
-      ctx.fillStyle = '#355a28'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, 6.28); ctx.fill();
-      break;
-    case 'reeds': {                                // a wall of great dark reeds: thick stalks, saw-edged blades hanging over, black bulrush heads
-      const t = state.time, seed = s.fx * 97 + s.fy * 13;
-      ctx.fillStyle = 'rgba(10,14,8,.55)'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 1.35, r * 0.45, 0, 0, 6.28); ctx.fill();   // the dark mass at their feet
-      const n = 9;
-      for (let i = 0; i < n; i++) {
-        const k = i / (n - 1) - 0.5, hx = x + k * r * 2.2, ht = r * (1.9 + 0.7 * Math.abs(Math.sin(seed + i * 1.7))), sway = Math.sin(t * 0.7 + i * 0.9 + seed) * r * 0.08;
-        const top = [hx + sway + k * r * 0.4, y + r * 0.5 - ht], w = Math.max(4, r * 0.16);
-        const g = ctx.createLinearGradient(0, y + r * 0.6, 0, top[1]); g.addColorStop(0, '#12180c'); g.addColorStop(0.5, '#2e3a1c'); g.addColorStop(1, '#4a5228');
-        ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, y + r * 0.6); ctx.quadraticCurveTo(hx + sway * 0.5, y - ht * 0.3, top[0], top[1]); ctx.stroke();
-        if (i % 2 === 0) {                                                                         // a bulrush head: long, black-brown, a spike on top
-          ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(top[0], top[1] + r * 0.28, w * 0.9, r * 0.32, sway * 0.02, 0, 6.28); ctx.fill();
-          ctx.strokeStyle = '#1a120a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(top[0] + sway * 0.3, top[1] - r * 0.3); ctx.stroke();
-        } else {                                                                                   // a blade bowing out and down, serrated
-          const dir = (i % 4 === 1 ? -1 : 1), bx0 = top[0], by0 = top[1] + r * 0.2, bx1 = bx0 + dir * r * 0.9, by1 = by0 + r * 0.55;
-          ctx.fillStyle = '#34401e'; ctx.beginPath(); ctx.moveTo(bx0, by0); ctx.quadraticCurveTo(bx0 + dir * r * 0.5, by0 - r * 0.25, bx1, by1);
-          for (let j = 5; j >= 0; j--) { const q = j / 5; ctx.lineTo(bx0 + (bx1 - bx0) * q + dir * (j % 2 ? 3 : 0), by0 + (by1 - by0) * q + (j % 2 ? 5 : 1)); }   // the saw teeth
-          ctx.closePath(); ctx.fill();
-        }
-      }
-      ctx.fillStyle = 'rgba(200,210,150,.5)'; for (let i = 0; i < 3; i++) { const a = seed + i * 2.3; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.8, y - r * (0.6 + (i % 2) * 0.6), 1.5, 0, 6.28); ctx.fill(); }   // thorns catching the light
-      ctx.lineCap = 'butt';
-      break;
-    }
-    case 'web':
-      ctx.strokeStyle = 'rgba(225,225,215,.7)'; ctx.lineWidth = 1;
-      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + s.fx * 5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); ctx.stroke(); }
-      for (const k of [0.4, 0.8, 1.15]) { ctx.beginPath(); ctx.arc(x, y, r * k, 0, 6.28); ctx.stroke(); }
-      break;
-  }
-}
+    ctx.fillStyle = 'rgba(200,210,150,.5)'; for (let i = 0; i < 3; i++) { const a = seed + i * 2.3; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.8, y - r * (0.6 + (i % 2) * 0.6), 1.5, 0, 6.28); ctx.fill(); }   // thorns catching the light
+    ctx.lineCap = 'butt';
+  },
+  web(s, x, y, r) {
+    ctx.strokeStyle = 'rgba(225,225,215,.7)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + s.fx * 5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); ctx.stroke(); }
+    for (const k of [0.4, 0.8, 1.15]) { ctx.beginPath(); ctx.arc(x, y, r * k, 0, 6.28); ctx.stroke(); }
+  },
+};
+SOLID_DRAW.cavewall = SOLID_DRAW.boulder;
+SOLID_DRAW.pillar = SOLID_DRAW.boulder;
+function drawSolid(s) { const d = SOLID_DRAW[s.kind]; if (d) d(s, s.x, s.y, s.vis, UNIT); }
 
 // ---------------- characters ----------------
 const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
@@ -1255,7 +1257,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 179';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 180';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

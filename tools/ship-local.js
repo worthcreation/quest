@@ -38,7 +38,7 @@ const out = '/mnt/user-data/outputs', file = `${out}/quest-b${n}.zip`;
 fs.mkdirSync(out, { recursive: true });
 for (const f of fs.readdirSync(out)) if (/^quest-b\d+\.zip$/.test(f)) fs.unlinkSync(path.join(out, f));
 const PACK = ['index.html', 'src', 'tests', 'tools', 'docs', 'HANDOFF.md', 'QUEST_WAYS_OF_WORKING.md',
-  'PROJECT_INSTRUCTIONS.md', 'CLAUDE.md', '.gitattributes', '.claude', 'build.sh', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
+  'PROJECT_INSTRUCTIONS.md', '.gitattributes', 'build.sh', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 r = spawnSync('zip', ['-qr', file, ...PACK, '-x', '*node_modules*'], { cwd: root, encoding: 'utf8' });
 if (r.status) stop(r.stdout + r.stderr + 'ZIP FAILED');
 console.log(`packaged ${file} (${(fs.statSync(file).size / 1024).toFixed(0)} KB)`);

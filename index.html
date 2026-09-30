@@ -8058,222 +8058,224 @@ function drawSoilLine(x, y, w, amp, seed = 1, g = ctx) {
   soilLinePts(x, y, w, amp, seed).forEach(([xx, yy], i) => i ? g.lineTo(xx, yy) : g.moveTo(xx, yy));
   g.stroke(); g.lineJoin = 'miter';
 }
-function drawSolid(s) {
-  const { x, y, vis: r, kind } = s, u = UNIT;
-  switch (kind) {
-    case 'stalagmite': {
-      const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
-      ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
-      if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
-      break;
+// Solids, one small draw per kind, read by drawSolid(s): draw(s, x, y, r, u), with x, y the spot, r the drawn size (vis)
+// and u UNIT. A kind with no entry (wall, tree) draws nothing here: the room draws its walls, drawTree the trees.
+const SOLID_DRAW = {
+  stalagmite(s, x, y, r) {
+    const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
+    ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
+    if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
+  },
+  vine(s, x, y, r) {
+    ctx.strokeStyle = '#2f5a26'; ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) { const a = i * 2.1 + s.fx * 7; ctx.beginPath(); ctx.arc(x, y, r * (0.6 + i * 0.2), a, a + 2.4); ctx.stroke(); }
+    ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
+  },
+  boulder(s, x, y, r) {
+    if (s.kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
+      drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
+      const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
+      for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
+      return;
     }
-    case 'vine':
-      ctx.strokeStyle = '#2f5a26'; ctx.lineWidth = 4;
-      for (let i = 0; i < 3; i++) { const a = i * 2.1 + s.fx * 7; ctx.beginPath(); ctx.arc(x, y, r * (0.6 + i * 0.2), a, a + 2.4); ctx.stroke(); }
-      ctx.fillStyle = '#4a8a3a'; for (let i = 0; i < 4; i++) { const a = i * 1.6 + s.fy * 5; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, r * 0.22, r * 0.12, a, 0, 6.28); ctx.fill(); }
-      break;
-    case 'boulder': case 'cavewall': case 'pillar': {
-      if (kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
-        ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
-        drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
-        const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
-        for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
-        break;
+    const cave = s.kind !== 'boulder', moss = s.pal === 'moss';
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
+    ctx.beginPath(); ctx.ellipse(x - r * 0.25 * (s.flip ? -1 : 1), y - r * 0.25, r * 0.5, r * 0.35, -0.3, 0, 6.28); ctx.fill();
+    if (!cave) { ctx.fillStyle = '#6f7a58'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.4, r * 0.35, r * 0.18, 0, 0, 6.28); ctx.fill(); }
+  },
+  stump(s, x, y, r, u) {
+    ctx.fillStyle = '#4a321c'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * 0.6, u * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillRect(x - u * 0.6, y - u * 0.1, u * 1.2, u * 0.25);
+    ctx.fillStyle = '#7d6242'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6, u * 0.32, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = '#5d4630'; ctx.lineWidth = 1.5;
+    for (const k of [0.56, 0.29]) { ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6 * k, u * 0.32 * k, 0, 0, 6.28); ctx.stroke(); }
+  },
+  campfire(s, x, y, r, u) {
+    for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 - 1.57; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
+    ctx.strokeStyle = '#4a2f1a'; ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - u * 0.25, y + u * 0.1); ctx.lineTo(x + u * 0.25, y - u * 0.1); ctx.moveTo(x - u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.25, y + u * 0.1); ctx.stroke();
+    if (state.fireLit !== 0) {
+      const fl = 1 + 0.15 * Math.sin(state.time * 17) + 0.1 * Math.sin(state.time * 29);
+      const g = ctx.createRadialGradient(x, y - u * 0.2, 0, x, y - u * 0.2, u * 0.5 * fl);
+      g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.5 * fl, 0, 6.28); ctx.fill();
+      if (Math.random() < 0.1) state.fx.push({ x, y: y - u * 0.4, vx: (Math.random() - 0.5) * u, vy: -u * 1.5, t: 0, life: 0.8, color: '#ffb347' });
+    } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
+  },
+  shroom(s, x, y, r, u) {
+    // traveler's mushroom: tall pale stem, glowing violet cap
+    const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
+    drawShroomRipples(x, y, u, found, sceneDef().id);
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
+    drawTravelShroom(x, y, u, found, glow, sceneDef().id);
+    if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
+  },
+  stone(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
+  },
+  wedge(s, x, y, r) {
+    // one big irregular boulder each, jammed against its neighbours; moss in the joins
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
+    ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
+  },
+  crystalbug(s) { drawCrystalBug(s); },
+  crate(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke();
+  },
+  barrel(s, x, y, r) {
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); }
+  },
+  crag(s, x, y, r, u) {
+    const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
+    if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
+    drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
+    { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
+      ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.25, by + r * 0.5);
+      for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3; ctx.lineTo(xx, by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04); }
+      ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
+      for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
       }
-      const cave = kind !== 'boulder', moss = s.pal === 'moss';
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
-      ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
-      ctx.beginPath(); ctx.ellipse(x - r * 0.25 * (s.flip ? -1 : 1), y - r * 0.25, r * 0.5, r * 0.35, -0.3, 0, 6.28); ctx.fill();
-      if (!cave) { ctx.fillStyle = '#6f7a58'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.4, r * 0.35, r * 0.18, 0, 0, 6.28); ctx.fill(); }
-      break;
+    ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
+    let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
+    const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
+    for (let c = 0; c < cracks; c++) { const a = rnd() * 6.28, l = r * (0.35 + rnd() * 0.5) * (0.6 + k * 0.6); ctx.lineWidth = 1.5 + k * 2; ctx.beginPath(); let cx = x + Math.cos(a) * r * 0.15, cy = y - r * 0.15 + Math.sin(a) * r * 0.1; ctx.moveTo(cx, cy);
+      for (let seg = 0; seg < 3; seg++) { cx += Math.cos(a + (rnd() - 0.5) * 0.9) * l / 3; cy += Math.sin(a + (rnd() - 0.5) * 0.9) * l / 3 * 0.8; ctx.lineTo(cx, cy); } ctx.stroke(); }
+    ctx.lineCap = 'butt';
+  },
+  cracked(s, x, y, r) {
+    if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
+    const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
+    drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64'], ST && ST.tint);   // big, faceted, rough: nothing like a smooth throwing stone
+    if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
+    ctx.strokeStyle = 'rgba(30,22,14,.85)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.7); ctx.lineTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x - r * 0.12, y + r * 0.05); ctx.lineTo(x + r * 0.15, y + r * 0.45); ctx.moveTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x + r * 0.45, y - r * 0.2); ctx.stroke();
+    for (let k = 0; k < hits; k++) { ctx.beginPath(); ctx.moveTo(x - r * 0.6 + k * r * 0.4, y - r * 0.5); ctx.lineTo(x - r * 0.3 + k * r * 0.4, y + r * 0.2); ctx.lineTo(x - r * 0.5 + k * r * 0.4, y + r * 0.6); ctx.stroke(); }   // each good hit adds a crack
+  },
+  burrow(s, x, y, r) {
+    // a knot of roots and rock around a small, odd hole
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.5, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#5a5048'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.9, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#6e645a'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.5, r * 0.35, -0.4, 0, 6.28); ctx.fill();
+    if (s.holeMid) {
+      ctx.fillStyle = '#120c10'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.32, r * 0.26, 0.2, 0, 6.28); ctx.fill();
+      ctx.fillStyle = `rgba(150,110,200,${0.25 + 0.15 * Math.sin(state.time * 2 + x)})`; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.2, r * 0.14, 0, 0, 6.28); ctx.fill();   // something glows faintly down there
     }
-    case 'stump':
-      ctx.fillStyle = '#4a321c'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, u * 0.6, u * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillRect(x - u * 0.6, y - u * 0.1, u * 1.2, u * 0.25);
-      ctx.fillStyle = '#7d6242'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6, u * 0.32, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#5d4630'; ctx.lineWidth = 1.5;
-      for (const k of [0.56, 0.29]) { ctx.beginPath(); ctx.ellipse(x, y - u * 0.1, u * 0.6 * k, u * 0.32 * k, 0, 0, 6.28); ctx.stroke(); }
-      break;
-    case 'campfire': {
-      for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28 - 1.57; ctx.fillStyle = '#7a7a70'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * u * 0.42, y + Math.sin(a) * u * 0.28, u * 0.12, 0, 6.28); ctx.fill(); }
-      ctx.strokeStyle = '#4a2f1a'; ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - u * 0.25, y + u * 0.1); ctx.lineTo(x + u * 0.25, y - u * 0.1); ctx.moveTo(x - u * 0.25, y - u * 0.1); ctx.lineTo(x + u * 0.25, y + u * 0.1); ctx.stroke();
-      if (state.fireLit !== 0) {
-        const fl = 1 + 0.15 * Math.sin(state.time * 17) + 0.1 * Math.sin(state.time * 29);
-        const g = ctx.createRadialGradient(x, y - u * 0.2, 0, x, y - u * 0.2, u * 0.5 * fl);
-        g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y - u * 0.2, u * 0.5 * fl, 0, 6.28); ctx.fill();
-        if (Math.random() < 0.1) state.fx.push({ x, y: y - u * 0.4, vx: (Math.random() - 0.5) * u, vy: -u * 1.5, t: 0, life: 0.8, color: '#ffb347' });
-      } else if (Math.random() < 0.05) state.fx.push({ x, y: y - u * 0.2, vx: 0, vy: -u * 0.4, t: 0, life: 1.5, color: 'smoke', size: u * 0.2 });
-      break;
+    ctx.strokeStyle = '#3e2c1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.9, y - r * 0.2); ctx.quadraticCurveTo(x - r * 0.4, y - r * 0.7, x + r * 0.2, y - r * 0.5); ctx.moveTo(x + r * 0.5, y + r * 0.6); ctx.quadraticCurveTo(x + r * 0.9, y + r * 0.2, x + r * 1.0, y - r * 0.3); ctx.stroke();
+  },
+  chest(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.55, y + u * 0.2, u * 1.15, u * 0.2);
+    ctx.fillStyle = '#7a5230'; ctx.fillRect(x - u * 0.55, y - u * 0.35, u * 1.1, u * 0.6);
+    ctx.fillStyle = '#8a6238'; ctx.fillRect(x - u * 0.58, y - u * 0.55, u * 1.16, u * 0.25);
+    ctx.fillStyle = '#c9a46a'; ctx.fillRect(x - u * 0.06, y - u * 0.35, u * 0.12, u * 0.16);
+  },
+  lectern(s, x, y, r, u) {
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.3, u * 0.9, u * 0.55);
+    ctx.fillStyle = '#8a3a2a'; ctx.fillRect(x - u * 0.38, y - u * 0.5, u * 0.36, u * 0.26); ctx.fillStyle = '#9a4a3a'; ctx.fillRect(x + u * 0.02, y - u * 0.5, u * 0.36, u * 0.26);
+    ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x - u * 0.34, y - u * 0.47, u * 0.3, u * 0.2); ctx.fillRect(x + u * 0.05, y - u * 0.47, u * 0.3, u * 0.2);
+  },
+  mirror(s, x, y, r, u) {
+    // a standing mirror in a wooden frame
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 1.5, u * 0.9, u * 1.6); ctx.fillRect(x - u * 0.55, y + u * 0.05, u * 1.1, u * 0.15);
+    ctx.fillStyle = '#a8c8d8'; ctx.fillRect(x - u * 0.34, y - u * 1.4, u * 0.68, u * 1.35);
+    ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x - u * 0.3, y - u * 0.9); ctx.lineTo(x - u * 0.05, y - u * 1.35); ctx.lineTo(x + u * 0.05, y - u * 1.35); ctx.lineTo(x - u * 0.3, y - u * 0.7); ctx.fill();
+  },
+  cliff(s, x, y, r, u) {
+    // a knee-high rock step, lit on top
+    ctx.fillStyle = '#5e5953'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, s.r * 1.15, s.r * 0.75, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9b958d'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.12, s.r * 1.05, s.r * 0.55, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(40,36,32,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s.r * 0.5, y - u * 0.1); ctx.lineTo(x - s.r * 0.1, y + u * 0.1); ctx.stroke();
+  },
+  cairn(s, x, y, r, u) {
+    for (let i = 0; i < 4; i++) { const w0 = u * (0.9 - i * 0.18); ctx.fillStyle = i % 2 ? '#8e8880' : '#a7a197'; ctx.beginPath(); ctx.ellipse(x, y - i * u * 0.32, w0, u * 0.22, 0, 0, 6.28); ctx.fill(); }
+  },
+  bed(s, x, y, r, u) {
+    ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
+    ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
+    ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.85, y - u * 0.55, u * 0.6, u * 0.5);
+    ctx.fillStyle = '#6a4a3a'; ctx.fillRect(x - u * 0.2, y - u * 0.6, u * 1.1, u * 1.2);
+  },
+  table(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.8, y + u * 0.3, u * 1.7, u * 0.25);
+    ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - u * 0.9, y - u * 0.5, u * 1.8, u * 0.9);
+    ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.arc(x + u * 0.4, y - u * 0.1, u * 0.18, 0, 6.28); ctx.fill();   // a chipped cup
+    ctx.fillStyle = '#3a2616'; ctx.fillRect(x - u * 0.6, y - u * 0.2, u * 0.4, u * 0.08);                            // a pipe
+  },
+  stove(s, x, y, r, u) {
+    ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
+    ctx.fillStyle = '#2a2a2e'; ctx.fillRect(x - u * 0.2, y - u * 1.4, u * 0.4, u * 0.8);
+    ctx.fillStyle = '#4a2a1a'; ctx.fillRect(x - u * 0.35, y - u * 0.1, u * 0.7, u * 0.35);
+  },
+  bench(s, x, y, r, u) {
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
+    ctx.fillRect(x - u * 0.6, y - u * 0.05, u * 0.12, u * 0.35); ctx.fillRect(x + u * 0.48, y - u * 0.05, u * 0.12, u * 0.35);
+    ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
+    ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
+  },
+  tent(s, x, y, r, u) {
+    // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
+    const jj = k => Math.sin(k * 12.9898) * 0.5;
+    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
+    for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
+      const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
+      ctx.strokeStyle = k % 4 === 1 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#7a5c3a'; ctx.lineWidth = u * (0.1 + 0.03 * jj(k + 2));
+      ctx.beginPath(); ctx.moveTo(bx, y + u * 0.5); ctx.lineTo(bx + jj(k + 5) * u * 0.25, y + u * 0.5 - len); ctx.stroke();
     }
-    case 'shroom': {                               // traveler's mushroom: tall pale stem, glowing violet cap
-      const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
-      drawShroomRipples(x, y, u, found, sceneDef().id);
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
-      drawTravelShroom(x, y, u, found, glow, sceneDef().id);
-      if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
-      break;
-    }
-    case 'stone':
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
-      break;
-    case 'wedge': {                                // one big irregular boulder each, jammed against its neighbours; moss in the joins
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
-      drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
-      ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
-      break;
-    }
-    case 'wall': break;                                // the room draws its own walls
-    case 'crystalbug': drawCrystalBug(s); break;
-    case 'crate': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke(); break;
-    case 'barrel': ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); } break;
-    case 'crag': {
-      const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
-      if (s.gap) { ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.ellipse(x + r * 0.98, y + r * 0.25, u * 0.22, r * 0.45, 0.15, 0, 6.28); ctx.fill(); }   // the narrow gap beside it
-      drawJagged(x, y - r * 0.15, r * 1.05, x * 3.7 + y * 1.3, [lit, shade(lit, 18), shade(lit, -22)]);
-      { const fl = sceneDef().floor || '#5f8a4a', by = y + r * 0.42;                  // sunk into the ground: soil banked up round its foot, a rim of dirt
-        ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.25, by + r * 0.5);
-        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3; ctx.lineTo(xx, by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04); }
-        ctx.lineTo(x + r * 1.25, by + r * 0.5); ctx.closePath(); ctx.fill();
-        ctx.strokeStyle = 'rgba(74,56,34,.75)'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.beginPath();
-        for (let i = 0; i <= 12; i++) { const k = i / 12, xx = x - r * 1.15 + k * r * 2.3, yy = by - Math.sin(k * Math.PI) * r * 0.22 + Math.sin(i * 2.7 + x) * r * 0.04; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke();
-        }
-      ctx.strokeStyle = 'rgba(28,20,12,.9)'; ctx.lineCap = 'round';
-      let q = Math.abs(Math.floor((x * 13.1 + y * 7.7) * 1000)) % 233280; const rnd = () => (q = (q * 9301 + 49297) % 233280) / 233280;
-      const cracks = Math.round(k * (4 + (s.size || 1) * 2));                                                           // more and longer with each hit
-      for (let c = 0; c < cracks; c++) { const a = rnd() * 6.28, l = r * (0.35 + rnd() * 0.5) * (0.6 + k * 0.6); ctx.lineWidth = 1.5 + k * 2; ctx.beginPath(); let cx = x + Math.cos(a) * r * 0.15, cy = y - r * 0.15 + Math.sin(a) * r * 0.1; ctx.moveTo(cx, cy);
-        for (let seg = 0; seg < 3; seg++) { cx += Math.cos(a + (rnd() - 0.5) * 0.9) * l / 3; cy += Math.sin(a + (rnd() - 0.5) * 0.9) * l / 3 * 0.8; ctx.lineTo(cx, cy); } ctx.stroke(); }
-      ctx.lineCap = 'butt';
-      break;
-    }
-    case 'cracked': {
-      if (s.rope) { const rx = s.rope[0] * W, ry = s.rope[1] * H; ctx.strokeStyle = '#b09a6a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - r * 0.2); ctx.quadraticCurveTo((x + rx) / 2, (y + ry) / 2 + UNIT * 0.4, rx, ry); ctx.stroke(); }
-      const ST = s.stone && STONES[s.stone], hits = rtFor(state.scene).flags['hits_' + s.bar] || 0;
-      drawJagged(x, y, r * 1.1, x * 5.3 + y * 2.9, ['#8a8478', '#9c9587', '#766f64'], ST && ST.tint);   // big, faceted, rough: nothing like a smooth throwing stone
-      if (s.stone === 'geode') { ctx.fillStyle = 'rgba(190,150,255,.7)'; ctx.fillRect(x + r * 0.2, y - r * 0.3, 3, 3); ctx.fillRect(x - r * 0.35, y + r * 0.1, 2, 2); }   // a glint of crystal
-      ctx.strokeStyle = 'rgba(30,22,14,.85)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x - r * 0.1, y - r * 0.7); ctx.lineTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x - r * 0.12, y + r * 0.05); ctx.lineTo(x + r * 0.15, y + r * 0.45); ctx.moveTo(x + r * 0.08, y - r * 0.25); ctx.lineTo(x + r * 0.45, y - r * 0.2); ctx.stroke();
-      for (let k = 0; k < hits; k++) { ctx.beginPath(); ctx.moveTo(x - r * 0.6 + k * r * 0.4, y - r * 0.5); ctx.lineTo(x - r * 0.3 + k * r * 0.4, y + r * 0.2); ctx.lineTo(x - r * 0.5 + k * r * 0.4, y + r * 0.6); ctx.stroke(); }   // each good hit adds a crack
-      break;
-    }
-    case 'burrow': {                                   // a knot of roots and rock around a small, odd hole
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.5, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#5a5048'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.9, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#6e645a'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.5, r * 0.35, -0.4, 0, 6.28); ctx.fill();
-      if (s.holeMid) {
-        ctx.fillStyle = '#120c10'; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.32, r * 0.26, 0.2, 0, 6.28); ctx.fill();
-        ctx.fillStyle = `rgba(150,110,200,${0.25 + 0.15 * Math.sin(state.time * 2 + x)})`; ctx.beginPath(); ctx.ellipse(x + r * 0.05, y + r * 0.1, r * 0.2, r * 0.14, 0, 0, 6.28); ctx.fill();   // something glows faintly down there
+    ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(x + r * 0.15, y - r * 0.65); ctx.lineTo(x + r * 0.95, y - r * 0.6); ctx.lineTo(x + r * 1.0, y + u * 0.2); ctx.lineTo(x + r * 0.2, y + u * 0.3); ctx.fill();   // the blanket
+    ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.3); ctx.lineTo(x + r * 0.97, y - r * 0.28); ctx.stroke();
+    ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.moveTo(x - r * 1.05, y - r * 0.62); ctx.lineTo(x + r * 1.08, y - r * 0.7); ctx.stroke();   // crossbar, a bit crooked
+    ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - r * 1.0, y + u * 0.5); ctx.lineTo(x - r * 1.0, y - r * 0.75); ctx.moveTo(x + r * 1.03, y + u * 0.5); ctx.lineTo(x + r * 1.06, y - r * 0.8); ctx.stroke();   // forked uprights
+    ctx.fillStyle = '#5f8a3a'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x - r * 0.6 + k * r * 0.25, y - r * 0.6 + jj(k) * 4, u * 0.2, u * 0.08, jj(k + 1), 0, 6.28); ctx.fill(); }   // leafy branches on top
+  },
+  bramble(s, x, y, r) {
+    // storm-piled thorns
+    ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 2.5;
+    for (let i = 0; i < 5; i++) { const a = i * 1.3 + s.fy * 20; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3, r * (0.5 + i * 0.1), a, a + 3.5); ctx.stroke(); }
+    ctx.fillStyle = '#5a3e22'; for (let i = 0; i < 8; i++) { const a = i * 0.8 + s.fx * 9; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8); ctx.lineTo(x + Math.cos(a) * r * 1.1, y + Math.sin(a) * r * 1.1); ctx.lineTo(x + Math.cos(a + 0.2) * r * 0.8, y + Math.sin(a + 0.2) * r * 0.8); ctx.fill(); }
+    ctx.fillStyle = '#355a28'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, 6.28); ctx.fill();
+  },
+  reeds(s, x, y, r) {
+    // a wall of great dark reeds: thick stalks, saw-edged blades hanging over, black bulrush heads
+    const t = state.time, seed = s.fx * 97 + s.fy * 13;
+    ctx.fillStyle = 'rgba(10,14,8,.55)'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 1.35, r * 0.45, 0, 0, 6.28); ctx.fill();   // the dark mass at their feet
+    const n = 9;
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1) - 0.5, hx = x + k * r * 2.2, ht = r * (1.9 + 0.7 * Math.abs(Math.sin(seed + i * 1.7))), sway = Math.sin(t * 0.7 + i * 0.9 + seed) * r * 0.08;
+      const top = [hx + sway + k * r * 0.4, y + r * 0.5 - ht], w = Math.max(4, r * 0.16);
+      const g = ctx.createLinearGradient(0, y + r * 0.6, 0, top[1]); g.addColorStop(0, '#12180c'); g.addColorStop(0.5, '#2e3a1c'); g.addColorStop(1, '#4a5228');
+      ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, y + r * 0.6); ctx.quadraticCurveTo(hx + sway * 0.5, y - ht * 0.3, top[0], top[1]); ctx.stroke();
+      if (i % 2 === 0) {                                                                         // a bulrush head: long, black-brown, a spike on top
+        ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(top[0], top[1] + r * 0.28, w * 0.9, r * 0.32, sway * 0.02, 0, 6.28); ctx.fill();
+        ctx.strokeStyle = '#1a120a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(top[0] + sway * 0.3, top[1] - r * 0.3); ctx.stroke();
+      } else {                                                                                   // a blade bowing out and down, serrated
+        const dir = (i % 4 === 1 ? -1 : 1), bx0 = top[0], by0 = top[1] + r * 0.2, bx1 = bx0 + dir * r * 0.9, by1 = by0 + r * 0.55;
+        ctx.fillStyle = '#34401e'; ctx.beginPath(); ctx.moveTo(bx0, by0); ctx.quadraticCurveTo(bx0 + dir * r * 0.5, by0 - r * 0.25, bx1, by1);
+        for (let j = 5; j >= 0; j--) { const q = j / 5; ctx.lineTo(bx0 + (bx1 - bx0) * q + dir * (j % 2 ? 3 : 0), by0 + (by1 - by0) * q + (j % 2 ? 5 : 1)); }   // the saw teeth
+        ctx.closePath(); ctx.fill();
       }
-      ctx.strokeStyle = '#3e2c1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.9, y - r * 0.2); ctx.quadraticCurveTo(x - r * 0.4, y - r * 0.7, x + r * 0.2, y - r * 0.5); ctx.moveTo(x + r * 0.5, y + r * 0.6); ctx.quadraticCurveTo(x + r * 0.9, y + r * 0.2, x + r * 1.0, y - r * 0.3); ctx.stroke();
-      break;
     }
-    case 'chest':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.55, y + u * 0.2, u * 1.15, u * 0.2);
-      ctx.fillStyle = '#7a5230'; ctx.fillRect(x - u * 0.55, y - u * 0.35, u * 1.1, u * 0.6);
-      ctx.fillStyle = '#8a6238'; ctx.fillRect(x - u * 0.58, y - u * 0.55, u * 1.16, u * 0.25);
-      ctx.fillStyle = '#c9a46a'; ctx.fillRect(x - u * 0.06, y - u * 0.35, u * 0.12, u * 0.16);
-      break;
-    case 'lectern':
-      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 0.3, u * 0.9, u * 0.55);
-      ctx.fillStyle = '#8a3a2a'; ctx.fillRect(x - u * 0.38, y - u * 0.5, u * 0.36, u * 0.26); ctx.fillStyle = '#9a4a3a'; ctx.fillRect(x + u * 0.02, y - u * 0.5, u * 0.36, u * 0.26);
-      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(x - u * 0.34, y - u * 0.47, u * 0.3, u * 0.2); ctx.fillRect(x + u * 0.05, y - u * 0.47, u * 0.3, u * 0.2);
-      break;
-    case 'mirror':                                     // a standing mirror in a wooden frame
-      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.45, y - u * 1.5, u * 0.9, u * 1.6); ctx.fillRect(x - u * 0.55, y + u * 0.05, u * 1.1, u * 0.15);
-      ctx.fillStyle = '#a8c8d8'; ctx.fillRect(x - u * 0.34, y - u * 1.4, u * 0.68, u * 1.35);
-      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x - u * 0.3, y - u * 0.9); ctx.lineTo(x - u * 0.05, y - u * 1.35); ctx.lineTo(x + u * 0.05, y - u * 1.35); ctx.lineTo(x - u * 0.3, y - u * 0.7); ctx.fill();
-      break;
-    case 'cliff': {                                    // a knee-high rock step, lit on top
-      ctx.fillStyle = '#5e5953'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.15, s.r * 1.15, s.r * 0.75, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9b958d'; ctx.beginPath(); ctx.ellipse(x, y - u * 0.12, s.r * 1.05, s.r * 0.55, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = 'rgba(40,36,32,.35)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s.r * 0.5, y - u * 0.1); ctx.lineTo(x - s.r * 0.1, y + u * 0.1); ctx.stroke();
-      break;
-    }
-    case 'cairn':
-      for (let i = 0; i < 4; i++) { const w0 = u * (0.9 - i * 0.18); ctx.fillStyle = i % 2 ? '#8e8880' : '#a7a197'; ctx.beginPath(); ctx.ellipse(x, y - i * u * 0.32, w0, u * 0.22, 0, 0, 6.28); ctx.fill(); }
-      break;
-    case 'bed':
-      ctx.fillStyle = '#5a3f28'; ctx.fillRect(x - u * 1.0, y - u * 0.7, u * 2.0, u * 1.4);
-      ctx.fillStyle = '#8a7a6a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.8, u * 1.2);
-      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(x - u * 0.85, y - u * 0.55, u * 0.6, u * 0.5);
-      ctx.fillStyle = '#6a4a3a'; ctx.fillRect(x - u * 0.2, y - u * 0.6, u * 1.1, u * 1.2);
-      break;
-    case 'table':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.8, y + u * 0.3, u * 1.7, u * 0.25);
-      ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x - u * 0.9, y - u * 0.5, u * 1.8, u * 0.9);
-      ctx.fillStyle = '#e8e4d8'; ctx.beginPath(); ctx.arc(x + u * 0.4, y - u * 0.1, u * 0.18, 0, 6.28); ctx.fill();   // a chipped cup
-      ctx.fillStyle = '#3a2616'; ctx.fillRect(x - u * 0.6, y - u * 0.2, u * 0.4, u * 0.08);                            // a pipe
-      break;
-    case 'stove':
-      ctx.fillStyle = '#3a3a3e'; ctx.fillRect(x - u * 0.6, y - u * 0.6, u * 1.2, u * 1.2);
-      ctx.fillStyle = '#2a2a2e'; ctx.fillRect(x - u * 0.2, y - u * 1.4, u * 0.4, u * 0.8);
-      ctx.fillStyle = '#4a2a1a'; ctx.fillRect(x - u * 0.35, y - u * 0.1, u * 0.7, u * 0.35);
-      break;
-    case 'bench':
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(x - u * 0.7, y + u * 0.2, u * 1.5, u * 0.2);
-      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - u * 0.7, y - u * 0.35, u * 1.4, u * 0.3);
-      ctx.fillRect(x - u * 0.6, y - u * 0.05, u * 0.12, u * 0.35); ctx.fillRect(x + u * 0.48, y - u * 0.05, u * 0.12, u * 0.35);
-      ctx.fillStyle = '#7a7a80'; ctx.fillRect(x - u * 0.2, y - u * 0.55, u * 0.4, u * 0.22);
-      ctx.fillStyle = '#5a5a60'; ctx.fillRect(x - u * 0.3, y - u * 0.33, u * 0.6, u * 0.06);
-      break;
-    case 'tent': {                                     // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
-      const jj = k => Math.sin(k * 12.9898) * 0.5;
-      ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
-      for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
-        const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
-        ctx.strokeStyle = k % 4 === 1 ? '#8a6a44' : k % 3 ? '#6b4e30' : '#7a5c3a'; ctx.lineWidth = u * (0.1 + 0.03 * jj(k + 2));
-        ctx.beginPath(); ctx.moveTo(bx, y + u * 0.5); ctx.lineTo(bx + jj(k + 5) * u * 0.25, y + u * 0.5 - len); ctx.stroke();
-      }
-      ctx.fillStyle = '#b05a4a'; ctx.beginPath(); ctx.moveTo(x + r * 0.15, y - r * 0.65); ctx.lineTo(x + r * 0.95, y - r * 0.6); ctx.lineTo(x + r * 1.0, y + u * 0.2); ctx.lineTo(x + r * 0.2, y + u * 0.3); ctx.fill();   // the blanket
-      ctx.strokeStyle = '#e0c090'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + r * 0.2, y - r * 0.3); ctx.lineTo(x + r * 0.97, y - r * 0.28); ctx.stroke();
-      ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.12; ctx.beginPath(); ctx.moveTo(x - r * 1.05, y - r * 0.62); ctx.lineTo(x + r * 1.08, y - r * 0.7); ctx.stroke();   // crossbar, a bit crooked
-      ctx.lineWidth = u * 0.1; ctx.beginPath(); ctx.moveTo(x - r * 1.0, y + u * 0.5); ctx.lineTo(x - r * 1.0, y - r * 0.75); ctx.moveTo(x + r * 1.03, y + u * 0.5); ctx.lineTo(x + r * 1.06, y - r * 0.8); ctx.stroke();   // forked uprights
-      ctx.fillStyle = '#5f8a3a'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.ellipse(x - r * 0.6 + k * r * 0.25, y - r * 0.6 + jj(k) * 4, u * 0.2, u * 0.08, jj(k + 1), 0, 6.28); ctx.fill(); }   // leafy branches on top
-      break;
-    }
-    case 'bramble':                                // storm-piled thorns
-      ctx.strokeStyle = '#3a2614'; ctx.lineWidth = 2.5;
-      for (let i = 0; i < 5; i++) { const a = i * 1.3 + s.fy * 20; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3, r * (0.5 + i * 0.1), a, a + 3.5); ctx.stroke(); }
-      ctx.fillStyle = '#5a3e22'; for (let i = 0; i < 8; i++) { const a = i * 0.8 + s.fx * 9; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8); ctx.lineTo(x + Math.cos(a) * r * 1.1, y + Math.sin(a) * r * 1.1); ctx.lineTo(x + Math.cos(a + 0.2) * r * 0.8, y + Math.sin(a + 0.2) * r * 0.8); ctx.fill(); }
-      ctx.fillStyle = '#355a28'; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.2, r * 0.2, 0, 6.28); ctx.fill();
-      break;
-    case 'reeds': {                                // a wall of great dark reeds: thick stalks, saw-edged blades hanging over, black bulrush heads
-      const t = state.time, seed = s.fx * 97 + s.fy * 13;
-      ctx.fillStyle = 'rgba(10,14,8,.55)'; ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 1.35, r * 0.45, 0, 0, 6.28); ctx.fill();   // the dark mass at their feet
-      const n = 9;
-      for (let i = 0; i < n; i++) {
-        const k = i / (n - 1) - 0.5, hx = x + k * r * 2.2, ht = r * (1.9 + 0.7 * Math.abs(Math.sin(seed + i * 1.7))), sway = Math.sin(t * 0.7 + i * 0.9 + seed) * r * 0.08;
-        const top = [hx + sway + k * r * 0.4, y + r * 0.5 - ht], w = Math.max(4, r * 0.16);
-        const g = ctx.createLinearGradient(0, y + r * 0.6, 0, top[1]); g.addColorStop(0, '#12180c'); g.addColorStop(0.5, '#2e3a1c'); g.addColorStop(1, '#4a5228');
-        ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, y + r * 0.6); ctx.quadraticCurveTo(hx + sway * 0.5, y - ht * 0.3, top[0], top[1]); ctx.stroke();
-        if (i % 2 === 0) {                                                                         // a bulrush head: long, black-brown, a spike on top
-          ctx.fillStyle = '#2a1a10'; ctx.beginPath(); ctx.ellipse(top[0], top[1] + r * 0.28, w * 0.9, r * 0.32, sway * 0.02, 0, 6.28); ctx.fill();
-          ctx.strokeStyle = '#1a120a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(top[0] + sway * 0.3, top[1] - r * 0.3); ctx.stroke();
-        } else {                                                                                   // a blade bowing out and down, serrated
-          const dir = (i % 4 === 1 ? -1 : 1), bx0 = top[0], by0 = top[1] + r * 0.2, bx1 = bx0 + dir * r * 0.9, by1 = by0 + r * 0.55;
-          ctx.fillStyle = '#34401e'; ctx.beginPath(); ctx.moveTo(bx0, by0); ctx.quadraticCurveTo(bx0 + dir * r * 0.5, by0 - r * 0.25, bx1, by1);
-          for (let j = 5; j >= 0; j--) { const q = j / 5; ctx.lineTo(bx0 + (bx1 - bx0) * q + dir * (j % 2 ? 3 : 0), by0 + (by1 - by0) * q + (j % 2 ? 5 : 1)); }   // the saw teeth
-          ctx.closePath(); ctx.fill();
-        }
-      }
-      ctx.fillStyle = 'rgba(200,210,150,.5)'; for (let i = 0; i < 3; i++) { const a = seed + i * 2.3; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.8, y - r * (0.6 + (i % 2) * 0.6), 1.5, 0, 6.28); ctx.fill(); }   // thorns catching the light
-      ctx.lineCap = 'butt';
-      break;
-    }
-    case 'web':
-      ctx.strokeStyle = 'rgba(225,225,215,.7)'; ctx.lineWidth = 1;
-      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + s.fx * 5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); ctx.stroke(); }
-      for (const k of [0.4, 0.8, 1.15]) { ctx.beginPath(); ctx.arc(x, y, r * k, 0, 6.28); ctx.stroke(); }
-      break;
-  }
-}
+    ctx.fillStyle = 'rgba(200,210,150,.5)'; for (let i = 0; i < 3; i++) { const a = seed + i * 2.3; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.8, y - r * (0.6 + (i % 2) * 0.6), 1.5, 0, 6.28); ctx.fill(); }   // thorns catching the light
+    ctx.lineCap = 'butt';
+  },
+  web(s, x, y, r) {
+    ctx.strokeStyle = 'rgba(225,225,215,.7)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28 + s.fx * 5; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3); ctx.stroke(); }
+    for (const k of [0.4, 0.8, 1.15]) { ctx.beginPath(); ctx.arc(x, y, r * k, 0, 6.28); ctx.stroke(); }
+  },
+};
+SOLID_DRAW.cavewall = SOLID_DRAW.boulder;
+SOLID_DRAW.pillar = SOLID_DRAW.boulder;
+function drawSolid(s) { const d = SOLID_DRAW[s.kind]; if (d) d(s, s.x, s.y, s.vis, UNIT); }
 
 // ---------------- characters ----------------
 const PIP_SIZE = 0.6;                                     // Pip is about 60% of your size
@@ -8712,7 +8714,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 179';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 180';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9001,208 +9003,261 @@ function drawScalp(x, top, w) {                  // stalker scalp: fur cap, ears
   ctx.strokeStyle = '#6b3526'; ctx.lineWidth = Math.max(1, w * 0.03);
   for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * w * 0.18, top + w * 0.1); ctx.lineTo(x + i * w * 0.18 + w * 0.04, top - w * 0.04); ctx.stroke(); }
 }
+// Item icons, one small draw per type, read by drawItemIcon: draw(s, type) with the origin already at the icon's centre
+// and s its size. The raw materials (RAW, the mat) are drawRawIcon in craft.js; a type with no entry draws nothing.
+const ICONS = {
+  scalp(s) { drawScalp(0, s * 0.2, s * 1.05); },
+  wing(s) {
+    ctx.fillStyle = '#4b3558';
+    ctx.beginPath(); ctx.moveTo(-s * 0.55, s * 0.15); ctx.lineTo(0, -s * 0.45); ctx.lineTo(s * 0.55, s * 0.15);
+    ctx.quadraticCurveTo(s * 0.35, 0, s * 0.2, s * 0.32); ctx.quadraticCurveTo(0, s * 0.1, -s * 0.2, s * 0.32); ctx.quadraticCurveTo(-s * 0.35, 0, -s * 0.55, s * 0.15); ctx.fill();
+    ctx.strokeStyle = '#2a1c33'; ctx.lineWidth = Math.max(1, s * 0.05);
+    for (const a of [-0.55, 0, 0.55]) { ctx.beginPath(); ctx.moveTo(0, -s * 0.45); ctx.lineTo(a * s, s * 0.2); ctx.stroke(); }
+  },
+  horn(s) {
+    ctx.strokeStyle = '#e6dcc0'; ctx.lineCap = 'round';
+    ctx.lineWidth = s * 0.24; ctx.beginPath(); ctx.arc(-s * 0.05, s * 0.2, s * 0.38, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
+    ctx.lineWidth = s * 0.12; ctx.beginPath(); ctx.arc(-s * 0.05, s * 0.2, s * 0.38, Math.PI * 1.6, Math.PI * 1.95); ctx.stroke();
+    ctx.lineCap = 'butt';
+  },
+  step(s) {
+    // a stalker's hind claw on a cord
+    ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = Math.max(1, s * 0.06); ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.3, Math.PI * 0.1, Math.PI * 0.9, true); ctx.stroke();
+    ctx.fillStyle = '#4a1414'; ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 0.05); ctx.quadraticCurveTo(s * 0.3, s * 0.1, s * 0.05, s * 0.5); ctx.lineTo(s * 0.02, s * 0.1); ctx.fill();
+    ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(-s * 0.05, s * 0.2); ctx.quadraticCurveTo(s * 0.2, s * 0.3, s * 0.05, s * 0.5); ctx.fill();
+  },
+  silk(s) {
+    ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(0, 0, s * (0.15 + i * 0.07), s * (0.3 - i * 0.03), i * 0.5, 0, 6.28); ctx.stroke(); }
+  },
+  squash(s) {
+    ctx.fillStyle = '#e0a030'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.4, s * 0.3, 0, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = '#b8781a'; ctx.lineWidth = 1.5; for (const o of [-0.15, 0.15]) { ctx.beginPath(); ctx.ellipse(o * s, s * 0.08, s * 0.1, s * 0.28, 0, 0, 6.28); ctx.stroke(); }
+    ctx.fillStyle = '#4a6a2a'; ctx.fillRect(-s * 0.04, -s * 0.34, s * 0.08, s * 0.16);
+  },
+  berries(s) {
+    ctx.fillStyle = '#6a2a7a'; for (const [bx, by] of [[-0.12, 0.05], [0.12, 0.05], [0, -0.1], [0, 0.18]]) { ctx.beginPath(); ctx.arc(bx * s, by * s, s * 0.14, 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = '#4a8a3a'; ctx.beginPath(); ctx.ellipse(s * 0.15, -s * 0.28, s * 0.14, s * 0.07, -0.5, 0, 6.28); ctx.fill();
+  },
+  pepper(s) {
+    ctx.fillStyle = '#c8321e'; ctx.beginPath(); ctx.moveTo(-s * 0.15, -s * 0.2); ctx.quadraticCurveTo(s * 0.4, -s * 0.1, s * 0.1, s * 0.5); ctx.quadraticCurveTo(-s * 0.1, s * 0.1, -s * 0.15, -s * 0.2); ctx.fill();
+    ctx.fillStyle = '#4a8a3a'; ctx.fillRect(-s * 0.2, -s * 0.32, s * 0.12, s * 0.15);
+  },
+  lumin(s) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.6);
+    g.addColorStop(0, '#f2ffb0'); g.addColorStop(0.5, '#9ee85a'); g.addColorStop(1, 'rgba(120,220,80,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#c9f27a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.26, s * 0.32, 0, 0, 6.28); ctx.fill();
+  },
+  haunch(s) {
+    ctx.fillStyle = '#f1ead8'; ctx.fillRect(s * 0.1, -s * 0.06, s * 0.42, s * 0.12);
+    ctx.beginPath(); ctx.arc(s * 0.52, -s * 0.08, s * 0.08, 0, 6.28); ctx.arc(s * 0.52, s * 0.08, s * 0.08, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9a5a2a'; ctx.beginPath(); ctx.ellipse(-s * 0.12, 0, s * 0.36, s * 0.26, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#b8743a'; ctx.beginPath(); ctx.ellipse(-s * 0.2, -s * 0.07, s * 0.15, s * 0.08, 0, 0, 6.28); ctx.fill();
+  },
+  turnip(s) {
+    ctx.fillStyle = '#5aa04a';
+    for (const a of [-0.5, 0, 0.5]) { ctx.save(); ctx.rotate(a); ctx.fillRect(-s * 0.05, -s * 0.6, s * 0.1, s * 0.35); ctx.restore(); }
+    ctx.fillStyle = '#efe6f2'; ctx.beginPath(); ctx.arc(0, s * 0.05, s * 0.3, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#9b4f9e'; ctx.beginPath(); ctx.arc(0, s * 0.05, s * 0.3, Math.PI, 0); ctx.fill();
+  },
+  slime(s) {
+    ctx.fillStyle = '#7fae3a';
+    ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.28, 0, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.12, s * 0.2, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#c3e37a'; ctx.beginPath(); ctx.arc(-s * 0.16, -s * 0.16, s * 0.07, 0, 6.28); ctx.fill();
+  },
+  heart(s) { heartPath(0, 0, s * 0.9); ctx.fillStyle = '#e03a3a'; ctx.fill(); },
+  carrot(s) {
+    ctx.fillStyle = '#e8792a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.2); ctx.lineTo(s * 0.12, -s * 0.2); ctx.lineTo(0, s * 0.5); ctx.fill();
+    ctx.strokeStyle = '#b8541a'; ctx.lineWidth = 1; for (const y of [0, 0.15]) { ctx.beginPath(); ctx.moveTo(-s * 0.08, y * s); ctx.lineTo(s * 0.04, y * s); ctx.stroke(); }
+    ctx.fillStyle = '#5aa04a'; for (const a of [-0.4, 0, 0.4]) { ctx.save(); ctx.rotate(a); ctx.fillRect(-s * 0.04, -s * 0.5, s * 0.08, s * 0.32); ctx.restore(); }
+  },
+  acorn(s) {
+    ctx.fillStyle = '#a0662a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.22, s * 0.28, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#6b4520'; ctx.beginPath(); ctx.ellipse(0, -s * 0.12, s * 0.26, s * 0.14, 0, 0, 6.28); ctx.fill();
+    ctx.fillRect(-s * 0.03, -s * 0.34, s * 0.06, s * 0.12);
+  },
+  thornseed(s, type) {
+    const c = SEEDS[type].color;
+    ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.18, s * 0.26, 0.5, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
+    if (type === 'starseed' || type === 'emberseed') { ctx.fillStyle = `rgba(255,255,230,${0.4 + 0.3 * Math.sin(state.time * 5)})`; ctx.beginPath(); ctx.arc(-s * 0.05, -s * 0.08, s * 0.06, 0, 6.28); ctx.fill(); }
+  },
+  thorn(s) {
+    ctx.fillStyle = '#7a3a8a'; ctx.beginPath(); ctx.moveTo(-s * 0.3, s * 0.2); ctx.lineTo(s * 0.35, -s * 0.35); ctx.lineTo(0, s * 0.3); ctx.fill();
+    ctx.fillStyle = '#c98ad8'; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.15); ctx.lineTo(s * 0.3, -s * 0.3); ctx.lineTo(s * 0.05, s * 0.1); ctx.fill();
+  },
+  ember(s) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); }
+  },
+  ironwood(s) {
+    ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill();
+  },
+  starpetal(s) {
+    ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill();
+  },
+  fish(s) {
+    ctx.fillStyle = '#8ab8c8'; ctx.beginPath(); ctx.ellipse(-s * 0.05, 0, s * 0.35, s * 0.17, 0, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(s * 0.25, 0); ctx.lineTo(s * 0.48, -s * 0.18); ctx.lineTo(s * 0.48, s * 0.18); ctx.fill();
+    ctx.fillStyle = '#e8f4f8'; ctx.beginPath(); ctx.ellipse(-s * 0.1, s * 0.05, s * 0.2, s * 0.06, 0, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#1a2a30'; ctx.beginPath(); ctx.arc(-s * 0.28, -s * 0.03, s * 0.035, 0, 6.28); ctx.fill();
+  },
+  driftwood(s) {
+    ctx.fillStyle = '#9a8468'; ctx.save(); ctx.rotate(-0.3); ctx.fillRect(-s * 0.42, -s * 0.09, s * 0.84, s * 0.18);
+    ctx.strokeStyle = '#6b5a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.35, 0); ctx.lineTo(s * 0.35, 0); ctx.stroke(); ctx.restore();
+  },
+  rod(s) {
+    ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.moveTo(-s * 0.4, s * 0.4); ctx.lineTo(s * 0.4, -s * 0.4); ctx.stroke();
+    ctx.strokeStyle = '#e8e4d8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * 0.4, -s * 0.4); ctx.quadraticCurveTo(s * 0.5, 0, s * 0.3, s * 0.3); ctx.stroke();
+  },
+  ear(s) {
+    ctx.fillStyle = '#4a2218'; ctx.beginPath(); ctx.moveTo(-s * 0.25, s * 0.3); ctx.lineTo(0, -s * 0.4); ctx.lineTo(s * 0.25, s * 0.3); ctx.fill();
+    ctx.fillStyle = '#b8736a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, s * 0.25); ctx.lineTo(0, -s * 0.2); ctx.lineTo(s * 0.12, s * 0.25); ctx.fill();
+  },
+  hide(s) {
+    ctx.fillStyle = '#5a2a1e'; ctx.beginPath(); ctx.moveTo(-s * 0.35, -s * 0.2); ctx.quadraticCurveTo(0, -s * 0.35, s * 0.35, -s * 0.15); ctx.lineTo(s * 0.3, s * 0.25); ctx.quadraticCurveTo(0, s * 0.35, -s * 0.3, s * 0.2); ctx.fill();
+    ctx.strokeStyle = '#7a3a2a'; ctx.lineWidth = 1; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.15, -s * 0.15); ctx.lineTo(i * s * 0.15 + s * 0.05, s * 0.15); ctx.stroke(); }
+  },
+  spores(s) {
+    for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
+    ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
+  },
+  sword(s) {
+    // the old sword: grey steel, rust and all (never the wooden one's colour)
+    ctx.save(); ctx.rotate(-0.8 - Math.PI / 2); ctx.translate(-s * 0.1, 0); drawSteelBlade(s * 0.62, s * 0.12, Math.min(3, state.inv.up.edge || 0)); ctx.restore();
+    ctx.save(); ctx.rotate(-0.8);
+    ctx.fillStyle = '#6b4a2a'; ctx.fillRect(-s * 0.2, s * 0.1, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.04, s * 0.17, s * 0.08, s * 0.25);
+    ctx.restore();
+  },
+  letter(s) {
+    ctx.fillStyle = '#f2e6c8'; ctx.fillRect(-s * 0.32, -s * 0.24, s * 0.64, s * 0.48);
+    ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.24); ctx.lineTo(0, s * 0.05); ctx.lineTo(s * 0.32, -s * 0.24); ctx.stroke();
+    ctx.fillStyle = '#3a2616'; ctx.fillRect(-s * 0.1, s * 0.12, s * 0.35, s * 0.07);
+  },
+  page(s) {
+    ctx.fillStyle = '#f2e6c8'; ctx.save(); ctx.rotate(0.2); ctx.fillRect(-s * 0.28, -s * 0.34, s * 0.56, s * 0.68);
+    ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.18, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
+    ctx.restore();
+  },
+  journal(s) {
+    ctx.fillStyle = '#7a3a2a'; ctx.fillRect(-s * 0.35, -s * 0.4, s * 0.7, s * 0.8);
+    ctx.fillStyle = '#f2e6c8'; ctx.fillRect(s * 0.3, -s * 0.36, s * 0.07, s * 0.72);
+    ctx.fillStyle = '#e8c04a'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
+  },
+  recipe_temper(s) {
+    ctx.fillStyle = '#e8dcb8'; ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.6, s * 0.7);
+    ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
+    ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
+  },
+  woodsword(s) {
+    ctx.save(); ctx.rotate(-0.7); ctx.fillStyle = '#b08a5a'; ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.62); ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.45); ctx.lineTo(0, -s * 0.55); ctx.lineTo(s * 0.06, -s * 0.45); ctx.fill();
+    ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.2, s * 0.14, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.05, s * 0.2, s * 0.1, s * 0.22); ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.07, s * 0.1); ctx.lineTo(s * 0.07, s * 0.02); ctx.stroke(); ctx.restore();
+  },
+  thornwrap(s) {
+    ctx.fillStyle = '#efe6d2'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a3a8a'; for (let k = 0; k < 5; k++) { const an = k / 5 * 6.28; ctx.beginPath(); ctx.moveTo(Math.cos(an) * s * 0.2, Math.sin(an) * s * 0.14); ctx.lineTo(Math.cos(an) * s * 0.42, Math.sin(an) * s * 0.3); ctx.lineTo(Math.cos(an + 0.3) * s * 0.22, Math.sin(an + 0.3) * s * 0.15); ctx.fill(); }
+  },
+  emberoil(s) {
+    ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.3, s * 0.18, 0, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, s * 0.06, 0, 0, s * 0.06, s * 0.26); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,110,40,.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, s * 0.06, s * 0.24, s * 0.12, 0, 0, 6.28); ctx.fill();
+  },
+  mash(s, type) {
+    ctx.fillStyle = '#8a6a4a'; ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.22, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = type === 'mash' ? '#e8c07a' : '#9fcf6a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.36, s * 0.12, 0, 0, 6.28); ctx.fill();
+    if (type === 'salad') { ctx.fillStyle = '#c0304a'; for (const [dx, dy] of [[-0.15, 0.02], [0.05, 0.06], [0.18, 0]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.05, 0, 6.28); ctx.fill(); } } else { ctx.fillStyle = '#e8792a'; ctx.fillRect(-s * 0.1, s * 0.03, s * 0.08, s * 0.05); }
+  },
+  trailmix(s) {
+    for (const [dx, dy, c] of [[-0.15, 0.05, '#a0662a'], [0.1, -0.05, '#6a2a5a'], [0.2, 0.12, '#a0662a'], [-0.02, 0.18, '#c0304a'], [-0.2, -0.12, '#6a2a5a']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.1, 0, 6.28); ctx.fill(); }
+  },
+  lantern(s) {
+    ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
+    ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14);
+  },
+  beetle(s) {
+    ctx.fillStyle = '#c0203a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.28, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,200,210,.9)'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.1); ctx.lineTo(s * 0.05, -s * 0.16); ctx.lineTo(0, 0); ctx.fill(); ctx.strokeStyle = '#401018'; ctx.lineWidth = 2; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 0.2, sd * s * 0.1); ctx.lineTo(s * 0.34, sd * s * 0.2); ctx.stroke(); }
+  },
+  spore(s) {
+    // a little traveler's mushroom, glowing
+    ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);
+    ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.ellipse(0, -s * 0.05, s * 0.34, s * 0.22, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#f0e0ff'; for (const [dx, dy] of [[-0.15, -0.15], [0.08, -0.2], [0.18, -0.1]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.035, 0, 6.28); ctx.fill(); }
+  },
+  wear_feather(s) {
+    ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore();
+  },
+  wear_stonecharm(s) {
+    ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill();
+  },
+  wear_mitts(s) {
+    ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08);
+  },
+  wear_embercharm(s) {
+    ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.2); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,120,40,0.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.17, 0, 6.28); ctx.fill();
+  },
+  // vegetable seeds, a small pinch of each, drawn the way the real ones look
+  turnipseed(s) {
+    // tiny round beads, dark red-brown to near black, a glint on each
+    for (const [ox, oy, r] of [[-0.16, 0.1, 0.11], [0.08, -0.14, 0.12], [0.18, 0.14, 0.1], [-0.04, 0.16, 0.09]]) {
+      ctx.fillStyle = '#3a2016'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill();
+      ctx.fillStyle = '#7a3a26'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s * 0.7, 0, 6.28); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,220,.7)'; ctx.beginPath(); ctx.arc((ox - r * 0.35) * s, (oy - r * 0.4) * s, r * s * 0.28, 0, 6.28); ctx.fill();
+    }
+  },
+  carrotseed(s) {
+    // small tan ovals, flat, ridged along their length
+    for (const [ox, oy, a] of [[-0.15, 0.08, 0.6], [0.12, -0.12, -0.4], [0.16, 0.16, 1.1]]) {
+      ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+      ctx.fillStyle = '#a8905e'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.1, s * 0.16, 0, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = '#6e5a34'; ctx.lineWidth = 1; for (const k of [-0.05, 0, 0.05]) { ctx.beginPath(); ctx.moveTo(k * s, -s * 0.13); ctx.lineTo(k * s, s * 0.13); ctx.stroke(); }
+      ctx.restore();
+    }
+  },
+  pepperseed(s) {
+    // flat pale yellow discs, a slight notch where they hung
+    for (const [ox, oy] of [[-0.14, 0.1], [0.1, -0.12], [0.16, 0.16]]) {
+      ctx.fillStyle = '#e8d68a'; ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.13, 0, 6.28); ctx.fill();
+      ctx.strokeStyle = '#b8a45a'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#c8b46a'; ctx.beginPath(); ctx.arc((ox + 0.09) * s, (oy - 0.06) * s, s * 0.03, 0, 6.28); ctx.fill();
+    }
+  },
+  squashseed(s) {
+    // cream teardrops with a paler rim, one broad and one on its side
+    for (const [ox, oy, a] of [[-0.1, 0.06, -0.3], [0.14, 0.02, 0.9]]) {
+      ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
+      ctx.fillStyle = '#e8dcb0'; ctx.beginPath(); ctx.moveTo(0, -s * 0.24); ctx.quadraticCurveTo(s * 0.18, -s * 0.05, s * 0.13, s * 0.14); ctx.quadraticCurveTo(0, s * 0.28, -s * 0.13, s * 0.14); ctx.quadraticCurveTo(-s * 0.18, -s * 0.05, 0, -s * 0.24); ctx.fill();
+      ctx.strokeStyle = '#f8f2dc'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.restore();
+    }
+  },
+  bean(s) {
+    ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
+    ctx.fillStyle = '#d98a6a'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.06, s * 0.08, s * 0.04, 0.3, 0, 6.28); ctx.fill();
+  },
+  wisp(s) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.5); g.addColorStop(0, '#f4ffe0'); g.addColorStop(0.4, '#b8f28a'); g.addColorStop(1, 'rgba(140,220,120,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.5, 0, 6.28); ctx.fill();
+  },
+  fire(s) {
+    const g = ctx.createRadialGradient(0, s * 0.1, 0, 0, s * 0.1, s * 0.5); g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -s * 0.5); ctx.quadraticCurveTo(s * 0.45, 0, 0, s * 0.45); ctx.quadraticCurveTo(-s * 0.45, 0, 0, -s * 0.5); ctx.fill();
+  },
+  bigrock(s) { drawRock(0, 0, s * 0.7); },
+  maxheart(s) {
+    heartPath(0, 0, s); ctx.fillStyle = '#e03a3a'; ctx.fill(); ctx.strokeStyle = '#f2c94c'; ctx.lineWidth = Math.max(2, s * 0.1); ctx.stroke();
+  },
+  warden(s) {
+    heartPath(0, 0, s * 1.1); ctx.fillStyle = '#4a9ad8'; ctx.fill(); ctx.strokeStyle = '#c9e8ff'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.stroke();
+  },
+};
+ICONS.glow = ICONS.lumin;
+ICONS.emberseed = ICONS.thornseed;
+ICONS.ironseed = ICONS.thornseed;
+ICONS.starseed = ICONS.thornseed;
+ICONS.spores7 = ICONS.spores;
+ICONS.recipe_star = ICONS.recipe_temper;
+ICONS.salad = ICONS.mash;
 function drawItemIcon(type, x, y, s) {
   if (RAW[type] || type === 'mat') { ctx.save(); ctx.translate(x, y); const done = drawRawIcon(type, s); ctx.restore(); if (done) return; }
-  ctx.save(); ctx.translate(x, y);
-  switch (type) {
-    case 'scalp': drawScalp(0, s * 0.2, s * 1.05); break;
-    case 'wing':
-      ctx.fillStyle = '#4b3558';
-      ctx.beginPath(); ctx.moveTo(-s * 0.55, s * 0.15); ctx.lineTo(0, -s * 0.45); ctx.lineTo(s * 0.55, s * 0.15);
-      ctx.quadraticCurveTo(s * 0.35, 0, s * 0.2, s * 0.32); ctx.quadraticCurveTo(0, s * 0.1, -s * 0.2, s * 0.32); ctx.quadraticCurveTo(-s * 0.35, 0, -s * 0.55, s * 0.15); ctx.fill();
-      ctx.strokeStyle = '#2a1c33'; ctx.lineWidth = Math.max(1, s * 0.05);
-      for (const a of [-0.55, 0, 0.55]) { ctx.beginPath(); ctx.moveTo(0, -s * 0.45); ctx.lineTo(a * s, s * 0.2); ctx.stroke(); }
-      break;
-    case 'horn':
-      ctx.strokeStyle = '#e6dcc0'; ctx.lineCap = 'round';
-      ctx.lineWidth = s * 0.24; ctx.beginPath(); ctx.arc(-s * 0.05, s * 0.2, s * 0.38, Math.PI * 1.05, Math.PI * 1.6); ctx.stroke();
-      ctx.lineWidth = s * 0.12; ctx.beginPath(); ctx.arc(-s * 0.05, s * 0.2, s * 0.38, Math.PI * 1.6, Math.PI * 1.95); ctx.stroke();
-      ctx.lineCap = 'butt';
-      break;
-    case 'step':                                  // a stalker's hind claw on a cord
-      ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = Math.max(1, s * 0.06); ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.3, Math.PI * 0.1, Math.PI * 0.9, true); ctx.stroke();
-      ctx.fillStyle = '#4a1414'; ctx.beginPath(); ctx.moveTo(-s * 0.15, s * 0.05); ctx.quadraticCurveTo(s * 0.3, s * 0.1, s * 0.05, s * 0.5); ctx.lineTo(s * 0.02, s * 0.1); ctx.fill();
-      ctx.fillStyle = '#e6dcc0'; ctx.beginPath(); ctx.moveTo(-s * 0.05, s * 0.2); ctx.quadraticCurveTo(s * 0.2, s * 0.3, s * 0.05, s * 0.5); ctx.fill();
-      break;
-    case 'silk':
-      ctx.strokeStyle = '#e8e4f0'; ctx.lineWidth = 1.5;
-      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(0, 0, s * (0.15 + i * 0.07), s * (0.3 - i * 0.03), i * 0.5, 0, 6.28); ctx.stroke(); }
-      break;
-    case 'squash':
-      ctx.fillStyle = '#e0a030'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.4, s * 0.3, 0, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#b8781a'; ctx.lineWidth = 1.5; for (const o of [-0.15, 0.15]) { ctx.beginPath(); ctx.ellipse(o * s, s * 0.08, s * 0.1, s * 0.28, 0, 0, 6.28); ctx.stroke(); }
-      ctx.fillStyle = '#4a6a2a'; ctx.fillRect(-s * 0.04, -s * 0.34, s * 0.08, s * 0.16);
-      break;
-    case 'berries':
-      ctx.fillStyle = '#6a2a7a'; for (const [bx, by] of [[-0.12, 0.05], [0.12, 0.05], [0, -0.1], [0, 0.18]]) { ctx.beginPath(); ctx.arc(bx * s, by * s, s * 0.14, 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = '#4a8a3a'; ctx.beginPath(); ctx.ellipse(s * 0.15, -s * 0.28, s * 0.14, s * 0.07, -0.5, 0, 6.28); ctx.fill();
-      break;
-    case 'pepper':
-      ctx.fillStyle = '#c8321e'; ctx.beginPath(); ctx.moveTo(-s * 0.15, -s * 0.2); ctx.quadraticCurveTo(s * 0.4, -s * 0.1, s * 0.1, s * 0.5); ctx.quadraticCurveTo(-s * 0.1, s * 0.1, -s * 0.15, -s * 0.2); ctx.fill();
-      ctx.fillStyle = '#4a8a3a'; ctx.fillRect(-s * 0.2, -s * 0.32, s * 0.12, s * 0.15);
-      break;
-    case 'lumin': case 'glow': {
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.6);
-      g.addColorStop(0, '#f2ffb0'); g.addColorStop(0.5, '#9ee85a'); g.addColorStop(1, 'rgba(120,220,80,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.6, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#c9f27a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.26, s * 0.32, 0, 0, 6.28); ctx.fill();
-      break;
-    }
-    case 'haunch':
-      ctx.fillStyle = '#f1ead8'; ctx.fillRect(s * 0.1, -s * 0.06, s * 0.42, s * 0.12);
-      ctx.beginPath(); ctx.arc(s * 0.52, -s * 0.08, s * 0.08, 0, 6.28); ctx.arc(s * 0.52, s * 0.08, s * 0.08, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9a5a2a'; ctx.beginPath(); ctx.ellipse(-s * 0.12, 0, s * 0.36, s * 0.26, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#b8743a'; ctx.beginPath(); ctx.ellipse(-s * 0.2, -s * 0.07, s * 0.15, s * 0.08, 0, 0, 6.28); ctx.fill();
-      break;
-    case 'turnip':
-      ctx.fillStyle = '#5aa04a';
-      for (const a of [-0.5, 0, 0.5]) { ctx.save(); ctx.rotate(a); ctx.fillRect(-s * 0.05, -s * 0.6, s * 0.1, s * 0.35); ctx.restore(); }
-      ctx.fillStyle = '#efe6f2'; ctx.beginPath(); ctx.arc(0, s * 0.05, s * 0.3, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#9b4f9e'; ctx.beginPath(); ctx.arc(0, s * 0.05, s * 0.3, Math.PI, 0); ctx.fill();
-      break;
-    case 'slime':
-      ctx.fillStyle = '#7fae3a';
-      ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.28, 0, 0, 6.28); ctx.fill();
-      ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.12, s * 0.2, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#c3e37a'; ctx.beginPath(); ctx.arc(-s * 0.16, -s * 0.16, s * 0.07, 0, 6.28); ctx.fill();
-      break;
-    case 'heart': heartPath(0, 0, s * 0.9); ctx.fillStyle = '#e03a3a'; ctx.fill(); break;
-    case 'carrot':
-      ctx.fillStyle = '#e8792a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.2); ctx.lineTo(s * 0.12, -s * 0.2); ctx.lineTo(0, s * 0.5); ctx.fill();
-      ctx.strokeStyle = '#b8541a'; ctx.lineWidth = 1; for (const y of [0, 0.15]) { ctx.beginPath(); ctx.moveTo(-s * 0.08, y * s); ctx.lineTo(s * 0.04, y * s); ctx.stroke(); }
-      ctx.fillStyle = '#5aa04a'; for (const a of [-0.4, 0, 0.4]) { ctx.save(); ctx.rotate(a); ctx.fillRect(-s * 0.04, -s * 0.5, s * 0.08, s * 0.32); ctx.restore(); }
-      break;
-    case 'acorn':
-      ctx.fillStyle = '#a0662a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.22, s * 0.28, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#6b4520'; ctx.beginPath(); ctx.ellipse(0, -s * 0.12, s * 0.26, s * 0.14, 0, 0, 6.28); ctx.fill();
-      ctx.fillRect(-s * 0.03, -s * 0.34, s * 0.06, s * 0.12);
-      break;
-    case 'thornseed': case 'emberseed': case 'ironseed': case 'starseed': {
-      const c = SEEDS[type].color;
-      ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.18, s * 0.26, 0.5, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,.4)'; ctx.lineWidth = 1; ctx.stroke();
-      if (type === 'starseed' || type === 'emberseed') { ctx.fillStyle = `rgba(255,255,230,${0.4 + 0.3 * Math.sin(state.time * 5)})`; ctx.beginPath(); ctx.arc(-s * 0.05, -s * 0.08, s * 0.06, 0, 6.28); ctx.fill(); }
-      break;
-    }
-    case 'thorn':
-      ctx.fillStyle = '#7a3a8a'; ctx.beginPath(); ctx.moveTo(-s * 0.3, s * 0.2); ctx.lineTo(s * 0.35, -s * 0.35); ctx.lineTo(0, s * 0.3); ctx.fill();
-      ctx.fillStyle = '#c98ad8'; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.15); ctx.lineTo(s * 0.3, -s * 0.3); ctx.lineTo(s * 0.05, s * 0.1); ctx.fill();
-      break;
-    case 'ember': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45); g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ff8a2a'); g.addColorStop(1, 'rgba(255,60,20,0)'); ctx.fillStyle = g; for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; ctx.beginPath(); ctx.ellipse(Math.cos(a) * s * 0.18, Math.sin(a) * s * 0.18, s * 0.2, s * 0.1, a, 0, 6.28); ctx.fill(); } break; }
-    case 'ironwood': ctx.fillStyle = '#6a6e74'; ctx.fillRect(-s * 0.4, -s * 0.12, s * 0.8, s * 0.24); ctx.strokeStyle = '#8a9098'; ctx.lineWidth = 1; for (const o of [-0.05, 0.05]) { ctx.beginPath(); ctx.moveTo(-s * 0.38, o * s); ctx.lineTo(s * 0.38, o * s); ctx.stroke(); } ctx.fillStyle = '#4a4e54'; ctx.beginPath(); ctx.ellipse(s * 0.4, 0, s * 0.06, s * 0.12, 0, 0, 6.28); ctx.fill(); break;
-    case 'starpetal': ctx.fillStyle = '#fff6c8'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28 - Math.PI / 2, r = i % 2 ? s * 0.15 : s * 0.4; ctx[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); } ctx.fill(); break;
-    case 'fish':
-      ctx.fillStyle = '#8ab8c8'; ctx.beginPath(); ctx.ellipse(-s * 0.05, 0, s * 0.35, s * 0.17, 0, 0, 6.28); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(s * 0.25, 0); ctx.lineTo(s * 0.48, -s * 0.18); ctx.lineTo(s * 0.48, s * 0.18); ctx.fill();
-      ctx.fillStyle = '#e8f4f8'; ctx.beginPath(); ctx.ellipse(-s * 0.1, s * 0.05, s * 0.2, s * 0.06, 0, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#1a2a30'; ctx.beginPath(); ctx.arc(-s * 0.28, -s * 0.03, s * 0.035, 0, 6.28); ctx.fill();
-      break;
-    case 'driftwood':
-      ctx.fillStyle = '#9a8468'; ctx.save(); ctx.rotate(-0.3); ctx.fillRect(-s * 0.42, -s * 0.09, s * 0.84, s * 0.18);
-      ctx.strokeStyle = '#6b5a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.35, 0); ctx.lineTo(s * 0.35, 0); ctx.stroke(); ctx.restore();
-      break;
-    case 'rod':
-      ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = s * 0.07; ctx.beginPath(); ctx.moveTo(-s * 0.4, s * 0.4); ctx.lineTo(s * 0.4, -s * 0.4); ctx.stroke();
-      ctx.strokeStyle = '#e8e4d8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(s * 0.4, -s * 0.4); ctx.quadraticCurveTo(s * 0.5, 0, s * 0.3, s * 0.3); ctx.stroke();
-      break;
-    case 'ear':
-      ctx.fillStyle = '#4a2218'; ctx.beginPath(); ctx.moveTo(-s * 0.25, s * 0.3); ctx.lineTo(0, -s * 0.4); ctx.lineTo(s * 0.25, s * 0.3); ctx.fill();
-      ctx.fillStyle = '#b8736a'; ctx.beginPath(); ctx.moveTo(-s * 0.12, s * 0.25); ctx.lineTo(0, -s * 0.2); ctx.lineTo(s * 0.12, s * 0.25); ctx.fill();
-      break;
-    case 'hide':
-      ctx.fillStyle = '#5a2a1e'; ctx.beginPath(); ctx.moveTo(-s * 0.35, -s * 0.2); ctx.quadraticCurveTo(0, -s * 0.35, s * 0.35, -s * 0.15); ctx.lineTo(s * 0.3, s * 0.25); ctx.quadraticCurveTo(0, s * 0.35, -s * 0.3, s * 0.2); ctx.fill();
-      ctx.strokeStyle = '#7a3a2a'; ctx.lineWidth = 1; for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(i * s * 0.15, -s * 0.15); ctx.lineTo(i * s * 0.15 + s * 0.05, s * 0.15); ctx.stroke(); }
-      break;
-    case 'spores': case 'spores7':
-      for (let i = 0; i < 6; i++) { const a = i * 1.05 + state.time, r = s * (0.12 + (i % 3) * 0.1); ctx.fillStyle = `rgba(232,216,255,${0.6 + 0.3 * Math.sin(state.time * 4 + i)})`; ctx.beginPath(); ctx.arc(Math.cos(a) * r, Math.sin(a) * r, s * 0.08, 0, 6.28); ctx.fill(); }
-      ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
-      break;
-    case 'sword':                                         // the old sword: grey steel, rust and all (never the wooden one's colour)
-      ctx.save(); ctx.rotate(-0.8 - Math.PI / 2); ctx.translate(-s * 0.1, 0); drawSteelBlade(s * 0.62, s * 0.12, Math.min(3, state.inv.up.edge || 0)); ctx.restore();
-      ctx.save(); ctx.rotate(-0.8);
-      ctx.fillStyle = '#6b4a2a'; ctx.fillRect(-s * 0.2, s * 0.1, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.04, s * 0.17, s * 0.08, s * 0.25);
-      ctx.restore(); break;
-    case 'letter':
-      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(-s * 0.32, -s * 0.24, s * 0.64, s * 0.48);
-      ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.32, -s * 0.24); ctx.lineTo(0, s * 0.05); ctx.lineTo(s * 0.32, -s * 0.24); ctx.stroke();
-      ctx.fillStyle = '#3a2616'; ctx.fillRect(-s * 0.1, s * 0.12, s * 0.35, s * 0.07);
-      break;
-    case 'page':
-      ctx.fillStyle = '#f2e6c8'; ctx.save(); ctx.rotate(0.2); ctx.fillRect(-s * 0.28, -s * 0.34, s * 0.56, s * 0.68);
-      ctx.strokeStyle = '#8a7a5a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.18, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
-      ctx.restore(); break;
-    case 'journal':
-      ctx.fillStyle = '#7a3a2a'; ctx.fillRect(-s * 0.35, -s * 0.4, s * 0.7, s * 0.8);
-      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(s * 0.3, -s * 0.36, s * 0.07, s * 0.72);
-      ctx.fillStyle = '#e8c04a'; ctx.beginPath(); ctx.arc(0, 0, s * 0.12, 0, 6.28); ctx.fill();
-      break;
-    case 'recipe_temper': case 'recipe_star':
-      ctx.fillStyle = '#e8dcb8'; ctx.fillRect(-s * 0.3, -s * 0.35, s * 0.6, s * 0.7);
-      ctx.fillStyle = '#b8a47a'; ctx.beginPath(); ctx.arc(-s * 0.3, -s * 0.35, s * 0.08, 0, 6.28); ctx.arc(s * 0.3, s * 0.35, s * 0.08, 0, 6.28); ctx.fill();
-      ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * 0.2, -s * 0.2 + i * s * 0.13); ctx.lineTo(s * 0.2, -s * 0.2 + i * s * 0.13); ctx.stroke(); }
-      break;
-    case 'woodsword': ctx.save(); ctx.rotate(-0.7); ctx.fillStyle = '#b08a5a'; ctx.fillRect(-s * 0.06, -s * 0.45, s * 0.12, s * 0.62); ctx.beginPath(); ctx.moveTo(-s * 0.06, -s * 0.45); ctx.lineTo(0, -s * 0.55); ctx.lineTo(s * 0.06, -s * 0.45); ctx.fill();
-      ctx.fillStyle = '#7a5a34'; ctx.fillRect(-s * 0.2, s * 0.14, s * 0.4, s * 0.07); ctx.fillRect(-s * 0.05, s * 0.2, s * 0.1, s * 0.22); ctx.strokeStyle = '#c9b48a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 0.07, s * 0.1); ctx.lineTo(s * 0.07, s * 0.02); ctx.stroke(); ctx.restore(); break;
-    case 'thornwrap': ctx.fillStyle = '#efe6d2'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a3a8a'; for (let k = 0; k < 5; k++) { const an = k / 5 * 6.28; ctx.beginPath(); ctx.moveTo(Math.cos(an) * s * 0.2, Math.sin(an) * s * 0.14); ctx.lineTo(Math.cos(an) * s * 0.42, Math.sin(an) * s * 0.3); ctx.lineTo(Math.cos(an + 0.3) * s * 0.22, Math.sin(an + 0.3) * s * 0.15); ctx.fill(); } break;
-    case 'emberoil': { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.3, s * 0.18, 0, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, s * 0.06, 0, 0, s * 0.06, s * 0.26); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,110,40,.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, s * 0.06, s * 0.24, s * 0.12, 0, 0, 6.28); ctx.fill(); break; }
-    case 'mash': case 'salad': ctx.fillStyle = '#8a6a4a'; ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.4, s * 0.22, 0, 0, Math.PI); ctx.fill(); ctx.fillStyle = type === 'mash' ? '#e8c07a' : '#9fcf6a'; ctx.beginPath(); ctx.ellipse(0, s * 0.08, s * 0.36, s * 0.12, 0, 0, 6.28); ctx.fill();
-      if (type === 'salad') { ctx.fillStyle = '#c0304a'; for (const [dx, dy] of [[-0.15, 0.02], [0.05, 0.06], [0.18, 0]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.05, 0, 6.28); ctx.fill(); } } else { ctx.fillStyle = '#e8792a'; ctx.fillRect(-s * 0.1, s * 0.03, s * 0.08, s * 0.05); } break;
-    case 'trailmix': for (const [dx, dy, c] of [[-0.15, 0.05, '#a0662a'], [0.1, -0.05, '#6a2a5a'], [0.2, 0.12, '#a0662a'], [-0.02, 0.18, '#c0304a'], [-0.2, -0.12, '#6a2a5a']]) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.1, 0, 6.28); ctx.fill(); } break;
-    case 'lantern': ctx.strokeStyle = '#5a4128'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.32, s * 0.1, Math.PI, 0); ctx.stroke();
-      ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-s * 0.2, -s * 0.24, s * 0.4, s * 0.08); ctx.fillRect(-s * 0.2, s * 0.26, s * 0.4, s * 0.08);
-      ctx.fillStyle = 'rgba(255,215,110,.9)'; ctx.fillRect(-s * 0.15, -s * 0.16, s * 0.3, s * 0.42); ctx.fillStyle = '#fff4c0'; ctx.fillRect(-s * 0.03, -s * 0.02, s * 0.06, s * 0.14); break;
-    case 'beetle': ctx.fillStyle = '#c0203a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.28, s * 0.2, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,200,210,.9)'; ctx.beginPath(); ctx.moveTo(-s * 0.12, -s * 0.1); ctx.lineTo(s * 0.05, -s * 0.16); ctx.lineTo(0, 0); ctx.fill(); ctx.strokeStyle = '#401018'; ctx.lineWidth = 2; for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 0.2, sd * s * 0.1); ctx.lineTo(s * 0.34, sd * s * 0.2); ctx.stroke(); } break;
-    case 'spore':                                         // a little traveler's mushroom, glowing
-      ctx.fillStyle = 'rgba(201,162,255,.3)'; ctx.beginPath(); ctx.arc(0, -s * 0.1, s * 0.45, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#e8e0d0'; ctx.fillRect(-s * 0.07, -s * 0.05, s * 0.14, s * 0.35);
-      ctx.fillStyle = '#9a6ad8'; ctx.beginPath(); ctx.ellipse(0, -s * 0.05, s * 0.34, s * 0.22, 0, Math.PI, 0); ctx.fill();
-      ctx.fillStyle = '#f0e0ff'; for (const [dx, dy] of [[-0.15, -0.15], [0.08, -0.2], [0.18, -0.1]]) { ctx.beginPath(); ctx.arc(dx * s, dy * s, s * 0.035, 0, 6.28); ctx.fill(); } break;
-    case 'wear_feather': ctx.save(); ctx.rotate(-0.5); ctx.fillStyle = '#e8f4ff'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.13, s * 0.4, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#7ab8e0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, s * 0.45); ctx.lineTo(0, -s * 0.38); ctx.stroke(); ctx.restore(); break;
-    case 'wear_stonecharm': ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, -s * 0.12, s * 0.28, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.ellipse(0, s * 0.12, s * 0.24, s * 0.18, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.beginPath(); ctx.ellipse(-s * 0.07, s * 0.06, s * 0.08, s * 0.05, 0, 0, 6.28); ctx.fill(); break;
-    case 'wear_mitts': ctx.fillStyle = '#6aa04a'; for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * s * 0.2, 0, s * 0.17, s * 0.24, sx * 0.2, 0, 6.28); ctx.fill(); ctx.beginPath(); ctx.ellipse(sx * s * 0.34, -s * 0.08, s * 0.06, s * 0.1, sx * 0.6, 0, 6.28); ctx.fill(); } ctx.fillStyle = '#efe6d2'; ctx.fillRect(-s * 0.38, s * 0.18, s * 0.76, s * 0.08); break;
-    case 'wear_embercharm': { ctx.fillStyle = '#8f887c'; ctx.beginPath(); ctx.arc(0, 0, s * 0.3, 0, 6.28); ctx.fill(); const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.2); g.addColorStop(0, '#fff0a0'); g.addColorStop(1, 'rgba(255,120,40,0.9)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.17, 0, 6.28); ctx.fill(); break; }
-    // vegetable seeds, a small pinch of each, drawn the way the real ones look
-    case 'turnipseed':                                 // tiny round beads, dark red-brown to near black, a glint on each
-      for (const [ox, oy, r] of [[-0.16, 0.1, 0.11], [0.08, -0.14, 0.12], [0.18, 0.14, 0.1], [-0.04, 0.16, 0.09]]) {
-        ctx.fillStyle = '#3a2016'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s, 0, 6.28); ctx.fill();
-        ctx.fillStyle = '#7a3a26'; ctx.beginPath(); ctx.arc(ox * s, oy * s, r * s * 0.7, 0, 6.28); ctx.fill();
-        ctx.fillStyle = 'rgba(255,240,220,.7)'; ctx.beginPath(); ctx.arc((ox - r * 0.35) * s, (oy - r * 0.4) * s, r * s * 0.28, 0, 6.28); ctx.fill();
-      }
-      break;
-    case 'carrotseed':                                 // small tan ovals, flat, ridged along their length
-      for (const [ox, oy, a] of [[-0.15, 0.08, 0.6], [0.12, -0.12, -0.4], [0.16, 0.16, 1.1]]) {
-        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
-        ctx.fillStyle = '#a8905e'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.1, s * 0.16, 0, 0, 6.28); ctx.fill();
-        ctx.strokeStyle = '#6e5a34'; ctx.lineWidth = 1; for (const k of [-0.05, 0, 0.05]) { ctx.beginPath(); ctx.moveTo(k * s, -s * 0.13); ctx.lineTo(k * s, s * 0.13); ctx.stroke(); }
-        ctx.restore();
-      }
-      break;
-    case 'pepperseed':                                 // flat pale yellow discs, a slight notch where they hung
-      for (const [ox, oy] of [[-0.14, 0.1], [0.1, -0.12], [0.16, 0.16]]) {
-        ctx.fillStyle = '#e8d68a'; ctx.beginPath(); ctx.arc(ox * s, oy * s, s * 0.13, 0, 6.28); ctx.fill();
-        ctx.strokeStyle = '#b8a45a'; ctx.lineWidth = 1; ctx.stroke();
-        ctx.fillStyle = '#c8b46a'; ctx.beginPath(); ctx.arc((ox + 0.09) * s, (oy - 0.06) * s, s * 0.03, 0, 6.28); ctx.fill();
-      }
-      break;
-    case 'squashseed':                                 // cream teardrops with a paler rim, one broad and one on its side
-      for (const [ox, oy, a] of [[-0.1, 0.06, -0.3], [0.14, 0.02, 0.9]]) {
-        ctx.save(); ctx.translate(ox * s, oy * s); ctx.rotate(a);
-        ctx.fillStyle = '#e8dcb0'; ctx.beginPath(); ctx.moveTo(0, -s * 0.24); ctx.quadraticCurveTo(s * 0.18, -s * 0.05, s * 0.13, s * 0.14); ctx.quadraticCurveTo(0, s * 0.28, -s * 0.13, s * 0.14); ctx.quadraticCurveTo(-s * 0.18, -s * 0.05, 0, -s * 0.24); ctx.fill();
-        ctx.strokeStyle = '#f8f2dc'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.restore();
-      }
-      break;
-    case 'bean':
-      ctx.fillStyle = '#8b3a2a'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.3, s * 0.2, 0.3, 0, 6.28); ctx.fill();
-      ctx.fillStyle = '#d98a6a'; ctx.beginPath(); ctx.ellipse(-s * 0.08, -s * 0.06, s * 0.08, s * 0.04, 0.3, 0, 6.28); ctx.fill();
-      break;
-    case 'wisp': { const g = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.5); g.addColorStop(0, '#f4ffe0'); g.addColorStop(0.4, '#b8f28a'); g.addColorStop(1, 'rgba(140,220,120,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, s * 0.5, 0, 6.28); ctx.fill(); break; }
-    case 'fire': { const g = ctx.createRadialGradient(0, s * 0.1, 0, 0, s * 0.1, s * 0.5); g.addColorStop(0, '#fff1a0'); g.addColorStop(0.5, '#ff9a3a'); g.addColorStop(1, 'rgba(255,80,20,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(0, -s * 0.5); ctx.quadraticCurveTo(s * 0.45, 0, 0, s * 0.45); ctx.quadraticCurveTo(-s * 0.45, 0, 0, -s * 0.5); ctx.fill(); break; }
-    case 'bigrock': drawRock(0, 0, s * 0.7); break;
-    case 'maxheart': heartPath(0, 0, s); ctx.fillStyle = '#e03a3a'; ctx.fill(); ctx.strokeStyle = '#f2c94c'; ctx.lineWidth = Math.max(2, s * 0.1); ctx.stroke(); break;
-    case 'warden': heartPath(0, 0, s * 1.1); ctx.fillStyle = '#4a9ad8'; ctx.fill(); ctx.strokeStyle = '#c9e8ff'; ctx.lineWidth = Math.max(2, s * 0.08); ctx.stroke(); break;
-  }
-  ctx.restore();
+  const d = ICONS[type]; if (!d) return;
+  ctx.save(); ctx.translate(x, y); d(s, type); ctx.restore();
 }
 function drawItems() {
   for (const it of state.items) {

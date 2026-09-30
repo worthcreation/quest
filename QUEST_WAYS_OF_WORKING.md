@@ -1,5 +1,5 @@
 # Quest: what the project is, and how we work on it
-Checked 29 Sep 2026 against build 164 source; the build and ship flow updated in build 178 (two routes: Claude Code and chat). Start
+Checked 29 Sep 2026 against build 164 source; the build and ship flow updated in build 180 (chat only). Start
 with HANDOFF.md's Next task and read the sections here that the task touches.
 
 ## 1. What Quest is
@@ -34,13 +34,12 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 2. Reuse before adding (section 4). New system only when nothing fits.
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
 4. While working: `node tools/build.js` and `node tests/<name>.js` for the tests it touches. No renders unless asked.
-5. Write the one short HISTORY entry, then ship in one call: `node tools/ship-local.js NN "Build NN: ..." [scene]`,
-   adding `--zip` in the chat container. It bumps BUILD, builds, runs dead.js, every test (about 23 s on Ross's PC,
-   about 2 minutes in the container) and the overlap check, stops at the first failure, and prints the commit line
-   and every play-test link with a fresh prime (tools/links.js holds the list). With --zip it first packages
-   /mnt/user-data/outputs/quest-bNN.zip and the line unzips it. Never commit or push: Ross reviews and runs the line.
-6. Deliver: what changed (grouped by what the player sees), what was tested with numbers, then the printed commit
-   line and links as they came out.
+5. Write the one short HISTORY entry, then ship in one call: `node tools/ship-local.js NN "Build NN: ..." [scene]
+   --zip`. It bumps BUILD, builds, runs dead.js, every test (about 2 minutes) and the overlap check, stops at the
+   first failure, packages /mnt/user-data/outputs/quest-bNN.zip and prints the commit line (it unzips first) and every
+   play-test link with a fresh prime (tools/links.js holds the list). Never commit or push: Ross runs the line.
+6. Deliver: the zip as a download; what changed (grouped by what the player sees), what was tested with numbers,
+   any files to delete by hand in ~\quest, then the printed commit line and links as they came out.
 7. For unsettled looks, iterate on still mockups first (no build), when Ross asks for them.
 
 ## 4. Reuse table (checked against source; file in brackets)
@@ -87,12 +86,13 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   until the climb design settles.
 
 ## 6. Definition of done
-- `node tools/ship-local.js` finished (with --zip in chat, the zip delivered as a download): build parses, dead.js 0, every test passes, 0 overlaps, BUILD bumped.
+- `node tools/ship-local.js NN "..." --zip` finished and the zip delivered as a download: build parses, dead.js 0,
+  every test passes, 0 overlaps, BUILD bumped.
 - Anything laid out in tiles is tested at both screen shapes (1280x800 and 390x844) by numbers. Grep for stale words.
 - One short entry at the top of docs/HISTORY.md every build. HANDOFF.md's current-state sections at a handoff (end of
   a chat, or when asked), not every build.
-- Reply ends with the commit line and links as tools/ship-local.js printed them. If a link is added or renamed in src/, update
-  tools/links.js in the same build.
+- Reply ends with the commit line and links as tools/ship-local.js printed them, and names any file Ross must delete
+  by hand (an unzip never deletes). If a link is added or renamed in src/, update tools/links.js in the same build.
 
 ## 7. Talking to the model
 Say what the player should see and feel, and the rule. Batch related changes into one build. For visuals: one
@@ -102,9 +102,9 @@ compaction; otherwise keep going. HANDOFF carries everything, so a handoff comes
 
 ## 7a. Which model: FABLE or Opus (enforce this, every chat)
 Every reply opens with a line naming the model the task in it needs, "Model: FABLE" or "Model: Opus" and a few
-words why, before any work (questions included, so Ross never has to wonder). When the answer is Fable and the session is on Opus, Claude STOPS and says so plainly:
-"Switch to Fable for this: <reason>. Run /model (Claude Code) or pick it in the model menu (chat), then continue." It does not start the work on the wrong
-model to be helpful, and it does not soften it to a suggestion.
+words why, before any work (questions included, so Ross never has to wonder). When the answer is Fable and the chat
+is on Opus, Claude STOPS and says so plainly: "Switch to Fable in the model menu for this: <reason>, then continue."
+It does not start the work on the wrong model to be helpful, and it does not soften it to a suggestion.
 
 USE FABLE when any of these is true:
 - the plan changes more than about four files in ways that depend on each other;
@@ -119,25 +119,25 @@ mechanical moves (dead code, a helper replacing repeats), docs and handoffs, moc
 If unsure, Fable. Fable's extra safeguards cover biology, cybersecurity and AI research; none of that touches this game.
 
 ## 8. Handoff between chats
-Two routes share one ship script (tools/ship-local.js):
-- Claude Code on Ross's PC, in the clone at ~\quest: edit the working tree, ship without --zip.
-- Chat, in the Linux container: `git clone https://github.com/worthcreation/quest.git` into /home/claude, `node
-  tools/build.js`, read HANDOFF's Next task, work, `node tools/ship-local.js NN "..." --zip`, deliver the zip as a
-  download. Ross unzips it into ~\quest and pushes (the printed line does both); then the clone resets to
-  origin/main (`git fetch; git reset --hard origin/main`) before the next build.
-One writer at a time: after a push from either side, the other pulls (`git pull`) or resets before starting.
-1. Each build: Claude never commits or pushes, on either route. Ross reviews and runs the printed line (Windows
-   PowerShell, in a ```powershell block; PowerShell 5.1 has no &&):
-   cd ~\quest -ErrorAction Stop; git add -A; git commit -m "Build NN: ..."; git push
-   The zip form adds Expand-Archive and Remove-Item for ~\Downloads\quest-bNN.zip before git add. git add -A, not
-   ".", so deletions are committed too. An unzip adds and overwrites but never deletes: a file removed in chat must
-   also be deleted in ~\quest by hand (say so in the reply).
-2. At a handoff (end of a session, or when asked): bring HANDOFF.md's current-state sections and Next task up to
-   date, run the audit with --save and copy its summary in, and update CLAUDE.md if the way of working changed.
-   docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed.
-3. Start of a session: in Claude Code, CLAUDE.md loads on its own; `git fetch`, then `git status` should be clean
-   and match origin/main (`git pull` if a chat build was pushed). In chat, the fresh clone is origin/main. Then read
-   HANDOFF.md's Next task and the task.
+The work happens in chat, in the Linux container. Start of every chat: `git clone
+https://github.com/worthcreation/quest.git` into /home/claude, `node tools/build.js`, check `const BUILD` in
+src/draw.js against main (the next build is main's plus one), read HANDOFF's Next task, then the task. Ship with
+`node tools/ship-local.js NN "..." --zip` and deliver the zip as a download. Ross unzips it into ~\quest and pushes
+(the printed line does both); then the clone resets to origin/main (`git fetch; git reset --hard origin/main`)
+before the next build. One build at a time.
+1. Each build: Claude never commits or pushes. Ross runs the printed line (Windows PowerShell, in a ```powershell
+   block; PowerShell 5.1 has no &&):
+   cd ~\quest -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git add -A; git commit -m "Build NN: ..."; git push
+   git add -A, not ".", so deletions are committed too. An unzip adds and overwrites but never deletes: a file removed
+   in chat must also be deleted in ~\quest by hand (the reply says which).
+2. At a handoff (end of a chat, or when Ross says "handoff"): bring HANDOFF.md's current-state sections and Next task
+   up to date, run the audit with --save and copy its summary in, update PROJECT_INSTRUCTIONS.md to match, and
+   docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed. The handoff reply always ends with three
+   things: (1) the full current PROJECT_INSTRUCTIONS.md text in a code block, for Ross to paste into the Project
+   settings; (2) the exact first message for the next chat, in a code block; (3) any files Ross must delete by hand
+   in ~\quest.
+3. Start of a chat: the fresh clone is origin/main. Confirm BUILD and the head commit against what Ross's message
+   says, then read HANDOFF.md's Next task.
 
 ## 9. Roadmap
 1. The climb: settle the look (screens 1 to 5 on ?mountain), then decide where it joins the real world (between the

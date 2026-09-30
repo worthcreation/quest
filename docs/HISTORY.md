@@ -1,6 +1,15 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 180: draw tables, chat-only docs (no change in play)
+- drawSolid and drawItemIcon are tables now: SOLID_DRAW[kind](s, x, y, r, u) in draw.js and ICONS[type](s, type) in
+  draw-ui.js, one small draw each, the way drawEnemy reads MONSTERS[type].draw. Both leave the audit's over-150 list
+  (4 to 2). tools/draw-record.js records every canvas call per kind (198 recordings, 5852 calls) and proved them the
+  same before and after; the only difference is three empty save/translate/restore triples for types with no icon.
+- Chat only: PROJECT_INSTRUCTIONS.md matches the Project settings word for word; HANDOFF and WAYS 3, 6, 7a, 8 follow
+  it (no Claude Code route, the handoff reply's three closing items). CLAUDE.md and .claude/ deleted (git history
+  keeps them; delete them by hand in ~\quest).
+
 ## Build 179: handoff (chat)
 - HANDOFF's Next task is the cleanup list, in order (drawSolid and drawItemIcon first); the hawk timer is parked
   until it's done. Audit baseline re-saved (the HANDOFF line was from build 175).
