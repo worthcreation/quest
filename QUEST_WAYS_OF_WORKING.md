@@ -136,7 +136,8 @@ before the next build. One build at a time.
    git add -A, not ".", so deletions are committed too. An unzip adds and overwrites but never deletes: a file removed
    in chat must also be deleted in ~\quest by hand (the reply says which).
 2. At a handoff (end of a chat, or when Ross says "handoff"): bring HANDOFF.md's current-state sections and Next task
-   up to date, run the audit with --save and copy its summary in, update PROJECT_INSTRUCTIONS.md to match, and
+   up to date, run the audit with --save and copy its summary in, update PROJECT_INSTRUCTIONS.md to match and
+   docs/design-rules.md's Story so far if the story changed, and
    docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed. The handoff reply always ends with three
    things: (1) the full current PROJECT_INSTRUCTIONS.md text in a code block, for Ross to paste into the Project
    settings; (2) the exact first message for the next chat, in a code block; (3) any files Ross must delete by hand

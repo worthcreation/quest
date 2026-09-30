@@ -34,7 +34,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
-  --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/PROJECT_DESCRIPTION.md only if the mood,
+  --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
+  changed, docs/PROJECT_DESCRIPTION.md only if the mood,
   theme or direction changed. The handoff reply ends with three things: the full PROJECT_INSTRUCTIONS.md text in a
   code block (Ross pastes it into the Project settings), the exact first message for the next chat in a code block,
   and any files to delete by hand in ~\quest.
@@ -89,7 +90,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - draw-hero.js  the drawn hero model (arena and &model only)
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
-docs/: keys.md, pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: build.js, ship-local.js,
+docs/: design-rules.md (the design rules and story so far; read before any change the player sees or reads), keys.md,
+pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: build.js, ship-local.js,
 links.js, dead.js, audit.js, shot.js, overlap.js, draw-record.js (records every canvas call per solid kind and item
 type; run before and after a drawing refactor and compare the hashes).
 
@@ -104,6 +106,7 @@ type; run before and after a drawing refactor and compare the hashes).
 - climb1-climb5 exist but are not joined to the map yet (test links and System > Testing only).
 
 ## Conventions
+- The design rules and story so far are in docs/design-rules.md; what follows are the code-side conventions.
 - Pip and NPC lines hold until F; tutorial lines are free. One alert style: scrolls. Banners only for quest start/end.
 - Anything the player gains shows in the pack (Gear lists keepsakes and plans).
 - Stones: rough ones are drawJagged with the zigzag soil line; throwing stones are lumpy drawRock with a seed that

@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 184: shorter project instructions
+- PROJECT_INSTRUCTIONS.md cut from about 1,320 words to about 480: ship mechanics, link list, audit and harness
+  details are left to ship-local.js, tools/links.js, WAYS and HANDOFF, which already carry them.
+- The design rules and story so far moved word for word to docs/design-rules.md (read before any change the player
+  sees or reads; Story so far updated there at a handoff). HANDOFF and WAYS 8 point to it.
+
 ## Build 183: handoff (chat)
 - HANDOFF: Next task is the state-field owner map (FABLE, map first, moves after), then genWorld after the climb
   decision; audit line and baseline re-saved (1 over 150, 0 repeats). WAYS 5: the new baseline and how builds 180 to
