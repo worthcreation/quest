@@ -2399,7 +2399,6 @@ function enterSceneIn(id, fx, fy) {
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
   state.entry = { id, fx: pos[0], fy: pos[1] };
-  state.enterT = state.time;
 
   let titled = false;
   const place = sc.placeName || AREA_NAMES[sc.area];
@@ -2550,7 +2549,6 @@ function updateWorld(dt) {
   updateCam(dt);
   updateTexts(dt);
   if (!state.started) return;
-  state.frameDt = dt;
   readPresses();
   updateQuests();
   if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
@@ -2599,7 +2597,7 @@ function updateWorld(dt) {
     if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
-      if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
+      if (f && f.kind === 'weapon') { state.equip = f.id; }
       else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
     }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }
@@ -3515,7 +3513,6 @@ function updateCombat(dt) {
       }
       if (ch.n >= 2) heroNote('\u2022 '.repeat(ch.n).trim(), 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
-      state.active = 'sword';
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
@@ -3540,7 +3537,6 @@ function updateCombat(dt) {
         const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
         cb.step = 'stab'; cb.t = state.time;
-        state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
         skillUse('sword');
         state.atkCool = STAB.cool;
@@ -3677,7 +3673,7 @@ function slamDown() {
   if (armed) {
     // the sword sweeps a full circle as you land; strike again right away to whirl
     state.atk = { type: 'slash', t: 0, dur: 0.3, hit: new Set(), ax: h.fx, ay: h.fy, level: 0, sweep: Math.PI, n: 7 };
-    state.atkCool = 0.15; state.poundChain = state.time + 0.6; state.active = 'sword';
+    state.atkCool = 0.15; state.poundChain = state.time + 0.6;
     sfx.spin();
     say(`${K.act} now to spin into a whirlwind`, h.x, h.y + UNIT * 1.8, { key: 'pcombo', tip: 'poundchain', life: 3 });
   }
@@ -5069,7 +5065,7 @@ function updateAbilities(dt) {
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
   }
-  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
+  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; }
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
   // A carried rock throws with F. Acorns throw with their own key (D), on their own: you can wind up an acorn and
@@ -5263,7 +5259,7 @@ const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'ris
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
-  state.night = 0; state.rain = 0; state.clouds2 = 0; state.fireLit = 1;
+  state.night = 0; state.rain = 0; state.fireLit = 1;
   rtFor('camp').flags.built_tent = true;               // Pip already pitched the tent at the camp spot
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());
@@ -5466,7 +5462,7 @@ function tutorialPending(sc) {
 }
 function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
-  state.tutStep = s ? s.id : null;
+  state.tutStep = s ? s.id : null;                    // keep: read by tests (camp-tour, garden, pip-post)
   if (!s || heldText() || p.visit) return;
   if (sc.id === 'camp' && ['sticks', 'stones', 'fluff', 'sword', 'rabbits'].includes(s.id)) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
     const line = campMarkLine(), b = campMark(), key = 'tut-camp|' + line;
@@ -7218,7 +7214,7 @@ function setSlot(k, e) {
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
-  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
+  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; }
   refreshButtons();
 }
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon
@@ -8642,12 +8638,11 @@ function drawSwordGlint(sc) {
   } else state.glintOn = false;
 }
 function drawSky() {
-  const n = state.night * (1 - (state.clouds2 || 0));
+  const n = state.night;
   if (n > 0.02) for (let i = 0; i < 70; i++) {
     const x = (Math.sin(i * 91.7) * 0.5 + 0.5) * W, y = (Math.cos(i * 37.3) * 0.5 + 0.5) * H;
     ctx.fillStyle = `rgba(255,255,240,${n * (0.35 + 0.35 * Math.sin(state.time * 2 + i))})`; ctx.fillRect(x, y, 2, 2);
   }
-  if (state.clouds2 > 0) { ctx.fillStyle = `rgba(20,22,35,${state.clouds2 * 0.35})`; ctx.fillRect(0, 0, W, H); }
 }
 function drawClouds(sc) {
   for (const c of state.clouds) {
@@ -8712,7 +8707,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 185';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 186';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

@@ -225,7 +225,7 @@ function setSlot(k, e) {
   if (!laneAllows(k, e)) return;                      // keys keep their jobs: nothing lands on the wrong one
   if (e) for (const j of ALL_SLOTS) if (sameEntry(sl[j], e)) sl[j] = null;
   sl[k] = e ? { kind: e.kind, id: e.id } : null;
-  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; state.active = e.id; }
+  if (e && e.kind === 'weapon' && k === 'f') { state.equip = e.id; }
   refreshButtons();
 }
 // the weapon in hand follows the slots: F's weapon if it has one, else any slotted weapon

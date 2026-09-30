@@ -1187,12 +1187,11 @@ function drawSwordGlint(sc) {
   } else state.glintOn = false;
 }
 function drawSky() {
-  const n = state.night * (1 - (state.clouds2 || 0));
+  const n = state.night;
   if (n > 0.02) for (let i = 0; i < 70; i++) {
     const x = (Math.sin(i * 91.7) * 0.5 + 0.5) * W, y = (Math.cos(i * 37.3) * 0.5 + 0.5) * H;
     ctx.fillStyle = `rgba(255,255,240,${n * (0.35 + 0.35 * Math.sin(state.time * 2 + i))})`; ctx.fillRect(x, y, 2, 2);
   }
-  if (state.clouds2 > 0) { ctx.fillStyle = `rgba(20,22,35,${state.clouds2 * 0.35})`; ctx.fillRect(0, 0, W, H); }
 }
 function drawClouds(sc) {
   for (const c of state.clouds) {
@@ -1257,7 +1256,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 185';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 186';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

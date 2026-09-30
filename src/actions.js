@@ -69,7 +69,7 @@ function updateAbilities(dt) {
       state.radial = null; state.swapT = null; state.radialPtr = null;
     }
   }
-  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; state.active = 'sword'; }
+  if (state.equip === 'acorn' && inv.acorns <= 0 && inv.sword) { state.equip = 'sword'; }
   // F throws whatever you hold: tap for a quick short throw (a rock is just set down ahead of you),
   // hold to wind up: longer holds throw faster, farther and harder. Rocks show where they'll land.
   // A carried rock throws with F. Acorns throw with their own key (D), on their own: you can wind up an acorn and

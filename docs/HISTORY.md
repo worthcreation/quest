@@ -1,6 +1,11 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 186: dead state fields gone (state-owners move 1)
+- Deleted state.active (5 writes, never read), enterT, frameDt, and clouds2 (only ever set to 0; its two reads in
+  drawSky went with it). tutStep marked keep (read by tests). tests/rocks-banners.js: state.qT was a stale name,
+  now questT. 162 state fields to 158. All 65 test outputs identical to build 185's.
+
 ## Build 185: the state-field owner map (doc only)
 - docs/state-owners.md: every one of the 162 state.* fields with its owning file, who else reads or writes it, and
   22 flagged as split, stray, dead or test-only (dead: active, enterT, frameDt, clouds2). Ten proposed moves at the

@@ -165,9 +165,9 @@ opening sit wherever the seed put them (moving them to the matching side means r
 Cleanup first: get the code base in shape before anything is changed or added (Ross, 30 Sep). No change in play in
 any of these; the whole suite passes unchanged, and the audit is run before and after each. One build each, and take
 it off this list when it ships:
-1. The state-field owner map (FABLE, design): which file owns each of the 162 state.* fields, who else reads or
-   writes it, and where the owner is unclear or split. Deliver the map first (a doc, docs/state-owners.md) and agree
-   with Ross what, if anything, moves; moving fields is its own build after that.
+1. The state-field moves: the ten at the end of docs/state-owners.md (map made in build 185), one build each,
+   struck through there as they ship. Order agreed with Ross: 1, 2, 3 on Opus; 4 on FABLE; 5 to 8 on Opus; 9 on
+   FABLE; 10 is leave alone.
 2. genWorld (533): split by region, after the climb decision.
 Done this chat: drawSolid and drawItemIcon are tables (SOLID_DRAW, ICONS, build 180); updateCut reads CUT_STEPS
 (build 181; the unreachable 'ambush' scene went with it); the audit's repeats are 0 (build 182: openView and

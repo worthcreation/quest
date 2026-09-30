@@ -51,7 +51,6 @@ function updateCombat(dt) {
       }
       if (ch.n >= 2) heroNote('\u2022 '.repeat(ch.n).trim(), 1.2, { key: 'chain', life: 0.55, color: ch.n >= 5 ? '#ffb347' : '#ffe38a' });
       const k = (ch.n - 1) / (WHIRL.chain - 1);
-      state.active = 'sword';
       const slow = sluggish();                               // a tired arm swings slowly
       state.atk = { type: 'slash', t: 0, dur: SLASH.dur * (1 + k * 0.6) * slow, hit: new Set(), ax: h.fx, ay: h.fy, level: chained ? cb.level : 0, sweep: 1.25 + (Math.PI - 1.25) * k, n: ch.n };
       state.atkCool = SLASH.cool * slow;
@@ -76,7 +75,6 @@ function updateCombat(dt) {
         const chained = cb.step === 'slash' && state.time - cb.t < COMBO.stabWindow;
         cb.level = chained ? Math.min(3, cb.level + 1) : 0;
         cb.step = 'stab'; cb.t = state.time;
-        state.active = 'sword';
         state.atk = { type: 'stab', t: 0, dur: STAB.dur + cb.level * 0.04, hit: new Set(), ax: h.fx, ay: h.fy, level: cb.level, woodBreak: bladeKind() === 'wood' };   // a lunge splits a wooden sword
         skillUse('sword');
         state.atkCool = STAB.cool;
@@ -213,7 +211,7 @@ function slamDown() {
   if (armed) {
     // the sword sweeps a full circle as you land; strike again right away to whirl
     state.atk = { type: 'slash', t: 0, dur: 0.3, hit: new Set(), ax: h.fx, ay: h.fy, level: 0, sweep: Math.PI, n: 7 };
-    state.atkCool = 0.15; state.poundChain = state.time + 0.6; state.active = 'sword';
+    state.atkCool = 0.15; state.poundChain = state.time + 0.6;
     sfx.spin();
     say(`${K.act} now to spin into a whirlwind`, h.x, h.y + UNIT * 1.8, { key: 'pcombo', tip: 'poundchain', life: 3 });
   }

@@ -81,7 +81,6 @@ function enterSceneIn(id, fx, fy) {
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
   state.entry = { id, fx: pos[0], fy: pos[1] };
-  state.enterT = state.time;
 
   let titled = false;
   const place = sc.placeName || AREA_NAMES[sc.area];
@@ -232,7 +231,6 @@ function updateWorld(dt) {
   updateCam(dt);
   updateTexts(dt);
   if (!state.started) return;
-  state.frameDt = dt;
   readPresses();
   updateQuests();
   if (pressedNow.act && !state.radial && !state.menu) state.lastSlot = 'f';   // R's wheel opens on the key you last used
@@ -281,7 +279,7 @@ function updateWorld(dt) {
     if (state.forceInteract) { state.forceInteract = false; if (state.cropFree) interact(); }
     if (!state.actUsed && !state.slotAct && pressedNow.act && !state.carry) {      // nothing to do here: F uses its slot
       const f = slotsOf().f;
-      if (f && f.kind === 'weapon') { state.equip = f.id; state.active = f.id; }
+      if (f && f.kind === 'weapon') { state.equip = f.id; }
       else if (f) { state.actUsed = true; const r = useEntry(f); if (r) state.fSlotAbility = r; }
     }
     if (!state.actUsed) { updatePull(dt); updateCombat(dt); }

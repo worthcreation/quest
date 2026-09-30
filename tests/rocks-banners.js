@@ -11,6 +11,6 @@ console.log('1 rocks landing on the glade: buried', buried, '| lay where they fe
 // 2. breakable stones are bigger than a thrown rock
 const ks=Object.values(WORLD).flatMap(s=>s.solids.filter(o=>o.kind==='cracked')); console.log('2 breakable stone sizes (tiles):', [...new Set(ks.map(o=>o.r))].join(', '), '| thrown rock 0.6');
 // 3. one banner style
-state.title=null; state.scrolls=[]; showTitle('Old Wick\\'s fishing rod','stand by a ripple','relic',3.5); console.log('3 an item alert (build 103): banner?', !!state.title, '| scroll?', (state.scrolls||[]).length===1); state.title=null; state.texts=[]; state.inv.quests={}; state.qT=-9; state.inv.story=STORY.garden; updateQuests(); for(let k=0;k<30;k++){ update(1/60); } console.log('   a quest starting still gets the banner:', (state.title&&state.title.style)||'-', (state.title&&state.title.text)||'');
+state.title=null; state.scrolls=[]; showTitle('Old Wick\\'s fishing rod','stand by a ripple','relic',3.5); console.log('3 an item alert (build 103): banner?', !!state.title, '| scroll?', (state.scrolls||[]).length===1); state.title=null; state.texts=[]; state.inv.quests={}; state.questT=-9; state.inv.story=STORY.garden; updateQuests(); for(let k=0;k<30;k++){ update(1/60); } console.log('   a quest starting still gets the banner:', (state.title&&state.title.style)||'-', (state.title&&state.title.text)||'');
 console.log('BUILD', BUILD, '| errs', errs);
 `);

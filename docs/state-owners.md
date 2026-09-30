@@ -245,8 +245,10 @@ reads state in renderOverview. resetRun, which rebuilds them, is in engine.js. T
 two halves of one thing in two files.
 
 ## Proposed moves (Ross picks; one build each, no change in play, suite diffed before and after as WAYS 5 says)
-1. Delete the dead fields: `active` (5 writes), `enterT`, `frameDt`, `clouds2` (its write and draw's two reads).
-   Mark `tutStep` `// keep: read by tests`. Fix tests/rocks-banners.js `state.qT` to `state.questT`.
+Struck through with the build number as each ships. Rows above still describe build 185.
+1. ~~Delete the dead fields: `active` (5 writes), `enterT`, `frameDt`, `clouds2` (its write and draw's two reads).
+   Mark `tutStep` `// keep: read by tests`. Fix tests/rocks-banners.js `state.qT` to `state.questT`.~~ Done, build 186
+   (158 fields).
 2. Move the state literal, newHero, newInv, newPull, maxVig from world.js to the top of engine.js beside resetRun,
    and fold startIntro's `night = 0; rain = 0; fireLit = 1` into resetRun. world.js keeps only `var state`.
 3. Move the slowmo countdown from loop() (draw-ui.js) into update() (engine.js), where every other timer runs.

@@ -6,7 +6,7 @@ const PIP_HOME = ['camp', 'start', 'meadow', 'w1', 'w2', 'riverbank', 'f1', 'ris
 // Cutscenes: intro storm, sword, toad, faint, ending
 // =====================================================================
 function startIntro() {
-  state.night = 0; state.rain = 0; state.clouds2 = 0; state.fireLit = 1;
+  state.night = 0; state.rain = 0; state.fireLit = 1;
   rtFor('camp').flags.built_tent = true;               // Pip already pitched the tent at the camp spot
   if (state.scene !== 'riverbank') enterScene('riverbank');
   placeOldJetty(sceneDef());
@@ -209,7 +209,7 @@ function tutorialPending(sc) {
 }
 function tutorialTalk(sc, p, h) {
   const s = tutorialStep(), tips = state.inv.pipTips || (state.inv.pipTips = {});
-  state.tutStep = s ? s.id : null;
+  state.tutStep = s ? s.id : null;                    // keep: read by tests (camp-tour, garden, pip-post)
   if (!s || heldText() || p.visit) return;
   if (sc.id === 'camp' && ['sticks', 'stones', 'fluff', 'sword', 'rabbits'].includes(s.id)) {   // back at camp mid-gathering: Pip reads the next mark instead (what it takes)
     const line = campMarkLine(), b = campMark(), key = 'tut-camp|' + line;
