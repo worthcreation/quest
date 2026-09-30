@@ -37,8 +37,9 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
   changed, docs/PROJECT_DESCRIPTION.md only if the mood,
   theme or direction changed. The handoff reply ends with three things: the full PROJECT_INSTRUCTIONS.md text in a
-  code block (Ross pastes it into the Project settings), the exact first message for the next chat in a code block,
-  and any files to delete by hand in ~\quest.
+  code block only if it changed (Ross pastes it into the Project settings), else "PROJECT_INSTRUCTIONS unchanged";
+  the model the next chat starts on and why, then the exact first message for the next chat in a code block, opening
+  with that model (Ross picks it in the model menu before sending); and any files to delete by hand in ~\quest.
 - Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp
   (on Windows node that's C:\tmp, which must exist). MOCK4=1 is the mountainside still (it and tools/render.js still
   write to /mnt/user-data/outputs, a container path: repoint before use); B139/B150/B154 are the climb screens; B165 is

@@ -10,6 +10,6 @@ Model: the first line of every reply is "Model: FABLE" or "Model: Opus" and why 
 
 Audit: node tools/audit.js at the start of a cleanup chat and at every handoff. What it flags goes on HANDOFF's cleanup list, one build each.
 
-Handoff (end of a chat, or when Ross says "handoff"): update HANDOFF's current state and Next task; run node tools/audit.js --save and copy its summary line into HANDOFF; update this file to match; docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed. End the reply with (1) this file in full in a code block, (2) the first message for the next chat in a code block, (3) any files to delete by hand in ~\quest. Suggest a fresh chat when the topic changes, after a heavy chat or after a compaction; hand off first.
+Handoff (end of a chat, or when Ross says "handoff"): update HANDOFF's current state and Next task; run node tools/audit.js --save and copy its summary line into HANDOFF; update this file to match; docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed. End the reply with (1) this file in full in a code block only if it changed, else the words "PROJECT_INSTRUCTIONS unchanged", (2) the model the next chat should start on and why, then the first message for the next chat in a code block, opening with that model, (3) any files to delete by hand in ~\quest. Suggest a fresh chat when the topic changes, after a heavy chat or after a compaction; hand off first.
 
 Replies: concise and candid, no em dashes, no filler.

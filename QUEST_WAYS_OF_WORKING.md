@@ -110,6 +110,8 @@ Every reply opens with a line naming the model the task in it needs, "Model: FAB
 words why, before any work (questions included, so Ross never has to wonder). When the answer is Fable and the chat
 is on Opus, Claude STOPS and says so plainly: "Switch to Fable in the model menu for this: <reason>, then continue."
 It does not start the work on the wrong model to be helpful, and it does not soften it to a suggestion.
+A handoff names the model the next chat starts on, and the first message it writes for that chat opens with it, so
+Ross sets the menu before sending. When a list of tasks is agreed, the reply gives the model for each.
 
 USE FABLE when any of these is true:
 - the plan changes more than about four files in ways that depend on each other;

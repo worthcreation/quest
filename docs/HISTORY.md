@@ -1,6 +1,10 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 194: handoff format (docs only)
+- A handoff pastes PROJECT_INSTRUCTIONS in full only when it changed (else "unchanged"), and names the model the next
+  chat starts on, with the first message opening on it. PROJECT_INSTRUCTIONS, HANDOFF, WAYS 7a.
+
 ## Build 193: the strays (state-owners move 9) and handoff
 - menu.js: toggleQlog (the log row's key and its tap both call it) and openMenu(key, extra); poses, chest, book and
   forge joined MENU_VIEWS, so interact.js's five menu literals are gone. drawChoice moved from draw.js to draw-ui.js
