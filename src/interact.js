@@ -12,7 +12,7 @@ function interactLantern(sc, h) {
   const [x, y] = lanternSpot(); if (Math.hypot(h.x - x, h.y - y) > UNIT * 1.5 || !pressedNow.act) return;
   collect({ type: 'lantern', x, y }); return true;
 }
-const INTERACTIONS = [interactTalk, interactLantern, interactTrapdoor, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactBedroll, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
+const INTERACTIONS = [interactTalk, interactLantern, interactTrapdoor, (sc, h) => sc.feat.beetle ? interactBeetle(sc, h) : undefined, interactHandsFull, interactPickup, interactMirror, interactPortals, interactFishing, interactRiverQuest, interactMushroom, interactPeople, interactTentDoor, interactHammock, interactChest, interactBook, interactBuild, interactCampfire, interactBench, interactPatches, interactLift];
 function interact() {
   const sc = sceneDef(), h = state.hero, rt = rtFor(sc.id);
   const nearPull = sc.pullables.some(p => p.kind !== 'crop' && !pullLocked(p) && !rt.pulled.has(p.id) && Math.hypot(h.x - p.fx * W, h.y - p.fy * H) < UNIT * 1.8);
@@ -93,9 +93,6 @@ function interactTrapdoor(sc, h) {                   // the trapdoor in Old Wick
 function openMapTab() { openMenu('pack', { tab: PACK_TABS.indexOf('Map'), note: '' }); swallowKeys(); sfx.tock(); }
 function interactTentDoor(sc, h, rt, nearPull) {
   if (sc.feat.tentDoor && campBuilt('tent') && pressedNow.act && Math.hypot(h.x - sc.feat.tentDoor[0] * W, h.y - sc.feat.tentDoor[1] * H) < UNIT * 1.2) { sfx.tock(); transitionTo('tentin', 0.5, 0.8, true); return true; }
-}
-function interactBedroll(sc, h, rt, nearPull) {
-  if (sc.feat.bedroll && pressedNow.act && Math.hypot(h.x - sc.feat.bedroll[0] * W, h.y - sc.feat.bedroll[1] * H) < UNIT * 1.8) { h.vig = maxVig(); sfx.heart(); heroNote('A quick nap. Vigor restored.', 1.2, { key: 'item', life: 2.2, color: '#b8f28a' }); return true; }
 }
 function interactChest(sc, h, rt, nearPull) {
   if (sc.feat.chest && pressedNow.act && Math.hypot(h.x - sc.feat.chest[0] * W, h.y - sc.feat.chest[1] * H) < UNIT * 1.6) { openMenu('chest'); sfx.tock(); return true; }
@@ -244,7 +241,7 @@ function findInteractable() {
   if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
   for (const b of f.buildSpots || []) if (!campBuilt(b.piece)) { const r0 = rawOf(), P = campParts(); const v = b.piece === 'fire' ? (P.stones < CAMP_PARTS.fire.stones && r0.stone ? 'Set stones' : P.stones >= CAMP_PARTS.fire.stones && r0.tinder ? 'Add tinder' : r0.firering ? 'Build' : null) : (r0.benchframe ? 'Set frame' : r0.benchkit ? 'Build' : null); if (v) add(b.fx * W, b.fy * H, v, b.r + 0.9); }
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
-  if (f.bedroll) add(f.bedroll[0] * W, f.bedroll[1] * H, 'Nap', 1.8);
+  if (f.nap && !state.hammock) add(f.nap[0] * W, f.nap[1] * H, 'Climb in', 1.9);
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
   if (f.trapdoor) add(f.trapdoor[0] * W, f.trapdoor[1] * H, 'Go down', 1.2);
   if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }

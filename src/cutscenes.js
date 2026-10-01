@@ -87,11 +87,13 @@ const CUT_STEPS = {
       state.pip = { x: W * 0.58, y: H * 0.55, show: true, follow: true, side: -1 }; state.hero.fx = 1; state.hero.fy = 0; state.hero.side = 1;
     }
     const q = state.pip;
+    if (at(2.0)) pipHop(true);
     if (at(2.2)) say('...and THAT\'S why we cannot wait until tomorrow!', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 2.8 });
     if (at(5.2)) say('There is just enough light left to finish the map of the forest.', q.x, q.y - UNIT * 1.3, { key: 'npc', life: 3 });
-    if (at(8.4)) pipLine('Grab the lantern by my bed. Come on, come ON!', { at: [q.x, q.y - UNIT * 1.3], life: 2.4 });
+    if (at(8.4)) pipLine('Grab the lantern by my hammock. Come on, come ON!', { at: [q.x, q.y - UNIT * 1.3], life: 2.4 });
+    if (at(10.6)) pipHop(false);
     if (c.t > 10.6 && c.t < 11.6) q.y += UNIT * 4 * dt;
-    // (the lantern has been by the bed all along; now it's lit, and you can take it)
+    // (the lantern has been by the hammock all along; now it's lit, and you can take it)
     if (at(11.6)) { state.cut = null; state.inv.story = STORY.adventure; q.show = false; }
   },
   // an ambush: they burst out of the woods ahead, grab Pip and run east, deeper into the dark. You can run at them

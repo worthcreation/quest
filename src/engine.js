@@ -80,6 +80,8 @@ function enterSceneIn(id, fx, fy) {
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
+  state.hammock = null; state.pipIn = false; state.pipHopNext = false;
+  if (sc.feat.hammocks) layoutHammocks(sc);
   state.entry = { id, fx: pos[0], fy: pos[1] };
 
   let titled = false;
@@ -279,6 +281,7 @@ function updateWorld(dt) {
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
   if (sc.drips) updateDrips(dt);
+  if (sc.feat.hammocks) updateHammocks(dt);
   if (state.bird) updateBird(dt);
   if (state.flock.length) updateFlock(dt);
   if (state.glimpse) updateGlimpse(dt);
@@ -292,12 +295,13 @@ function updateWorld(dt) {
   updateWebs(dt);
   if (state.fish && !state.cut) updateFishing(dt);
   if (state.carry === 'rock' && Math.random() < dt * 0.9) { const hh = state.hero; state.fx.push({ x: hh.x + (Math.random() - 0.5) * UNIT * 0.5, y: hh.y - hh.z - UNIT * 1.1, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 2, t: 0, life: 0.7, color: '#5a4128', size: UNIT * 0.09 }); }
-  if (!state.cut && !state.busy) updatePip(dt);
+  if (!state.cut && !state.busy && !state.pipIn) updatePip(dt);
   if (ARENA) updateArena(dt);
   if (PUZZLE) updatePuzzle(dt);
   for (const fl of state.floaters) { fl.a += dt * fl.s; fl.x += Math.cos(fl.a) * UNIT * 0.4 * dt + UNIT * 0.15 * dt; fl.y += Math.sin(fl.a * 1.3) * UNIT * 0.3 * dt; if (fl.x > W + 20) fl.x = -20; }
   if (state.cut) { updateCut(dt); return; }
   if (state.won) return;
+  if (state.hammock) return;                          // lying in your hammock: nothing else moves you (updateHammocks has it)
 
   if (!state.busy) {
     // anything F did here (plant, talk, lift, cast) uses up the press: no weapon rides along with it
@@ -447,6 +451,7 @@ function collideSolids(a, r) {
   const slim = monster(a).slim;                                        // gremlins slip through gaps you can't
   for (const o of state.solids) {
     if (slim && ((o.kind === 'wedge' && !o.small) || o.gap)) continue;
+    if (o.kind === 'body' && a === state.hero && a.z > 0) continue;   // a hammock's hanging body: you jump over it
     const dx = a.x - o.x, dy = a.y - o.y, d = Math.hypot(dx, dy) || 0.001, min = r + o.r;
     if (d < min) {
       const nx = dx / d, ny = dy / d;
@@ -557,6 +562,7 @@ function updateJump(dt) {
       if (sc.river && sc.river.stones) catchStone(h, sc);
       if (sc.rocks && sc.rocks.length) catchStone(h, { river: { stones: sc.rocks.filter(r => r.island).map(r => [r.fx, r.fy, r.r]) } });
       if (state.slam) slamDown();
+      else if (sc.feat.hammocks && landInHammock()) { /* dropped into your hammock */ }
       else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
     }
   }

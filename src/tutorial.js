@@ -52,9 +52,9 @@ const TUTORIAL = [
     say: () => 'And my lean-to! Come on in.', lead: { scene: 'camp', at: () => TUT.door(), hide: true, to: 'tentin', after: true },
     remind: () => ['In you come! The flap\'s right here.', 'Come inside!'], remindAt: () => TUT.door() },
   { id: 'tour-inside', done: () => TUT.noTour() || TUT.since('tour-inside') > 7 || state.scene === 'camp' && TUT.saidAt('tour-inside') != null, scene: 'tentin', spot: () => { const b = WORLD.tentin.feat.book; return [b[0] * W, b[1] * H + UNIT]; },
-    say: () => 'My book: rules and tips, with drawings. The chest has seeds and acorns. That\'s my bed. Nap there when you\'re worn out.' },
+    say: () => 'My book: rules and tips, with drawings. The chest has seeds and acorns. That\'s my hammock, and the big one\'s yours. Nap there when you\'re worn out.', after: () => { state.pipHopNext = true; } },   // (into his hammock once he's said it)
   { id: 'tour-out', done: () => TUT.noTour() || state.scene === 'camp' && TUT.saidAt('tour-out') != null || TUT.saidAt('tour-exit') != null, scene: 'tentin', spot: null,
-    say: () => 'Right! Let\'s go get what we need. Follow me!', lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, to: 'camp', after: true } },
+    say: () => 'Right! Let\'s go get what we need. Follow me!', after: () => pipHop(false), lead: { scene: 'tentin', at: () => TUT.flap(), hide: true, to: 'camp', after: true } },
   { id: 'tour-exit', done: () => TUT.noTour() || state.scene !== 'camp' && TUT.saidAt('tour-exit') != null, scene: 'camp', spot: null, goal: () => 'start',
     say: () => 'This way! Sticks first, in the glade.', lead: { scene: 'camp', at: () => TUT.campExit(), hide: true, to: 'start', after: true },
     remind: () => ['Come on, this way!', 'The glade! Sticks!'], remindAt: () => TUT.campExit() },

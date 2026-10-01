@@ -90,6 +90,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 craft.js), enemies (MONSTERS[type].draw), HUD (bottom-right), the choice bubble (drawChoice), the place tag (top-left: screen id and seed, and under it your position in tiles;
                 placeTag/placeCoords/drawPlaceTag, each line toggled in System), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
 - draw-hero.js  the drawn hero model (arena and &model only)
+- hammock.js    the lean-to's two hammocks: HAMMOCKS, hammockShape (layout in tiles, solids, landing, painter), climbIn/
+                climbOut, pipHop, updateHammocks (the rock, the nap), SOLID_DRAW.hammock
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
 docs/: design-rules.md (the design rules and story so far; read before any change the player sees or reads), keys.md,
@@ -164,11 +166,9 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-1. Two hammocks in the lean-to instead of Pip's one bed (Ross, 30 Sep). A feature: read docs/design-rules.md first.
-   What it touches: the 'bed' solid in tentin (world.js:290; the shack's bed at 403 is Wick's and stays), its drawing
-   in SOLID_DRAW (draw.js), the lean-to interior painter (craft.js:219), Pip's "the lantern by my bed" line in the
-   twilight cutscene (cutscenes.js:92) and his tour line "That's my bed. Nap there" (tutorial.js:55); check what a
-   nap does (sc.feat.bedroll, interact.js:98 and 247) before moving it. The look is unsettled: a still mockup first, then the build. Opus.
+1. Hammocks shipped in build 195 (src/hammock.js). Left for later, if wanted: a shared ground-shadow helper (about 25
+   inline ellipses across the painters; the hammocks use the hero's height rule on their own), and Pip's hammock
+   can't be climbed into (his body is solid; yours is the nap). FABLE if the shadow helper is done.
 2. genWorld (533): split by region, after the climb decision.
 The cleanup list (Ross, 30 Sep) is done: docs/state-owners.md moves 1 to 7, 9 and 11 shipped as builds 186 to 193,
 each with every test's output identical before and after and the draw-record hash unchanged (WAYS 5). Move 8

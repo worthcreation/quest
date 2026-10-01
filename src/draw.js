@@ -61,8 +61,8 @@ function draw() {
   drawHighTitle();                                      // the High Reaches title card, over everything
 }
 
-// dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light
-const lanternSpot = () => { const b = WORLD.tentin.feat.bedroll; return [(b[0] + 0.07) * W, (b[1] + 0.1) * H]; };
+// dusk in the lean-to: candles on the crate and the chest, flickering, each with a warm pool of light; the lantern by Pip's hammock
+const lanternSpot = () => { const hm = hammockOf('pip'); return [hm.B[0] + hm.hw + UNIT * 0.9, hm.B[1] - UNIT * 0.2]; };   // by the foot post of Pip's hammock
 function drawTentLantern(sc) {
   if (sc.id !== 'tentin' || state.inv.lantern) return;
   const [x, y] = lanternSpot(), u = UNIT, lit = !!state.dusk, f = 0.85 + 0.15 * Math.sin(state.time * 11);
@@ -73,7 +73,7 @@ function drawTentLantern(sc) {
   ctx.fillStyle = lit ? '#fff4c0' : '#efe6d2'; ctx.fillRect(x - u * 0.03, y - u * 0.26, u * 0.06, u * 0.15);   // the candle inside
 }
 function drawCandles(sc) {
-  const f = sc.feat, spots = [f.book && [f.book[0] + 0.03, f.book[1] - 0.02], f.chest && [f.chest[0] - 0.03, f.chest[1] - 0.03], f.bedroll && [f.bedroll[0] + 0.07, f.bedroll[1] - 0.05]].filter(Boolean);
+  const f = sc.feat, spots = [f.book && [f.book[0] + 0.03, f.book[1] - 0.02], f.chest && [f.chest[0] - 0.03, f.chest[1] - 0.03]].filter(Boolean);
   spots.forEach(([fx, fy], i) => {
     const x = fx * W, y = fy * H, u = UNIT, fl = 0.8 + 0.12 * Math.sin(state.time * (9 + i * 2)) + 0.08 * Math.sin(state.time * (23 + i * 5));
     if (!state.dusk) { ctx.fillStyle = '#efe6d2'; ctx.fillRect(x - u * 0.06, y - u * 0.3, u * 0.12, u * 0.3); ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - u * 0.01, y - u * 0.36, u * 0.02, u * 0.06); return; }   // unlit by day
@@ -123,7 +123,7 @@ function drawScene(sc) {
   }]);
   for (const n of sc.npcs) if (npcHere(n)) layer.push([n.fy * H, () => drawNpc(n)]);
   if (sc.feat.peek) layer.push([sc.feat.peek[1] * H + UNIT * 0.3, () => drawPeekGremlin(sc)]);   // peeking over the boulder (sorted with it, so the boulder hides its body)
-  if (pipDrawn(sc)) layer.push([state.pip.y, drawPipNow]);
+  if (pipDrawn(sc) && !state.pipIn) layer.push([state.pip.y, drawPipNow]);   // (in his hammock, the hammock draws him)
   if (state.gremlins && sc.id === 'w2') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y - (g.hz || 0), r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   if (state.gremlins && sc.id === 'start') for (const g of state.gremlins) layer.push([g.y, () => drawEnemy({ type: g.book ? 'thief' : 'gremlin', x: g.x, y: g.y, r: UNIT * 0.42, mode: 'dart', t: 1, flash: 0, vx: 1 })]);
   layer.push([state.hero.y, drawHero]);
@@ -881,6 +881,7 @@ function drawNpc(n) {
 }
 function drawHero() {
   const h = state.hero;
+  if (state.hammock) return;                          // in your hammock: the hammock draws you
   if (MODEL_ON()) { drawHeroModelInWorld(h, state.cut && state.cut.type === 'sword'); return; }
   if (h.falling > 0) {
     const k = h.falling / 0.8, s = UNIT * k;
@@ -1235,7 +1236,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 194';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 195';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

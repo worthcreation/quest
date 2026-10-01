@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 195: two hammocks in the lean-to
+- Pip's one bed is two hammocks (src/hammock.js, new): Pip's hangs from the crossbar and runs away from you, yours is
+  slung between two posts along the left wall; laid out in tiles at enterScene, one shape (hammockShape) for the solids,
+  the landing test and the painter. Jump onto yours or press F beside it to climb in; it rocks (a damped spring),
+  a one-second lie-in restores vigor, any key hops you out. Pip's body blocks you on the ground and you jump over it.
+  Pip hops into his at dusk (the lantern line is said from it) and on the tour after his inside line. The lantern hangs
+  by his foot post; the bedroll candle is gone. Lines: "Grab the lantern by my hammock" and "That's my hammock, and the
+  big one's yours". Floor shadows follow the hero's height rule. tests/hammocks.js (new, 7 checks). Wick's bed stays.
 ## Build 194: handoff format (docs only)
 - A handoff pastes PROJECT_INSTRUCTIONS in full only when it changed (else "unchanged"), and names the model the next
   chat starts on, with the first message opening on it. PROJECT_INSTRUCTIONS, HANDOFF, WAYS 7a.

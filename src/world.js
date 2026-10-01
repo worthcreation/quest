@@ -281,14 +281,15 @@ function genWorld() {
   camp.feat.plots.forEach(p => claim(camp, p[0], p[1], 0.7));
   camp.feat.bench = [0.64, 0.34];
   camp.paths = [makePath([0.5, 0.97], [0.5, 0.55], 1), makePath([0.45, 0.55], [0.28, 0.74], 0)];
-  // inside Pip's tent: a bedroll, a chest for storage, and Pip's book of rules and training on a crate
+  // inside Pip's lean-to: two hammocks (laid out in tiles at enterScene: hammock.js), a chest for storage, and Pip's book of rules and training on a crate
   const tentin = add(newScene({ id: 'tentin', area: 'indoor', msg: '', music: 'forest', amb: 'none', floor: '#6e5a3e', heroStart: [0.5, 0.8], speed: 0.4 }));
   tentin.feat.tentRoom = true; tentin.placeName = 'Pip\'s Lean-to';
   tentin.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'camp', arrive: [0.33, 0.33 + 1.9 * UNIT / H] }];
   for (const side of ['n', 'w', 'e']) edgeWall(tentin, side, 'wall', 1.0, [], 1.2);
   edgeWall(tentin, 's', 'wall', 1.0, [[0.4, 0.6]], 1.2);
-  tentin.solids.push(solid(0.3, 0.4, 1.0, 'bed'), solid(0.7, 0.38, 0.7, 'chest'), solid(0.5, 0.3, 0.6, 'lectern'));
-  tentin.feat.bedroll = [0.3, 0.4]; tentin.feat.chest = [0.7, 0.38]; tentin.feat.book = [0.5, 0.3];
+  rng(); rng();                                      // the old bed's two draws: kept, so every screen generated after the lean-to stays where it was
+  tentin.solids.push(solid(0.7, 0.38, 0.7, 'chest'), solid(0.5, 0.3, 0.6, 'lectern'));
+  tentin.feat.hammocks = []; tentin.feat.chest = [0.7, 0.38]; tentin.feat.book = [0.5, 0.3];
   edgeWall(camp, 'n', 'tree', 1.1, [], 1.5, 'green');
   edgeWall(camp, 'w', 'tree', 1.1, [], 1.6, 'green');
   edgeWall(camp, 'e', 'tree', 1.1, [], 1.6, 'green');
