@@ -181,7 +181,7 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
 1. ~~Hammocks (195), groundShadow (197), borrowing Pip's hammock (198), genWorld split (199), hawk timer (200), the
    climb's dials (201).~~
 2. The climb, joined. FABLE. Ross, 1 Oct: the mountain is climb1 to climb5, back to back, out of the rise past the
-   reeds; f3 to f7 (the windy fields' ravines, the mountain path) go; the tortoise stays and moves (item 2b). Builds:
+   reeds; f3 to f7 (the windy fields' ravines, the mountain path) go; the tortoise stays and moves (item 3). Builds:
    ~~203 the join: the rise's pass leads onto climb1; climb5 to peak1 and peak1's west way back to climb5; ?mountain
    starts on the rise just east of the reeds (the reeds still stop real play, so only test links reach it). Tests:
    rise 5 walks the rise from there through the pass onto climb1; climb 6 runs climb5 out to peak1 and back.~~ (203)
@@ -191,18 +191,16 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    use go too (grep: puzzles.js, arena.js, engine.js f3 plants line, draw-ui.js HOME_MAP, rise.js f3n (its north way
    still comes out at the rise's pass, one way, since 203), world.js genField and MAP_LAYOUT (climb1 to climb5 take
    f3 to f7's squares); about 7 test files). The tortoise (f7, gating peak1) comes out with f7 but inv.tortoise and
-   its vigor depth stay for 2b: until then peak1 is open from climb5. The farm stays (from f1). Removing their rng
+   its vigor depth stay for item 3 (build 212): until then peak1 is open from climb5. The farm stays (from f1). Removing their rng
    draws shifts every region generated after genField (crags, farm, cave, marsh, swamp, Hollow) once, by design:
    report the world hash change, and that older saves load those regions rearranged. Then state-owners move 8
    (climbReturn behind one startClimb, or gone with the test rows). NEXT, FABLE.
-2b. The tortoise's home (Ross, 1 Oct): the tortoise comes back higher up the mountain, with a quaint little home
-   where the wind is just right; loves peaches. Where (a climb screen, a scene of its own between climb5 and peak1,
-   or peak1), what the home is, where peaches come from and what the tortoise gives for them (it gated peak1 and
-   gave vigor depth): a written plan for Ross first, then build. FABLE, after 204 (or 205).
-3. The climb from the seed (build 205): CLIMB_SPECS gives each number a range; climbScreen draws within it from its
-   own stream (mulberry32 of the seed and the screen id, never the world's rng, so no other screen moves), then
-   checks every crossing is jumpable (gap no wider than a running jump, about 3 tiles at z 10) and redraws if not.
-   FABLE.
+3. The mountain, one family after the rise (Ross, 1 Oct: what the climb was always meant to be). The plan, the
+   defaults and the build order are in docs/mountain-plan.md: 205 the wind by height (Opus); 206 m1 and the rabbit
+   sizes, 207 hawks hunt rabbits, 208 m2, 209 m3 inside, 210 m4 rabbits fight the hawks, 211 m5 the buff rabbits and
+   carrot juice (climb.js deleted), 212 the tortoise's home between m5 and peak1, peaches on the farm (all FABLE).
+   Replaces the old item 3 (the climb from the seed) and the old 2b (the tortoise). Still mockups for each new look
+   just before its build.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.
 5. Slot flash: Pip's lines name their slot outright instead of flashFor's keyword guessing. Opus.
@@ -230,7 +228,7 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
 14. Mushroom checkpoints: revive and save at mushrooms; mats picked up since the last one are lost on fainting (a
    big step up in harshness: Ross's call first). FABLE.
 15. Light maze in the Hollow: paths show only where light falls; light sources reveal the way. FABLE, design first.
-16. World breadth: mountain and river scenes, a river dungeon, strong roaming enemies, weather, day and night
+16. World breadth (the mountain itself is item 3): river scenes, a river dungeon, strong roaming enemies, weather, day and night
    animals. FABLE, one at a time, after the climb.
 17. Efficiency, only if frame times climb: a spatial grid for collision and claims, more pre-painted layers on the
    rise. Opus.

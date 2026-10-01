@@ -6,7 +6,8 @@ The rise's pass leads onto climb1 (it led south to f3); climb5 still leads to pe
 onto climb5 (it led to f7). ?mountain starts on the rise just east of the reeds, and climb5 no longer loops to climb1
 on that link. f3's north way still comes out at the pass, one way, until f3 to f7 retire in build 204. Tests: rise 5
 walks the rise from the ?mountain spot through the pass onto climb1 (8.3 s); climb 6 runs climb5 out to peak1 and
-west out of peak1 back onto climb5.
+west out of peak1 back onto climb5. Roadmap: the mountain as one family of screens after the rise
+(docs/mountain-plan.md, HANDOFF item 3); the tortoise stays, with a home and peaches.
 
 ## Build 202: handoff (chat)
 - HANDOFF: Next task is the climb join (203), retiring f3 to f7 (204, Ross's call: the mountain is the climb
