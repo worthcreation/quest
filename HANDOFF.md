@@ -180,20 +180,25 @@ words match flashFor's keywords (acorn throw, eat, marsh fire, swing/lunge/slash
 second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps everything; saving is menu only.
 1. ~~Hammocks (195), groundShadow (197), borrowing Pip's hammock (198), genWorld split (199), hawk timer (200), the
    climb's dials (201).~~
-2. The climb, joined. NEXT, FABLE, fresh chat. Ross, 1 Oct: the mountain is climb1 to climb5, back to back, out of
-   the rise past the reeds; f3 to f7 (the windy fields' ravines, the mountain path, the tortoise) go. Builds:
-   203 the join: the rise's pass leads into climb1 (today it leads south to f3); climb5 already leads to peak1, and
-   peak1's way back west leads to climb5; ?mountain starts on the rise just east of the reeds (the reeds still stop
-   real play, so only test links reach it until they open). Tests: walk the rise from there into climb1; climb5 out
-   to peak1 and back.
+2. The climb, joined. FABLE. Ross, 1 Oct: the mountain is climb1 to climb5, back to back, out of the rise past the
+   reeds; f3 to f7 (the windy fields' ravines, the mountain path) go; the tortoise stays and moves (item 2b). Builds:
+   ~~203 the join: the rise's pass leads onto climb1; climb5 to peak1 and peak1's west way back to climb5; ?mountain
+   starts on the rise just east of the reeds (the reeds still stop real play, so only test links reach it). Tests:
+   rise 5 walks the rise from there through the pass onto climb1; climb 6 runs climb5 out to peak1 and back.~~ (203)
    204 retire f3 to f7, with the defaults put to Ross (he can still overrule): puzzle mode's two wind puzzles (Wind
-   ravines on f3, Chained rides on f5) retire; arena's wind round moves from f4 to f1; the tortoise retires (it gated
-   peak1); the corridor, fitToCorridor and its islands, the too-strong gusts that throw you to the foothill farm, and
-   whatever else only those screens use go too (grep: puzzles.js, arena.js, engine.js f3 plants line, draw-ui.js
-   HOME_MAP, rise.js f3 exit, world.js genField and peak1's west exit; about 7 test files). The farm stays (from f1).
-   Removing their rng draws shifts every region generated after genField (crags, farm, cave, marsh, swamp, Hollow)
-   once, by design: report the world hash change, and that older saves load those regions rearranged. Then
-   state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows).
+   ravines on f3, Chained rides on f5) retire; arena's wind round moves from f4 to f1; the corridor, fitToCorridor
+   and its islands, the too-strong gusts that throw you to the foothill farm, and whatever else only those screens
+   use go too (grep: puzzles.js, arena.js, engine.js f3 plants line, draw-ui.js HOME_MAP, rise.js f3n (its north way
+   still comes out at the rise's pass, one way, since 203), world.js genField and MAP_LAYOUT (climb1 to climb5 take
+   f3 to f7's squares); about 7 test files). The tortoise (f7, gating peak1) comes out with f7 but inv.tortoise and
+   its vigor depth stay for 2b: until then peak1 is open from climb5. The farm stays (from f1). Removing their rng
+   draws shifts every region generated after genField (crags, farm, cave, marsh, swamp, Hollow) once, by design:
+   report the world hash change, and that older saves load those regions rearranged. Then state-owners move 8
+   (climbReturn behind one startClimb, or gone with the test rows). NEXT, FABLE.
+2b. The tortoise's home (Ross, 1 Oct): the tortoise comes back higher up the mountain, with a quaint little home
+   where the wind is just right; loves peaches. Where (a climb screen, a scene of its own between climb5 and peak1,
+   or peak1), what the home is, where peaches come from and what the tortoise gives for them (it gated peak1 and
+   gave vigor depth): a written plan for Ross first, then build. FABLE, after 204 (or 205).
 3. The climb from the seed (build 205): CLIMB_SPECS gives each number a range; climbScreen draws within it from its
    own stream (mulberry32 of the seed and the screen id, never the world's rng, so no other screen moves), then
    checks every crossing is jumpable (gap no wider than a running jump, about 3 tiles at z 10) and redraws if not.

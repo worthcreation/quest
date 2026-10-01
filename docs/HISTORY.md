@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 203: the climb joined (chat)
+The rise's pass leads onto climb1 (it led south to f3); climb5 still leads to peak1, and peak1's west way leads back
+onto climb5 (it led to f7). ?mountain starts on the rise just east of the reeds, and climb5 no longer loops to climb1
+on that link. f3's north way still comes out at the pass, one way, until f3 to f7 retire in build 204. Tests: rise 5
+walks the rise from the ?mountain spot through the pass onto climb1 (8.3 s); climb 6 runs climb5 out to peak1 and
+west out of peak1 back onto climb5.
+
 ## Build 202: handoff (chat)
 - HANDOFF: Next task is the climb join (203), retiring f3 to f7 (204, Ross's call: the mountain is the climb
   screens, the ravine fields go) and the climb from the seed (205), then the roadmap; the Mac ship line; audit line

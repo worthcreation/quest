@@ -693,7 +693,7 @@ function genCrags(add) {
     sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
     sc.exits = [];
     const DIAG_UP = ['peak1', 'peak3'], DIAG_IN = ['peak2'];                   // diagonal steps: out at the top-right corner, in at the bottom-left
-    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
+    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'climb5' });   // back down the last ledges (build 203) else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
     const up = DIAG_UP.includes(C.id) ? [0.76, 0.92] : [0.42, 0.58];
     if (!C.top) sc.exits.push({ side: 'n', a: up[0], b: up[1], to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: up[0], b: up[1], to: 'hr1' });   // the summit was never the top
     for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }
@@ -1254,16 +1254,16 @@ function drawLedgeLips(sc) {                                      // a rough roc
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.) Every number
+// in a chain: the rise's pass > climb1 > climb2 > ... > climb5 > peak1 (the crags), joined in build 203. Every number
 // that shapes them is in CLIMB_TUNE and CLIMB_SPECS below.
 
-// ?mountain in the link starts straight on the climb (no creator, no opening). ?scene=f3 (any screen id) starts there.
+// ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=f3 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
 var START_SCENE = typeof location !== 'undefined' ? ((/[?&]scene=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
-function startTestScene(id) {                                  // set up enough of the story that a mid-game screen makes sense
+function startTestScene(id, fx, fy) {                          // set up enough of the story that a mid-game screen makes sense
   const inv = state.inv; inv.story = STORY.adventure; inv.tortoise = true; inv.sword = true; inv.acorns = 10; (inv.pipTips = inv.pipTips || {}).tada = true;
-  state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id);
-  showScroll('Test link', MOUNTAIN ? 'The climb. Keys 1 to 5 jump between the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
+  state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id, fx, fy);
+  showScroll('Test link', MOUNTAIN ? 'The rise, past the reeds: the pass leads onto the climb. Keys 1 to 5 jump to the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
 }
 // the shadow's aim, to tune: lead (how far toward the landing it goes), arrive (when in the jump it gets there),
 // follow (how quickly it chases; lower = lazier, smoother). On the ?mountain link: [ and ] change lead, - and = follow.
@@ -1365,7 +1365,7 @@ function testHops() {
 function updateClimb(dt) {
   const c = state.climb; if (!c) return;
   if (testHops()) return;
-  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = MOUNTAIN && d.next === 'peak1' ? 'climb1' : d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
+  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
   const d = climbDef(), h = state.hero, g = c.gust, T = CLIMB_TUNE, G = d.windy ? T.windy : T.gust; g.t -= dt;
@@ -1574,7 +1574,7 @@ function drawSideClimb(c) {
   [state.hero.x, state.hero.y] = [sx(c.px), sy(c.py) - s / 2];
 }
 // ===== rise.js: the rise, the second screen of the fields (where f2 was). One long slope, 86 tiles west to east
-// and 30 deep, from the first field up to a pass into the mountain, and on to the third field.
+// and 30 deep, from the first field up to a pass into the mountain, and through it onto the climb (climb.js).
 // It runs on the main game: the hero, Pip, the rabbits, items, fire and the barrier are all the usual code, in a scene
 // bigger than the screen (sceneSize: while the rise is current, W and H are its own size in pixels; walking pace
 // comes from the screen, L()). Only the drawing is its own: it opens looking straight down, like the fields; walk
@@ -1587,7 +1587,7 @@ const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
 // the whole path, as the map has it: down from the first field at the north-west corner, east up the rise, and at the
-// far end south through the pass, down to the third field. Distance to it, in tiles:
+// far end south through the pass, onto the climb. Distance to it, in tiles:
 function risePathD(x, y) {
   const { inX, outX, D } = RISE, y0 = risePathY(inX + 6), y1 = risePathY(outX);
   let d = x >= inX + 4 && x <= outX ? Math.abs(y - risePathY(x)) : 99;
@@ -1654,7 +1654,7 @@ function riseLand() {
   put('tree', RISE.treeX, risePathY(RISE.treeX) - 2.8, 1.2, true);
   // the mountain's foot and the pass: crags on the line you can't cross
   for (let y = Y0; y < Y1; y += 1.1) { const f = riseFoot(y); if (Math.abs(y - risePathY(f)) < 1.7) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
-  // the pass: east between two unbroken walls, then south down to the third field between two more
+  // the pass: east between two unbroken walls, then south between two more, out onto the climb
   const oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 2; x += 0.85) for (const sd of [-1, 1]) { if (sd > 0 && x > oW - 0.3) continue; const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }
   for (const [wx, from] of [[oW, risePathY(oW) + 2.1], [oE, risePathY(oE) - 1.6]]) for (let y = from; y < RISE.D + 1.5; y += 0.85) put('crag', wx + (rnd() - 0.5) * 0.2, y, 0.55 + rnd() * 0.3, true);
@@ -1683,8 +1683,9 @@ function riseRows(land = riseLand()) {
 const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
 // the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
-// the first field's south way leads in at the north-west corner, and the pass at the far end leads south into the
-// third field: in and out as the map lays them (f1 above, f3 below).
+// the first field's south way leads in at the north-west corner, and the pass at the far end leads south onto the
+// climb's first screen (build 203). The third field's north way still comes out at the pass, one way, until f3 to f7
+// retire (build 204).
 function addRise(S, add) {
   const land = riseLand(), { len, D } = RISE, oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
@@ -1701,7 +1702,7 @@ function addRise(S, add) {
   for (const [x, y] of [[11, 18.8], [15, 11.6]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
   const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
   sc.exits.push({ side: 'n', a: 0.8 / len, b: (RISE.inX + 3) / len, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
-  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
+  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'climb1' });   // the climb lays its own start
   Object.assign(f1s, { to: 'rise', arrive: [RISE.inX / len, 1.2 / D] });
   Object.assign(f3n, { to: 'rise', arrive: [RISE.outX / len, 1 - 1.2 / D] });
   delete S.f2;
@@ -8767,7 +8768,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 202';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 203';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -9963,7 +9964,7 @@ function begin() {
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('climb1'); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, risePathY(RISE.barX + 2) / RISE.D); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
   startMusic();
 }
 function resizeCanvasOnly() {

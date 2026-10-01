@@ -935,7 +935,7 @@ function begin() {
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('climb1'); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, risePathY(RISE.barX + 2) / RISE.D); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
   startMusic();
 }
 function resizeCanvasOnly() {

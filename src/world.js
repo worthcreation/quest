@@ -636,7 +636,7 @@ function genCrags(add) {
     sc.ravines = C.ravines.map(y => ({ y, hU: 1.7 }));                       // sized in tiles when you arrive, so they're always jumpable
     sc.exits = [];
     const DIAG_UP = ['peak1', 'peak3'], DIAG_IN = ['peak2'];                   // diagonal steps: out at the top-right corner, in at the bottom-left
-    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'f7' }); else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
+    if (C.from === 'w') sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'climb5' });   // back down the last ledges (build 203) else sc.exits.push({ side: 's', a: DIAG_IN.includes(C.id) ? 0.08 : 0.42, b: DIAG_IN.includes(C.id) ? 0.24 : 0.58, to: CRAGS[k - 1].id });
     const up = DIAG_UP.includes(C.id) ? [0.76, 0.92] : [0.42, 0.58];
     if (!C.top) sc.exits.push({ side: 'n', a: up[0], b: up[1], to: CRAGS[k + 1].id }); else sc.exits.push({ side: 'n', a: up[0], b: up[1], to: 'hr1' });   // the summit was never the top
     for (const side of ['n', 's', 'w', 'e']) { const ex = sc.exits.find(e => e.side === side); edgeWall(sc, side, 'cliff', 1.1, ex ? [[ex.a, ex.b]] : [], 1.3); }

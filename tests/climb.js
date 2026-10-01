@@ -39,5 +39,10 @@ for (const id of []) { enterScene(id); run(10); c=state.climb; d=climbDef(); c.g
 // 5. the side view: run right and jump now and then; reach the top, out into the crags
 c=state.climb; let t=0; state.keys.arrowright=true; while(state.scene==='climb5' && t<60*120){ state.hero.vig=maxVig(); if(!c.air && t%50===0){ state.keys[' ']=true; run(2); state.keys[' ']=false; } run(1); t++; } state.keys.arrowright=false;
 console.log('5 side view: after', (t/60).toFixed(1), 's ->', state.scene);
+// 6. the join (build 203): out of climb5 you stand on peak1; peak1's west way leads back onto climb5, at its foot
+for(let k=0;k<80 && state.busy;k++) run(1); run(5); const onPeak=state.scene==='peak1' && !state.climb, at=[state.hero.x/W, state.hero.y/H];
+const wx=WORLD.peak1.exits.find(e=>e.side==='w'); state.hero.x=UNIT*0.6; state.hero.y=(wx.a+wx.b)/2*H; state.hero.vx=state.hero.vy=0; state.keys.arrowleft=true; run(40); state.keys.arrowleft=false; for(let k=0;k<80 && state.busy;k++) run(1); run(5);
+const back=state.scene, c5=state.climb; console.log('6 the join: on peak1 after the ledges', onPeak, 'at', at.map(v=>v.toFixed(2)).join(','), '| peak1 west ->', back, '| climb running', !!c5, 'at ledge', c5&&c5.kind==='side' ? c5.px.toFixed(2)+','+c5.py.toFixed(2) : '-');
+if (!(onPeak && back==='climb5' && c5 && c5.kind==='side')) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);

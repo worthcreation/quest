@@ -1,16 +1,16 @@
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.) Every number
+// in a chain: the rise's pass > climb1 > climb2 > ... > climb5 > peak1 (the crags), joined in build 203. Every number
 // that shapes them is in CLIMB_TUNE and CLIMB_SPECS below.
 
-// ?mountain in the link starts straight on the climb (no creator, no opening). ?scene=f3 (any screen id) starts there.
+// ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=f3 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
 var START_SCENE = typeof location !== 'undefined' ? ((/[?&]scene=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
-function startTestScene(id) {                                  // set up enough of the story that a mid-game screen makes sense
+function startTestScene(id, fx, fy) {                          // set up enough of the story that a mid-game screen makes sense
   const inv = state.inv; inv.story = STORY.adventure; inv.tortoise = true; inv.sword = true; inv.acorns = 10; (inv.pipTips = inv.pipTips || {}).tada = true;
-  state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id);
-  showScroll('Test link', MOUNTAIN ? 'The climb. Keys 1 to 5 jump between the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
+  state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id, fx, fy);
+  showScroll('Test link', MOUNTAIN ? 'The rise, past the reeds: the pass leads onto the climb. Keys 1 to 5 jump to the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
 }
 // the shadow's aim, to tune: lead (how far toward the landing it goes), arrive (when in the jump it gets there),
 // follow (how quickly it chases; lower = lazier, smoother). On the ?mountain link: [ and ] change lead, - and = follow.
@@ -112,7 +112,7 @@ function testHops() {
 function updateClimb(dt) {
   const c = state.climb; if (!c) return;
   if (testHops()) return;
-  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = MOUNTAIN && d.next === 'peak1' ? 'climb1' : d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
+  if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
   const d = climbDef(), h = state.hero, g = c.gust, T = CLIMB_TUNE, G = d.windy ? T.windy : T.gust; g.t -= dt;

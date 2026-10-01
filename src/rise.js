@@ -1,5 +1,5 @@
 // ===== rise.js: the rise, the second screen of the fields (where f2 was). One long slope, 86 tiles west to east
-// and 30 deep, from the first field up to a pass into the mountain, and on to the third field.
+// and 30 deep, from the first field up to a pass into the mountain, and through it onto the climb (climb.js).
 // It runs on the main game: the hero, Pip, the rabbits, items, fire and the barrier are all the usual code, in a scene
 // bigger than the screen (sceneSize: while the rise is current, W and H are its own size in pixels; walking pace
 // comes from the screen, L()). Only the drawing is its own: it opens looking straight down, like the fields; walk
@@ -12,7 +12,7 @@ const riseClamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const riseFoot = y => 74 + Math.sin(y * 0.35) * 2.5 + Math.sin(y * 0.9) * 0.8;       // where the mountain's stone begins
 const risePathY = x => 15 + Math.sin(x * 0.13) * 2;                                   // the worn path, west to east
 // the whole path, as the map has it: down from the first field at the north-west corner, east up the rise, and at the
-// far end south through the pass, down to the third field. Distance to it, in tiles:
+// far end south through the pass, onto the climb. Distance to it, in tiles:
 function risePathD(x, y) {
   const { inX, outX, D } = RISE, y0 = risePathY(inX + 6), y1 = risePathY(outX);
   let d = x >= inX + 4 && x <= outX ? Math.abs(y - risePathY(x)) : 99;
@@ -79,7 +79,7 @@ function riseLand() {
   put('tree', RISE.treeX, risePathY(RISE.treeX) - 2.8, 1.2, true);
   // the mountain's foot and the pass: crags on the line you can't cross
   for (let y = Y0; y < Y1; y += 1.1) { const f = riseFoot(y); if (Math.abs(y - risePathY(f)) < 1.7) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
-  // the pass: east between two unbroken walls, then south down to the third field between two more
+  // the pass: east between two unbroken walls, then south between two more, out onto the climb
   const oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   for (let x = riseFoot(risePathY(76)) - 1; x < RISE.len + 2; x += 0.85) for (const sd of [-1, 1]) { if (sd > 0 && x > oW - 0.3) continue; const r = 0.55 + rnd() * 0.3, y = risePathY(x) + sd * (1.6 + r); if (x > riseFoot(y) - 0.5) put('crag', x, y, r, true); }
   for (const [wx, from] of [[oW, risePathY(oW) + 2.1], [oE, risePathY(oE) - 1.6]]) for (let y = from; y < RISE.D + 1.5; y += 0.85) put('crag', wx + (rnd() - 0.5) * 0.2, y, 0.55 + rnd() * 0.3, true);
@@ -108,8 +108,9 @@ function riseRows(land = riseLand()) {
 const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
 // the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
-// the first field's south way leads in at the north-west corner, and the pass at the far end leads south into the
-// third field: in and out as the map lays them (f1 above, f3 below).
+// the first field's south way leads in at the north-west corner, and the pass at the far end leads south onto the
+// climb's first screen (build 203). The third field's north way still comes out at the pass, one way, until f3 to f7
+// retire (build 204).
 function addRise(S, add) {
   const land = riseLand(), { len, D } = RISE, oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
@@ -126,7 +127,7 @@ function addRise(S, add) {
   for (const [x, y] of [[11, 18.8], [15, 11.6]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
   const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
   sc.exits.push({ side: 'n', a: 0.8 / len, b: (RISE.inX + 3) / len, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
-  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'f3', arrive: [(f3n.a + f3n.b) / 2, 0.09] });
+  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'climb1' });   // the climb lays its own start
   Object.assign(f1s, { to: 'rise', arrive: [RISE.inX / len, 1.2 / D] });
   Object.assign(f3n, { to: 'rise', arrive: [RISE.outX / len, 1 - 1.2 / D] });
   delete S.f2;

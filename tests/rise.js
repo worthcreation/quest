@@ -32,12 +32,15 @@ console.log('3 cover before the reeds:', cover, 'stones and trees | tree at x', 
 { const p=spawnPuff((RISE.barX-0.9)*UNIT, ty()*UNIT, 0, 0, UNIT*1.2); p.r=UNIT*0.8; p.ign=state.time; } run(120);
 const afterFire=reeds(); state.keys.arrowright=true; run(120); off();
 console.log('4 after fire: reeds', afterFire, '| still stops at x', tx().toFixed(1));
-state.hero.x=(RISE.barX+2)*UNIT; state.hero.y=risePathY(RISE.barX+2)*UNIT; run(5);   // (past them, to walk the rest)
-// 5. on up the rise: the view pulls back evenly and tips; the walls open out; the east end leads down to f3
+// 5. the ?mountain start: on the rise just east of the reeds; on up the rise the view pulls back evenly and tips; the walls
+// open out; the pass at the east end leads onto the climb's first screen (build 203)
+startTestScene('rise', (RISE.barX+2)/RISE.len, risePathY(RISE.barX+2)/RISE.D); run(5); const startAt=[tx(), ty()];
 const [secs, seen]=walkEast(30); const zs=seen.map(s=>s[1]), mono=zs.every((v,i)=>!i||v<=zs[i-1]+1e-6), most=Math.max(0,...zs.slice(1).map((v,i)=>zs[i]-v));
-console.log('5 east and down the pass to', state.scene, 'by the', state.scene==='f3' ? 'north way' : '?', 'in', secs.toFixed(1), 's | zoom by second:', zs.map(v=>v.toFixed(2)).join(' '), '| only pulls back:', mono, '| biggest step', most.toFixed(3));
-// 6. back up from f3: in at the rise's east end, pulled back; then west, the view comes back in
-const n3=WORLD.f3.exits.find(e=>e.to==='rise'); state.hero.x=(n3.a+n3.b)/2*W; state.hero.y=UNIT*0.7; state.keys.arrowup=true; run(40); off(); run(10);
+for (let k=0;k<60 && state.busy;k++) run(1); run(5); const onClimb=!!state.climb;
+console.log('5 ?mountain start at x', startAt[0].toFixed(1), 'y', startAt[1].toFixed(1), '(reeds at', RISE.barX+') | east and down the pass to', state.scene, '(climb running:', onClimb+') in', secs.toFixed(1), 's | zoom by second:', zs.map(v=>v.toFixed(2)).join(' '), '| only pulls back:', mono, '| biggest step', most.toFixed(3));
+// 6. in at the rise's east end (f3's north way still comes out at the pass, one way, until build 204), pulled back; then
+// west, the view comes back in
+state.climb=null; const n3=WORLD.f3.exits.find(e=>e.to==='rise'); enterScene('f3'); run(3); state.hero.x=(n3.a+n3.b)/2*W; state.hero.y=UNIT*0.7; state.keys.arrowup=true; run(40); off(); run(10);
 const inAt=[tx(), ty(), z()]; state.enemies=[]; state.keys.arrowup=true; run(60*2); off(); state.keys.arrowleft=true; run(60*3); off(); run(120);
 console.log('6 north from f3 ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), 'zoom', inAt[2].toFixed(2), '| up the pass 2 s, then 3 s west: x', tx().toFixed(1), 'y', ty().toFixed(1), 'zoom', z().toFixed(2));
 // 7. the walls open out as you go: wall to wall at three places
@@ -58,6 +61,7 @@ const sameGusts = JSON.stringify(WORLD.rise.gusts)===JSON.stringify(WORLD.f1.gus
 const vR=shove('rise'), vF=shove('f1'); enterScene('rise'); run(3);
 const clear=WORLD.rise.feat.plants.every(([fx,fy])=>riseLand().solids.every(p=>Math.hypot(p.x-fx*RISE.len,p.y-fy*RISE.D)>p.r+0.9));
 console.log('9 gusts same as f1:', sameGusts, '| strong-gust shove, tiles/s: rise', vR.toFixed(2), 'f1', vF.toFixed(2), '| tall grass', WORLD.rise.feat.plants.length, 'clumps, all clear of stones:', clear, '| clouds', state.clouds.length);
+if (!(seen.length && onClimb && startAt[0]>RISE.barX && startAt[0]<RISE.barX+3)) errs++;
 if (!(sameGusts && Math.abs(vR-vF)<0.05 && vR>0.5 && clear && state.clouds.length>4)) errs++;
 if (!(WORLD.f2===undefined && rab.length===2 && cover>=6 && stopped<RISE.barX && afterFire>0 && secs>0 && mono && most<0.12 && w40>w5+3 && w66>w40+3 && wx>0.3 && west==='f1' && px>=20)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
