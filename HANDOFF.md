@@ -169,19 +169,43 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-1. ~~Hammocks (build 195); groundShadow, 40 sites (build 197); borrowing Pip's hammock while he's out of it (build
-   198).~~
-2. ~~genWorld split by region: 14 functions, genCamp to genHollow, in rng order (build 199; tools/world-hash.js
-   proves a world.js change).~~
-3. ~~"Lists" rule: PROJECT_INSTRUCTIONS paragraph above "Replies:", WAYS 7a bullet (build 198).~~
-4. Hawk timer counts down twice a frame. Parked until asked (below). Opus.
-5. The climb. Parked: Ross's design call (below). FABLE, fresh chat.
+Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
+the last loose stone, and the stuck stone is locked until his loosen line (pullLocked, 'early'), so until then the
+boulder can't be broken; walk off mid-visit and he calls "Over here!" for good. The slot flash only fires when Pip's
+words match flashFor's keywords (acorn throw, eat, marsh fire, swing/lunge/slash/pound). Vigor refills about 0.47 a
+second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps everything; saving is menu only.
+1. ~~Hammocks (195), groundShadow (197), borrowing Pip's hammock (198), genWorld split (199), hawk timer (200).~~
+2. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
+   stuck stone never locked for good, a real-play test (no pipTips shortcut). NEXT. Opus.
+3. Slot flash: Pip's lines name their slot outright instead of flashFor's keyword guessing. Opus.
+4. Pip 30% calmer: walk x0.7 (PIP_PACE), lines and PIP_GAP x1.3, lessons exempt from the gap; reword the design rule
+   "about half your speed". Opus.
+5. Vigor experiment: a Testing row for regen x1, x0.5, x0.25 and food only. Opus.
+6. Status effects above the vigor bar: one icon per buff or debuff; it starts fully shaded and a clockwise sweep
+   from 12 o'clock turns it translucent as time runs out (replaces the bars under the slots). Restated to Ross;
+   build once he confirms. Opus.
+7. Camp chain: tinder becomes twigs (two sticks); stones placed, twigs in, Pip lights it after a couple of sparks;
+   glue from carrot, turnip and rabbit fluff (so the bench waits on a harvest); bench from glue, sticks and twigs.
+   FABLE (recipes, tutorial, quests, tests).
+8. Compost: 3 acorns on the mat make compost for patches; advanced compost from compost, twigs and root mash; ash from
+   the fire; volcanic soil with the mountain. Opus, after 7.
+9. Sword chain: meet Wick at the gleaming pool (his sign already sends you there); the sword's brambles only burn
+   (fire first; the wooden sword can't); a torch from camp is the suggestion; the sword opens the mountain's thick
+   growth; upgrades with mats cut what swamp fire won't burn (the rise's reed wall), change the blade's look and keep
+   its rust. Reorders the story: a written plan for Ross first. FABLE.
+10. Sword levels: each blade kind levels with use; levels plus achievements make the total, which unlocks ability
+   upgrades (SKILLS). FABLE, after 9.
+11. Mushroom checkpoints: revive and save at mushrooms; mats picked up since the last one are lost on fainting (a
+   big step up in harshness: Ross's call first). FABLE.
+12. Light maze in the Hollow: paths show only where light falls; light sources reveal the way. FABLE, design first.
+13. World breadth: mountain and river scenes, a river dungeon, strong roaming enemies, weather, day and night
+   animals. FABLE, one at a time, after the climb.
+14. Efficiency, only if frame times climb: a spatial grid for collision and claims, more pre-painted layers on the
+   rise. Opus.
+15. The climb. Parked: Ross's design call (below). FABLE, fresh chat.
 The cleanup list (Ross, 30 Sep) is done: docs/state-owners.md moves 1 to 7, 9 and 11 shipped as builds 186 to 193,
 each with every test's output identical before and after and the draw-record hash unchanged (WAYS 5). Move 8
 (startClimb) is parked with the climb below. 162 state fields to 158.
-Parked until asked: the hawk timer. It counts down twice a frame (once in updateEnemies, once in
-MONSTERS.hawk.ai). Suggested fix when it comes up: drop the second countdown and halve its timer values, so it plays
-the same; Ross picks.
 
 The climb screens stay in testing exactly as they are (Ross, 29 Sep: still being designed; not joined to the world
 yet). When he's ready (FABLE): which of climb1 to climb5 to keep, where they join (between the windy fields and the

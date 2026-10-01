@@ -51,7 +51,7 @@ function updateGrab(dt) {
   h.x = Math.max(UNIT, Math.min(W - UNIT, h.x)); h.y = Math.max(UNIT, Math.min(H - UNIT, h.y)); e.x = h.x; e.y = h.y - UNIT * 0.6;
   if (pressedNow.act && g.t > 0.3) g.t = g.dur;                   // strike the legs: it lets go early
   if (g.t >= g.dur) {
-    state.grab = null; e.mode = 'climb'; e.t = 1.5; h.z = 0;
+    state.grab = null; e.mode = 'climb'; e.t = 0.75; h.z = 0;
     if (isChasm(h.x, h.y)) {                                       // dropped over the edge: down a screen, hurt
       const sc = sceneDef(), down = (sc.exits.find(x => x.side === 's') || {}).to;
       hurtHero(1, 0, 1); if (down) { heroNote('Dropped! Down the mountain...', 1, { key: 'fall', life: 2 }); transitionTo(down, 0.5, 0.2); }

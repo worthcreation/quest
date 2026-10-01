@@ -127,7 +127,7 @@ tqDone is tests/speech.js's own quest flag). 140 have one clear owner and at mos
 | enemies | engine w4 (enterScene builds), arena w2, puzzles w1 (spawns); draw-ui r5, combat r3, tutorial r3, draw r3, actions r2, ... | |
 | hazards, rings, drops, splashes, dripTimer | engine w1 each (reset); draw, draw-ui r | |
 | webs | engine w1 (built at enterScene); draw r2, actions r, gear r | |
-| grab | highlands w1 r1, engine w1 (reset) | **split**: the hawk grabs in critters.js (MONSTERS.hawk.ai), the carry-off is run in highlands.js. Same seam as the parked hawk timer |
+| grab | highlands w1 r1, engine w1 (reset) | **split**: the hawk grabs in critters.js (MONSTERS.hawk.ai), the carry-off is run in highlands.js. The hawk timer counts once since build 200 |
 | robinMiss | | |
 | bird | engine w1 (made at enterScene) r1; actions r5, combat r4, draw-ui r2, tutorial, gear, draw r | the robin (makeBird, updateBird, scareBird are critters') |
 | stalCool | draw r | |
@@ -280,7 +280,7 @@ Struck through with the build number as each ships. Rows above still describe bu
    topBanner (the arena's wave banner or the rapids meter, whichever is up); enterHighlands(id) makes the title
    card and resets the vista birds.
 10. Leave alone: cam (the camera update in input.js is a bigger question than a field; revisit if input.js is ever
-    split), grab (part of the parked hawk work), inv, hero, fx, shake and flash (shared by design).
+    split), grab (the hawk/highlands seam), inv, hero, fx, shake and flash (shared by design).
 11. ~~Found in build 187, a play change for Ross to decide: `state.fireLit` is set only by startIntro and by building
     the fire, and draw.js gives the campfire its night glow only `if (state.fireLit)`. Load a save in a fresh session
     and it is undefined: the flame draws but gives no light at night. Fix: set it in resetRun (one line, and the one

@@ -293,26 +293,25 @@ const MONSTERS = {
   // the High Reaches
   hawk: {                                           // circles high, its shadow on the ground; then a dive (the shadow shrinks to a dot, a shriek);
     // it strikes you and knocks you back, or sometimes grabs you, carries you off and drops you (over a drop: you land a screen lower; updateGrab)
-    stats: (u, b) => ({ r: u * 0.55, hp: 3, dmg: 1, mode: 'circle', t: rr(2, 4), fly: true, ang: rng() * 6, cx: b.x, cy: b.y }),
-    flies: true, resume: ['climb', 1],
+    stats: (u, b) => ({ r: u * 0.55, hp: 3, dmg: 1, mode: 'circle', t: rr(1, 2), fly: true, ang: rng() * 6, cx: b.x, cy: b.y }),
+    flies: true, resume: ['climb', 0.5],
     draw: drawHawk,
     ai(e, dx, dy, dist, ease, dt) {
       const h = state.hero;
-      e.t -= dt;                                    // (counted down twice a frame, here and in updateEnemies, since build 100: kept as it plays)
       if (e.mode === 'circle') {
         e.ang += dt * 0.6; e.cx += (h.x - e.cx) * dt * 0.3; e.cy += (h.y - e.cy) * dt * 0.3;
         e.x = e.cx + Math.cos(e.ang) * UNIT * 3; e.y = e.cy + Math.sin(e.ang) * UNIT * 2; e.alt = UNIT * 3;
-        if (e.t <= 0 && !state.grab) { e.mode = 'dive'; e.t = 0.9; e.tx = h.x; e.ty = h.y; e.x0 = e.x; e.y0 = e.y; sfx.shriek ? sfx.shriek() : sfx.cackle(); }
+        if (e.t <= 0 && !state.grab) { e.mode = 'dive'; e.t = 0.45; e.tx = h.x; e.ty = h.y; e.x0 = e.x; e.y0 = e.y; sfx.shriek ? sfx.shriek() : sfx.cackle(); }
       } else if (e.mode === 'dive') {
-        const k = 1 - Math.max(0, e.t) / 0.9; e.x = e.x0 + (e.tx - e.x0) * k; e.y = e.y0 + (e.ty - e.y0) * k; e.alt = UNIT * 3 * (1 - k);
+        const k = 1 - Math.max(0, e.t) / 0.45; e.x = e.x0 + (e.tx - e.x0) * k; e.y = e.y0 + (e.ty - e.y0) * k; e.alt = UNIT * 3 * (1 - k);
         if (e.t <= 0) {
           if (Math.hypot(h.x - e.x, h.y - e.y) < UNIT * 0.9 && h.z <= UNIT * 0.3 && !(h.invuln > 0)) {
             if (Math.random() < 0.35) { state.grab = { e, t: 0, dur: 1.6, dx: (Math.random() - 0.5) * 2, dy: (Math.random() - 0.5) * 2 }; heroNote('Talons!', 1.2, { key: 'hurt', life: 1.2, color: '#ffb080' }); }
             else { const d = Math.hypot(h.x - e.x0, h.y - e.y0) || 1; hurtHero(1, (h.x - e.x0) / d, (h.y - e.y0) / d); }
           }
-          e.mode = 'climb'; e.t = 1.2;
+          e.mode = 'climb'; e.t = 0.6;
         }
-      } else if (e.mode === 'climb') { e.alt = Math.min(UNIT * 3, (e.alt || 0) + UNIT * 3 * dt); e.cx = e.x; e.cy = e.y; if (e.t <= 0) { e.mode = 'circle'; e.t = rr(3, 6); } }
+      } else if (e.mode === 'climb') { e.alt = Math.min(UNIT * 3, (e.alt || 0) + UNIT * 3 * dt); e.cx = e.x; e.cy = e.y; if (e.t <= 0) { e.mode = 'circle'; e.t = rr(1.5, 3); } }
       else if (e.mode === 'carry') { e.alt = UNIT * 1.6; }
     },
   },

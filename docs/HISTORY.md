@@ -1,6 +1,15 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 200: the hawk's timer counts once (no change in play); the roadmap in HANDOFF
+- MONSTERS.hawk.ai no longer counts e.t down (updateEnemies already does), and every hawk timer is halved to match:
+  first circle rr(1, 2), dive 0.45, climb 0.6, next circle rr(1.5, 3), after a grab 0.75, after a stun 0.5.
+- Proof: every hawk mode change over 270 s on hr1 to hr3 (grabs and a stun included), stepped at 1/64 s so the
+  countdown is exact: 95 changes, identical before and after. At 1/60 the first dive ends one frame later (float
+  rounding at zero), then Math.random drifts. Every test's output identical but for the build line.
+- HANDOFF Next task: Ross's roadmap of 1 Oct (river lesson, slot flash, a calmer Pip, vigor, status effects, the camp
+  chain, compost, the sword chain and levels, checkpoints, the light maze, world breadth), with what was measured.
+
 ## Build 199: genWorld split by region (no change in play)
 - genWorld (533 lines) is now a call list: genCamp, genStart, genMeadow, genRiver, genShack, genDownriver, genWoods,
   genField, genCrags, genFoot, genCave, genMarsh, genSwamp, genHollow, each taking add, called in the old order (one
