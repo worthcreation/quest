@@ -12,4 +12,6 @@ Audit: node tools/audit.js at the start of a cleanup chat and at every handoff. 
 
 Handoff (end of a chat, or when Ross says "handoff"): update HANDOFF's current state and Next task; run node tools/audit.js --save and copy its summary line into HANDOFF; update this file to match; docs/PROJECT_DESCRIPTION.md only if the mood, theme or direction changed. End the reply with (1) this file in full in a code block only if it changed, else the words "PROJECT_INSTRUCTIONS unchanged", (2) the model the next chat should start on and why, then the first message for the next chat in a code block, opening with that model, (3) any files to delete by hand in ~\quest. Suggest a fresh chat when the topic changes, after a heavy chat or after a compaction; hand off first.
 
+Lists: when a chat works through an agreed list (cleanup moves, a feature in steps), keep it in a doc (HANDOFF's Next task or a docs file) and end every reply with the whole list: done items struck through with their build number, parked items marked parked and why, the model for each item still open. Add new items to the list as they turn up rather than mentioning them once. The next chat starts from that doc.
+
 Replies: concise and candid, no em dashes, no filler.

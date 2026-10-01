@@ -1,6 +1,7 @@
 // ===== hammock.js: the two hammocks in Pip's lean-to. Laid out in tiles at enterScene (hammockShape is the one shape:
 // the solids, the landing test and the painter all read it), jumped into or climbed into with F, rocking when you land,
-// a nap after a short lie-in. Pip climbs into his at dusk and on the tour.
+// a nap after a short lie-in. Pip climbs into his at dusk and on the tour; while he is out of it you can borrow it, and
+// he tips you out when he wants it back.
 // Pip's hangs from the crossbar and runs away from you; yours is slung between two posts along the left wall.
 const HAMMOCKS = [
   { who: 'pip', fx: 0.26, dy: 1.4, dir: [0, 1], len: 2.5, w: 0.92, zEnd: 1.4, head: 'bar', roundFoot: true,
@@ -25,24 +26,29 @@ function layoutHammocks(sc) {
     state.solids.push({ kind: 'hammock', hm, x: (hm.A[0] + hm.B[0]) / 2, y: (hm.A[1] + hm.B[1]) / 2, r: 0, vis: 0, key: 'hm' });   // the painter's anchor, no collision
     if (hm.who === 'pip') for (let t = 0.15; t <= 0.86; t += 0.14) state.solids.push({ kind: 'body', x: hm.A[0] + hm.ex * hm.L * t, y: hm.A[1] + hm.ey * hm.L * t, r: hm.hw * 0.7, vis: 0, key: 'hm' });   // his you walk round
   }
-  const mine = hammockOf('hero');
-  sc.feat.nap = [(mine.A[0] + mine.ex * mine.L * 0.5) / W, (mine.A[1] + mine.ey * mine.L * 0.5) / H];
+  const mid = hm => [(hm.A[0] + hm.ex * hm.L * 0.5) / W, (hm.A[1] + hm.ey * hm.L * 0.5) / H];
+  sc.feat.nap = mid(hammockOf('hero')); sc.feat.napPip = mid(hammockOf('pip'));
 }
 const hammockOf = who => (sceneDef().feat.hammocks || []).find(h => h.who === who);
-// over the body of your hammock (between its ties, inside its width), where a landing drops you in
+const hammockIn = () => state.hammock && hammockOf(state.hammock.who || 'hero');   // the one you're lying in
+const pipFree = () => !state.pipIn;                                                 // his is yours to borrow while he's out of it
+// over the body of a free hammock (between its ties, inside its width), where a landing drops you in
 function overHammock(x, y) {
-  const hm = hammockOf('hero'); if (!hm) return null;
-  const t = ((x - hm.A[0]) * hm.ex + (y - hm.A[1]) * hm.ey) / hm.L, off = Math.abs((x - hm.A[0]) * -hm.ey + (y - hm.A[1]) * hm.ex);
-  return t > 0.2 && t < 0.8 && off < hm.hw * 1.1 ? hm : null;
+  for (const hm of sceneDef().feat.hammocks || []) {
+    if (hm.who === 'pip' && !pipFree()) continue;
+    const t = ((x - hm.A[0]) * hm.ex + (y - hm.A[1]) * hm.ey) / hm.L, off = Math.abs((x - hm.A[0]) * -hm.ey + (y - hm.A[1]) * hm.ex);
+    if (t > 0.2 && t < 0.8 && off < hm.hw * 1.1) return hm;
+  }
+  return null;
 }
-function climbIn() {
-  const hm = hammockOf('hero'), h = state.hero;
-  state.hammock = { t: 0, napped: false }; hm.rockV = ROCK.push * (h.vx < 0 ? -1 : 1); hm.rock = 0;
+function climbIn(hm = hammockOf('hero')) {
+  const h = state.hero;
+  state.hammock = { t: 0, napped: false, who: hm.who }; hm.rockV = ROCK.push * (h.vx < 0 ? -1 : 1); hm.rock = 0;
   h.vx = 0; h.vy = 0; h.z = 0; h.vz = 0;
   sfx.tock();
 }
 function climbOut() {
-  const hm = hammockOf('hero'), h = state.hero;
+  const hm = hammockIn(), h = state.hero;
   state.hammock = null;
   h.x = hm.A[0] + hm.ex * hm.L * 0.5 + (hm.ey ? -hm.hw - UNIT * 0.9 : 0); h.y = hm.A[1] + hm.ey * hm.L * 0.5 + (hm.ex ? hm.hw + UNIT * 0.9 : 0);   // out onto the floor beside it
   h.z = 0.01; h.vz = UNIT * 3; hm.rockV = -ROCK.push * 0.6;
@@ -50,6 +56,7 @@ function climbOut() {
 // Pip into his hammock, or out of it onto the floor beside the foot post
 function pipHop(into) {
   const hm = hammockOf('pip'), p = state.pip; if (!hm || !p) return;
+  if (into && state.hammock && state.hammock.who === 'pip') { climbOut(); pipLine('Scoot! That one\'s mine.', { life: 1.8 }); }   // you were borrowing it
   state.pipIn = into;
   if (into) { hm.rockV = ROCK.push * 0.5; p.hop = { t: 0, n: 1 }; }
   else { p.x = hm.B[0] + hm.hw + UNIT * 0.5; p.y = hm.B[1] - UNIT * 0.3; p.hop = { t: 0, n: 1 }; }
@@ -71,16 +78,17 @@ function updateHammocks(dt) {
   if (r.t > 0.4 && (pressedNow.jump || pressedNow.act || pressedNow.left || pressedNow.right || pressedNow.up || pressedNow.down)) { pressedNow.act = false; climbOut(); }
 }
 // a landing over your hammock drops you in (updateJump calls this as you touch down)
-function landInHammock() { if (!state.hammock && !state.cut && overHammock(state.hero.x, state.hero.y)) { climbIn(); return true; } }
-// F beside your hammock climbs in
+function landInHammock() { const hm = !state.hammock && !state.cut && overHammock(state.hero.x, state.hero.y); if (hm) { climbIn(hm); return true; } }
+// F beside a free hammock climbs in (interact.js prompts at the same spots)
 function interactHammock(sc, h) {
   if (!sc.feat.nap || state.hammock || !pressedNow.act) return;
-  if (Math.hypot(h.x - sc.feat.nap[0] * W, h.y - sc.feat.nap[1] * H) < UNIT * 1.9) { climbIn(); return true; }
+  const d = p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H), dm = d(sc.feat.nap), dp = pipFree() ? d(sc.feat.napPip) : Infinity;   // the nearer, as the prompt shows
+  if (Math.min(dm, dp) < UNIT * 1.9) { climbIn(hammockOf(dp < dm ? 'pip' : 'hero')); return true; }
 }
 // the painter: one dark sheet in a deep sag, its ends narrowing to flat bands up to the ties, the outside showing as a
 // wall below the near hem, a quilt with a folded collar, one loose cloth over the rim. Whoever's in it lies along it.
 SOLID_DRAW.hammock = (s) => {
-  const hm = s.hm, u = UNIT, who = hm.who === 'pip' ? (state.pipIn ? 'pip' : null) : (state.hammock ? 'hero' : null);
+  const hm = s.hm, u = UNIT, mine = state.hammock && (state.hammock.who || 'hero') === hm.who, who = hm.who === 'pip' && state.pipIn ? 'pip' : mine ? 'hero' : null;
   const [ax, ay] = hm.A, [bx, by] = hm.B, L = hm.L, ex = hm.ex, ey = hm.ey, nx = -ey, ny = ex;
   const zEnd = hm.zEnd, sag = (who ? 0.95 : 0.75) * u, hw = hm.hw, rk = hm.rock * u * 0.2, band = 0.22;
   const nearSign = ny > 0.3 ? 1 : ny < -0.3 ? -1 : 0, N = 40, xs = Array.from({ length: N + 1 }, (_, i) => L * i / N);

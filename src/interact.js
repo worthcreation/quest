@@ -241,7 +241,7 @@ function findInteractable() {
   if (f.bench && (sc.id !== 'camp' || campBuilt('bench'))) add(f.bench[0] * W, f.bench[1] * H, 'Craft', 1.9);
   for (const b of f.buildSpots || []) if (!campBuilt(b.piece)) { const r0 = rawOf(), P = campParts(); const v = b.piece === 'fire' ? (P.stones < CAMP_PARTS.fire.stones && r0.stone ? 'Set stones' : P.stones >= CAMP_PARTS.fire.stones && r0.tinder ? 'Add tinder' : r0.firering ? 'Build' : null) : (r0.benchframe ? 'Set frame' : r0.benchkit ? 'Build' : null); if (v) add(b.fx * W, b.fy * H, v, b.r + 0.9); }
   if (f.tentDoor && campBuilt('tent')) add(f.tentDoor[0] * W, f.tentDoor[1] * H, 'Enter', 1.2);
-  if (f.nap && !state.hammock) add(f.nap[0] * W, f.nap[1] * H, 'Climb in', 1.9);
+  if (f.nap && !state.hammock) { add(f.nap[0] * W, f.nap[1] * H, 'Climb in', 1.9); if (pipFree()) add(f.napPip[0] * W, f.napPip[1] * H, 'Climb in', 1.9); }
   if (f.chest) add(f.chest[0] * W, f.chest[1] * H, 'Storage', 1.6);
   if (f.trapdoor) add(f.trapdoor[0] * W, f.trapdoor[1] * H, 'Go down', 1.2);
   if (sc.id === 'tentin' && !state.inv.lantern && state.dusk) { const [lx, ly] = lanternSpot(); add(lx, ly, 'Take lantern', 1.5); }

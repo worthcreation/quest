@@ -125,6 +125,10 @@ USE FABLE when any of these is true:
 STAY ON OPUS for: one feature in one or two files, tuning numbers, a bug with a known cause, running the audit,
 mechanical moves (dead code, a helper replacing repeats), docs and handoffs, mockups.
 If unsure, Fable. Fable's extra safeguards cover biology, cybersecurity and AI research; none of that touches this game.
+- Working a list (state-owners moves, builds 186 to 193): the list lives in a doc, each item struck through there
+  with its build number as it ships; every reply reprints the full list with the model per open item; things found
+  along the way (the fireLit bug) join the list as numbered items instead of a passing note; items set aside say why
+  and where they went (move 8, parked with the climb).
 
 ## 8. Handoff between chats
 The work happens in chat, in the Linux container. Start of every chat: `git clone

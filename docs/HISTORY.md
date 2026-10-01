@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 198: borrow Pip's hammock; the Lists rule
+- Pip's hammock works like yours while he's out of it: F beside it ("Climb in") or a jump landing on it drops you in,
+  it rocks, a nap restores vigor. With him in it, no prompt and a jump stays out. If he hops in (dusk, the tour) while
+  you're in his, you're tipped out beside it and he says "Scoot! That one's mine." F takes the nearer hammock, as the
+  prompt does (on a phone the two spots are 1.9 tiles apart). tests/hammocks.js: steps 2, 8, 9 new.
+- Lists rule: a worked list lives in a doc and every reply reprints it, done items struck through with their build,
+  parked items with why, the model per open item (PROJECT_INSTRUCTIONS, WAYS 7a).
+
 ## Build 197: groundShadow (no change in play)
 - One ground-shadow helper, groundShadow(x, y, w, h, z, opts) in draw.js (opts: a darkness, dx dy nudge, ctx, u), with
   the hero's height rule as shadowScale(z, u). 40 inline shadow ellipses across draw, draw-ui, draw-hero, highlands,

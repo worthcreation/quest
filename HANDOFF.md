@@ -1,4 +1,4 @@
-# Quest: handoff (build 193, 30 Sep 2026)
+# Quest: handoff (build 198, 30 Sep 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -28,8 +28,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 193): audit: 11031 lines, 0 unused, 1 functions over 150,
-  0 repeats, 158 state fields, frames avg 0.5 ms (1 slow, 0 errors). Frame times swing with
+  handoff updates docs/audit-baseline.json. Last run (build 198): audit: 11188 lines, 0 unused, 1 functions over 150,
+  0 repeats, 160 state fields (hammock and pipIn since 195), frames avg 0.49 ms (1 slow, 0 errors). Frame times swing with
   machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
@@ -91,7 +91,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 placeTag/placeCoords/drawPlaceTag, each line toggled in System), scrolls, speech boxes, titles, the pack, the creator screen, begin(), the loop
 - draw-hero.js  the drawn hero model (arena and &model only)
 - hammock.js    the lean-to's two hammocks: HAMMOCKS, hammockShape (layout in tiles, solids, landing, painter), climbIn/
-                climbOut, pipHop, updateHammocks (the rock, the nap), SOLID_DRAW.hammock
+                climbOut, pipHop, updateHammocks (the rock, the nap), SOLID_DRAW.hammock; either is yours to
+                lie in while free (state.hammock.who, pipFree), F takes the nearer
 - arena.js / puzzles.js  ?arena and ?puzzle
 - boot.js       startup (runs last)
 docs/: design-rules.md (the design rules and story so far; read before any change the player sees or reads), keys.md,
@@ -166,9 +167,17 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-1. Hammocks shipped in build 195 (src/hammock.js); the shared ground-shadow helper (groundShadow, 40 sites) in
-   build 197. Left for later, if wanted: Pip's hammock can't be climbed into (his body is solid; yours is the nap).
-2. genWorld (533): split by region, after the climb decision.
+1. ~~Hammocks (build 195); groundShadow, 40 sites (build 197); borrowing Pip's hammock while he's out of it (build
+   198).~~
+2. genWorld (533, src/world.js): split by region. NEXT, FABLE, one build. It already has 13 commented sections (camp,
+   start glade, meadow, river, Wick's shack, downriver, deep woods, windswept field, High Crags, foothill farm, cave,
+   marsh, swamp, Hollow Beneath): one function each, called in the same order, the mountain ones split as they stand
+   and reworked when the climb joins. Every region draws from the one seeded rng, so the call order must not move.
+   Proof (WAYS 5): every test's output identical, the 300-world overlap check identical, and a hash of WORLD for a
+   spread of seeds before and after (write tools/world-hash.js if there isn't one), all reported with numbers.
+3. ~~"Lists" rule: PROJECT_INSTRUCTIONS paragraph above "Replies:", WAYS 7a bullet (build 198).~~
+4. Hawk timer counts down twice a frame. Parked until asked (below). Opus.
+5. The climb. Parked: Ross's design call (below). FABLE, fresh chat.
 The cleanup list (Ross, 30 Sep) is done: docs/state-owners.md moves 1 to 7, 9 and 11 shipped as builds 186 to 193,
 each with every test's output identical before and after and the draw-record hash unchanged (WAYS 5). Move 8
 (startClimb) is parked with the climb below. 162 state fields to 158.
