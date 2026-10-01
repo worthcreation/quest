@@ -80,7 +80,7 @@ function enterSceneIn(id, fx, fy) {
   state.webs = (sc.webs || []).map((w, i) => ({ x: w.fx * W, y: w.fy * H, r: w.r * UNIT, idx: i, burn: 0, lit: null })).filter(w => !rt.flags['web' + w.idx]);
   state.floaters = sc.id === 'h3' && rt.flags.darkshroom ? makeFloaters(8) : [];
   refreshSceneGeometry();
-  state.hammock = null; state.pipIn = false; state.pipHopNext = false;
+  state.hammock = null; state.pipIn = false; if (state.pip) state.pip.hopNext = false;
   if (sc.feat.hammocks) layoutHammocks(sc);
   state.entry = { id, fx: pos[0], fy: pos[1] };
 
@@ -280,21 +280,7 @@ function updateWorld(dt) {
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
-  if (sc.drips) updateDrips(dt);
-  if (sc.feat.hammocks) updateHammocks(dt);
-  if (state.bird) updateBird(dt);
-  if (state.flock.length) updateFlock(dt);
-  if (state.glimpse) updateGlimpse(dt);
-  if (sc.gusts) updateWind(dt, sc);
-  if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
-  if (sc.amb === 'marsh') ambLevel(0.05);
-  if (amb && amb.type === 'night') ambLevel(0.025);
-  if (sc.river) ambLevel(0.07 + 0.08 * Math.max(0, 1 - Math.min(...sc.river.pts.map(p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H))) / (UNIT * 12)), 2200);   // rushing water, louder near it
-  if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
-  updateGas(dt);
-  updateWebs(dt);
-  if (state.fish && !state.cut) updateFishing(dt);
-  if (state.carry === 'rock' && Math.random() < dt * 0.9) { const hh = state.hero; state.fx.push({ x: hh.x + (Math.random() - 0.5) * UNIT * 0.5, y: hh.y - hh.z - UNIT * 1.1, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 2, t: 0, life: 0.7, color: '#5a4128', size: UNIT * 0.09 }); }
+  updateSceneBits(dt, sc, h);
   if (!state.cut && !state.busy && !state.pipIn) updatePip(dt);
   if (ARENA) updateArena(dt);
   if (PUZZLE) updatePuzzle(dt);
@@ -400,6 +386,25 @@ function updateWorld(dt) {
       if (d < UNIT * 0.5) { state.items.splice(i, 1); collect(it); gatherGain(it.type); }
     }
   }
+}
+// the things a screen might have, each ticking if it's here: drips, hammocks, the bird and the flock, the glimpse,
+// the wind, ambience levels, rain, gas, webs, fishing, the dust off a carried rock
+function updateSceneBits(dt, sc, h) {
+  if (sc.drips) updateDrips(dt);
+  if (sc.feat.hammocks) updateHammocks(dt);
+  if (state.bird) updateBird(dt);
+  if (state.flock.length) updateFlock(dt);
+  if (state.glimpse) updateGlimpse(dt);
+  if (sc.gusts) updateWind(dt, sc);
+  if (sc.id === 'c7' && amb) ambLevel(0.04 + 0.28 * Math.max(0, h.x / W - 0.3), 900);
+  if (sc.amb === 'marsh') ambLevel(0.05);
+  if (amb && amb.type === 'night') ambLevel(0.025);
+  if (sc.river) ambLevel(0.07 + 0.08 * Math.max(0, 1 - Math.min(...sc.river.pts.map(p => Math.hypot(h.x - p[0] * W, h.y - p[1] * H))) / (UNIT * 12)), 2200);   // rushing water, louder near it
+  if (state.rain > 0) { ambLevel(0.2 * state.rain); for (let i = 0; i < 6 * state.rain; i++) state.fx.push({ x: Math.random() * W * 1.2 - W * 0.1, y: -10, vx: -UNIT * 3, vy: H * 1.6, t: 0, life: 0.7, color: 'rain' }); }
+  updateGas(dt);
+  updateWebs(dt);
+  if (state.fish && !state.cut) updateFishing(dt);
+  if (state.carry === 'rock' && Math.random() < dt * 0.9) { const hh = state.hero; state.fx.push({ x: hh.x + (Math.random() - 0.5) * UNIT * 0.5, y: hh.y - hh.z - UNIT * 1.1, vx: (Math.random() - 0.5) * UNIT, vy: UNIT * 2, t: 0, life: 0.7, color: '#5a4128', size: UNIT * 0.09 }); }
 }
 // tired heroes are slow heroes
 // the emptier your vigor, the slower you move, the softer you hit, and the harder hits land.

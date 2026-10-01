@@ -228,6 +228,12 @@ tqDone is tests/speech.js's own quest flag). 140 have one clear owner and at mos
 |---|---|---|
 | rise | engine w1 (made at enterScene), world w1 (overview flattens it); draw r3, input r | |
 
+## hammock.js (build 195): 2
+| field | others | note |
+|---|---|---|
+| hammock | engine w1 (reset at enterScene) r2 (update returns early; a landing calls landInHammock); interact r1; draw r1 (drawHero steps aside) | you, lying in yours: `{ t, napped }` |
+| pipIn | engine w1 (reset) r1 (updatePip waits); draw r1 (drawPipNow steps aside); cutscenes and tutorial via pipHop | Pip in his. The tour's "hop in after the line" flag lives on `state.pip.hopNext`, not on state (build 196) |
+
 ## arena.js, puzzles.js: 2
 | field | others | note |
 |---|---|---|

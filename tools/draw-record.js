@@ -19,11 +19,14 @@ state.started = true; state.intro = null; enterScene('w1'); state.cut = null; st
 state.stalCool.k = 99; rtFor(state.scene).flags.hits_b1 = 2; state.inv.shrooms[sceneDef().id] = true; state.inv.up.edge = 2;
 const out = {}, take = (name, f) => { calls.length = 0; state.fx = []; f(); out[name] = { n: calls.length, fx: state.fx.length, hash: crypto.createHash('md5').update(JSON.stringify(calls)).digest('hex') }; };
 const kinds = [...Object.keys(SOLID_DRAW), 'wall', 'tree', 'nothing'];
+const hm = (who, i) => ({ ...HAMMOCKS[i], ...hammockShape(HAMMOCKS[i]), rock: 0.3, rockV: 0 });
 const full = { pal: 'moss', craggy: true, flip: true, gap: true, holeMid: true, rope: [0.5, 0.5], stone: 'geode', bar: 'b1', hp: 3, size: 2, key: 'k', dark: true, tint: '#8a7060' };
 for (const kind of kinds) for (const [tag, extra] of [['', {}], ['+', full]]) for (const lit of [0, 1]) {
   state.fireLit = lit;
-  take(kind + tag + lit, () => drawSolid({ kind, x: 300.5, y: 200.25, vis: 37, r: 33, fx: 0.31, fy: 0.62, ...extra }));
+  take(kind + tag + lit, () => drawSolid({ kind, x: 300.5, y: 200.25, vis: 37, r: 33, fx: 0.31, fy: 0.62, hm: kind === 'hammock' ? hm('pip', tag ? 1 : 0) : undefined, ...extra }));
 }
+for (const [who, i] of [['pip', 0], ['hero', 1]]) { state.pipIn = who === 'pip'; state.hammock = who === 'hero' ? { t: 2 } : null; take('hammock:in:' + who, () => drawSolid({ kind: 'hammock', x: 0, y: 0, vis: 0, r: 0, hm: hm(who, i) })); }
+state.pipIn = false; state.hammock = null;
 const types = [...Object.keys(ICONS), ...Object.keys(RAW), 'mat', 'nothing'];
 for (const type of types) take('icon:' + type, () => drawItemIcon(type, 100.5, 80.25, 41));
 const file = process.argv[2];

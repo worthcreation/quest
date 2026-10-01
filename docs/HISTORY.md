@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 196: updateWorld split (no change in play)
+- The per-screen ticks (drips, hammocks, the bird and flock, the glimpse, wind, ambience levels, rain, gas, webs,
+  fishing, rock dust) move out of updateWorld into updateSceneBits; updateWorld is 137 lines (was 151). The tour's
+  hop-in flag moves from state.pipHopNext to state.pip.hopNext. docs/state-owners.md gets the hammock fields.
+  tools/draw-record.js learns the hammock solid (it carries its shape). Proof: all 66 tests' output identical before
+  and after, draw-record hash identical (204 recordings, 10534 calls).
 ## Build 195: two hammocks in the lean-to
 - Pip's one bed is two hammocks (src/hammock.js, new): Pip's hangs from the crossbar and runs away from you, yours is
   slung between two posts along the left wall; laid out in tiles at enterScene, one shape (hammockShape) for the solids,

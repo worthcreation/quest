@@ -63,7 +63,7 @@ function updateHammocks(dt) {
     hm.rockV -= (ROCK.k * hm.rock + ROCK.c * hm.rockV) * dt; hm.rock += hm.rockV * dt;
     if (hm.who === 'pip' && state.pipIn && Math.abs(hm.rock) < 0.05 && Math.abs(hm.rockV) < 0.2) hm.rock = Math.sin(state.time * 1.3) * ROCK.pipSway * 0.15;
   }
-  if (state.pipHopNext && state.pip && !state.pip.visit) { state.pipHopNext = false; pipHop(true); }   // the tour: he hops in after walking over and saying his piece
+  if (state.pip && state.pip.hopNext && !state.pip.visit) { state.pip.hopNext = false; pipHop(true); }   // the tour: he hops in after walking over and saying his piece
   if (state.pipIn) { pipPin(); if (!state.cut && !state.busy) tutorialTalk(sc, state.pip, h); }   // his tour lines go on from the hammock
   const r = state.hammock; if (!r) return;
   r.t += dt;
