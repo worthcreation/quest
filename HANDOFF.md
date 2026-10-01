@@ -31,8 +31,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 208): audit: 11421 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.76 ms (2 slow, 0 errors); the slow ones are a climb screen's draw and the rise's (the ravines' walls: read a change there only if it grows).
-  Frame times swing with load: read a change there only if it's large or on one screen.
+  handoff updates docs/audit-baseline.json. Last run (build 210): audit: 11461 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.69 ms (2 slow, 0 errors); the slow ones are a climb screen's draw and the rise's (the ravines).
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
@@ -142,12 +141,13 @@ acorn-skill arena book-tiles camp-patch camp-talk camp-tour climb combat-crops c
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
 pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
-robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones
+robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones rise-ravines reeds-hold windshelf
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
 
 ## The climb, where it stands (tune with ?mountain)
-1 The wind trail: remade as the wind shelf, mt1 (207, below). 2 Stepping stones: round islands in a wide ravine.
+1 The wind trail: remade as the wind shelf, mt1 (207, below; it still has its own cy/hw ravine with a floor and its
+walls of stone, untouched by 208 to 210). 2 Stepping stones: round islands in a wide ravine.
 3 The broken meadow: rifts across the way, chasms, a short ravine (gap field). 4 The windy crossing: rifts with bare
 islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The last ledges: a side view.
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Ross, 1 Oct: the islands are hard
@@ -156,7 +156,7 @@ crags); worn out restarts the screen. Open questions: final look, how the screen
 
 ## The wind shelf, mt1 (build 207)
 Out of the rise's pass, 64 x 30 tiles, the rise's kind of screen (in at the north-west corner, moving camera, a pass
-south at the far end, onto climb2 until m2 is remade). M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
+south at the far end, onto climb2 until m2 is remade). Not yet on 208's ravine generator. M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
 narrowing to 0.65 (a 1.3-tile jump) at x 13, 25, 36 so the path zigzags bank to bank (M1.side), widening to 3.5 at
 x 42 where an island (r 1.0, on a pillar) sits between a ledge on each bank: rides only (gaps 2.5). Ledge pairs at
 x 19 and 30.5 for strong-gust rides; sc.rocks hold them (ledge: true; island: true for the pillar). A jump carries
@@ -165,31 +165,27 @@ Three hares (MONSTERS.hare: r 0.58, hp 3, drawSnarl), two carrots and an acorn o
 Dials: rav.hw (wide 2.5, the 1.85 drop at crossings), cross, island, floor, earth, stoneAt, dx 0.5, fine 6.
 tests/windshelf.js plays it end to end. Test links: ?scene=mt1, ?mountain then key 1.
 
-## The rise, where it stands (build 171)
-The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. In and out as the map lays them:
-f1's south way leads in at the north-west corner (x 4, a short way down between the west wall and a corner wall to
-the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads onto climb1 (and peak1's west way leads back onto climb5). It runs on the main game:
-while it's the current scene, W and H are its own size in px (sceneSize; update() and enterScene() set them, drawing
-and the HUD use the screen, SW and SH, and L() walks at the screen's pace), so the hero, Pip, the rabbits, items, fire,
-the tutorial coach and saving are the usual code. Only the drawing is its own (drawMtn): the ground in rows, then
-everything standing drawn by the game's own draw code at its spot on the tipped ground, scaled with the view;
-toScreen projects on the rise, so speech and hints sit right. The overview draws it as a flat thumbnail.
-The view: straight down at the west end; walking east it pulls back (zoom 1.00 to 0.50 on a laptop, 0.72 on a phone:
-never under 20 px of hero) and tips (0 to 54 degrees) evenly to the foot, looking a little ahead. The stone walls
-widen with it: 14 tiles apart by the fields, 30 at the foot (mtnHalf). Crags line the foot and two unbroken walls
-line the pass. No ground lines for now (contours and haze out; Ross will add flair later); the worn path stays.
-Wind as on f1: the same gusts (sc.gusts copied from f1), so you, Pip and loose fluff are nudged and shoved just as
-there; five clumps of tall grass lean ahead of each gust; cloud shadows drift (4 per screen's worth of ground, 33).
-No ledges to ride to: a jump into the strong gust is just a jump.
-Two rabbits in the first stretch (the camp's fluff), with 9 stones and trees to duck behind. At x 20, just past a
-tree at x 18, a wall of reeds crosses the way wall to wall. For now nothing gets through it, fire included (the
-clumps have no bar; reedwall: true). To open it to fire later, give each clump bar: 'risereeds' (burning gas breaks
-reeds with a bar). Past it is out of reach for now, and with it the climb from this side (test links reach it).
-Draws at about 7 to 10 ms a frame in the node renderer (a field screen is about 3 to 4).
-Open: what opens the reeds, their look (the marsh's dark bulrushes; straw-dry would suit a field), a line when you
-bump them, f2's two island pickups (a stick or an acorn each), which the rise doesn't have, and continuity at the
-seams: the rise's way in is at its far west, while f1's south opening sits wherever the seed put it (moving it to
-the matching side means regenerating that edge wall).
+## The rise, where it stands (build 210)
+The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep, on the main game (sceneSize: W and H
+are its own size in px while it's current; the drawing, drawMtn, is its own). f1's south way leads in at the
+north-west corner; at the far end the pass leads south onto the wind shelf (mt1). The view: straight down at the west
+end, pulling back (zoom 1.00 to 0.50 on a laptop, never under 20 px of hero) and tipping (0 to 54 degrees) evenly to
+the foot. Wind as on f1 (the same gusts; tall grass leans ahead of each; cloud shadows).
+Since 208 there are no walls of stone: the screen's edges hold, and east of its foot the mountain itself holds
+(mtnHold, via clampTo), except within 2.2 tiles of the way through the pass. Three bottomless ravines (riseRavines,
+from the screen's seed): the big one in from the north edge at x 16.5 down to the reeds, its tail boxed in reed clumps
+on both banks; with the reed wall (x 20, the south 40%, nothing passes, fire included: no bar) it shuts the way east.
+A slit edge to edge at x 40, a 1.0-tile running jump where the path crosses (keep 0.6 holds its line). A short thin
+one in from the north at x 58. Two rabbits west of the big ravine; nothing stands in a ravine.
+The look (Ross, through 208 to 210, rules in docs/design-rules.md): no floor or end in sight; the far walls lean toward
+the middle of the view and slide as you walk; strata; grey stones set in from 1.5 tiles under the lip, a quarter of
+each showing, a soil patch over the join; a faint tapering river at the bottom of the biggest; the brink (broken ground,
+the lip line, a lighter rim) painted with the ravine before anything standing, the rows stopping at the field's 0.4
+line; everything clipped to the land. Cost in the harness: 36 to 55 ms a frame by the ravines (no ravines: 11 to 15);
+209 took out the stalls (no canvas read-back, a field grid for isChasm, the outline worked out on the way in).
+Open: what opens the reeds, a line when you bump them, the seam with f1 (the rise's way in is at its far west, f1's
+south opening wherever the seed put it), and if it still stutters on Ross's machine, flat wall colours plus one dark
+wash (a still first).
 
 ## Next task (on Opus unless marked: WAYS 7a)
 FABLE: 211 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch, written on 207
@@ -205,6 +201,9 @@ were shown before 208; the look of 208's ravines applies). Then tests/stepping-p
 player, the dare, in and out, a fall), remove climb2 from CLIMB_SPECS, world.js's climb list and MAP_LAYOUT (mt2: [4, 6]),
 MAP_NAMES, tests/climb.js's 2b, HISTORY, mountain-plan, design-rules story; ship. Ross's open calls on the look (the big
 flat floor, island size, bare or grassy) still stand; ask in one short message after the still.
+Also waiting on Ross: his hand-adjusted stills of the climb screens (he asked for stills of the rise and every climb
+screen at the start of the 208 chat; those were delivered as quest-b207-stills.zip). When they come, they set the look
+for m2 onward; read them before the m2 still.
 Parked from 208 (Ross's call later): spider ravines and round pits (genRavine has 'spider'; 'round' was deleted), very
 large wall stones, the brink band over a prop standing at a lip (props keep a third of a tile clear; widen if it shows).
 

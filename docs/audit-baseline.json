@@ -1,13 +1,13 @@
 {
  "unused": 0,
- "lines": 11421,
- "longLines": 615,
+ "lines": 11461,
+ "longLines": 619,
  "stateFields": 160,
  "files": {
   "world.js": 862,
   "highlands.js": 247,
   "climb.js": 317,
-  "mountain.js": 597,
+  "mountain.js": 637,
   "input.js": 422,
   "text.js": 112,
   "engine.js": 722,
@@ -35,9 +35,9 @@
  },
  "bigFns": 0,
  "repeats": 0,
- "frameAvg": 0.76,
+ "frameAvg": 0.69,
  "slowScreens": 2,
  "frameErrors": 0,
  "date": "2026-10-01",
- "build": 208
+ "build": 210
 }
