@@ -61,7 +61,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   it), rounded(x, y, w, h, r) for every rounded box and groundShadow(x, y, w, h, z, opts) for every shadow on the
   ground (shadowScale(z, u) is the height rule) [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
-- Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
+- Climb screens: CLIMB_TUNE (movement, wind) and CLIMB_SPECS (each screen's layout, as numbers) [climb]; climbScreen
+  turns a spec into CLIMBS[id] (cx, hw, gap); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - A scene bigger than the screen: give it sc.virt = [w, h] in tiles; sceneSize makes W and H its size while it's
   current (update and enterScene), and L() walks at the screen's pace. The rise is the one: riseLand, addRise,
   riseHalf, riseView, riseCamera, drawRise (draws the game's own things at their spot on its ground), riseCragSprite
@@ -88,8 +89,6 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   anything the tests don't reach (menus, doodles), eval the old index.html (git show HEAD:index.html) and the new one
   with a recording canvas and compare. Report the counts.
 - Never glob-delete in src/ (an old p*.js cleanup also matched pip.js and puzzles.js).
-- Still to decide with the climb: the crag() painter inside paintClimb and climbBand fixed at 12. Keep ZIG1/zig()
-  until the climb design settles.
 
 ## 6. Definition of done
 - `node tools/ship-local.js NN "..." --zip` finished and the zip delivered as a download: build parses, dead.js 0,

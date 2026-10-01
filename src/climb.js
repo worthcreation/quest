@@ -1,7 +1,8 @@
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.)
+// in a chain: climb1 > climb2 > ... > climb5, then out into the crags. (System > Testing > Try the climb.) Every number
+// that shapes them is in CLIMB_TUNE and CLIMB_SPECS below.
 
 // ?mountain in the link starts straight on the climb (no creator, no opening). ?scene=f3 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
@@ -14,65 +15,85 @@ function startTestScene(id) {                                  // set up enough 
 // the shadow's aim, to tune: lead (how far toward the landing it goes), arrive (when in the jump it gets there),
 // follow (how quickly it chases; lower = lazier, smoother). On the ?mountain link: [ and ] change lead, - and = follow.
 const SHADOW = { lead: 0.55, arrive: 0.9, follow: 7 };
-const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
-// A zigzag of crossings: crossings [[z, 'R' or 'L'], ...] from far to near. Near each one the ravine narrows enough to
-// jump; just past it, crags close the side you came along (you must cross). Between, the walkable ledges wind.
-function zig(cross, wide = 1.9, narrow = 0.55) {
-  const hw = z => { let w = wide; for (const [cz] of cross) { const k = Math.max(0, 1 - Math.abs(z - cz) / 1.1); w = Math.min(w, wide - (wide - narrow) * k * k * (3 - 2 * k)); } return w; };
-  const band = (z, side) => {                                        // how wide the walkable ledge is on that side ('L' / 'R')
-    let b = 2.6 + 0.7 * Math.sin(z * 0.9 + (side === 'L' ? 1 : 2.4));
-    for (const [cz, from] of cross) if (from === side) { const m = Math.min(1, Math.max(0, Math.min(z - (cz - 3.4), (cz - 0.7) - z) / 0.5)); b = b * (1 - m) + 0.15 * m; }   // closed by crags (ramping in and out): you have to cross
-    return b;
-  };
-  return { hw, band };
-}
-const ZIG1 = zig([[15.5, 'R'], [10.5, 'L'], [6.8, 'R']]);
-const CLIMBS = {
-  climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, cx: z => 2.6 * tri(z, 22, 6), hw: ZIG1.hw, band: ZIG1.band, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
-  climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, cx: z => 1.4 * tri(z, 30, 4), hw: z => 2.6, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
-            islands: [[1.3, 17.5, 1.0], [-0.2, 15.2, 1.0], [1.0, 12.8, 0.95], [-0.8, 10.3, 0.95], [0.6, 8.0, 0.95], [-0.9, 6.3, 0.95]] },   // [x from the centre line, z, radius]: a stepping path across and down
-  climb3: { name: 'The broken meadow', kind: 'trail', cam: { f: 0.8, horizon: 0.1, camH: 7.5 }, cx: () => 0, hw: () => 0, start: [0, 21.5], goalZ: 4.8, goalAny: true, next: 'climb4',
-            // rifts running across the way (their edges wander; one is wide except at a narrow place), chasms, and a short ravine
-            gap: (x, z) => {
-              for (const [z0, z1, ph, nx] of [[18.3, 19.6, 1.3, null], [13.6, 15.0, 0.9, null], [9.0, 11.4, 2.1, 1.6], [6.0, 7.2, 0.4, null]]) {
-                let a = z0 + 0.3 * Math.sin(x * 0.9 + ph), b = z1 + 0.3 * Math.sin(x * 1.1 + ph * 2);
-                if (nx != null) b -= 1.1 * Math.exp(-((x - nx) ** 2) / 1.5);                       // the wide one narrows here
-                if (z > a && z < b) return true;
-              }
-              for (const [hx, hz, rx, rz] of [[-3.2, 16.5, 1.4, 0.9], [3.6, 12.2, 1.2, 0.75], [-3.9, 8.1, 1.5, 0.6]]) if (((x - hx) / rx) ** 2 + ((z - hz) / rz) ** 2 < 1) return true;
-              if (z > 15.4 && z < 18.0) { const lx = 4.5 - (18 - z) * 0.9; if (Math.abs(x - lx) < 0.55) return true; }   // a short ravine running down at an angle
-              return false;
-            } },
-  climb4: { name: 'The windy crossing', kind: 'trail', cam: { f: 0.8, horizon: 0.1, camH: 7.5 }, cx: () => 0, hw: () => 0, start: [0, 22.4], goalZ: 4.8, goalAny: true, next: 'climb5',
+// ---------- the dials: every number that shapes the climb, in one place ----------
+// CLIMB_TUNE: how you move and how the wind blows. CLIMB_SPECS: each screen's layout in tiles, z from far (big
+// numbers) to near (your feet at about 4), x across (0 the middle). Tune a screen by changing its numbers here;
+// climbScreen turns a spec into the shape the climb reads: cx (the path's middle at z), hw (the ravine's half-width
+// at z) and, for an open field, gap (true over a hole).
+const CLIMB_TUNE = {
+  run: 3.2, accel: 12, airAccel: 6, jump: 5.2, gravity: 14, jumpBoost: 1.25, fall: 0.9,   // tiles a second; a jump's speed and pull; falling takes 0.9 s
+  ledge: 12,                                                    // how far the green runs past the ravine before its outer edge (past the screen: only the ravine is in the way)
+  gust: { first: 2.5, warn: 0.9, blow: 1.6, calm: [2, 4.5], push: 2.2, airPush: 3.4, back: 3, sideways: 2.2 },   // trail screens: shoves you sideways and back
+  windy: { warn: 1.4, blow: 2.0, calm: [3.5, 5], push: 10, airPush: 14, back: 1, sideways: 0.15 },             // a windy screen: drives you back down (hide behind the big rocks)
+  side: { run: 0.28, jump: 0.95, gravity: 2.4, warn: 0.9, blow: 1.5, calm: [2, 4.5], push: 0.3, airPush: 0.5 },  // the side view, in screen widths and heights a second
+};
+const CLIMB_SPECS = {
+  // path: the way winds (amp tiles either side, over period tiles, shifted); ravine: wide everywhere, narrow enough
+  // to jump at each crossing [z, the side you come from]; islands [x from the path, z, radius]
+  climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, path: { amp: 2.6, period: 22, shift: 6 },
+            ravine: { wide: 1.9, narrow: 0.55, cross: [[15.5, 'R'], [10.5, 'L'], [6.8, 'R']] }, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
+  climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, path: { amp: 1.4, period: 30, shift: 4 },
+            ravine: { wide: 2.6 }, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
+            islands: [[1.3, 17.5, 1.0], [-0.2, 15.2, 1.0], [1.0, 12.8, 0.95], [-0.8, 10.3, 0.95], [0.6, 8.0, 0.95], [-0.9, 6.3, 0.95]] },   // a stepping path across and down
+  // field: open ground with holes. rifts [z near edge, z far edge, phase, x where it narrows] run across, their edges
+  // wobbling (wobble: [tiles, near edge's waviness, far edge's]); narrow [how much, how wide a stretch]; holes
+  // [x, z, half-width, half-depth]; slants [z from, z to, x at the far end, lean per tile, half-width]; edge: past it is a
+  // drop; safe [x, z, radius]: islands out in the rifts
+  climb3: { name: 'The broken meadow', kind: 'trail', cam: { f: 0.8, horizon: 0.1, camH: 7.5 }, start: [0, 21.5], goalZ: 4.8, goalAny: true, next: 'climb4',
+            field: { rifts: [[18.3, 19.6, 1.3], [13.6, 15.0, 0.9], [9.0, 11.4, 2.1, 1.6], [6.0, 7.2, 0.4]], wobble: [0.3, 0.9, 1.1], narrow: [1.1, 1.5],
+                     holes: [[-3.2, 16.5, 1.4, 0.9], [3.6, 12.2, 1.2, 0.75], [-3.9, 8.1, 1.5, 0.6]], slants: [[15.4, 18.0, 4.5, 0.9, 0.55]] } },
+  climb4: { name: 'The windy crossing', kind: 'trail', cam: { f: 0.8, horizon: 0.1, camH: 7.5 }, start: [0, 22.4], goalZ: 4.8, goalAny: true, next: 'climb5',
             windy: true,                                                                   // gusts strong enough to blow you off: hide behind the big rocks
             boulders: [[-1.2, 21.2, 1.0], [2.6, 16.4, 1.05], [-3.2, 16.1, 0.95], [-0.8, 11.0, 1.1], [3.4, 10.6, 0.9], [1.4, 6.2, 1.0], [-3.6, 5.8, 0.9]],
-            gap: (x, z) => {
-              if (Math.abs(x) > 9) return true;
-              for (const [ix, iz, r] of [[-2.2, 18.9, 0.95], [2.8, 19.0, 0.85], [0.4, 13.7, 1.0], [-3.8, 13.6, 0.8], [-2.6, 8.4, 0.85], [2.4, 8.4, 0.85]]) if (Math.hypot(x - ix, z - iz) < r) return false;   // islands out in the rifts (bare: nowhere to hide)
-              for (const [z0, z1, ph] of [[17.4, 20.4, 0.7], [12.1, 15.3, 1.9], [7.1, 9.7, 3.1]]) { const a = z0 + 0.25 * Math.sin(x * 0.8 + ph), b = z1 + 0.25 * Math.sin(x * 1.2 + ph * 2); if (z > a && z < b) return true; }
-              return false;
-            } },
-  climb5: { name: 'The last ledges', kind: 'side', next: 'peak1' },
+            field: { edge: 9, safe: [[-2.2, 18.9, 0.95], [2.8, 19.0, 0.85], [0.4, 13.7, 1.0], [-3.8, 13.6, 0.8], [-2.6, 8.4, 0.85], [2.4, 8.4, 0.85]],   // islands bare: nowhere to hide
+                     rifts: [[17.4, 20.4, 0.7], [12.1, 15.3, 1.9], [7.1, 9.7, 3.1]], wobble: [0.25, 0.8, 1.2] } },
+  climb5: { name: 'The last ledges', kind: 'side', ledges: 14, from: 0.78, top: 0.25, next: 'peak1' },   // ledges: how many, the first one's height, the highest any goes
 };
+const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
+// the ravine's half-width: wide, narrowing smoothly to narrow near each crossing
+function zigHw(cross, wide, narrow) {
+  return z => { let w = wide; for (const [cz] of cross) { const k = Math.max(0, 1 - Math.abs(z - cz) / 1.1); w = Math.min(w, wide - (wide - narrow) * k * k * (3 - 2 * k)); } return w; };
+}
+function fieldGap(F) {
+  const [wob, ka, kb] = F.wobble || [0, 0, 0];
+  return (x, z) => {
+    if (F.edge && Math.abs(x) > F.edge) return true;
+    for (const [ix, iz, r] of F.safe || []) if (Math.hypot(x - ix, z - iz) < r) return false;
+    for (const [z0, z1, ph, nx] of F.rifts || []) {
+      const a = z0 + wob * Math.sin(x * ka + ph); let b = z1 + wob * Math.sin(x * kb + ph * 2);
+      if (nx != null) b -= F.narrow[0] * Math.exp(-((x - nx) ** 2) / F.narrow[1]);
+      if (z > a && z < b) return true;
+    }
+    for (const [hx, hz, rx, rz] of F.holes || []) if (((x - hx) / rx) ** 2 + ((z - hz) / rz) ** 2 < 1) return true;
+    for (const [z0, z1, xf, lean, half] of F.slants || []) if (z > z0 && z < z1 && Math.abs(x - (xf - (z1 - z) * lean)) < half) return true;
+    return false;
+  };
+}
+function climbScreen(s) {
+  const p = s.path, r = s.ravine;
+  const cx = p ? z => p.amp * tri(z, p.period, p.shift) : () => 0;
+  const hw = !r ? () => 0 : r.cross ? zigHw(r.cross, r.wide, r.narrow) : () => r.wide;
+  return Object.assign({}, s, { cx, hw }, s.field ? { gap: fieldGap(s.field) } : {});
+}
+const CLIMBS = Object.fromEntries(Object.entries(CLIMB_SPECS).map(([id, s]) => [id, climbScreen(s)]));
 const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb1;
 const climbCx = (z, d = climbDef()) => d.cx(z);
 const climbHw = (z, d = climbDef()) => d.hw(z);
 const climbSlopeY = dx => 1.5;                                                   // the ledges are level ground
-const climbBand = (z, side, d = climbDef()) => 12;                                // (testing) the green runs out past the screen's sides: only the ravine is in the way
 function climbProj(x, y, z, d = climbDef()) {
   const f = H * d.cam.f, sx = (x - d.cx(5.6)) * f / z;
   return [W / 2 + (d.mirror ? -sx : sx), H * d.cam.horizon + (d.cam.camH - y) * f / z];
 }
 const climbSide = (x, z) => x - climbCx(z);
 const onClimbIsland = (x, z, d = climbDef()) => (d.islands || []).some(([ix, iz, r]) => Math.hypot(x - (d.cx(iz) + ix), z - iz) < r);   // round tops
-const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const dd = climbDef(); if (dd.gap) return dd.gap(x, z) || Math.abs(x) > 11; const s = climbSide(x, z), a = Math.abs(s); return a < climbHw(z) || a > climbHw(z) + climbBand(z, s < 0 ? 'L' : 'R'); };   // the ravine, or off a ledge's outer edge
+const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const dd = climbDef(); if (dd.gap) return dd.gap(x, z) || Math.abs(x) > 11; const s = climbSide(x, z), a = Math.abs(s); return a < climbHw(z) || a > climbHw(z) + CLIMB_TUNE.ledge; };   // the ravine, or off a ledge's outer edge
 
 function newClimb(id) {
   const d = CLIMBS[id] || CLIMBS.climb1;
   if (d.kind === 'side') return newSideClimb();
   setTimeout(climbTip, 400);
   return { kind: 'trail', x: d.cx(d.start[1]) + d.start[0], z: d.start[1], vx: 0, vz: 0, h: 0, vh: 0, air: false, fall: 0, safe: null,
-    gust: { phase: 'calm', t: 2.5, dir: 1 }, done: false, bg: null, bgKey: '' };
+    gust: { phase: 'calm', t: CLIMB_TUNE.gust.first, dir: 1 }, done: false, bg: null, bgKey: '' };
 }
 function climbTip() { if (!(state.inv.pipTips || {})['climb-shadow']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-shadow'] = true; showScroll('Pay attention to your shadow', 'In the air, it shows where you\'ll land.'); } }
 function climbFinish(c) {
@@ -94,17 +115,17 @@ function updateClimb(dt) {
   if (c.done) { c.doneT = (c.doneT || 0) + dt; if (c.doneT > 1.8) { const d = climbDef(), nx = MOUNTAIN && d.next === 'peak1' ? 'climb1' : d.next; state.climb = null; if (nx === 'peak1') enterScene('peak1', 0.5, 0.85); else enterScene(nx || state.climbReturn || 'f1'); } return; }
   if (state.menu) return;
   if (c.kind === 'side') { updateSideClimb(c, dt); updateFx(dt); return; }
-  const d = climbDef(), h = state.hero, g = c.gust; g.t -= dt;
-  if (g.t <= 0) { const wy = d.windy; if (g.phase === 'calm') { g.phase = 'warn'; g.t = wy ? 1.4 : 0.9; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); if (wy && !(state.inv.pipTips || {})['climb-hide']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-hide'] = true; showScroll('Here it comes', 'The wind comes up the mountain at you: get behind a big rock!'); } } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = wy ? 2.0 : 1.6; } else { g.phase = 'calm'; g.t = wy ? 3.5 + Math.random() * 1.5 : 2 + Math.random() * 2.5; } }
-  if (c.fall > 0) { c.fall += dt; if (c.fall > 0.9) { c.fall = 0; [c.x, c.z] = c.safe || [d.cx(d.start[1]) + d.start[0], d.start[1]]; c.h = 0; c.air = false; c.vx = c.vz = 0; hurtHero(1, 0, 0, { force: true }); } return; }
-  const v = inputVector(), sp = 3.2, acc = c.air ? 6 : 12, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
+  const d = climbDef(), h = state.hero, g = c.gust, T = CLIMB_TUNE, G = d.windy ? T.windy : T.gust; g.t -= dt;
+  if (g.t <= 0) { const wy = d.windy; if (g.phase === 'calm') { g.phase = 'warn'; g.t = G.warn; g.dir = Math.random() < 0.5 ? -1 : 1; sfx.rustle(); if (wy && !(state.inv.pipTips || {})['climb-hide']) { (state.inv.pipTips = state.inv.pipTips || {})['climb-hide'] = true; showScroll('Here it comes', 'The wind comes up the mountain at you: get behind a big rock!'); } } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = G.blow; } else { g.phase = 'calm'; g.t = G.calm[0] + Math.random() * (G.calm[1] - G.calm[0]); } }
+  if (c.fall > 0) { c.fall += dt; if (c.fall > T.fall) { c.fall = 0; [c.x, c.z] = c.safe || [d.cx(d.start[1]) + d.start[0], d.start[1]]; c.h = 0; c.air = false; c.vx = c.vz = 0; hurtHero(1, 0, 0, { force: true }); } return; }
+  const v = inputVector(), sp = T.run, acc = c.air ? T.airAccel : T.accel, mx = d.mirror ? -v.x : v.x;   // you can steer a little in the air
   c.vx += (mx * sp - c.vx) * Math.min(1, acc * dt); c.vz += (-v.y * sp - c.vz) * Math.min(1, acc * dt);
   c.sheltered = d.windy && (d.boulders || []).some(([bx, bz, r]) => Math.abs(bx - c.x) < r * 1.05 && bz < c.z && c.z - bz < r + 1.6);   // a big rock between you and the wind (it comes up the mountain at you, from the near side)
-  if (g.phase === 'blow' && !c.sheltered) { if (d.windy) { const push = c.air ? 14 : 10; c.vz += push * dt; c.vx += g.dir * push * dt * 0.15; /* it drives you back, the way you came */ } else { const push = c.air ? 3.4 : 2.2; c.vz += push * dt * 3; c.vx += g.dir * push * dt * 2.2; } }
-  if (pressedNow.jump && !c.air) { c.jumpFrom = [c.x, c.z]; c.air = true; c.airT = 0; c.airDur = 2 * 5.2 / 14; c.vh = 5.2; c.vx *= 1.25; c.vz *= 1.25; sfx.jump(); }
-  if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / 28; }
+  if (g.phase === 'blow' && !c.sheltered) { const push = c.air ? G.airPush : G.push; c.vz += push * dt * G.back; c.vx += g.dir * push * dt * G.sideways; }   // back the way you came, and sideways
+  if (pressedNow.jump && !c.air) { c.jumpFrom = [c.x, c.z]; c.air = true; c.airT = 0; c.airDur = 2 * T.jump / T.gravity; c.vh = T.jump; c.vx *= T.jumpBoost; c.vz *= T.jumpBoost; sfx.jump(); }
+  if (c.air) { c.airT = (c.airT || 0) + dt; if (c.vh > 0) c.peakH = c.h + c.vh * c.vh / (2 * T.gravity); }
   if (c.air) {                                                                        // the shadow chases a point part way toward the landing, smoothly
-    const tA = c.vh / 14 + Math.sqrt(Math.max(0, (c.vh / 14) ** 2 + 2 * c.h / 14)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
+    const tA = c.vh / T.gravity + Math.sqrt(Math.max(0, (c.vh / T.gravity) ** 2 + 2 * c.h / T.gravity)), lx = c.x + c.vx * tA, lz = c.z + c.vz * tA * Math.max(0.8, Math.min(1.4, c.z / 9));
     const u0 = Math.min(1, (c.airT || 0) / ((c.airDur || 0.74) * SHADOW.arrive)), lead = SHADOW.lead * u0 * u0 * (3 - 2 * u0);
     // the shadow rides along with you and eases ahead of you: it's your position plus a smoothed offset toward the
     // landing, so it never lags behind you (which looked like it slid backwards before moving on)
@@ -118,7 +139,7 @@ function updateClimb(dt) {
   if (d.windy && c.z > d.start[1] + 1.4 && !c.air) { const back = Object.keys(CLIMBS).find(k => CLIMBS[k].next === state.scene); if (back) { state.climb = null; enterScene(back); const b = state.climb; if (b) { b.z = 5.8; b.x = 0.4; b.safe = [b.x, b.z]; } showScroll('Blown back', 'The wind drove you all the way back down.'); return; } }
   // (no crags for now: the ledges are platforms in the air, and off any edge you fall)
   for (const [bx, bz, r] of d.boulders || []) { const dx = c.x - bx, dz = c.z - bz, dd = Math.hypot(dx, dz) || 0.001, mn = r + 0.3; if (dd < mn && c.h < 1.2) { c.x = bx + dx / dd * mn; c.z = bz + dz / dd * mn; } }   // the big rocks are solid
-  if (c.air) { c.h += c.vh * dt; c.vh -= 14 * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
+  if (c.air) { c.h += c.vh * dt; c.vh -= T.gravity * dt; if (c.h <= 0) { c.h = 0; c.air = false; } }
   if (!c.air) { if (overChasm(c.x, c.z)) { c.fall = 0.01; sfx.fall(); return; } c.safe = [c.x, c.z]; }
   if (!c.air && c.z <= d.goalZ && (d.goalAny || climbSide(c.x, c.z) < -climbHw(c.z))) climbFinish(c);
   [h.x, h.y] = climbProj(c.x, climbGround(c.x, c.z) + c.h, c.z);
@@ -222,23 +243,14 @@ function paintClimb(g, d) {
   const horizon = H * d.cam.horizon, f = H * d.cam.f, P = (x, y, z) => climbProj(x, y, z, d);
   const quad = (p, fill) => { g.beginPath(); p.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = fill; g.fill(); };
   const mix = (a, b, t) => '#' + [0, 2, 4].map(i => Math.round(parseInt(a.substr(1 + i, 2), 16) * (1 - t) + parseInt(b.substr(1 + i, 2), 16) * t).toString(16).padStart(2, '0')).join('');
-  const mw = x => d.mirror ? W - x : x;
   let gr = g.createLinearGradient(0, 0, 0, horizon + 40); gr.addColorStop(0, '#9cc4e4'); gr.addColorStop(1, '#dfeaf0'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-  if (false) { quad([[mw(W * 0.45), horizon + 30], [mw(W * 0.62), horizon - H * 0.24], [mw(W * 0.7), horizon - H * 0.19], [mw(W * 0.84), horizon + 30]], '#9a948e');
-    quad([[mw(W * 0.58), horizon - H * 0.19], [mw(W * 0.62), horizon - H * 0.24], [mw(W * 0.66), horizon - H * 0.2], [mw(W * 0.63), horizon - H * 0.19]], '#eef2f5');
-    quad([[mw(W * 0.1), horizon + 30], [mw(W * 0.26), horizon - H * 0.1], [mw(W * 0.4), horizon + 30]], '#aaa6a2'); }
   g.fillStyle = '#7fa36a'; g.fillRect(0, horizon - 8, W, 60);
   { const gg = g.createLinearGradient(0, horizon + 40, 0, H); gg.addColorStop(0, '#9fb3a0'); gg.addColorStop(1, '#6f8d62'); g.fillStyle = gg; g.fillRect(0, horizon + 40, W, H); }
   for (let i = 0; i < 70; i++) { const x = (i * 0.618 % 1) * W, y = horizon + 60 + (i * 0.377 % 1) * (H - horizon); g.fillStyle = 'rgba(60,90,55,.5)'; g.beginPath(); g.arc(x, y, 3 + (y - horizon) * 0.02, 0, 6.28); g.fill(); }
   if (d.gap) { paintGapField(g, d, P, quad, mix, f); return; }
   const HAZE = '#c8d6de', step = 0.15, wh = 1.5; let s = 7; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
   const isl = (d.islands || []).map(([ix, iz, r]) => ({ x: d.cx(iz) + ix, z: iz, r, drawn: false }));
-  const lipL = [], lipR = [], lipOL = [], lipOR = [], band = (z, S) => 12;
-  const crag = (x0, x0b, dir, z, z2, side, haze) => {                             // the crags beyond a ledge: a rough rock wall rising, stepping back
-    const bump = k => wh + 1.6 + 1.1 * Math.abs(Math.sin(k * 1.7 + side)) + 0.5 * Math.abs(Math.sin(k * 4.3)), hTop = bump(z), hTop2 = bump(z2);
-    quad([P(x0 + dir * 6, hTop + 1.6, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b + dir * 6, hTop2 + 1.6, z2)], haze(Math.floor(z * 1.5) % 3 ? '#8a857c' : '#817c74'));   // the rock above, stepping back and up
-    quad([P(x0, wh, z), P(x0, hTop, z), P(x0b, hTop2, z2), P(x0b, wh, z2)], haze(side === 1 ? '#6c6760' : '#5c5852'));                              // its face toward the ledge
-  };
+  const lipL = [], lipR = [], lipOL = [], lipOR = [], band = () => CLIMB_TUNE.ledge;
   for (let z = 70; z > 3.3; z -= step) {
     const z2 = z - step, t = Math.min(1, (z - 3) / 55) ** 0.8, haze = col => mix(col, HAZE, t * 0.75);
     const L1 = d.cx(z) - d.hw(z), R1 = d.cx(z) + d.hw(z), L2 = d.cx(z2) - d.hw(z2), R2 = d.cx(z2) + d.hw(z2);
@@ -273,18 +285,18 @@ function paintClimb(g, d) {
 
 // ---------- the side view: the mountain seen side on, ledges climbing to the right, the valley far below ----------
 function newSideClimb() {
-  const L = []; let x = 0, y = 0.78;
-  for (let i = 0; i < 14; i++) { const w = 0.14 + ((i * 37) % 7) / 60; L.push([x, x + w, y]); x += w + 0.05 + ((i * 53) % 5) / 90; y -= 0.04 + ((i * 29) % 4) / 100; if (y < 0.25) y = 0.25; }
-  return { kind: 'side', ledges: L, worldW: x, px: 0.05, py: L[0][2], vx: 0, vy: 0, air: false, safe: [0.05, L[0][2]], cam: 0, gust: { phase: 'calm', t: 2.5 }, done: false, fall: 0 };
+  const S = CLIMB_SPECS.climb5, L = []; let x = 0, y = S.from;
+  for (let i = 0; i < S.ledges; i++) { const w = 0.14 + ((i * 37) % 7) / 60; L.push([x, x + w, y]); x += w + 0.05 + ((i * 53) % 5) / 90; y -= 0.04 + ((i * 29) % 4) / 100; if (y < S.top) y = S.top; }   // widths, gaps and steps vary in a fixed pattern
+  return { kind: 'side', ledges: L, worldW: x, px: 0.05, py: L[0][2], vx: 0, vy: 0, air: false, safe: [0.05, L[0][2]], cam: 0, gust: { phase: 'calm', t: CLIMB_TUNE.gust.first }, done: false, fall: 0 };
 }
 function updateSideClimb(c, dt) {
-  const g = c.gust; g.t -= dt;
-  if (g.t <= 0) { if (g.phase === 'calm') { g.phase = 'warn'; g.t = 0.9; sfx.rustle(); } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = 1.5; } else { g.phase = 'calm'; g.t = 2 + Math.random() * 2.5; } }
-  const v = inputVector(), sp = 0.28;                                                      // units: screen widths per second
+  const g = c.gust, T = CLIMB_TUNE.side; g.t -= dt;
+  if (g.t <= 0) { if (g.phase === 'calm') { g.phase = 'warn'; g.t = T.warn; sfx.rustle(); } else if (g.phase === 'warn') { g.phase = 'blow'; g.t = T.blow; } else { g.phase = 'calm'; g.t = T.calm[0] + Math.random() * (T.calm[1] - T.calm[0]); } }
+  const v = inputVector(), sp = T.run;                                                      // units: screen widths per second
   c.vx += (v.x * sp - c.vx) * Math.min(1, (c.air ? 3 : 12) * dt);
-  if (g.phase === 'blow') c.vx -= (c.air ? 0.5 : 0.3) * dt;                                // the wind comes down the mountain, against you
-  if (pressedNow.jump && !c.air) { c.vy = -0.95; c.air = true; sfx.jump(); }
-  c.vy += 2.4 * dt; c.px += c.vx * dt * (W / H > 1 ? H / W : 1) * 1.6; c.py += c.vy * dt * 0.6;
+  if (g.phase === 'blow') c.vx -= (c.air ? T.airPush : T.push) * dt;                                // the wind comes down the mountain, against you
+  if (pressedNow.jump && !c.air) { c.vy = -T.jump; c.air = true; sfx.jump(); }
+  c.vy += T.gravity * dt; c.px += c.vx * dt * (W / H > 1 ? H / W : 1) * 1.6; c.py += c.vy * dt * 0.6;
   const on = c.ledges.find(([a, b, y]) => c.px >= a && c.px <= b && c.py >= y - 0.005 && c.py <= y + 0.05 && c.vy >= 0);
   if (on) { c.py = on[2]; c.vy = 0; c.air = false; c.safe = [Math.min(on[1] - 0.02, Math.max(on[0] + 0.02, c.px)), on[2]]; } else c.air = true;
   c.px = Math.max(0.01, c.px);

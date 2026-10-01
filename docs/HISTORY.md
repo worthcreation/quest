@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 201: the climb's dials (no change in play)
+- climb.js: CLIMB_TUNE holds how you move and how the wind blows (run, jump, gravity, fall time, the ledge, each wind's
+  timings and pushes, the side view's own row); CLIMB_SPECS holds each screen's layout as numbers (the path's wind,
+  the ravine and its crossings, islands, a field's rifts, holes, slants, edge and safe islands, boulders; the side
+  view's ledge count and heights). climbScreen turns a spec into CLIMBS[id]; zigHw and fieldGap replace zig and the
+  two hand-written gap functions. Deleted: ZIG1, zig's unused band, climbBand, the unused crag() in paintClimb and an
+  if (false) mountain.
+- Proof, before and after: each trail screen's ground sampled every 0.1 tile (overChasm, islands, height, path and
+  ravine width), every paint call (30612, 31314, 177270, 175118), a 30 s scripted run on each (climb4's ends blown
+  back to climb3) and the side view's ledges and a 25 s run: all identical. Every test's output identical.
+
 ## Build 200: the hawk's timer counts once (no change in play); the roadmap in HANDOFF
 - MONSTERS.hawk.ai no longer counts e.t down (updateEnemies already does), and every hawk timer is halved to match:
   first circle rr(1, 2), dive 0.45, climb 0.6, next circle rr(1.5, 3), after a grab 0.75, after a stun 0.5.
