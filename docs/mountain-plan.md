@@ -72,16 +72,17 @@ New scenes first (Ross, 1 Oct):
     drawMtnDrop. Parked: spider branches, round pits, big wall stones, islands (their own generator, laid on purpose).
 209 the rise runs smooth: the ravines' per-frame costs cut (no canvas read-back, a field grid for the game's test,
     the outline worked out on the way in, walls culled to the screen). Done.
-210 m2 the stepping path, fixed and zoomed out: islands at least 2 tiles across (draft in docs/parked/m2-stepping-path.patch,
+210 the brink lies on the ground: painted with its ravine before anything standing (you, the reeds). Done.
+211 m2 the stepping path, fixed and zoomed out: islands at least 2 tiles across (draft in docs/parked/m2-stepping-path.patch,
     written on 207: re-base it). FABLE.
-211 m3 inside the mountain, moving camera: rifts that crack open ahead of you; a hidden area. FABLE.
-212 m4 the windy crossing, fixed and wide: bare islands, big rocks to shelter behind. FABLE.
-213 m5 the last ledges, side view on the main game: the buff rabbits, carrot juice; climb.js deleted. FABLE.
-214 hawks hunt rabbits on m1 to m4 (the rabbits drive them off on m4); nests and eggs; the ornithologist. FABLE.
-215 the tortoise's hollow, peaches, peach stones. FABLE.
-216 trees. FABLE.
-217 the windmill. Opus (FABLE if it does more than turn).
-218 direction by seed: the whole family runs left or right as the seed says. FABLE.
+212 m3 inside the mountain, moving camera: rifts that crack open ahead of you; a hidden area. FABLE.
+213 m4 the windy crossing, fixed and wide: bare islands, big rocks to shelter behind. FABLE.
+214 m5 the last ledges, side view on the main game: the buff rabbits, carrot juice; climb.js deleted. FABLE.
+215 hawks hunt rabbits on m1 to m4 (the rabbits drive them off on m4); nests and eggs; the ornithologist. FABLE.
+216 the tortoise's hollow, peaches, peach stones. FABLE.
+217 trees. FABLE.
+218 the windmill. Opus (FABLE if it does more than turn).
+219 direction by seed: the whole family runs left or right as the seed says. FABLE.
 Any time Ross OKs the mockup: the wind by height (docs/parked/wind-by-height.patch applies on 206: windHeight,
 windPow, WIND_BITS, windFx, drawWindBit, tests/wind-height.js; 66 of 66 passed with it). Opus.
 Each screen sets its own palette and creatures in its spec (the height table is no longer a build of its own).

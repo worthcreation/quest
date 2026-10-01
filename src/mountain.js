@@ -110,9 +110,9 @@ function ravFieldAt(r, x, y) {
   const u = fx - i, v = fy - j, a = G.g[j], b = G.g[j + 1];
   return (a[i] * (1 - u) + a[i + 1] * u) * (1 - v) + (b[i] * (1 - u) + b[i + 1] * u) * v;
 }
-function ravRings(r) {
-  if (r.rings) return r.rings;
-  const { x0, y0, st, nx, ny, g } = ravGrid(r);
+function ravRings(r, iso = 0) {                                                          // iso: the level traced (0 the lip; 0.4 the brink's outer edge)
+  const C = r.ringsAt || (r.ringsAt = {}); if (C[iso]) return C[iso];
+  const { x0, y0, st, nx, ny } = ravGrid(r), g = iso ? ravGrid(r).g.map(row => row.map(v => v - iso)) : ravGrid(r).g;
   // every cell edge the outline crosses gets a point; each cell links its two (or four) crossings; then the links are walked into loops
   const key = (i, j, e) => (j * nx + i) * 2 + e, pts = new Map(), links = new Map();            // e 0: the edge from (i,j) to (i+1,j); e 1: from (i,j) to (i,j+1)
   const cross = (i, j, e) => { const k = key(i, j, e); if (!pts.has(k)) { const a = g[j][i], b = e ? g[j + 1][i] : g[j][i + 1], t = a / (a - b); pts.set(k, [x0 + (i + (e ? 0 : t)) * st, y0 + (j + (e ? t : 0)) * st]); } return k; };
@@ -132,7 +132,7 @@ function ravRings(r) {
     if (ring.length > 4 && Math.abs(a) > 2.4) rings.push(ring);                               // (a sliver of ground pinched between two branches is not worth a lip: under 1.2 tiles it's dropped)
   }
   const inside = ([px, py], ring) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > py !== yj > py && px < (xj - xi) * (py - yi) / (yj - yi) + xi) c = !c; } return c; };
-  return (r.rings = rings.filter(a => !rings.some(b => b !== a && inside(a[0], b))));          // no islands: ground ringed by the drop is swallowed (islands are laid by their own generator)
+  return (C[iso] = rings.filter(a => !rings.some(b => b !== a && inside(a[0], b))));          // no islands: ground ringed by the drop is swallowed (islands are laid by their own generator)
 }
 // spines by kind, from a seed: long (winding, 2 to 3 wide), thin (a crack, under a tile), spider (a
 // crack with branches forking off it, thinner as they go). from [x, y], heading dir (radians), about len tiles
@@ -397,7 +397,18 @@ function drawMtn() {
   if (mtnDrawRavs(m).length && typeof Path2D === 'function') { const row0 = mtnRows(m, land)[0]; landClip = new Path2D(); landClip.moveTo(-W, H * 3); idx.forEach(i => landClip.lineTo(sxOf(land.xs[i]), sy(row0.y, row0.top[i]))); landClip.lineTo(W * 2, H * 3); landClip.closePath(); }
   const onLand = fn => () => { ctx.save(); if (landClip) ctx.clip(landClip); fn(); ctx.restore(); };
   let holeY0 = Infinity, holeY1 = -Infinity, holeX0 = Infinity, holeX1 = -Infinity;                // the holes' extent on the screen: a row that misses it needs no clip
-  for (const r0 of mtnDrawRavs(m)) for (const rv of mtnRavinePts(m, r0, sxOf, sy, hole)) { for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; } list.push([rv.yTop + 0.26, onLand(() => drawMtnRavine(rv, s))]); if (rv.yBot != null) list.push([rv.yBot + 0.6, onLand(() => drawMtnBrink(rv, s))]); }   // (the brink is painted over the ground, once every row the lip crosses is down)
+  for (const r0 of mtnDrawRavs(m)) {
+    const rvs = mtnRavinePts(m, r0, sxOf, sy, hole); if (!rvs.length) continue;
+    for (const rv of rvs) for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; }
+    if (!r0.spine) { for (const rv of rvs) list.push([rv.yTop + 0.26, onLand(() => drawMtnRavine(rv, s))]); continue; }
+    // a spine ravine: the rows stop at its brink's outer edge, and the ravine paints the brink itself, ground first, at
+    // its own turn (before anything standing south of its top: you, the reeds and the stones all stand on it)
+    const proj = iso => ravRings(r0, iso).map(ring => ring.map(([x, y]) => [sxOf(x), sy(y, mtnH(m, x, y))])), band = hole ? new Path2D() : null;
+    for (const O of proj(0.4)) { if (hole) { O.forEach(([X, Y], i) => i ? hole.lineTo(X, Y) : hole.moveTo(X, Y)); hole.closePath(); } for (const [X, Y] of O) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; } }
+    if (band) for (const O of proj(0.5)) { O.forEach(([X, Y], i) => i ? band.lineTo(X, Y) : band.moveTo(X, Y)); band.closePath(); }   // (the brink's ground reaches a tenth of a tile past where the rows stop: the rows' edge falls on ground of its own colour, no seam)
+    if (band) for (const rv of rvs) { rv.N.forEach(([X, Y], i) => i ? band.lineTo(X, Y) : band.moveTo(X, Y)); band.closePath(); }
+    list.push([Math.min(...rvs.map(rv => rv.yTop)) + 0.26, onLand(() => { for (const rv of rvs) drawMtnRavine(rv, s); if (band) drawMtnBrink(rvs, s, band, fillRows); })]);
+  }
   for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
@@ -406,18 +417,23 @@ function drawMtn() {
   for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
   if (h.ride && h.ride.wind) list.push([h.ride.y1 / UNIT + 0.2, () => at(h.ride.x1, h.ride.y1, drawLandingShadow)]);   // mid-ride: where you'll come down
   list.sort((a, b) => a[0] - b[0]);
+  // a row of ground on the screen: its top and bottom edges, a pixel of overlap so no seams show
+  const geo = new Map(), rowGeo = row => { let G = geo.get(row); if (G) return G;
+    if (!row.grad) { row.grad = ctx.createLinearGradient(m.X0, 0, m.X1, 0); row.cols.forEach((c, i) => { if (i % 2 === 0 || i === row.cols.length - 1) row.grad.addColorStop(i / (land.xs.length - 1), c); }); }   // a stop every other tile is plenty
+    let lo = Infinity, hi = -Infinity; const tp = idx.map(i => { const v = sy(row.y, row.top[i]); lo = Math.min(lo, v); hi = Math.max(hi, v); return v; }), bp = idx.map(i => sy(row.y2, row.bot[i]) + 1);
+    G = { tp, bp, lo, hi, show: !(hi < -UNIT * 4 || Math.min(...bp) > H + UNIT * 4 && lo > H) }; geo.set(row, G); return G; };
+  const fillRow = (row, G, j0 = 0, j1 = idx.length - 1) => { ctx.save(); ctx.translate(W / 2 - r.cx * us, 0); ctx.scale(us, 1); ctx.beginPath(); for (let j = j0; j <= j1; j++) j > j0 ? ctx.lineTo(land.xs[idx[j]], G.tp[j]) : ctx.moveTo(land.xs[idx[j]], G.tp[j]); for (let j = j1; j >= j0; j--) ctx.lineTo(land.xs[idx[j]], G.bp[j]); ctx.closePath(); ctx.fillStyle = row.grad; ctx.fill(); ctx.restore(); };
+  // the rows on the screen between two heights and two x's (the slice of each), back to front, under a clip: the brink's ground
+  function fillRows(y0, y1, X0, X1) { let j0 = 0, j1 = idx.length - 1; while (j0 < j1 && sxOf(land.xs[idx[j0 + 1]]) < X0) j0++; while (j1 > j0 && sxOf(land.xs[idx[j1 - 1]]) > X1) j1--;
+    const rows = mtnRows(m, land).filter(row => { const G = rowGeo(row); return G.show && G.hi >= y0 - 2 && G.lo <= y1 + 2; });
+    for (let k = 0; k < rows.length; k += 3) { const a = rowGeo(rows[k]), b = rowGeo(rows[Math.min(rows.length - 1, k + 2)]); fillRow(rows[Math.min(rows.length - 1, k + 1)], { tp: a.tp, bp: b.bp }, j0, j1); } }   // (three rows at a time, the middle one's colours: under a narrow band nobody sees the difference)
   let li = 0;
   for (const row of mtnRows(m, land)) {
-    const yT = row.y, yB = row.y2;
-    if (!row.grad) { row.grad = ctx.createLinearGradient(m.X0, 0, m.X1, 0); row.cols.forEach((c, i) => { if (i % 2 === 0 || i === row.cols.length - 1) row.grad.addColorStop(i / (land.xs.length - 1), c); }); }   // a stop every other tile is plenty
-    let lo = Infinity, hi = -Infinity; const tp = idx.map(i => { const v = sy(yT, row.top[i]); lo = Math.min(lo, v); hi = Math.max(hi, v); return v; });
-    const bp = idx.map(i => sy(yB, row.bot[i]) + 1);                                    // (a pixel of overlap: no seams)
-    if (!(hi < -UNIT * 4 || Math.min(...bp) > H + UNIT * 4 && lo > H)) {
+    const yB = row.y2, G = rowGeo(row), { lo, hi } = G;
+    if (G.show) {
       const cut = hole && hi >= holeY0 - 2 && lo <= holeY1 + 2 && holeX1 >= -2 && holeX0 <= W + 2;
-      ctx.save(); if (cut) ctx.clip(hole, 'evenodd');                                    // (the rows stop at the ravine's lips; only rows the holes reach are clipped)
-      ctx.translate(W / 2 - r.cx * us, 0); ctx.scale(us, 1);                              // x in tiles, y in pixels: the row's colours are a gradient along x
-      ctx.beginPath(); idx.forEach((i, j) => j ? ctx.lineTo(land.xs[i], tp[j]) : ctx.moveTo(land.xs[i], tp[j])); for (let j = idx.length - 1; j >= 0; j--) ctx.lineTo(land.xs[idx[j]], bp[j]); ctx.closePath();
-      ctx.fillStyle = row.grad; ctx.fill(); ctx.restore();
+      ctx.save(); if (cut) ctx.clip(hole, 'evenodd');                                    // (the rows stop at the ravines' lips, a spine ravine's brink; only rows the holes reach are clipped)
+      fillRow(row, G); ctx.restore();
     }
     while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
@@ -457,12 +473,11 @@ function mtnRavinePts(m, r, sxOf, sy, hole) {
   if (r.spine) {                                                                          // traced: each loop of the outline is its own ring (N), nothing in S
     const out = [];
     const c = state.mtn, k = 14 / (14 + (r.depth || 5)), drop = (r.depth || 5) * Math.sin(c.m.tilt * c.p) * UNIT * mtnZoom(c.p), CXt = W / 2, CYt = H / 2;
-    for (const ring of ravRings(r)) { const P = ring.map(([x, y]) => [sxOf(x), sy(y, mtnH(m, x, y))]), top = Math.min(...ring.map(q => q[1])), bot = Math.max(...ring.map(q => q[1]));
+    for (const ring of ravRings(r)) { const P = ring.map(([x, y]) => [sxOf(x), sy(y, mtnH(m, x, y))]), top = Math.min(...ring.map(q => q[1]));
       // the bottom ring: the lip ring shrunk toward the middle of the view as a floor far below would be (a hole seen
       // from above shows its walls on the sides away from you, and they slide as you walk), dropped with the tilt
       const F = ring.map(([x, y]) => [CXt + (sxOf(x) - CXt) * k, CYt + (sy(y, mtnH(m, x, y)) - CYt) * k + drop * k]);
-      if (hole) { P.forEach(([X, Y], i) => i ? hole.lineTo(X, Y) : hole.moveTo(X, Y)); hole.closePath(); }
-      out.push({ N: P, S: [], NF: P, SF: [], F, k, drop, hole, yTop: top, yBot: bot, seed: Math.round(ring[0][0] * 7), r }); }
+      out.push({ N: P, S: [], NF: P, SF: [], F, k, drop, hole, yTop: top, T: ring, seed: Math.round(ring[0][0] * 7), r }); }
     return out;
   }
   if (r.axis === 'y') {                                                                   // along y: N is the west lip, S the east (the walls run with the view: no far wall to see, a drop in the dark)
@@ -570,15 +585,22 @@ function drawMtnDrop(rv, s, poly) {
 }
 // the brink: outside the hole, a band of broken ground along the lip, earth showing through the grass, darkest at
 // the edge and fading out over a third of a tile; then the lip itself, a dark line where the bank breaks off and a
-// lighter rim of grass above it (painted after the ground, so the whole of it shows)
-function drawMtnBrink(rv, s) {
-  const { N, S } = rv, us = UNIT * s, ring = N.concat(S.slice().reverse());
-  ctx.save(); ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); ring.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); ctx.clip('evenodd'); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  for (const [wk, col] of [[0.7, 'rgba(70,52,30,.14)'], [0.42, 'rgba(70,52,30,.2)'], [0.2, 'rgba(50,36,20,.35)']]) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, wk * us); ctx.beginPath(); ring.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); ctx.stroke(); }
+// lighter rim of grass above it. Painted once with its ravine: the ground under it first (the rows, clipped to the
+// band between the lip and the field's 0.5 line; the rows themselves stop at 0.4), so everything standing on it is
+// drawn over it
+function drawMtnBrink(rvs, s, band, fillRows) {
+  const us = UNIT * s, mg = us;                                                           // only the stretches of lip on the screen are stroked
+  const ring = (rv, dy = 0) => { const P = rv.N, n = P.length, on = i => { const [X, Y] = P[(i + n) % n]; return X > -mg && X < W + mg && Y > -mg && Y < H + mg; }; ctx.beginPath(); let pen = false;
+    for (let i = 0; i <= n; i++) { const k = i % n; if (on(k) || on(k - 1) || on(k + 1)) { const [X, Y] = P[k]; pen ? ctx.lineTo(X, Y + dy) : ctx.moveTo(X, Y + dy); pen = true; } else pen = false; } };
+  ctx.save(); ctx.clip(band, 'evenodd');
+  for (const rv of rvs) { let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity; for (const [X, Y] of rv.N) { if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; if (X < x0) x0 = X; if (X > x1) x1 = X; } if (x1 < -us || x0 > W + us || y1 < -us || y0 > H + us) continue; fillRows(Math.max(-us, y0 - us), Math.min(H + us, y1 + us), Math.max(-us, x0 - us), Math.min(W + us, x1 + us)); } ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const [wk, col] of [[0.7, 'rgba(70,52,30,.14)'], [0.42, 'rgba(70,52,30,.2)'], [0.2, 'rgba(50,36,20,.35)']]) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, wk * us); for (const rv of rvs) { ring(rv); ctx.stroke(); } }
   ctx.restore();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.strokeStyle = '#1c1208'; ctx.lineWidth = Math.max(2, 3.5 * s); ctx.beginPath(); ring.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(225,220,150,.7)'; ctx.lineWidth = Math.max(1, 1.8 * s); ctx.beginPath(); ring.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y - 2.6 * s) : ctx.moveTo(X, Y - 2.6 * s)); ctx.closePath(); ctx.stroke();
+  for (const rv of rvs) {
+    ctx.strokeStyle = '#1c1208'; ctx.lineWidth = Math.max(2, 3.5 * s); ring(rv); ctx.stroke();
+    ctx.strokeStyle = 'rgba(225,220,150,.7)'; ctx.lineWidth = Math.max(1, 1.8 * s); ring(rv, -2.6 * s); ctx.stroke();
+  }
 }
 // the crags: sixteen shapes, each painted once (per size of screen) at the biggest size one ever draws, then scaled
 const MTN_CRAG_R = 1.6, MTN_CRAGS = {};

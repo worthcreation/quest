@@ -47,5 +47,12 @@ console.log('6 drew with the overlay | ok: ravines', okRav, 'nothing inside', ok
 { let calls=0; const f0=ravField; ravField=(...a)=>{ calls++; return f0(...a); }; let reads=0; const g0=ctx.getImageData; ctx.getImageData=(...a)=>{ reads++; return g0 ? g0.apply(ctx,a) : null; };
   at(12, 10); state.keys.arrowright=true; for (let k=0;k<60;k++){ run(1); draw(); } off(); ravField=f0; ctx.getImageData=g0;
   console.log('7 a second walking by the big ravine: spine measured', calls, 'times, canvas read back', reads, 'times'); if (calls || reads) errs++; }
+// 8. (build 210) the brink lies on the ground: painted before you and before the reeds, wherever you stand by it
+{ const P0=typeof Path2D==='undefined'?undefined:Path2D; globalThis.Path2D=function(){ return {moveTo(){},lineTo(){},closePath(){},rect(){}}; };
+  const order=[], b0=drawMtnBrink, h0=drawHero, s0=drawSolid; drawMtnBrink=(...a)=>{ order.push('brink'); return b0(...a); }; drawHero=(...a)=>{ order.push('hero'); return h0(...a); }; drawSolid=(o,...a)=>{ if (o && o.kind==='reeds') order.push('reeds'); return s0(o,...a); };
+  const spots=[[14.4, 6], [12.5, 2], [RISE.barX-0.8, 16.5]]; let ok=0;
+  for (const [x,y] of spots) { at(x,y); order.length=0; drawMtn(); const b=order.indexOf('brink'), hh=order.indexOf('hero'), rr=order.indexOf('reeds'); if (b>=0 && b<hh && (rr<0 || b<rr)) ok++; }
+  drawMtnBrink=b0; drawHero=h0; drawSolid=s0; globalThis.Path2D=P0;
+  console.log('8 the brink painted before you and the reeds at', ok, 'of', spots.length, 'spots by the big ravine'); if (ok!==spots.length) errs++; }
 console.log('BUILD', BUILD, '| errs', errs);
 `);

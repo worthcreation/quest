@@ -1,6 +1,18 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 210: the brink lies on the ground (chat)
+Ross: you must stand over the ravine's edge, and the reeds over it too. The brink (the broken ground and the lip
+line) was painted once every row it crossed was down, so it went over you and over the reeds. A first try painted it a
+row at a time, clipped to each row: right order, but the clips' antialiased edges combed the band with faint seams. Now
+the rows stop at the field's 0.4 line (ravRings takes a level: the lip is 0), and the ravine, at its own turn in the
+draw (before anything standing south of its top), paints the brink's ground itself (the same rows, a slice of each,
+three at a time, clipped to the band between the lip and 0.5, so the rows' edge falls on ground of its own colour: no
+seam), then the band, then the lip line and rim, stroked only where on the screen. drawMtn's rows: rowGeo/fillRow in one
+place, fillRows for the brink. tests/rise-ravines.js checks the brink is painted before you and before the reeds at
+three spots by the big ravine. Frames in the harness 36 to 55 ms (209: 34 to 46); the brink's clip is most of the
+difference. m2 and after renumbered one on (211 to 219).
+
 ## Build 209: the rise runs smooth (chat)
 Ross: 208 looked right but ran jumpy. Measured in the harness (headless canvas, so the browser's numbers differ but the
 ratios hold), a frame by the big ravine was 117 to 149 ms against 11 to 15 with no ravines. Four causes, each fixed:
