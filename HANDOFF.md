@@ -191,12 +191,15 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    Still open: state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows): with 211, when
    climb.js goes. Gust rides to a ledge (rideGust, windTarget, layoutLedges) now live only on f1 (one bank: from the
    north end the strong gust rides you onto a ledge); the ledge-to-ledge rides down a ravine come back with m1 (206).
-3. The mountain, one family after the rise (Ross, 1 Oct: what the climb was always meant to be). NEXT. The plan, the
-   defaults and the build order are in docs/mountain-plan.md: 205 the wind by height (Opus); 206 m1 and the rabbit
-   sizes, 207 hawks hunt rabbits, 208 m2, 209 m3 inside, 210 m4 rabbits fight the hawks, 211 m5 the buff rabbits and
-   carrot juice (climb.js deleted), 212 the tortoise's home between m5 and peak1, peaches on the farm (all FABLE).
-   Replaces the old item 3 (the climb from the seed) and the old 2b (the tortoise). Still mockups for each new look
-   just before its build.
+3. The mountain: the rise and the climb as one family (Ross, 1 Oct). NEXT. docs/mountain-plan.md has the plan, the
+   progression by height, the side content (windmill, ornithologist and eggs, carrot juice, the tortoise's peach
+   stones, trees) and the build order: ~~205 the reeds hold~~ (205); 206 wind by height (built, waiting on Ross's OK
+   of the mockup; the work is in the chat that made it: windHeight, windPow, WIND_BITS, windFx, drawWindBit and
+   tests/wind-height.js; rebuild from the plan if lost), Opus; 207 the generator (rise.js becomes the family's
+   builder, no change in play), 208 direction by seed, 209 the height table, 210 m1, 211 hawks hunt rabbits and the
+   ornithologist's eggs, 212 m2, 213 m3 inside, 214 m4, 215 m5 and carrot juice (climb.js deleted), 216 the tortoise's
+   hollow and peach stones, 217 trees, all FABLE; 218 the windmill, Opus. Six questions for Ross at the end of the
+   plan. Until the reeds open, all real play stays west of them.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.
 5. Slot flash: Pip's lines name their slot outright instead of flashFor's keyword guessing. Opus.

@@ -2577,7 +2577,7 @@ function updateWorld(dt) {
     h.dashT -= dt;
     const nx = h.x + h.vx * dt, ny = h.y + h.vy * dt;
     if ((sc.river || sc.deep || sc.chasms) && h.z <= 0 && !isChasm(h.x, h.y) && isChasm(nx, ny)) { h.dashT = 0; h.vx *= 0.2; h.vy *= 0.2; }   // a dodge stops at the water's edge
-    else { h.x = nx; h.y = ny; }
+    else stepHero(h, nx - h.x, ny - h.y);
     if (Math.random() < 0.6) state.fx.push({ x: h.x, y: h.y, vx: 0, vy: 0, t: 0, life: 0.2, color: 'rgba(245,208,111,.5)', size: UNIT * 0.8 });
   } else {
     const inp = locked ? { x: 0, y: 0 } : inputVector();
@@ -2598,7 +2598,7 @@ function updateWorld(dt) {
       else if (step > left) { h.vx *= left / step; h.vy *= left / step; }
       h.airDist = (h.airDist || 0) + Math.hypot(h.vx, h.vy) * dt;
     }
-    h.x += h.vx * dt; h.y += h.vy * dt;
+    stepHero(h, h.vx * dt, h.vy * dt);
     if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle')) {   // loose fluff blows about in the wind, and can blow clean away
       const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
       for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
@@ -2693,6 +2693,12 @@ function clampTo(a, r) {
   if (a.y < r) { a.y = r; a.vy = Math.max(0, a.vy); wall = true; }
   if (a.y > H - r) { a.y = H - r; a.vy = Math.min(0, a.vy); wall = true; }
   return wall;
+}
+// move the hero in steps no longer than a sixth of a tile, colliding after each, so a dash or a charged lunge on a slow
+// frame (dt up to 0.05) or a small screen can't step clean past a stone or the rise's reeds (tests/reeds-hold.js)
+function stepHero(h, dx, dy) {
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (UNIT * 0.15)));
+  for (let i = 0; i < n; i++) { h.x += dx / n; h.y += dy / n; if (n > 1) collideSolids(h, UNIT * 0.42); }
 }
 function collideSolids(a, r) {
   let hit = null;
@@ -8635,7 +8641,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 204';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 205';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

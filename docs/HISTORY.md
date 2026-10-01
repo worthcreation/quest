@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 205: the reeds hold (chat)
+A dash or a charged lunge on a slow frame (dt up to 0.05) or a phone screen moved farther in one frame than a reed
+clump is wide and came out the far side (and through the rise's side boulders). stepHero moves the hero in pieces
+of a sixth of a tile, colliding after each. tests/reeds-hold.js runs at the reeds from every open spot, walking,
+dashing, at lunge-chain speed and lunging, at 60 fps and dt 0.05, laptop and phone: 261 and 299 of 408 got through
+before, 0 now. Roadmap rewritten: the rise and the climb as one family on one generator, the progression by height,
+the side content (docs/mountain-plan.md). The wind by height waits for Ross's OK (now 206).
+
 ## Build 204: f3 to f7 retired (chat)
 The windy fields' ravines and the mountain path are gone: genField makes f1 only; the corridor (corridorSpan,
 fitToCorridor, islands, clampCorridor, drawMountainSides), the ravine rock banks (layoutRavineRocks, rockCols) and
