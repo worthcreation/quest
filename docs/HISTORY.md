@@ -1,6 +1,11 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 202: handoff (chat)
+- HANDOFF: Next task is the climb join (203), retiring f3 to f7 (204, Ross's call: the mountain is the climb
+  screens, the ravine fields go) and the climb from the seed (205), then the roadmap; the Mac ship line; audit line
+  and baseline re-saved. PROJECT_DESCRIPTION's "where it's headed" brought up to the roadmap.
+
 ## Build 201: the climb's dials (no change in play)
 - climb.js: CLIMB_TUNE holds how you move and how the wind blows (run, jump, gravity, fall time, the ledge, each wind's
   timings and pushes, the side view's own row); CLIMB_SPECS holds each screen's layout as numbers (the path's wind,

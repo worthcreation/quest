@@ -2,4 +2,4 @@ Quest is a cozy, hand-made browser RPG in the spirit of Zelda and EarthBound, bu
 
 The mood is warm, curious and a little silly (rabbit glue, taunting gremlins), never mean. Puzzles are physical and readable: see the thing, understand what it wants, do it with your hands. Skills grow quietly with use, Pip teaches by doing, and the world explains itself instead of through menus.
 
-Where it's headed: the climb up the mountain (a new perspective view with wind to shelter from and ravines to jump), the High Reaches above the clouds, the journal quest and spore travel between mushrooms, then a second chapter under the swamp shrine.
+Where it's headed: the climb up the mountain (five screens in a new perspective view, wind to shelter from and ravines to jump, different with every seed), the High Reaches above the clouds, crafting on the fly in two or three presses with tools that wear and grow sturdier as you do, a sword you earn by going downriver to meet Old Wick and bringing fire to its brambles, mushrooms as places to rest and revive, a maze of light in the Hollow, then a second chapter under the swamp shrine.

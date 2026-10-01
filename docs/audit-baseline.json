@@ -1,19 +1,19 @@
 {
  "unused": 0,
- "lines": 11188,
- "longLines": 582,
+ "lines": 11230,
+ "longLines": 577,
  "stateFields": 160,
  "files": {
-  "world.js": 920,
+  "world.js": 951,
   "highlands.js": 247,
-  "climb.js": 311,
+  "climb.js": 323,
   "rise.js": 240,
   "input.js": 422,
   "text.js": 112,
   "engine.js": 750,
   "items.js": 436,
   "combat.js": 229,
-  "critters.js": 772,
+  "critters.js": 771,
   "interact.js": 533,
   "actions.js": 258,
   "pip.js": 347,
@@ -33,11 +33,11 @@
   "puzzles.js": 79,
   "boot.js": 30
  },
- "bigFns": 1,
+ "bigFns": 0,
  "repeats": 0,
- "frameAvg": 0.49,
- "slowScreens": 1,
+ "frameAvg": 0.6,
+ "slowScreens": 2,
  "frameErrors": 0,
  "date": "2026-10-01",
- "build": 198
+ "build": 201
 }

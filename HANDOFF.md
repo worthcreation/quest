@@ -1,4 +1,4 @@
-# Quest: handoff (build 198, 30 Sep 2026)
+# Quest: handoff (build 202, 1 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -24,13 +24,16 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   at the first failure, then, with `--zip` (it needs the zip command), packages /mnt/user-data/outputs/quest-bNN.zip
   (older ones removed; what goes in is PACK in ship-local.js) and prints the commit line and links (tools/links.js).
   Without --zip it prints the line for a working tree already at ~\quest (tools/links.js --local); not used now.
+- On the Mac (Ross uses it now and then; he says which machine), give the zsh line above the printed one:
+  `cd ~/quest && unzip -o ~/Downloads/quest-bNN.zip -d . && rm ~/Downloads/quest-bNN.zip && git add -A && git commit
+  -m "..." && git push` (the Mac clone pushes as worthcreation@; if Safari unzipped it, rsync the folder instead).
 - The reply that ships ends with the printed line (Windows PowerShell, in a ```powershell block): `cd ~\quest
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 198): audit: 11188 lines, 0 unused, 1 functions over 150,
-  0 repeats, 160 state fields (hammock and pipIn since 195), frames avg 0.49 ms (1 slow, 0 errors). Frame times swing with
-  machine load (1.0 ms on the build 174 run): read a change there only if it's large or on one screen.
+  handoff updates docs/audit-baseline.json. Last run (build 202): audit: 11230 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg
+  0.6 ms (2 slow, 0 errors). The slow two are the rise (2.3 ms draw) and climb4 (2.35 ms, 1.8 in build 200 with the
+  same paint calls: machine load). Frame times swing with load: read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
@@ -177,14 +180,24 @@ words match flashFor's keywords (acorn throw, eat, marsh fire, swing/lunge/slash
 second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps everything; saving is menu only.
 1. ~~Hammocks (195), groundShadow (197), borrowing Pip's hammock (198), genWorld split (199), hawk timer (200), the
    climb's dials (201).~~
-2. The climb, joined (Ross, 1 Oct: all five screens, back to back, out of the rise past the reeds). NEXT. FABLE.
-   Next build: the rise's pass leads into climb1 (climb5 already leads to peak1; peak1's way back west to climb5),
-   ?mountain starts on the rise just east of the reeds; the reeds still stop real play, so only test links reach it
-   until the reeds open. Waiting on Ross: what happens to f3 to f7 (the windy fields, the mountain path, the tortoise)
-   and the foothill farm's wind once the pass no longer leads to f3. Then state-owners move 8 (climbReturn).
-3. The climb from the seed: CLIMB_SPECS gives each number a range; climbScreen draws within it from its own stream
-   (mulberry32 of the seed and the screen id, never the world's rng, so no other screen moves), then checks every
-   crossing is jumpable (gap no wider than a running jump, about 3 tiles at z 10) and redraws if not. FABLE, after 2.
+2. The climb, joined. NEXT, FABLE, fresh chat. Ross, 1 Oct: the mountain is climb1 to climb5, back to back, out of
+   the rise past the reeds; f3 to f7 (the windy fields' ravines, the mountain path, the tortoise) go. Builds:
+   203 the join: the rise's pass leads into climb1 (today it leads south to f3); climb5 already leads to peak1, and
+   peak1's way back west leads to climb5; ?mountain starts on the rise just east of the reeds (the reeds still stop
+   real play, so only test links reach it until they open). Tests: walk the rise from there into climb1; climb5 out
+   to peak1 and back.
+   204 retire f3 to f7, with the defaults put to Ross (he can still overrule): puzzle mode's two wind puzzles (Wind
+   ravines on f3, Chained rides on f5) retire; arena's wind round moves from f4 to f1; the tortoise retires (it gated
+   peak1); the corridor, fitToCorridor and its islands, the too-strong gusts that throw you to the foothill farm, and
+   whatever else only those screens use go too (grep: puzzles.js, arena.js, engine.js f3 plants line, draw-ui.js
+   HOME_MAP, rise.js f3 exit, world.js genField and peak1's west exit; about 7 test files). The farm stays (from f1).
+   Removing their rng draws shifts every region generated after genField (crags, farm, cave, marsh, swamp, Hollow)
+   once, by design: report the world hash change, and that older saves load those regions rearranged. Then
+   state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows).
+3. The climb from the seed (build 205): CLIMB_SPECS gives each number a range; climbScreen draws within it from its
+   own stream (mulberry32 of the seed and the screen id, never the world's rng, so no other screen moves), then
+   checks every crossing is jumpable (gap no wider than a running jump, about 3 tiles at z 10) and redraws if not.
+   FABLE.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.
 5. Slot flash: Pip's lines name their slot outright instead of flashFor's keyword guessing. Opus.
@@ -222,4 +235,4 @@ each with every test's output identical before and after and the draw-record has
 
 The climb: CLIMB_TUNE and CLIMB_SPECS (build 201) hold every number; change one and the screen follows. The dead
 painter bits (crag() inside paintClimb, an if (false) mountain), zig's unused band and climbBand are gone; the green
-past the ravine is CLIMB_TUNE.ledge (12). Joining it is item 2; until then it runs from the test links only.
+past the ravine is CLIMB_TUNE.ledge (12). Joining it is item 2 (builds 203 and 204); until then it runs from the test links only.
