@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 199: genWorld split by region (no change in play)
+- genWorld (533 lines) is now a call list: genCamp, genStart, genMeadow, genRiver, genShack, genDownriver, genWoods,
+  genField, genCrags, genFoot, genCave, genMarsh, genSwamp, genHollow, each taking add, called in the old order (one
+  seeded rng, so the order is the world), then the minis, craggy, climb, rise and highlands tail as before. New
+  tools/world-hash.js hashes WORLD for 53 seeds (the proof: identical before and after, as were every test's output
+  and the 300-world overlap check).
+
 ## Build 198: borrow Pip's hammock; the Lists rule
 - Pip's hammock works like yours while he's out of it: F beside it ("Climb in") or a jump landing on it drops you in,
   it rocks, a nap restores vigor. With him in it, no prompt and a jump stays out. If he hops in (dusk, the tour) while

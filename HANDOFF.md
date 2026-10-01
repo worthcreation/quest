@@ -51,7 +51,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
 ## File map (src/, in load order)
-- world.js      world generation: every screen, solids, exits, barriers, crag(), pullable(), corridorSpan and
+- world.js      world generation: genWorld calls one function per region (genCamp to genHollow, in rng order), then
+                the tail; solids, exits, barriers, crag(), pullable(), corridorSpan and
                 fitToCorridor (mountain path), MAP_LAYOUT/MAP_NAMES, SHROOM_NAMES, the cellar
 - highlands.js  the High Reaches (hr1-hr3): enterHighlands (title card, vista birds), vistas, hawks, mantises,
                 crystal bugs, worms, the red beetle
@@ -98,7 +99,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 docs/: design-rules.md (the design rules and story so far; read before any change the player sees or reads), keys.md,
 pip.md, crafting.md, farming.md, high-reaches.md, HISTORY.md, PROJECT_DESCRIPTION.md. tools/: build.js, ship-local.js,
 links.js, dead.js, audit.js, shot.js, overlap.js, draw-record.js (records every canvas call per solid kind and item
-type; run before and after a drawing refactor and compare the hashes).
+type; run before and after a drawing refactor and compare the hashes), world-hash.js (hashes WORLD for 53 seeds; run
+before and after a world.js refactor, --total for the one line).
 
 ## World layout (MAP_LAYOUT, x across, y down)
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
@@ -169,12 +171,8 @@ opening sit wherever the seed put them (moving them to the matching side means r
 ## Next task (on Opus unless marked: WAYS 7a)
 1. ~~Hammocks (build 195); groundShadow, 40 sites (build 197); borrowing Pip's hammock while he's out of it (build
    198).~~
-2. genWorld (533, src/world.js): split by region. NEXT, FABLE, one build. It already has 13 commented sections (camp,
-   start glade, meadow, river, Wick's shack, downriver, deep woods, windswept field, High Crags, foothill farm, cave,
-   marsh, swamp, Hollow Beneath): one function each, called in the same order, the mountain ones split as they stand
-   and reworked when the climb joins. Every region draws from the one seeded rng, so the call order must not move.
-   Proof (WAYS 5): every test's output identical, the 300-world overlap check identical, and a hash of WORLD for a
-   spread of seeds before and after (write tools/world-hash.js if there isn't one), all reported with numbers.
+2. ~~genWorld split by region: 14 functions, genCamp to genHollow, in rng order (build 199; tools/world-hash.js
+   proves a world.js change).~~
 3. ~~"Lists" rule: PROJECT_INSTRUCTIONS paragraph above "Replies:", WAYS 7a bullet (build 198).~~
 4. Hawk timer counts down twice a frame. Parked until asked (below). Opus.
 5. The climb. Parked: Ross's design call (below). FABLE, fresh chat.

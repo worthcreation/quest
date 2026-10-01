@@ -323,7 +323,28 @@ function buildWorld(seed) {
 function genWorld() {
   const S = {};
   const add = sc => (S[sc.id] = sc);
+  // one function per region, called in this order: every region draws from the one seeded rng, so the order is the world
+  genCamp(add); genStart(add); genMeadow(add); genRiver(add); genShack(add); genDownriver(add); genWoods(add);
+  genField(add); genCrags(add); genFoot(add); genCave(add); genMarsh(add); genSwamp(add); genHollow(add);
+  for (const sc of Object.values(S)) {                // little mushrooms in the damp dark places (most in the caves and deep woods)
+    const kind = sc.area === 'woods' ? 'woods' : sc.area === 'cave' || sc.area === 'hollow' ? 'cave' : sc.area === 'swamp' || sc.area === 'marsh' ? 'swamp' : sc.area === 'forest' ? 'forest' : null;
+    if (!kind || sc.feat.minis) continue;
+    const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
+    sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
+  }
+  // the climb: the smooth field boulders turn to rough, craggy stone as you go up, a few more each screen, all of them by
+  // about halfway (f6 on); the crags and the High Reaches are all craggy
+  for (const sc of Object.values(S)) {
+    const m = /^f(\d)$/.exec(sc.id), frac = m ? Math.min(1, (Number(m[1]) - 1) / 5) : sc.area === 'peak' ? 1 : 0;
+    if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
+  }
+  for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
+  addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
+  genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
+  return S;
+}
 
+function genCamp(add) {
   // ---------------- Camp (north of start): home, fire, tent, farm plots ----------------
   const camp = add(newScene({ id: 'camp', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#4a8f4c', heroStart: [0.44, 0.5] }));
   camp.exits = [{ side: 's', a: 0.4, b: 0.6, to: 'start' }];
@@ -353,7 +374,9 @@ function genWorld() {
   addShroom(camp, [0.78, 0.62], 0);
   scatter(camp, 6, 'tree', 0.9, 1.2, 1.4, [[0.45, 0.5, 5], [0.28, 0.74, 4], [0.78, 0.62, 2.5]], undefined, 'green');
   decoFlowers(camp, 20);
+}
 
+function genStart(add) {
   // ---------------- Start glade: the big rock, the thicket into the woods ----------------
   const start = add(newScene({ id: 'start', area: 'forest', msg: '', music: 'forest', amb: 'none', floor: '#3f8f4c', heroStart: [0.5, 0.12] }));
   start.feat.pip = [0.84, 0.5];
@@ -377,7 +400,9 @@ function genWorld() {
   }
   start.feat.pageSpots = [0, 1].map(() => { const q = freeSpot(start, [0.5, 0.9, 0.2, 0.8], 0.8); claim(start, q[0], q[1], 0.6); return q; });
   decoFlowers(start, 26);
+}
 
+function genMeadow(add) {
   // ---------------- Meadow (west): the robin's dead tree ----------------
   const meadow = add(newScene({ id: 'meadow', area: 'forest', msg: 'Birdsong drifts over the meadow', music: 'forest', amb: 'none', floor: '#4a9650' }));
   meadow.exits = [{ side: 'e', a: 0.38, b: 0.62, to: 'start' }, { side: 'n', a: 0.35, b: 0.65, to: 'riverbank' }, { side: 'w', a: 0.35, b: 0.65, to: 'meadow2' }];
@@ -391,7 +416,9 @@ function genWorld() {
   scatter(meadow, 7, 'tree', 0.9, 1.3, 1.4, meadow.feat.perches.map(p => [...p, 2.2]), undefined, 'green');
   addPlots(meadow, 2, [0.5, 0.85, 0.2, 0.8]);             // Pip's little garden: two patches, diagonal or a tile apart
   decoFlowers(meadow, 60);
+}
 
+function genRiver(add) {
   // ---------------- The river: it rises beyond the north edge of the riverbank, cuts across that screen's
   // north-west corner and flows west, where it widens into the ford north of the rocky meadow ----------------
   const riverbank = add(newScene({ id: 'riverbank', area: 'forest', msg: 'The river runs fast and deep here', music: 'forest', amb: 'rain', floor: '#4a9650' }));
@@ -452,7 +479,9 @@ function genWorld() {
   item(farbank, { type: 'starseed', fx: 0.5, fy: 0.3 }, { type: 'thornseed', fx: 0.36, fy: 0.42 }, { type: 'driftwood', fx: 0.66, fy: 0.62 });
   scatter(farbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.1, 0.9, 0.15, 0.85], 'green');
   decoFlowers(farbank, 40);
+}
 
+function genShack(add) {
   // ---------------- Old Wick's shack: one room, a smell, a letter, a few seeds ----------------
   const shack = add(newScene({ id: 'shack', area: 'indoor', placeName: 'Old Wick\'s Shack', msg: 'It smells of pipe smoke, wet wool and old fish.', music: 'forest', amb: 'none', floor: '#6b4e32', heroStart: [0.5, 0.8], speed: 0.4 }));
   shack.exits = [{ side: 's', a: 0.35, b: 0.65, to: 'riverbank', arrive: [0.12, 0.13 + 1.6 * UNIT / H] }];
@@ -469,7 +498,9 @@ function genWorld() {
   cellar.feat.minis = [];
   for (let t = 0; t < 26; t++) cellar.feat.minis.push([rr(0.1, 0.9), rr(0.2, 0.9), 2 + Math.floor(rng() * 4), rng(), 'cellar']);   // mushrooms everywhere, in every damp corner
   item(cellar, { type: 'acorn', fx: 0.6, fy: 0.55 }, { type: 'pepperseed', fx: 0.4, fy: 0.8 });
+}
 
+function genDownriver(add) {
   // ---------------- Downriver: ride the rapids (a steering section), go over the falls into the gleaming pool ----------------
   add(newScene({ id: 'rapids', area: 'river', msg: '', music: 'field', amb: 'falls', floor: '#2f6f8a' }));
 
@@ -496,7 +527,9 @@ function genWorld() {
   fallsbank.paths = [makePath([0.03, 0.5], [0.97, 0.5], 1)];
   scatter(fallsbank, 6, 'tree', 0.9, 1.3, 1.4, [], [0.08, 0.92, 0.35, 0.9], 'green');
   decoFlowers(fallsbank, 25);
+}
 
+function genWoods(add) {
   // ---------------- Deep woods (east): denser, darker, the sword in the shadows ----------------
   let west = [0.4, 0.6];
   for (let i = 1; i <= 3; i++) {
@@ -569,7 +602,9 @@ function genWorld() {
     if (last) sc.feat.dapples.push({ fx: sc.feat.sword[0], fy: sc.feat.sword[1], r: 1.1, ax: 0.07, ay: 0.06, sp: 0.35, ph: 0, sword: true });
     west = east;
   }
+}
 
+function genField(add) {
   // ---------------- Windswept field (south): a wind puzzle that builds up ----------------
   // a = angle (0 blows south, + toward east, PI blows north), s = strength (1 strong, .5 weak).
   // A strong gust carries you 0.3 of the screen height; a weak one only 0.14.
@@ -644,7 +679,9 @@ function genWorld() {
     }
     if (south) north = south;
   });
+}
 
+function genCrags(add) {
   // ---------------- The High Crags: above the tortoise. Stone, cliffs, ravines you can jump, rocky outcrops ----------------
   const CRAGS = [
     { id: 'peak1', msg: 'The grass gives out. Only stone from here up.', ravines: [0.28], cliffs: [[0.47, 0.42, 1]], from: 'w' },
@@ -667,7 +704,9 @@ function genWorld() {
     sc.rocks = [];
     if (C.top) { sc.solids.push(solid(0.5, 0.33, 0.9, 'cairn')); item(sc, { type: 'starseed', fx: 0.5, fy: 0.42 }); }
   });
+}
 
+function genFoot(add) {
   // ---------------- Foothill farm: where the mountain wind dumps you. Many crops. ----------------
   const foot = add(newScene({ id: 'foot', area: 'field', depth: 0, msg: 'A sheltered farm at the mountain\'s foot', music: 'forest', amb: 'wind', floor: '#86a052', speed: 0.45, accel: 8, gusts: [{ a: 0.2, s: 1 }, { a: Math.PI - 0.2, s: 1 }, { a: -0.2, s: 1 }, { a: Math.PI + 0.2, s: 1 }], chasms: [], heroStart: [0.5, 0.3] }));
   foot.exits = [{ side: 'e', a: 0.4, b: 0.6, to: 'f1' }];
@@ -683,7 +722,9 @@ function genWorld() {
   addShroom(foot, [0.82, 0.28], 0);
   scatter(foot, 4, 'boulder', 0.7, 1.1, 1.5, [[0.37, 0.51, 6], [0.82, 0.28, 2.5]], [0.1, 0.9, 0.12, 0.88]);
   for (let t = 0; t < 60; t++) foot.deco.push({ kind: 'tuft', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
+}
 
+function genCave(add) {
   // ---------------- Cave: 7 screens, entered through the sinkhole in the woods ----------------
   const CAVE_SPAWNS = [
     ['stalker'], ['glowworm', 'glowworm', 'stalker'], ['diver', 'glowworm'], ['charger', 'diver'],
@@ -691,7 +732,7 @@ function genWorld() {
   ];
   const CAVE_MSG = ['Find the way out', 'Pale things crawl in the dark', 'Something skitters on the ceiling', 'Deeper still. Hooves scrape stone.', 'The ceiling is alive', 'The drips sound like footsteps', 'A roar of water ahead'];
   const CAVE_FLOOR = ['#1d1a22', '#1e1a21', '#201a21', '#211a1f', '#221a1e', '#231a1c', '#1c1d26'];
-  west = null;
+  let west = null;
   for (let i = 1; i <= 7; i++) {
     const boss = i === 7;
     const sc = add(newScene({
@@ -725,10 +766,12 @@ function genWorld() {
     if (i === 3 || i === 6) sc.feat.glimpse = { to: edgePoint('e', (east[0] + east[1]) / 2), line: i === 3 ? 'Still here! Keep coming!' : 'I can hear water! Hurry!' };
     west = east;
   }
+}
 
+function genMarsh(add) {
   // ---------------- Marsh: beans for the old toad, reeds hiding a darker cave ----------------
   const MARSH_MSG = ['Mist hangs over black water', 'Something big croaks nearby', 'Dry reeds choke a cave mouth'];
-  west = [0.4, 0.6];
+  let west = [0.4, 0.6];
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({ id: 'm' + i, area: 'marsh', depth: i, msg: MARSH_MSG[i - 1], music: 'marsh', amb: 'marsh', floor: '#3a4a2d', speed: 0.34, accel: 7, breeze: 0.02 }));
@@ -762,7 +805,9 @@ function genWorld() {
     if (i === 3) sc.feat.glimpse = { to: [0.99, 0.5], line: 'Past the reeds! They\'ve got a lair!' };
     west = east;
   }
+}
 
+function genSwamp(add) {
   // ---------------- Sunken Swamp: south of the marsh, murkier, older ----------------
   const SWAMP_MSG = ['The marsh sinks into swamp', 'Things float here that shouldn\'t', 'Old stones rise from the water'];
   let north2 = [0.4, 0.6];
@@ -794,9 +839,11 @@ function genWorld() {
     for (let t = 0; t < 60; t++) sc.deco.push({ kind: 'reed', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
     if (south) north2 = south;
   }
+}
 
+function genHollow(add) {
   // ---------------- The Hollow Beneath: darker each screen; only fire lights it ----------------
-  west = [0.4, 0.6];
+  let west = [0.4, 0.6];
   for (let i = 1; i <= 3; i++) {
     const last = i === 3;
     const sc = add(newScene({
@@ -837,22 +884,6 @@ function genWorld() {
     if (i === 2) sc.feat.glimpse = { to: ePt, line: 'Almost there! Don\'t stop!' };
     west = east;
   }
-  for (const sc of Object.values(S)) {                // little mushrooms in the damp dark places (most in the caves and deep woods)
-    const kind = sc.area === 'woods' ? 'woods' : sc.area === 'cave' || sc.area === 'hollow' ? 'cave' : sc.area === 'swamp' || sc.area === 'marsh' ? 'swamp' : sc.area === 'forest' ? 'forest' : null;
-    if (!kind || sc.feat.minis) continue;
-    const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
-    sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
-  }
-  // the climb: the smooth field boulders turn to rough, craggy stone as you go up, a few more each screen, all of them by
-  // about halfway (f6 on); the crags and the High Reaches are all craggy
-  for (const sc of Object.values(S)) {
-    const m = /^f(\d)$/.exec(sc.id), frac = m ? Math.min(1, (Number(m[1]) - 1) / 5) : sc.area === 'peak' ? 1 : 0;
-    if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
-  }
-  for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
-  addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
-  genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
-  return S;
 }
 
 // =====================================================================
@@ -8725,7 +8756,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 198';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 199';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
