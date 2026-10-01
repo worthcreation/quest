@@ -164,8 +164,7 @@ function drawHeroModelInWorld(h, heroic) {
   h.walkPh = (h.walkPh || 0) + moved / (UNIT * 0.28);
   const u = UNIT * (h.falling > 0 ? Math.max(0.05, h.falling / 0.8) : 1) * heightScale(h.z);
   const footY = h.y + UNIT * 0.42 - h.z + (h.falling > 0 ? (1 - h.falling / 0.8) * UNIT : 0);
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; const sh = 1 - Math.min(0.6, h.z / (UNIT * 5));
-  if (!(h.ride && h.ride.wind)) { ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + UNIT * 0.42, UNIT * 0.42 * sh, UNIT * 0.14 * sh, 0, 0, 6.28); ctx.fill(); }
+  if (!(h.ride && h.ride.wind)) groundShadow(h.x, h.y, UNIT * 0.42, UNIT * 0.14, h.z, { dx: 2, dy: UNIT * 0.42 });
   if (!state.cut && state.time - h.hurtT < 1.2 && Math.floor(state.time * 14) % 2) return;
   if (state.hold.charged) { ctx.fillStyle = `rgba(255,240,180,${0.3 + 0.2 * Math.sin(state.time * 30)})`; ctx.beginPath(); ctx.ellipse(h.x, footY - UNIT * 0.7, UNIT * 0.6, UNIT * 0.9, 0, 0, 6.28); ctx.fill(); }
   const info = drawHeroModel(h.x, footY, u, pose, k, view, flip, state.time, h.walkPh);
@@ -197,7 +196,7 @@ function drawPoseSheet() {
     ['down', 'side', 'up'].forEach((v, j) => {
       const x = bx + cellW * 0.55 + j * cellW * 0.95, foot = by + cellH - 14;
       const k = (t * 1.2) % 1;
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, foot, u * 0.4, u * 0.12, 0, 0, 6.28); ctx.fill();
+      groundShadow(x, foot, u * 0.4, u * 0.12, 0, { a: 0.25 });
       drawHeroModel(x, foot, u, name, k, v, 1, t, t * 8);
     });
   });

@@ -58,7 +58,8 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   RECIPES [craft]; slots SLOT_KEYS/useSlot/flashSlot [gear]; the R wheel [actions].
 - Drawing: drawItemIcon for every icon [draw-ui]; drawJagged (optional context) for every rough stone; drawRock (seeded
   lumpy stone) and drawSoilLine (the zigzag where stone meets ground; soilLinePts gives its points, to clip a stone to
-  it) and rounded(x, y, w, h, r) for every rounded box [draw]; drawHUD is bottom-right (vigor and
+  it), rounded(x, y, w, h, r) for every rounded box and groundShadow(x, y, w, h, z, opts) for every shadow on the
+  ground (shadowScale(z, u) is the height rule) [draw]; drawHUD is bottom-right (vigor and
   slots, fading when quiet); the quest HUD is top-right; banners own the top only for quest start/end.
 - Climb screens: CLIMBS table [climb] (trail, gap field, side); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - A scene bigger than the screen: give it sc.virt = [w, h] in tiles; sceneSize makes W and H its size while it's

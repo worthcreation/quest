@@ -366,7 +366,7 @@ function drawGlowworm(e, C, scale) {
 }
 function drawGremlin(e, C, scale) {
   const hop = Math.abs(Math.sin(state.time * 18 + e.x)) * UNIT * (e.mode === 'dart' ? 0.2 : 0.08), y = e.y - hop, r = e.r * scale;
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.8, r, r * 0.3, 0, 0, 6.28); ctx.fill();
+  groundShadow(e.x, e.y, r, r * 0.3, 0, { a: 0.2, dy: r * 0.8 });
   ctx.fillStyle = C('#3c4a2a'); ctx.beginPath(); ctx.ellipse(e.x, y, r * 0.85, r, 0, 0, 6.28); ctx.fill();
   for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.5, y - r * 0.5); ctx.lineTo(e.x + s * r * 1.5, y - r * 1.0); ctx.lineTo(e.x + s * r * 0.7, y - r * 0.1); ctx.fill(); }
   ctx.fillStyle = '#ff4a2a'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * r * 0.3, y - r * 0.25, UNIT * 0.07, 0, 6.28); ctx.fill(); }
@@ -378,7 +378,7 @@ function drawGremlin(e, C, scale) {
 }
 function drawRabbit(e, C, scale) {
   const hop = e.mode === 'idle' ? Math.abs(Math.sin(state.time * 8)) * UNIT * 0.15 : Math.abs(Math.sin(state.time * 16)) * UNIT * 0.25;
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r, e.r * 0.3, 0, 0, 6.28); ctx.fill();
+  groundShadow(e.x, e.y, e.r, e.r * 0.3, 0, { a: 0.2, dy: e.r * 0.8 });
   const y = e.y - hop;
   ctx.fillStyle = C('#a88a60'); ctx.beginPath(); ctx.ellipse(e.x, y, e.r, e.r * 0.8, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = C('#8a6e48');
@@ -393,9 +393,9 @@ function drawDiver(e, C, scale) {
   const hgt = e.hgt || 0, y = e.y - hgt * UNIT * 6;
   if (e.mode !== 'ceiling') {
     const k = 1 - hgt;
-    ctx.fillStyle = `rgba(0,0,0,${0.15 + 0.35 * k})`; ctx.beginPath(); ctx.ellipse(e.x, e.y + UNIT * 0.2, e.r * (0.4 + k * 0.8), e.r * (0.2 + k * 0.35), 0, 0, 6.28); ctx.fill();
+    groundShadow(e.x, e.y, e.r * (0.4 + k * 0.8), e.r * (0.2 + k * 0.35), 0, { a: 0.15 + 0.35 * k, dy: UNIT * 0.2 });
   } else {
-    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(e.x, e.y, e.r * 0.4, e.r * 0.2, 0, 0, 6.28); ctx.fill();
+    groundShadow(e.x, e.y, e.r * 0.4, e.r * 0.2, 0, { a: 0.12 });
     return;                                     // up in the dark: only its shadow
   }
   const r = e.r * scale;
@@ -429,7 +429,7 @@ function drawWarden(e, C, scale) {
   if (e.mode === 'dormant') { ctx.globalAlpha = 0.85; }
   const rear = e.mode === 'rear' ? 1 + 0.15 * (1 - e.t / 0.7) : 1;
   const bw = UNIT * 2.8 * scale * rear, bh = UNIT * 2.2 * scale * rear;
-  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + bh * 0.45, bw * 0.55, bh * 0.2, 0, 0, 6.28); ctx.fill();
+  groundShadow(e.x, e.y, bw * 0.55, bh * 0.2, 0, { a: 0.3, dy: bh * 0.45 });
   ctx.fillStyle = C('#3a4c4a'); ctx.beginPath(); ctx.ellipse(e.x, e.y, bw / 2, bh / 2, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = C('#4f6b3e');
   for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.ellipse(e.x + (i - 2) * bw * 0.18, e.y - bh * 0.32 + Math.abs(i - 2) * bh * 0.06, bw * 0.12, bh * 0.1, 0, 0, 6.28); ctx.fill(); }
@@ -447,7 +447,7 @@ function drawHawk(e, C) {                                            // its shad
 }
 function drawMantis(e, C) {                                          // a big mountain mantis, green-grey, forelegs up
   const u = UNIT, r = e.r, rear = e.mode === 'rear' ? 1 : 0, t = state.time;
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.5, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
+  groundShadow(e.x, e.y, r * 1.1, r * 0.35, 0, { dy: r * 0.5 });
   ctx.strokeStyle = '#4a5a3a'; ctx.lineWidth = Math.max(2, r * 0.08);
   for (const s of [-1, 1]) for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.2, e.y + i * r * 0.2); ctx.lineTo(e.x + s * r * 0.8, e.y + i * r * 0.3 + r * 0.3); ctx.stroke(); }
   ctx.fillStyle = C('#7a8a5a'); ctx.beginPath(); ctx.ellipse(e.x, e.y + r * 0.1, r * 0.35, r * 0.6, 0, 0, 6.28); ctx.fill();
@@ -908,7 +908,7 @@ function openCreator(done) {
     for (let i = 0; i < SQ; i += 3) for (let j = 0; j < SQ; j += 3) { g.fillStyle = `hsl(${C.h},${Math.round(i / SQ * 100)}%,${Math.round(95 - j / SQ * 85)}%)`; g.fillRect(x0 + i, y0 + j, 3, 3); }
     const ha = (C.h - 90) * Math.PI / 180; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(150 + Math.cos(ha) * (R0 + R1) / 2, 150 + Math.sin(ha) * (R0 + R1) / 2, 9, 0, 6.28); g.stroke();
     g.beginPath(); g.arc(x0 + C.s * SQ, y0 + (95 - C.l * 100) / 85 * SQ, 7, 0, 6.28); g.stroke(); g.strokeStyle = '#000'; g.lineWidth = 1; g.stroke();
-    prev.clearRect(0, 0, 120, 120); prev.fillStyle = 'rgba(0,0,0,.3)'; prev.beginPath(); prev.ellipse(62, 100, 36, 10, 0, 0, 6.28); prev.fill(); prev.fillStyle = hsl(); prev.fillRect(30, 28, 64, 64);
+    prev.clearRect(0, 0, 120, 120); groundShadow(62, 100, 36, 10, 0, { a: 0.3, ctx: prev }); prev.fillStyle = hsl(); prev.fillRect(30, 28, 64, 64);
     ov.querySelector('#crHex').textContent = toHex();
   }
   function pick(e) {

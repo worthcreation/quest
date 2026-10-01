@@ -166,9 +166,8 @@ seams: the rise's way in is at its far west and its way out at its far east, whi
 opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-1. Hammocks shipped in build 195 (src/hammock.js). Left for later, if wanted: a shared ground-shadow helper (about 25
-   inline ellipses across the painters; the hammocks use the hero's height rule on their own), and Pip's hammock
-   can't be climbed into (his body is solid; yours is the nap). FABLE if the shadow helper is done.
+1. Hammocks shipped in build 195 (src/hammock.js); the shared ground-shadow helper (groundShadow, 40 sites) in
+   build 197. Left for later, if wanted: Pip's hammock can't be climbed into (his body is solid; yours is the nap).
 2. genWorld (533): split by region, after the climb decision.
 The cleanup list (Ross, 30 Sep) is done: docs/state-owners.md moves 1 to 7, 9 and 11 shipped as builds 186 to 193,
 each with every test's output identical before and after and the draw-record hash unchanged (WAYS 5). Move 8

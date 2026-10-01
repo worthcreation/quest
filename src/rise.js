@@ -211,7 +211,7 @@ function drawRiseProp(p, sxOf, sy, us, s) {
 const RISE_CRAG_R = 1.6, RISE_CRAGS = {};
 function paintRiseCrag(g, v) {                                                       // origin at the foot of the stone
   const rs = RISE_CRAG_R * UNIT, amp = Math.max(2, rs * 0.15), soil = soilLinePts(0, rs * 0.2, rs * 2.2, amp, v * 3.7), [ax, ay] = soil[0], [bx, by] = soil[soil.length - 1];
-  g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.ellipse(rs * 0.15, rs * 0.3, rs, rs * 0.45, 0, 0, 6.28); g.fill();
+  groundShadow(0, 0, rs, rs * 0.45, 0, { dx: rs * 0.15, dy: rs * 0.3, ctx: g });
   g.save(); g.beginPath(); g.moveTo(ax - rs * 2, -rs * 3); g.lineTo(ax - rs * 2, ay); soil.forEach(([sx, sy]) => g.lineTo(sx, sy)); g.lineTo(bx + rs * 2, by); g.lineTo(bx + rs * 2, -rs * 3); g.closePath(); g.clip();   // sunk: nothing of the stone below its soil line
   drawJagged(0, -rs * 0.4, rs, v * 13.1 + 2.3, ['#86827a', '#9a968c', '#6e6a62'], null, g); g.restore();
   drawSoilLine(0, rs * 0.2, rs * 2.2, amp, v * 3.7, g);

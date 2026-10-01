@@ -1,6 +1,15 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 197: groundShadow (no change in play)
+- One ground-shadow helper, groundShadow(x, y, w, h, z, opts) in draw.js (opts: a darkness, dx dy nudge, ctx, u), with
+  the hero's height rule as shadowScale(z, u). 40 inline shadow ellipses across draw, draw-ui, draw-hero, highlands,
+  climb, rise and puzzles route through it with their old darkness and offset; the hammock's floor shadow keeps its
+  polygon but takes its scale from shadowScale. Not routed: drawRock's lumpy blob shadow (not an ellipse).
+- Proof: draw-record hash 077cff62923fed21e0a87aa7691ff45e before and after (204 recordings, 10534 calls); all 66
+  tests' output identical; a whole-frame recording of every screen (227 frames, 661200 canvas calls) identical, the
+  only textual change being four alpha strings now written '.5' not '0.5' (same colour).
+
 ## Build 196: updateWorld split (no change in play)
 - The per-screen ticks (drips, hammocks, the bird and flock, the glimpse, wind, ambience levels, rain, gas, webs,
   fishing, rock dust) move out of updateWorld into updateSceneBits; updateWorld is 137 lines (was 151). The tour's

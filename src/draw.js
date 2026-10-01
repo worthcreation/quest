@@ -109,7 +109,7 @@ function drawScene(sc) {
   drawWebs();
   drawItems();
   drawGas(false);
-  for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); ctx.fillStyle = `rgba(0,0,0,${0.2 + k * 0.4})`; ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r * k, z.r * 0.5 * k, 0, 0, 6.28); ctx.fill(); }
+  for (const z of state.hazards) { const k = Math.max(0, z.t / z.dur); groundShadow(z.x, z.y, z.r * k, z.r * 0.5 * k, 0, { a: 0.2 + k * 0.4 }); }
   for (const b of state.flock) if (b.z <= 0) drawSmallBird(b);
   // everything that stands up is drawn back to front by where it touches the ground,
   // so the hero passes behind a trunk above them and in front of one below
@@ -190,7 +190,7 @@ function drawStalactite(x, y, r) {
 function drawSmallBird(b) {
   if (b.mode === 'gone') return;
   const s = UNIT * 0.26 * (1 + b.z / (UNIT * 5)), y = b.y - b.z - (b.hop ? UNIT * 0.1 : 0);
-  if (b.z > 0) { ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.beginPath(); ctx.ellipse(b.x, b.y + UNIT * 0.3, s * 0.5, s * 0.2, 0, 0, 6.28); ctx.fill(); }
+  if (b.z > 0) groundShadow(b.x, b.y, s * 0.5, s * 0.2, 0, { a: 0.12, dy: UNIT * 0.3 });   // s already grows with height: a bird's own rule
   ctx.fillStyle = b.c;
   if (b.mode === 'peck') {
     const dip = Math.sin(state.time * 6 + b.x) > 0.7 ? s * 0.15 : 0;
@@ -216,7 +216,7 @@ function drawGround(sc) {
     }
     if (f.cave) {                                  // the cave mouth: a rocky outcrop with a dark arch going down into the hill
       const x = f.cave[0] * W, y = f.cave[1] * H, u = UNIT;
-      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.9, u * 2.2, u * 0.7, 0, 0, 6.28); ctx.fill();
+      groundShadow(x, y, u * 2.2, u * 0.7, 0, { a: 0.3, dy: u * 0.9 });
       drawJagged(x - u * 1.1, y - u * 0.5, u * 1.1, 11.3, ['#6f6a60', '#817b70', '#5c574e']); drawJagged(x + u * 1.1, y - u * 0.4, u * 1.05, 17.9, ['#6f6a60', '#817b70', '#5c574e']);
       drawJagged(x, y - u * 1.2, u * 1.2, 23.1, ['#77726a', '#8a8479', '#625d55']);
       ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.moveTo(x - u * 0.75, y + u * 0.55); ctx.lineTo(x - u * 0.7, y - u * 0.1); ctx.quadraticCurveTo(x, y - u * 0.95, x + u * 0.7, y - u * 0.1); ctx.lineTo(x + u * 0.75, y + u * 0.55); ctx.closePath(); ctx.fill();   // the arch
@@ -418,7 +418,7 @@ function drawRockBanks(sc) {
   for (const r of sc.rocks) {
     const x = r.fx * W, y = r.fy * H, R = r.r * UNIT;
     if (r.ledge) { drawLedge(x, y, R); continue; }
-    if (r.island) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.25, R * 1.05, R * 0.8, 0, 0, 6.28); ctx.fill(); }
+    if (r.island) groundShadow(x, y, R * 1.05, R * 0.8, 0, { a: 0.45, dy: R * 0.25 });
     ctx.fillStyle = '#7d7870'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.1, R, R * 0.72, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#a19b92'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.92, R * 0.62, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = 'rgba(110,140,80,.45)'; ctx.beginPath(); ctx.ellipse(x - R * 0.3, y - R * 0.15, R * 0.35, R * 0.18, -0.3, 0, 6.28); ctx.fill();
@@ -459,7 +459,7 @@ function drawGustGrass(x, y, sc) {
   const g = sc.gusts[state.gustIdx];
   const up = state.gust;                               // the plants are the gauge: a gentle lean, then flattened by the strong gust
   const lean = up * g.s, wx = Math.sin(g.a), wy = Math.cos(g.a);
-  ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(x, y + 3, UNIT * 0.6, UNIT * 0.18, 0, 0, 6.28); ctx.fill();
+  groundShadow(x, y, UNIT * 0.6, UNIT * 0.18, 0, { a: 0.18, dy: 3 });
   ctx.lineCap = 'round';
   for (let i = -3; i <= 3; i++) {
     const bx = x + i * UNIT * 0.12, hgt = UNIT * (1.3 + (i % 2 ? 0.25 : 0)), sway = Math.sin(state.time * (3 + g.s * 8) + i) * 0.08 * up;
@@ -495,7 +495,7 @@ function drawPlots(sc) {
 function drawPatch(x, y, lv, seed) {
   const u = UNIT, j = k => Math.sin(seed * 12.9898 + k * 78.233) * 0.5;       // small fixed wobbles per patch
   if (lv === 0) {
-    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(x + 2, y + 3, u * 0.5, u * 0.3, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, u * 0.5, u * 0.3, 0, { a: 0.15, dx: 2, dy: 3 });
     ctx.fillStyle = '#4e3620';
     for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.ellipse(x + (k - 2) * u * 0.16 + j(k) * u * 0.1, y + j(k + 9) * u * 0.1, u * (0.2 + 0.05 * j(k + 3)), u * 0.14, j(k + 5), 0, 6.28); ctx.fill(); }
     ctx.fillStyle = '#6a4a2c'; for (let k = 0; k < 4; k++) ctx.fillRect(x + (k - 1.5) * u * 0.18 + j(k + 11) * 4, y - u * 0.04 + j(k + 13) * 4, 3, 2);   // crumbs of rich earth
@@ -518,11 +518,20 @@ function drawPatch(x, y, lv, seed) {
   if (lv >= 3 && Math.sin(state.time * 2 + seed) > 0.96) spark(x + j(state.time) * u * 0.6, y - u * 0.1, 'rgba(255,170,90,.8)', 1, 1);   // warm ember soil
 }
 // ---------------- trees and solids ----------------
+// every ground shadow: a soft black ellipse under a thing, where it meets the ground. (x, y) is that spot, w and h the
+// radii at ground level, z the thing's height off the ground: the hero's rule, the shadow stays on the ground and shrinks
+// as it rises, to 40% at five tiles (nothing at z 0). opts: a darkness (0.22), dx dy a nudge (most sit a little down
+// and right), ctx another canvas, u the tile the height rule counts in (UNIT).
+function shadowScale(z, u = UNIT) { return 1 - Math.min(0.6, z / (u * 5)); }
+function groundShadow(x, y, w, h, z = 0, { a = 0.22, dx = 0, dy = 0, ctx: g = ctx, u = UNIT } = {}) {
+  const k = shadowScale(z, u);
+  g.fillStyle = 'rgba(0,0,0,' + String(a).replace(/^0\./, '.') + ')';
+  g.beginPath(); g.ellipse(x + dx, y + dy, w * k, h * k, 0, 0, 6.28); g.fill();
+}
 function drawShadows() {
   for (const s of state.solids) if (s.kind === 'tree' || s.kind === 'deadtree') {
     const sz = s.vis / UNIT;
-    ctx.fillStyle = 'rgba(0,0,0,.18)';
-    ctx.beginPath(); ctx.ellipse(s.x + UNIT * 0.2, s.y + UNIT * 0.2, UNIT * (s.kind === 'tree' ? 1.0 : 0.5) * sz, UNIT * 0.45 * sz, 0, 0, 6.28); ctx.fill();
+    groundShadow(s.x, s.y, UNIT * (s.kind === 'tree' ? 1.0 : 0.5) * sz, UNIT * 0.45 * sz, 0, { a: 0.18, dx: UNIT * 0.2, dy: UNIT * 0.2 });
   }
 }
 function drawTree(s) {
@@ -585,7 +594,7 @@ function drawSoilLine(x, y, w, amp, seed = 1, g = ctx) {
 const SOLID_DRAW = {
   stalagmite(s, x, y, r) {
     const moss = s.pal === 'moss', cr = (state.stalCool[s.key] || 0) > state.time;
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.25, r * 0.8, r * 0.35, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r * 0.8, r * 0.35, 0, { a: 0.3, dx: r * 0.2, dy: r * 0.25 });
     ctx.fillStyle = moss ? '#2c3526' : '#3a3440'; ctx.beginPath(); ctx.moveTo(x - r * 0.75, y + r * 0.2); ctx.lineTo(x - r * 0.15, y - r * 1.6); ctx.lineTo(x + r * 0.1, y - r * 1.3); ctx.lineTo(x + r * 0.75, y + r * 0.2); ctx.fill();
     ctx.fillStyle = moss ? '#3a4632' : '#4a4452'; ctx.beginPath(); ctx.moveTo(x - r * 0.45, y + r * 0.1); ctx.lineTo(x - r * 0.15, y - r * 1.5); ctx.lineTo(x - r * 0.05, y + r * 0.1); ctx.fill();
     if (cr) { ctx.strokeStyle = '#15121a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - r * 0.2, y - r * 0.6); ctx.lineTo(x + r * 0.1, y - r * 0.2); ctx.lineTo(x - r * 0.1, y + r * 0.1); ctx.stroke(); }
@@ -597,14 +606,14 @@ const SOLID_DRAW = {
   },
   boulder(s, x, y, r) {
     if (s.kind === 'boulder' && s.craggy) {                     // up the mountain the boulders turn rough: the woods' craggy stone, sunk in the ground
-      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.35, r * 1.05, r * 0.5, 0, 0, 6.28); ctx.fill();
+      groundShadow(x, y, r * 1.05, r * 0.5, 0, { a: 0.25, dx: r * 0.15, dy: r * 0.35 });
       drawJagged(x, y - r * 0.1, r * 1.02, x * 2.9 + y * 4.1, ['#86827a', '#9a968c', '#6e6a62']);
       const fl = sceneDef().floor || '#7d9a4c', by = y + r * 0.45; ctx.fillStyle = fl; ctx.beginPath(); ctx.moveTo(x - r * 1.2, by + r * 0.5);
       for (let i = 0; i <= 10; i++) { const k = i / 10; ctx.lineTo(x - r * 1.1 + k * r * 2.2, by - Math.sin(k * Math.PI) * r * 0.18 + Math.sin(i * 2.3 + x) * r * 0.04); } ctx.lineTo(x + r * 1.2, by + r * 0.5); ctx.closePath(); ctx.fill();
       return;
     }
     const cave = s.kind !== 'boulder', moss = s.pal === 'moss';
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.2, r, r * 0.8, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r, r * 0.8, 0, { a: 0.25, dx: r * 0.15, dy: r * 0.2 });
     ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
     ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
@@ -633,18 +642,18 @@ const SOLID_DRAW = {
     // traveler's mushroom: tall pale stem, glowing violet cap
     const found = s.dark || state.inv.shrooms[sceneDef().id], glow = found ? shroomGlow(x * 0.01, state.time) : 0.06 + 0.03 * Math.sin(state.time * 0.3);
     drawShroomRipples(x, y, u, found, sceneDef().id);
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.2, u * 0.8, u * 0.25, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, u * 0.8, u * 0.25, 0, { a: 0.25, dx: 3, dy: u * 0.2 });
     drawTravelShroom(x, y, u, found, glow, sceneDef().id);
     if (found && Math.random() < 0.008) state.fx.push({ x: x + (Math.random() - 0.5) * u, y: y - u * 1.2, vx: 0, vy: -u * 0.25, t: 0, life: 2.6, color: 'spore', size: u * 0.05 });
   },
   stone(s, x, y, r) {
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.4, r, r * 0.45, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r, r * 0.45, 0, { dx: 2, dy: r * 0.4 });
     ctx.fillStyle = '#7e7e74'; ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.8, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#9a9a8e'; ctx.beginPath(); ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, 6.28); ctx.fill();
   },
   wedge(s, x, y, r) {
     // one big irregular boulder each, jammed against its neighbours; moss in the joins
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.55, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r * 1.2, r * 0.45, 0, { a: 0.25, dx: 3, dy: r * 0.55 });
     drawJagged(x, y - r * 0.1, r * 1.15, x * 3.1 + y * 7.7, ['#7d776c', '#8f887b', '#6c665c']);
     ctx.fillStyle = 'rgba(90,140,70,.55)'; ctx.beginPath(); ctx.ellipse(x + r * 0.2, y + r * 0.35, r * 0.3, r * 0.1, 0.3, 0, 6.28); ctx.fill();
   },
@@ -653,7 +662,7 @@ const SOLID_DRAW = {
     ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x - r + 3, y - r * 0.4 + 3, r * 2, r * 1.3); ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; ctx.strokeRect(x - r, y - r * 0.8, r * 2, r * 1.4); ctx.beginPath(); ctx.moveTo(x - r, y - r * 0.8); ctx.lineTo(x + r, y + r * 0.6); ctx.moveTo(x + r, y - r * 0.8); ctx.lineTo(x - r, y + r * 0.6); ctx.stroke();
   },
   barrel(s, x, y, r) {
-    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(x + 3, y + r * 0.5, r * 0.9, r * 0.35, 0, 0, 6.28); ctx.fill(); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); }
+    groundShadow(x, y, r * 0.9, r * 0.35, 0, { a: 0.3, dx: 3, dy: r * 0.5 }); ctx.fillStyle = '#7a5230'; ctx.beginPath(); ctx.ellipse(x, y - r * 0.2, r * 0.85, r, 0, 0, 6.28); ctx.fill(); ctx.strokeStyle = '#3a2814'; ctx.lineWidth = 2; for (const k of [-0.5, 0.3]) { ctx.beginPath(); ctx.ellipse(x, y + k * r, r * 0.8, r * 0.2, 0, 0, Math.PI); ctx.stroke(); }
   },
   crag(s, x, y, r, u) {
     const hits = rtFor(state.scene).flags['hits_' + s.bar] || 0, k = hits / (s.hp || 1), lit = s.tint || '#8a8478';
@@ -684,7 +693,7 @@ const SOLID_DRAW = {
   },
   burrow(s, x, y, r) {
     // a knot of roots and rock around a small, odd hole
-    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + r * 0.5, r * 1.2, r * 0.45, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r * 1.2, r * 0.45, 0, { a: 0.2, dx: 2, dy: r * 0.5 });
     ctx.fillStyle = '#5a5048'; ctx.beginPath(); ctx.ellipse(x, y, r * 1.15, r * 0.9, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#6e645a'; ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.3, r * 0.5, r * 0.35, -0.4, 0, 6.28); ctx.fill();
     if (s.holeMid) {
@@ -746,7 +755,7 @@ const SOLID_DRAW = {
   tent(s, x, y, r, u) {
     // Pip's lean-to: a crossbar on two forked sticks, a wall of leaning sticks, a blanket flung over one end
     const jj = k => Math.sin(k * 12.9898) * 0.5;
-    ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + u * 0.2, y + u * 0.5, r * 1.15, r * 0.35, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, r * 1.15, r * 0.35, 0, { dx: u * 0.2, dy: u * 0.5 });
     ctx.fillStyle = '#2a1c10'; ctx.beginPath(); ctx.moveTo(x - r * 0.85, y + u * 0.5); ctx.lineTo(x - r * 0.8, y - r * 0.55); ctx.lineTo(x + r * 0.8, y - r * 0.6); ctx.lineTo(x + r * 0.9, y + u * 0.5); ctx.fill();   // the dark inside
     for (let k = 0; k < 11; k++) {                 // the sticks, leaning back from the ground to the crossbar, all different
       const bx = x - r * 0.95 + k * r * 0.19, len = r * (1.15 + jj(k) * 0.25);
@@ -852,7 +861,7 @@ function drawPip(x, y, o = {}) {
   ctx.restore();
 }
 function drawPerson(x, y, color, z, dim = 0) {
-  ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x + 2, y + UNIT * 0.45, UNIT * 0.55, UNIT * 0.2, 0, 0, 6.28); ctx.fill();
+  groundShadow(x, y, UNIT * 0.55, UNIT * 0.2, 0, { dx: 2, dy: UNIT * 0.45 });   // ground size whatever z, as it always was
   ctx.fillStyle = color; ctx.fillRect(x - UNIT / 2, y - z - UNIT / 2, UNIT, UNIT);
   if (dim) { ctx.fillStyle = `rgba(40,40,60,${dim})`; ctx.fillRect(x - UNIT / 2, y - z - UNIT / 2, UNIT, UNIT); }
 }
@@ -862,14 +871,14 @@ function drawNpc(n) {
   if (n.kind === 'toad') {
     const c = state.cut && state.cut.type === 'toad' ? state.cut : null, sw = c ? (c.swell || 0) : 0;
     const bob = Math.sin(state.time * 2) * 2, s = UNIT * (1.1 + sw * 0.6);
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.55, s, s * 0.3, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, s, s * 0.3, 0, { a: 0.25, dy: s * 0.55 });
     ctx.fillStyle = '#5a6b32'; ctx.beginPath(); ctx.ellipse(x, y + bob, s, s * 0.75, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#c9c07a'; ctx.beginPath(); ctx.ellipse(x, y + bob + s * 0.25, s * (0.6 + sw * 0.3), s * 0.4, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#44542a'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(x + Math.cos(i * 2.1) * s * 0.6, y + bob - s * 0.2 + Math.sin(i * 1.7) * s * 0.2, s * 0.08, 0, 6.28); ctx.fill(); }
     for (const k of [-1, 1]) { ctx.fillStyle = '#6b7c3a'; ctx.beginPath(); ctx.arc(x + k * s * 0.45, y + bob - s * 0.55, s * 0.22, 0, 6.28); ctx.fill(); ctx.fillStyle = '#e8d24a'; ctx.beginPath(); ctx.arc(x + k * s * 0.45, y + bob - s * 0.58, s * 0.12, 0, 6.28); ctx.fill(); ctx.fillStyle = '#111'; ctx.fillRect(x + k * s * 0.45 - s * 0.1, y + bob - s * 0.6, s * 0.2, s * 0.05); }
   } else if (n.kind === 'tortoise') {
     const s = UNIT * 0.9, hd = Math.sin(state.time * 0.8) * 3;
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.5, s * 1.1, s * 0.3, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, s * 1.1, s * 0.3, 0, { a: 0.25, dy: s * 0.5 });
     ctx.fillStyle = '#8a8a62'; ctx.beginPath(); ctx.ellipse(x - s * 1.05, y + hd * 0.2, s * 0.3, s * 0.24, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#5a5a3a'; ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.72, 0, Math.PI, 0); ctx.fill(); ctx.fillRect(x - s, y - 2, s * 2, s * 0.25);
     ctx.strokeStyle = '#3e3e26'; ctx.lineWidth = 2;
@@ -892,7 +901,7 @@ function drawHero() {
   const sp = Math.hypot(h.vx, h.vy), stretch = Math.min(0.18, sp / 3000);
   const pw = UNIT * (1 + stretch * Math.abs(h.vx) / (sp || 1)), ph = UNIT * (1 + stretch * Math.abs(h.vy) / (sp || 1));
   const y = h.y - h.z, sh = 1 - Math.min(0.6, h.z / (UNIT * 5)), near = heightScale(h.z);
-  if (!(h.ride && h.ride.wind)) { ctx.fillStyle = 'rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(h.x + 2, h.y + ph * 0.45, pw * 0.55 * sh, pw * 0.2 * sh, 0, 0, 6.28); ctx.fill(); }   // the shadow stays on the ground, at ground size
+  if (!(h.ride && h.ride.wind)) groundShadow(h.x, h.y, pw * 0.55, pw * 0.2, h.z, { dx: 2, dy: ph * 0.45 });   // the shadow stays on the ground, at ground size
   if (near > 1.001) { ctx.save(); ctx.translate(h.x, y); ctx.scale(near, near); ctx.translate(-h.x, -y); drawHeroBody(h, pw, ph, y, sh); ctx.restore(); return; }
   drawHeroBody(h, pw, ph, y, sh);
 }
@@ -1078,7 +1087,7 @@ function drawSwordReveal(x, y, t) {
 }
 function drawShots() {
   for (const s of state.shots) {
-    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(s.x, s.y + UNIT * 0.2, UNIT * (s.kind === 'rock' ? 0.5 : 0.15), UNIT * 0.1, 0, 0, 6.28); ctx.fill();
+    groundShadow(s.x, s.y, UNIT * (s.kind === 'rock' ? 0.5 : 0.15), UNIT * 0.1, 0, { a: 0.25, dy: UNIT * 0.2 });
     const k = heightScale(s.z);
     if (s.kind === 'rock') drawRock(s.x, s.y - s.z, UNIT * 0.6 * k, s.seed || 3.7);
     else { ctx.save(); ctx.translate(s.x, s.y - s.z); ctx.rotate(s.spin); drawItemIcon('acorn', 0, 0, UNIT * 0.6 * k); ctx.restore(); }
@@ -1236,7 +1245,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 196';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 197';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -1290,7 +1299,7 @@ function drawJetty(sc) {
 }
 // Wick's shack: log walls, a lopsided roof with one board patched, a stone step, a crooked stovepipe. Sturdy, not neat.
 function drawShack(x, y, u) {
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 3, y + u * 0.55, u * 1.2, u * 0.3, 0, 0, 6.28); ctx.fill();
+  groundShadow(x, y, u * 1.2, u * 0.3, 0, { a: 0.2, dx: 3, dy: u * 0.55 });
   ctx.fillStyle = '#8a8378'; ctx.fillRect(x - u * 0.95, y + u * 0.35, u * 1.75, u * 0.2);                 // stone footing
   ctx.fillStyle = '#6b4a2a'; ctx.fillRect(x - u * 0.9, y - u * 0.6, u * 1.65, u * 0.97);                  // walls
   ctx.strokeStyle = '#4e3520'; ctx.lineWidth = 1.5;
@@ -1453,7 +1462,7 @@ function drawRavines(sc) {
 }
 // ledges: a raised earth shelf with a grass rim and a worn patch in the middle
 function drawLedge(x, y, R) {
-  ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x + 2, y + R * 0.3, R * 1.05, R * 0.55, 0, 0, 6.28); ctx.fill();
+  groundShadow(x, y, R * 1.05, R * 0.55, 0, { a: 0.2, dx: 2, dy: R * 0.3 });
   ctx.fillStyle = '#6a5438'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.15, R, R * 0.58, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = '#7a9a48'; ctx.beginPath(); ctx.ellipse(x, y, R * 0.95, R * 0.5, 0, 0, 6.28); ctx.fill();
   ctx.fillStyle = 'rgba(150,120,80,.55)'; ctx.beginPath(); ctx.ellipse(x, y + R * 0.02, R * 0.45, R * 0.2, 0, 0, 6.28); ctx.fill();
@@ -1466,8 +1475,7 @@ function drawLandingShadow() {
   const p = Math.min(1, r.t / r.dur);
   if (p < 0.5) return;
   const k = 0.15 + 0.85 * ((p - 0.5) / 0.5);
-  ctx.fillStyle = `rgba(0,0,0,${0.3 + 0.2 * k})`;
-  ctx.beginPath(); ctx.ellipse(r.x1 + 2, r.y1 + UNIT * 0.45, UNIT * 0.55 * k, UNIT * 0.2 * k, 0, 0, 6.28); ctx.fill();
+  groundShadow(r.x1, r.y1, UNIT * 0.55 * k, UNIT * 0.2 * k, 0, { a: 0.3 + 0.2 * k, dx: 2, dy: UNIT * 0.45 });
 }
 // during a ride: the edges of the screen dim so the crossing is the focus
 function drawRideVignette() {

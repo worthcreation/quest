@@ -113,7 +113,7 @@ function wormLines() {
 }
 function drawWormNpc(n) {
   const [x, y] = npcPos(n), u = UNIT, t = state.time;
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.2, u * 0.9, u * 0.3, 0, 0, 6.28); ctx.fill();
+  groundShadow(x, y, u * 0.9, u * 0.3, 0, { a: 0.25, dy: u * 0.2 });
   ctx.fillStyle = '#3a2a2a'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.1, u * 0.75, u * 0.25, 0, 0, 6.28); ctx.fill();           // the hole it comes up from
   for (let i = 0; i < 6; i++) { const k = i / 5, sx = x + Math.sin(t * 1.3 + i * 0.7) * u * 0.18 * (1 - k), sy = y - i * u * 0.32;
     ctx.fillStyle = i % 2 ? '#c98a8a' : '#d89a96'; ctx.beginPath(); ctx.ellipse(sx, sy, u * (0.42 - k * 0.1), u * 0.2, 0, 0, 6.28); ctx.fill(); }
@@ -126,7 +126,7 @@ function drawWormNpc(n) {
 function drawSnorkels(sc) {
   for (const [fx, fy, s, ph] of sc.feat.snorkels || []) {
     const x = fx * W, y = fy * H, u = UNIT * s, t = state.time, br = 0.5 + 0.5 * Math.sin(t * 1.4 + ph);
-    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.2, u * 0.5, u * 0.18, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, u * 0.5, u * 0.18, 0, { a: 0.2, dy: u * 0.2 });
     ctx.fillStyle = '#c98a8a'; ctx.fillRect(x - u * 0.2, y - u * 1.1, u * 0.4, u * 1.2);
     ctx.fillStyle = '#e4aaa4'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.1, u * (0.32 + br * 0.08), u * 0.14, 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = '#5a2a2a'; ctx.beginPath(); ctx.ellipse(x, y - u * 1.1, u * (0.15 + br * 0.08), u * 0.06, 0, 0, 6.28); ctx.fill();   // it opens and closes as it breathes
@@ -139,7 +139,7 @@ function drawCrystalBug(s) {
   const { x, y, vis: r } = s, u = UNIT, t = state.time;
   const near = Math.hypot(state.hero.x - x, state.hero.y - y) < UNIT * 3, tw = s.twitch && near ? Math.sin(t * 40) * u * 0.03 * (Math.sin(t * 2) > 0.7 ? 1 : 0) : 0;
   ctx.save(); ctx.translate(x + tw, y);
-  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(0, r * 0.45, r * 1.1, r * 0.35, 0, 0, 6.28); ctx.fill();
+  groundShadow(0, 0, r * 1.1, r * 0.35, 0, { a: 0.25, dy: r * 0.45 });
   const tor = s.form === 'tormented', hue = tor ? ['#8a6aa8', '#b49ad0', '#5a4078'] : ['#7ab0c8', '#b8e0f0', '#4a7a98'];
   ctx.strokeStyle = hue[2]; ctx.lineWidth = Math.max(2, r * 0.06);                                  // legs, frozen mid-step (or mid-writhe)
   for (let i = 0; i < 3; i++) for (const sd of [-1, 1]) { const a = (i - 1) * 0.6 + (tor ? Math.sin(i * 3.1 + s.ph) * 0.5 : 0); ctx.beginPath(); ctx.moveTo(sd * r * 0.3, (i - 1) * r * 0.25); ctx.lineTo(sd * r * 0.8, (i - 1) * r * 0.3 - r * 0.2); ctx.lineTo(sd * r * (1 + (tor ? 0.2 : 0)), (i - 1) * r * 0.35 + r * 0.25 * a); ctx.stroke(); }

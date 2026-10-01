@@ -136,7 +136,7 @@ function drawClimb() {
   if (a && d.windy) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 26; i++) { const z = 4.5 + ((i * 2.3 + state.time * 14) % 22), x = ((i * 3.7) % 16) - 8, [sx, sy] = climbProj(x, 2.4, z), [ex, ey] = climbProj(x, 2.4, z + 1.4); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); } }
   else if (a) { ctx.strokeStyle = `rgba(255,255,255,${a})`; ctx.lineWidth = 2; for (let i = 0; i < 16; i++) { const z = 5 + ((i * 3.1 + state.time * 9) % 40), x = d.cx(z) + (i % 4 - 1.5) * 2.2 + gs.dir * ((state.time * 3 + i) % 2), [sx, sy] = climbProj(x, 2.2, z), l = 70 * 5 / z, dir = (d.mirror ? -1 : 1) * gs.dir; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + dir * l * 0.5, sy - l * 0.3, sx + dir * l, sy - l * 0.1); ctx.stroke(); } }
   const f = H * d.cam.f, ground = climbGround(c.x, c.z), s = 0.55 * f / c.z;
-  const rock = ([bx, bz, r]) => { const [rx, ry] = climbProj(bx, 1.5, bz), rs = r * f / bz; ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(rx + rs * 0.2, ry, rs * 1.1, rs * 0.35, 0, 0, 6.28); ctx.fill(); ctx.save(); ctx.translate(rx, ry - rs * 0.9); ctx.scale(1, 1.25); drawJagged(0, 0, rs, bx * 3 + bz, ['#8a857c', '#a09a90', '#6e6a62']); ctx.restore(); drawSoilLine(rx, ry - rs * 0.05, rs * 2, Math.max(2, rs * 0.12), bx); };
+  const rock = ([bx, bz, r]) => { const [rx, ry] = climbProj(bx, 1.5, bz), rs = r * f / bz; groundShadow(rx, ry, rs * 1.1, rs * 0.35, 0, { a: 0.25, dx: rs * 0.2 }); ctx.save(); ctx.translate(rx, ry - rs * 0.9); ctx.scale(1, 1.25); drawJagged(0, 0, rs, bx * 3 + bz, ['#8a857c', '#a09a90', '#6e6a62']); ctx.restore(); drawSoilLine(rx, ry - rs * 0.05, rs * 2, Math.max(2, rs * 0.12), bx); };
   const far = (d.boulders || []).filter(b => b[1] > c.z), near = (d.boulders || []).filter(b => b[1] <= c.z);
   far.sort((a, b) => b[1] - a[1]).forEach(rock);
   const sink = c.fall > 0 ? c.fall / 0.9 : 0, [gx, gy] = climbProj(c.x, ground, c.z), [px, py] = climbProj(c.x, ground + c.h - sink * 4, c.z);
@@ -151,7 +151,7 @@ function drawClimb() {
       sw *= 0.2 + 0.8 * (1 - hk) * (1 - hk);                                            // tiny at the top of the jump, growing as you come down
       if (overChasm(c.shx, c.shz)) sw *= 0.6;                                            // over the drop it falls far below: small and faint
     }
-    ctx.fillStyle = `rgba(0,0,0,${c.air ? 0.38 : 0.25})`; ctx.beginPath(); ctx.ellipse(sx0, sy0, sw, sw * 0.28, 0, 0, 6.28); ctx.fill();
+    groundShadow(sx0, sy0, sw, sw * 0.28, 0, { a: c.air ? 0.38 : 0.25 });   // sw carries the climb's own height rule
   }
   if (state.settings.tiles) drawClimbTiles(c, d);                                   // System > Show tiles: the grid laid on the ground, in perspective
   if (MOUNTAIN) { ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(8, H - 30, 330, 22); ctx.fillStyle = '#fdf6e3'; ctx.font = '13px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.fillText(`shadow lead ${SHADOW.lead.toFixed(2)} [ ]  follow ${SHADOW.follow.toFixed(0)} - =`, 14, H - 14); }

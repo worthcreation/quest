@@ -93,7 +93,7 @@ SOLID_DRAW.hammock = (s) => {
   const poly = (pts, close = true) => { ctx.beginPath(); pts.forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); if (close) ctx.closePath(); };
   const lens = (f, sc = 1) => [...edge(f, -1, sc), ...edge(f, 1, sc).reverse()];
   const ink = 'rgba(30,20,14,.22)';
-  { const c = Fl(L / 2, 0), k = 1 - Math.min(0.6, (zEnd - sag) / (u * 5));   // its shadow on the floor: the hero's rule, smaller the higher it hangs
+  { const c = Fl(L / 2, 0), k = shadowScale(zEnd - sag, u);   // its shadow on the floor: the hero's rule, smaller the higher it hangs
     ctx.fillStyle = 'rgba(20,12,4,.2)'; poly(lens(Fl).map(([a, b]) => [c[0] + (a - c[0]) * k + u * 0.15, c[1] + (b - c[1]) * k + u * 0.1])); ctx.fill(); }
   const post = (px, py) => { ctx.fillStyle = 'rgba(40,28,16,.45)'; ctx.beginPath(); ctx.ellipse(px, py, u * 0.2, u * 0.07, 0, 0, 6.28); ctx.fill();
     ctx.strokeStyle = '#4e3a24'; ctx.lineWidth = u * 0.13; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - zEnd - u * 0.1); ctx.lineTo(px - u * 0.14, py - zEnd - u * 0.36); ctx.moveTo(px, py - zEnd - u * 0.1); ctx.lineTo(px + u * 0.14, py - zEnd - u * 0.36); ctx.stroke(); };

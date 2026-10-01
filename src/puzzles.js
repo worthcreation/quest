@@ -66,7 +66,7 @@ function drawPuzzlePortals(sc) {
   for (const q of sc.feat.portals || []) {
     const zone = q.pid.startsWith('zone:') ? ARENA_ZONES[q.pid.slice(5)] : null;
     const p = zone ? { id: q.pid, name: zone.name } : PUZZLES.find(o => o.id === q.pid), r = recs[p.id] || {}, x = q.fx * W, y = q.fy * H, u = UNIT, t = state.time;
-    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x, y + u * 0.35, u * 0.9, u * 0.35, 0, 0, 6.28); ctx.fill();
+    groundShadow(x, y, u * 0.9, u * 0.35, 0, { a: 0.2, dy: u * 0.35 });
     ctx.fillStyle = r.solves || r.clears ? '#b8d8a0' : '#b0aaa0'; ctx.beginPath(); ctx.ellipse(x, y, u * 0.85, u * 0.5, 0, 0, 6.28); ctx.fill();
     ctx.strokeStyle = `rgba(160,220,255,${0.5 + 0.3 * Math.sin(t * 3 + q.fx * 9)})`; ctx.lineWidth = 3; ctx.stroke();
     ctx.font = `bold ${Math.round(Math.max(12, u * 0.36))}px "Courier New", monospace`; ctx.textAlign = 'center';
