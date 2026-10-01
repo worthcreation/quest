@@ -11,7 +11,9 @@ const walkEast=(secs, stopAt)=>{ const sc0=state.scene, seen=[]; let t=0;
     const south = tx() > RISE.outX - 0.4 && ty() > RISE.pathY(tx()) - 1;                  // at the far end: turn down through the pass
     const dy = south ? 1 : RISE.pathY(tx()+1)-ty(), far = dy > 2.5 && tx() < RISE.inX + 5;   // coming in: down first
     state.keys.arrowright = !south && !far || (south && tx() < RISE.outX - 0.2); state.keys.arrowleft = south && tx() > RISE.outX + 0.4;
-    state.keys.arrowdown=dy>0.3; state.keys.arrowup=dy<-0.3; run(1); t++; if(t%60===0 && state.mtn) seen.push([tx(), z()]); } off(); return [t/60, seen]; };
+    state.keys.arrowdown=dy>0.3; state.keys.arrowup=dy<-0.3;
+    if (!south && state.hero.z<=0 && !isChasm(state.hero.x, state.hero.y) && isChasm(state.hero.x+UNIT*1.1, state.hero.y)) { state.keys[' ']=true; run(1); state.keys[' ']=false; }   // a drop ahead: jump it (the slit at x 40, build 208)
+    run(1); t++; if(t%60===0 && state.mtn) seen.push([tx(), z()]); } off(); return [t/60, seen]; };
 run(5); state.intro=null; state.texts=[]; state.pip=null;
 // 1. f2 is gone; the first field's south way leads onto the rise at its north-west corner, looking straight down
 startTestScene('f1'); run(10);
@@ -42,10 +44,10 @@ console.log('5 ?mountain start at x', startAt[0].toFixed(1), 'y', startAt[1].toF
 state.climb=null; enterScene('rise', RISE.outX/RISE.len, 1-1.2/RISE.D); run(10);
 const inAt=[tx(), ty(), z()]; state.enemies=[]; state.keys.arrowup=true; run(60*2); off(); state.keys.arrowleft=true; run(60*3); off(); run(120);
 console.log('6 in at the pass ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), 'zoom', inAt[2].toFixed(2), '| up the pass 2 s, then 3 s west: x', tx().toFixed(1), 'y', ty().toFixed(1), 'zoom', z().toFixed(2));
-// 7. the walls open out as you go: wall to wall at three places
+// 7. no walls of stone since build 208: the screen's edges hold, and the whole depth is open at three places
 const walls=x=>{ state.hero.x=x*UNIT; state.hero.y=15*UNIT; state.hero.vx=state.hero.vy=0; state.keys.arrowup=true; run(150); off(); const a=ty(); state.keys.arrowdown=true; run(240); off(); return ty()-a; };
 const w5=walls(10), w40=walls(40), w66=walls(66);
-console.log('7 wall to wall: x 10', w5.toFixed(1), 'tiles | x 40', w40.toFixed(1), '| x 66', w66.toFixed(1));
+console.log('7 edge to edge, tiles walked north then south: x 10', w5.toFixed(1), '| x 40', w40.toFixed(1), '| x 66', w66.toFixed(1), '(no stone walls)');
 // 8. the way in leads back up to f1; the west end is a wall; a phone keeps you at least 20 px
 state.hero.x=2*UNIT; state.hero.y=15*UNIT; state.keys.arrowleft=true; run(90); off(); const wx=tx(); state.hero.x=RISE.inX*UNIT; state.hero.y=4*UNIT; state.keys.arrowup=true; run(90); off(); run(20); const west=state.scene;
 const sv=[W,H,SW,SH]; W=SW=390; H=SH=844; computeUnit(); const px=mtnZoomMin()*UNIT; [W,H,SW,SH]=sv; computeUnit();
@@ -63,6 +65,6 @@ const clear=WORLD.rise.feat.plants.every(([fx,fy])=>mtnLand(RISE).solids.every(p
 console.log('9 gusts same as f1:', sameGusts, '| strong-gust shove, tiles/s: rise', vR.toFixed(2), 'f1', vF.toFixed(2), '| tall grass', WORLD.rise.feat.plants.length, 'clumps, all clear of stones:', clear, '| clouds', state.clouds.length);
 if (!(seen.length && onShelf && startAt[0]>RISE.barX && startAt[0]<RISE.barX+3)) errs++;
 if (!(sameGusts && Math.abs(vR-vF)<0.05 && vR>0.5 && clear && state.clouds.length>4)) errs++;
-if (!(WORLD.f2===undefined && rab.length===2 && cover>=6 && stopped<RISE.barX && afterFire>0 && secs>0 && mono && most<0.12 && w40>w5+3 && w66>w40+3 && wx>0.3 && west==='f1' && px>=20)) errs++;
+if (!(WORLD.f2===undefined && rab.length===2 && cover>=6 && stopped<RISE.barX && afterFire>0 && secs>0 && mono && most<0.12 && w5>=20 && w40>=20 && w66>=20 && wx>0.3 && west==='f1' && px>=20)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);

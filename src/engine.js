@@ -322,7 +322,10 @@ function updateWorld(dt) {
   else if (h.dashT > 0) {
     h.dashT -= dt;
     const nx = h.x + h.vx * dt, ny = h.y + h.vy * dt;
-    if ((sc.river || sc.deep || sc.chasms) && h.z <= 0 && !isChasm(h.x, h.y) && isChasm(nx, ny)) { h.dashT = 0; h.vx *= 0.2; h.vy *= 0.2; }   // a dodge stops at the water's edge
+    let edge = false;                                                                      // a dodge stops at the water's edge (checked along the whole step: a fast dash on a slow frame crosses a tile or more)
+    if ((sc.river || sc.deep || sc.chasms) && h.z <= 0 && !isChasm(h.x, h.y)) { const cx = Math.max(UNIT * 0.5, Math.min(W - UNIT * 0.5, nx)), cy = Math.max(UNIT * 0.5, Math.min(H - UNIT * 0.5, ny)), n = Math.max(1, Math.ceil(Math.hypot(cx - h.x, cy - h.y) / (UNIT * 0.15)));   // (where the step ends once the screen's edge has held it)
+      for (let i = 1; i <= n && !edge; i++) if (isChasm(h.x + (cx - h.x) * i / n, h.y + (cy - h.y) * i / n)) edge = true; }
+    if (edge) { h.dashT = 0; h.vx *= 0.2; h.vy *= 0.2; }
     else stepHero(h, nx - h.x, ny - h.y);
     if (Math.random() < 0.6) state.fx.push({ x: h.x, y: h.y, vx: 0, vy: 0, t: 0, life: 0.2, color: 'rgba(245,208,111,.5)', size: UNIT * 0.8 });
   } else {
@@ -438,13 +441,14 @@ function clampTo(a, r) {
   if (a.x > W - r) { a.x = W - r; a.vx = Math.min(0, a.vx); wall = true; }
   if (a.y < r) { a.y = r; a.vy = Math.max(0, a.vy); wall = true; }
   if (a.y > H - r) { a.y = H - r; a.vy = Math.min(0, a.vy); wall = true; }
+  const sc = sceneDef(); if (sc.mtnHold && sc.mtnHold(a)) wall = true;   // a mountain screen's own wall: the mountain itself (mountain.js)
   return wall;
 }
 // move the hero in steps no longer than a sixth of a tile, colliding after each, so a dash or a charged lunge on a slow
 // frame (dt up to 0.05) or a small screen can't step clean past a stone or the rise's reeds (tests/reeds-hold.js)
 function stepHero(h, dx, dy) {
   const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (UNIT * 0.15)));
-  for (let i = 0; i < n; i++) { h.x += dx / n; h.y += dy / n; if (n > 1) collideSolids(h, UNIT * 0.42); }
+  for (let i = 0; i < n; i++) { h.x += dx / n; h.y += dy / n; if (n > 1) { collideSolids(h, UNIT * 0.42); h.x = Math.max(UNIT * 0.5, Math.min(W - UNIT * 0.5, h.x)); h.y = Math.max(UNIT * 0.5, Math.min(H - UNIT * 0.5, h.y)); } }   // (held at the screen's edge each step too: no sliding under a stone that stands on it)
 }
 function collideSolids(a, r) {
   let hit = null;

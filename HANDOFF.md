@@ -16,7 +16,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 65 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 67 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
@@ -31,8 +31,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 207): audit: 11210 lines, 0 unused, 0 functions over 150,
-  0 repeats, 160 state fields, frames avg 0.55 ms (1 slow, 0 errors); the slow one is a climb screen's draw.
+  handoff updates docs/audit-baseline.json. Last run (build 208): audit: 11421 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.76 ms (2 slow, 0 errors); the slow ones are a climb screen's draw and the rise's (the ravines' walls: read a change there only if it grows).
   Frame times swing with load: read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
@@ -46,7 +45,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp
   (on Windows node that's C:\tmp, which must exist). MOCK4=1 is the mountainside still (it and tools/render.js still
   write to /mnt/user-data/outputs, a container path: repoint before use); B139/B150/B154 are the climb screens; B165 is
-  the rise (seven spots: the way in, along it, the way out; plus the tiles; SW=390 SH=844 for a phone).
+  the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
   shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
@@ -62,18 +61,19 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - climb.js      the climb screens (climb2-climb5; climb1 became mt1 in 207): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
-- mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE is
-                the rise's, M1 the wind shelf's (scene mt1, 207): size, foot, pathY, pathD, layout, scene, finish; a
-                ravine as m.rav: cy, hw, depth, one shape for isChasm (sc.mtnGap) and the drawing (mtnRavinePts,
-                drawMtnRavine: a hole clipped out of the rows, far wall and stone floor painted once, drawMtnIsland
-                pillars; mtnPass shared), mtnH (height), mtnColor (floor, earth, stoneAt), mtnHalf (the
-                way's half-width, growing with the view), mtnView/mtnZoom/mtnLead/mtnProj, mtnLand (props laid out once
-                in tiles from m.seed, by m.layout with the pieces mtnWalls, mtnFootCrags, mtnTufts), mtnRows (ground
-                rows), addMtn (the scene: solids from the land, then m.finish: the rise's reeds, rabbits, exits to f1
-                and climb1), sceneSize (a scene's size in px: a mountain screen's own, every other the screen),
-                newMtnCam/mtnCamera (state.mtn), mtnToScreen (toScreen on a mountain screen), drawMtn (ground rows,
-                then everything standing drawn by the game's own code at its spot, scaled), mtnCragSprite (16 crag
-                pictures, painted once), drawMtnTiles
+- mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE the rise's,
+                M1 the wind shelf's (scene mt1, 207): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
+                screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
+                seed, walk with keep) or M1's old cy/hw one with a floor; ravField (the drop, one shape for isChasm via
+                sc.mtnGap and the drawing), ravRings (the outline traced once, islands swallowed), mtnDrawRavs (all spines
+                on a screen as one field), genRavRiver (a faint river on the biggest), mtnRavinePts, drawMtnDrop (far walls
+                leaning toward the view, stones set in, river), drawMtnBrink (the lip, painted after the ground),
+                drawMtnRavine/drawMtnIsland for M1's; riseRavines (the rise's three), mtnHold (the mountain itself holds
+                east of the foot, the way through the pass excepted; clampTo asks sc.mtnHold). mtnH (height), mtnColor,
+                mtnHalf, mtnView/mtnZoom/mtnLead/mtnProj, mtnLand (props laid out once in tiles from m.seed, by m.layout
+                with mtnWalls, mtnFootCrags, mtnTufts, mtnPass; nothing in a ravine), mtnRows (ground rows), addMtn,
+                sceneSize, newMtnCam/mtnCamera (state.mtn), mtnToScreen, drawMtn (ground rows, ravines clipped to the land,
+                everything standing drawn by the game's own code at its spot, scaled), mtnCragSprite, drawMtnTiles
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
 - text.js       say() with pages and holds, showTitle, showScroll, notice (pickup scrolls)
 - engine.js     update(), enterScene, movement, jumps, wind and rides, chasms (isChasm, chasmSpan), hurtHero, checkEdges
@@ -192,17 +192,22 @@ seams: the rise's way in is at its far west, while f1's south opening sits where
 the matching side means regenerating that edge wall).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 208 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch (applies on 207 with
-`patch -p1 < docs/parked/m2-stepping-path.patch`; mountain.js and world.js): a fixed camera for the generator (m.fixed
-{ p }: mtnView holds p, mtnZoom fits the screen's width, mtnCamera sits at the centre or slides on a narrow phone,
-m.half holds the walls' width), walls skip the drop, M2 (40 x 24, ravine 5 across at the ends and wall to wall from
-x 10 to 30, a chain of seven islands r 1.05 with gaps 1.18 to 1.37 and an eighth off it 1.69 away with two carrots,
-in from mt1's pass, out south onto climb3), M1's exit moved to mt2, floor stones capped at half a tile, the tiles
-overlay green on an island. Mockups quest-b208-mt2-entry.png and -mid.png were shown; Ross's OK and any turns come
-first. Then: tests/stepping-path.js (hop the chain lined up like a player, the dare, in and out, a fall), remove
-climb2 from CLIMB_SPECS, world.js's climb list and MAP_LAYOUT (mt2: [4, 6]), MAP_NAMES, tests/climb.js's 2b, HISTORY,
-mountain-plan, design-rules story; ship. Open on the look: the big flat floor (mist or denser stones by the walls),
-island size, bare islands or grassy.
+FABLE: 209 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch, written on 207
+(mountain.js and world.js: a fixed camera for the generator (m.fixed { p }), walls that skip the drop, M2 40 x 24 with a
+ravine 5 across at the ends and wall to wall from x 10 to 30, a chain of seven islands r 1.05 with gaps 1.18 to 1.37 and
+an eighth off it 1.69 away with two carrots, in from mt1's pass, out south onto climb3, M1's exit moved to mt2, floor
+stones capped at half a tile, the tiles overlay green on an island). It will not apply clean on 208: the ravine is now
+m.ravs (spines, ravField, ravRings, drawMtnDrop) and the walls of stone are gone from the rise (M1 still has its
+mtnWalls, mtnFootCrags and the old cy/hw ravine with a floor; leave M1 as it is until its own build). Re-base the patch
+by hand, then: islands are their own generator (Ross, 1 Oct: ravines first, then islands laid on purpose, then rivers),
+at least 2 tiles across, every gap a sure running jump; show a still first (mockups quest-b208-mt2-entry.png and -mid.png
+were shown before 208; the look of 208's ravines applies). Then tests/stepping-path.js (hop the chain lined up like a
+player, the dare, in and out, a fall), remove climb2 from CLIMB_SPECS, world.js's climb list and MAP_LAYOUT (mt2: [4, 6]),
+MAP_NAMES, tests/climb.js's 2b, HISTORY, mountain-plan, design-rules story; ship. Ross's open calls on the look (the big
+flat floor, island size, bare or grassy) still stand; ask in one short message after the still.
+Parked from 208 (Ross's call later): spider ravines and round pits (genRavine has 'spider'; 'round' was deleted), very
+large wall stones, the brink band over a prop standing at a lip (props keep a third of a tile clear; widen if it shows).
+
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).
 
 Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
@@ -218,9 +223,11 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
 3. The mountain: the rise and the climb as one family (Ross, 1 Oct), docs/mountain-plan.md. New scenes first: Ross
    expected to see the reimagined flow, and 205 and 206 were groundwork. ~~205 the reeds hold~~ (205), ~~206 the
    generator~~ (206: rise.js became mountain.js, no change in play), ~~207 m1 the wind shelf~~ (207, scene mt1).
-   NEXT: 208 m2 (islands at least 2 tiles across; draft parked, mockup shown), 209 m3 inside, 210 m4, 211 m5 and carrot juice (climb.js
-   deleted), 212 hawks hunt rabbits and the ornithologist's eggs, 213 the tortoise's hollow and peach stones, 214
-   trees, 215 the windmill (Opus), 216 direction by seed; all FABLE but 215. The wind by height ships whenever Ross
+   ~~208 the rise reworked~~ (208: bottomless ravines from a generator, the
+   big one plus the reeds as the boundary, no walls of stone). NEXT: 209 m2 (islands at least 2 tiles across; draft parked
+   on 207, re-base), 210 m3 inside, 211 m4, 212 m5 and carrot juice (climb.js deleted), 213 hawks hunt rabbits and the
+   ornithologist's eggs, 214 the tortoise's hollow and peach stones, 215 trees, 216 the windmill (Opus), 217 direction by
+   seed; all FABLE but 216. The wind by height ships whenever Ross
    OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.

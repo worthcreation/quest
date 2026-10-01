@@ -1,6 +1,29 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 208: the rise reworked, ravines from a generator (chat)
+Ravines are bottomless now and come from a generator: a spine (polylines in tiles, each point with a half-width;
+genRavine kinds long, thin, spider by seed, walks pulled back toward their heading), the drop everywhere nearer a spine
+than its width (ravField, the one shape for isChasm and the drawing), the outline traced once from the field (ravRings,
+marching squares at a fifth of a tile; islands of ground inside a drop swallowed), every spine ravine on a screen traced
+as one field (mtnDrawRavs) so crossings are one drop. Drawn (drawMtnDrop): the lip ring shrunk toward the middle of the
+view as a floor far below, so the far walls show and slide as you walk; walls lit by facing, earth into a blue-black
+haze, strata rings; grey stones set in the walls from 1.5 tiles under the lip to 60% down, cut along the lip with a
+quarter showing, a soil patch over the join in the wall's own colour read off the canvas; a faint tapering river where
+the walls meet, on ravines over 1.8 half-width only (genRavRiver); the brink painted after the ground (drawMtnBrink: a
+band of broken ground outside the lip, a heavier break line, a brighter rim); all of it clipped to the land, never into
+the sky. The rise: its walls of stone, foot crags and pass crag lines gone (the screen's edges hold; east of the foot the
+mountain holds, mtnHold, within 2.2 tiles of the way through the pass excepted); riseRavines: the big one in from the
+north edge down to the reeds with its tail under five extra clumps, the reed wall only the south 40%, a slit edge to
+edge at x 40 jumped where the path crosses (keep 0.6), a short thin one at x 58; nothing stands in a ravine (props,
+tall grass, spawns); the second rabbit moved north of the big one. tools/shot.js: Path2D set (the holes drew closed
+without it), B139 without mt1, B165 by the ravines. Two holes the new boundary showed up, closed in engine.js: a dash's edge stop now checks the
+whole step against where the screen's edge will hold it (a diagonal dash on a slow frame ended on the lip and was
+clamped into the drop), and stepHero holds the screen's edge each sub-step (a dash slid under the last reed clump along
+the bottom edge). tests/rise-ravines.js new; tests/rise.js walks jump the slit, the wall-to-wall check became edge to
+edge; tests/reeds-hold.js runs the ravine-plus-reeds boundary down the whole depth (744 runs a screen size, a fall
+putting you back where you started). Ross's marks on the walls through the chat: docs/design-rules.md.
+
 ## Build 207: the wind shelf, m1 (chat)
 The climb's first screen remade on the generator as scene mt1 (m1 to m3 are the marsh's ids): the rise's pass leads
 onto it, its pass onto climb2. A ravine (M1.rav: cy, hw, depth) runs the length of the way, one shape for collision
