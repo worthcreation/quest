@@ -94,7 +94,6 @@ function drawScene(sc) {
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
   drawMiniShrooms(sc);                                   // little mushrooms in the damp and dark places
-  if (sc.corridor) drawMountainSides(sc);                // the mountain path: rock rising on either side of the way
   if (sc.feat.trapdoor) { const [tx, ty] = sc.feat.trapdoor, u = UNIT; ctx.fillStyle = '#4a3420'; ctx.fillRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(tx * W - u * 0.6, ty * H - u * 0.45, u * 1.2, u * 0.9); ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.arc(tx * W + u * 0.35, ty * H, u * 0.07, 0, 6.28); ctx.fill(); }   // Wick's trapdoor
   if (sc.river) drawRiver(sc);
   if (sc.area === 'river' && sc.pools.length) drawPools(sc);
@@ -1245,7 +1244,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 203';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 204';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -1321,7 +1320,6 @@ function layoutLedges(sc) {
   for (let k = 0; k + 1 < edges.length; k++) { const a = edges[k], b = edges[k + 1]; if (b - a > 0.06 && !(sc.chasms || []).some(c => (a + b) / 2 > c[1] && (a + b) / 2 < c[3] && c[0] <= 0.01 && c[2] >= 0.99)) bands.push((a + b) / 2); }
   for (const fy of bands) for (let i = 0; i < 5; i++) {
     let fx = 0.15 + i * 0.175 + (R() - 0.5) * 0.04;
-    if (sc.corridor) { const [a, b] = corridorSpan(sc, fy); if (b - a < 0.2) { if (i > 1) continue; fx = a + (b - a) * (i ? 0.72 : 0.28); } else if (fx < a + 0.04 || fx > b - 0.04) continue; }   // on the mountain: ledges on the ground there is
     const x = fx * W, y = fy * H;
     if (isChasm(x, y, UNIT * 0.85)) continue;
     if (state.solids.some(s => Math.hypot(s.x - x, s.y - y) < s.r + UNIT * 1.1)) continue;
@@ -1349,62 +1347,6 @@ function windTarget(sc, from) {
 // a ravine or pit, seen from above, filled with clusters of the same rough stones the woods use: big and lit near the
 // lips, smaller and darker toward the middle, where it's deepest and furthest from you
 // the mountain on either side of the path: dark rock with a broken, bitten edge, rough stones heaped along it, and the
-// rock face catching less light the further it is from the way (drawn once per screen and size, then stamped)
-const MTN_CACHE = {};
-function drawMountainSides(sc) {
-  const key = sc.id + '|' + Math.round(W) + 'x' + Math.round(H);
-  let img = MTN_CACHE[key];
-  if (img === undefined) { img = null; try { const cv = document.createElement('canvas'); cv.width = Math.ceil(W); cv.height = Math.ceil(H); const g = cv.getContext && cv.getContext('2d'); if (g && g.fillRect && g.beginPath) { paintMountainSides(g, sc); img = cv; } } catch (e) { img = null; } MTN_CACHE[key] = img; }
-  if (img) ctx.drawImage(img, 0, 0); else paintMountainSides(ctx, sc);
-}
-function paintMountainSides(g, sc) {
-  const c = sc.corridor, u = UNIT, rockL = (c.rock || 'L') === 'L';
-  let s = Math.abs(Math.floor(c.seed * 977)) % 233280 + 5; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
-  const hx = a => '#' + a.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
-  const edgeAt = y => { const [a, b] = corridorSpan(sc, y / H); return [a * W, b * W]; };
-  const step = u * 0.3, rows = Math.ceil(H / step) + 1;
-  // ---- the drop side: the depths (near black, small crags smaller and darker further down), the brown cliff face, islands
-  { const pts = []; for (let i = 0; i <= rows; i++) { const y = Math.min(H, i * step), [a, b] = edgeAt(y); pts.push([rockL ? b : a, y]); }
-    const far = rockL ? W : 0, dir = rockL ? 1 : -1;
-    const region = () => { g.beginPath(); g.moveTo(far, 0); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(far, H); g.closePath(); };
-    g.save(); region(); g.clip();
-    g.fillStyle = '#10130d'; g.fillRect(0, 0, W, H);
-    for (let L = 0; L < 4; L++) { const d = 1 - L / 3, n = 70 + L * 25, r = u * (0.08 + (1 - d) * 0.22), base = [22 + (1 - d) * 30, 27 + (1 - d) * 26, 16 + (1 - d) * 18];
-      for (let i = 0; i < n; i++) { const y = rnd() * H, [a, b] = edgeAt(y), e = rockL ? b : a, x = e + dir * (u * 1.2 + rnd() * W * 0.5); drawJagged(x, y, r * (0.6 + rnd() * 0.7), x * 0.3 + y * 0.7 + L, [hx(base), hx(base.map(v => v + 12)), hx(base.map(v => v - 10))], null, g); }
-      g.fillStyle = `rgba(6,10,4,${0.2 * d})`; g.fillRect(0, 0, W, H); }
-    for (const q of c.islands || []) {                                                 // an island: brown sides falling into the dark, a grass top
-      const cx = q.fx * W, cy = q.fy * H, rx = q.rx * W, ry = q.ry * H, rim = []; for (let k = 0; k < 18; k++) { const a = k / 18 * 6.28; rim.push([cx + Math.cos(a) * rx * (0.92 + Math.sin(k * 2.3) * 0.08), cy + Math.sin(a) * ry * (0.92 + Math.cos(k * 1.7) * 0.08)]); }
-      const bot = rim.filter(([x, y]) => y >= cy - ry * 0.2).sort((m, n2) => m[0] - n2[0]), drop = bot.map(([x, y]) => [x + 5, y + u * 2.2]);
-      g.beginPath(); bot.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); drop.slice().reverse().forEach(([x, y]) => g.lineTo(x, y)); g.closePath(); g.fillStyle = '#5a3c26'; g.fill();
-      for (let i = 0; i < bot.length; i++) { const [x, y] = bot[i]; g.strokeStyle = i % 2 ? 'rgba(30,18,10,.55)' : 'rgba(140,100,64,.3)'; g.lineWidth = i % 3 ? 2 : 3; g.beginPath(); g.moveTo(x, y + 5); g.lineTo(x + 4, y + u * 2.1); g.stroke(); }
-      const gr = g.createLinearGradient(0, cy, 0, cy + u * 2.6); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(8,6,4,.8)'); g.fillStyle = gr; g.beginPath(); bot.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); drop.slice().reverse().forEach(([x, y]) => g.lineTo(x, y)); g.closePath(); g.fill();
-      g.beginPath(); rim.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = sc.floor; g.fill(); g.strokeStyle = '#1c1208'; g.lineWidth = 3; g.stroke();
-      g.strokeStyle = '#7f8f5a'; g.lineWidth = 1.5; for (let i = 0; i < 6; i++) { const x = cx + (rnd() - .5) * rx * 1.4, y = cy + (rnd() - .5) * ry * 1.2; for (let k = -1; k <= 1; k++) { g.beginPath(); g.moveTo(x + k * 4, y); g.lineTo(x + k * 5, y - u * 0.2); g.stroke(); } }
-    }
-    g.restore();
-    const face = pts.map(([x, y]) => [x + dir * (u * 1.2 + Math.sin(y * 0.05) * 8), y]);   // the brown cliff face below the lip
-    g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); face.slice().reverse().forEach(([x, y]) => g.lineTo(x, y)); g.closePath(); g.fillStyle = '#5a3c26'; g.fill();
-    for (let i = 0; i < pts.length - 1; i++) { const [x, y] = pts[i]; g.strokeStyle = i % 2 ? 'rgba(30,18,10,.6)' : 'rgba(140,100,64,.35)'; g.lineWidth = i % 3 ? 2 : 4; g.beginPath(); g.moveTo(x + dir * 5, y + 3); g.lineTo(x + dir * u * 1.1, y + 9); g.stroke(); }
-    const gr = g.createLinearGradient(pts[0][0], 0, pts[0][0] + dir * u * 1.4, 0); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(8,6,4,.7)');
-    g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); face.slice().reverse().forEach(([x, y]) => g.lineTo(x, y)); g.closePath(); g.fillStyle = gr; g.fill();
-    g.strokeStyle = '#1c1208'; g.lineWidth = 3; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
-    for (let i = 0; i + 1 < pts.length; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1]; g.fillStyle = '#6d8a3e'; g.beginPath(); g.moveTo(ax, ay); g.lineTo((ax + bx) / 2 + dir * 10, (ay + by) / 2); g.lineTo(bx, by); g.fill(); }   // grass hanging over the lip
-  }
-  // ---- the rock side: crags scattered back from the grass, tiny at its edge and growing fast into tall giants
-  { const dir = rockL ? -1 : 1, crags = [];
-    const edgeX = y => { const [a, b] = edgeAt(y); return rockL ? a : b; };
-    { const pts = []; for (let i = 0; i <= rows; i++) { const y = Math.min(H, i * step); pts.push([edgeX(y) + dir * u * 0.9, y]); }
-      g.beginPath(); g.moveTo(rockL ? 0 : W, 0); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(rockL ? 0 : W, H); g.closePath(); g.fillStyle = '#1f1c19'; g.fill(); }   // the dark behind the stones
-    for (let i = 0; i < 95; i++) { const y = -u * 3 + rnd() * (H + u * 6), dist = Math.pow(rnd(), 0.7) * u * 5.5, k = dist / (u * 5.5), r = u * (0.12 + Math.pow(k, 1.1) * 3.4) * (0.7 + rnd() * 0.6);
-      crags.push([edgeX(y) + dir * (dist + r * 0.55) + (rnd() - .5) * u * 0.3, y - k * u * 1.6 + (rnd() - .5) * u * 0.5, r, k]); }   // big ones sit back: none leans over the way
-    for (let i = 0; i < 12; i++) { const y = rnd() * H, r = u * (0.1 + rnd() * 0.18); crags.push([edgeX(y) - dir * u * (0.5 + rnd() * 1.2), y, r, 0]); }   // strays out on the grass
-    crags.sort((m, n2) => (n2[3] - m[3]) || (m[1] - n2[1]));
-    for (const [cx, cy, r, k] of crags) { const sh = 118 - k * 70 + (r / u) * 3;
-      g.fillStyle = `rgba(0,0,0,${0.3 - k * 0.2})`; g.beginPath(); g.ellipse(cx + r * 0.15, cy + r * 0.45, r * 1.05, r * 0.42, 0, 0, 6.28); g.fill();
-      g.save(); g.translate(cx, cy); g.scale(0.8, 1.5 + k * 0.9); drawJagged(0, 0, r, cx * 0.37 + cy * 0.11, [hx([sh, sh - 4, sh - 8]), hx([sh + 24, sh + 20, sh + 14]), hx([sh - 24, sh - 26, sh - 28])], null, g); g.restore();   // tall: the lines run up
-    }
-  }
-}
 const RAVINE_CACHE = {};
 function drawRavineStones(X0, Y0, X1, Y1, seed) {           // drawn once into a picture per ravine (they don't move), then just stamped
   const key = [X0, Y0, X1, Y1, UNIT].map(v => Math.round(v)).join(',');

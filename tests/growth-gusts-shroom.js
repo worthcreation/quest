@@ -14,7 +14,7 @@ state.inv.cropXp={};
 // harvesting builds crop and farming levels; farming level makes seeds come back more often
 const lv=[]; for (let n=0;n<40;n++) { gainCropXp('carrot'); if (n%8===7) lv.push('after '+(n+1)+': carrot '+cropLevel('carrot')+', farming '+farmLevel()); } console.log(lv.join(' | '));
 // gusts: sets of three, a long pause between sets, short ones inside, all a little different
-enterScene('f3'); state.cut=null; const seq=[]; let ph=state.gustPhase, t0=state.time;
+enterScene('f1'); state.cut=null; const seq=[]; let ph=state.gustPhase, t0=state.time;
 for (let k=0;k<60*60;k++){ update(1/60); if (state.gustPhase!==ph){ seq.push([ph, state.time-t0, state.gustStep]); ph=state.gustPhase; t0=state.time; } }
 const gapsBetween=seq.slice(1).filter(q=>q[0]==='lull' && q[2]===1).map(q=>q[1]), gapsInside=seq.filter(q=>q[0]==='lull' && q[2]!==1).map(q=>q[1]);
 const f=a=>a.length? Math.min(...a).toFixed(1)+'-'+Math.max(...a).toFixed(1)+'s':'-';

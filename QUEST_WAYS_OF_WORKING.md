@@ -45,7 +45,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 ## 4. Reuse table (checked against source; file in brackets)
 - World: barrier()/breakBarrier [world/engine]; crag() + hitCrag (single boulders that crack, drops) [world/items];
   keystone()/hitStone [world/items]; pullable() + pullLocked [world/items]; claim()/freeSpot() [world];
-  corridorSpan/fitToCorridor (mountain path) [world]; enterScene layout hooks; RT[id].flags.
+  enterScene layout hooks; RT[id].flags.
 - Text: say() [text] (pages, holds), pipLine() for anything Pip says (hold: true waits for F) and pipSay() for a once-only line [pip], showTitle() for quest start/end only, showScroll() for every
   other alert, notice() for pickups (a scroll too). There is no tell() and no questAlert; don't look for them.
 - Pip: PIP_LINES (one-off lines with when/at/text), TUTORIAL (ordered steps), COACH (pinned steps, shown only inside
@@ -152,8 +152,8 @@ before the next build. One build at a time.
    says, then read HANDOFF.md's Next task.
 
 ## 9. Roadmap
-1. The climb: settle the look (screens 1 to 5 on ?mountain), then decide where it joins the real world (between the
-   windy fields and the crags) and retire the f2-f6 mountain-path screens it replaces.
+1. The mountain as one family after the rise: docs/mountain-plan.md (the climb joined in 203, f3 to f7 retired in
+   204; each climb screen remade on the main game, one a build).
 2. Balance pass from arena and puzzle records; sword swing cost (SWING_COST) and Pip's pace still being tuned.
 3. Story after the rescue: the journal quest, spore travel, the High Reaches, then chapter 2.
 4. The drawn hero, once mechanics lock.

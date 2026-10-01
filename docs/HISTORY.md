@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 204: f3 to f7 retired (chat)
+The windy fields' ravines and the mountain path are gone: genField makes f1 only; the corridor (corridorSpan,
+fitToCorridor, islands, clampCorridor, drawMountainSides), the ravine rock banks (layoutRavineRocks, rockCols) and
+the two wind puzzles go; arena's wind round moves to f1; climb1 to climb5 take their overview squares; the journal
+line says "past the windy field and up the rise". The tortoise's npc code waits for build 212. World hash
+d75a001b2e31f342102c38f4 to 5ab0c475c4e33fce9b1ec4c8: f1 and every region after it are laid out differently (the
+old FIELD table drew five rr() before f1), so older saves load them rearranged. Tests: misc-51 and mountain-side
+deleted; gusts, combat-rhythm, growth-gusts-shroom, ledge-ride, wind-rocks, rise, place-tag moved to f1 and peak1.
+64 of 64 pass; audit 11039 lines, 0 unused.
+
 ## Build 203: the climb joined (chat)
 The rise's pass leads onto climb1 (it led south to f3); climb5 still leads to peak1, and peak1's west way leads back
 onto climb5 (it led to f7). ?mountain starts on the rise just east of the reeds, and climb5 no longer loops to climb1

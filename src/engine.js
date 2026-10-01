@@ -105,7 +105,6 @@ function enterSceneIn(id, fx, fy) {
   state.rise = id === 'rise' ? newRise() : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
-  if (sc.rockCols) { const n0 = sc.solids.length; layoutRavineRocks(sc); if (sc.solids.length !== n0) refreshSceneGeometry(); }
   if (sc.windLedges) layoutLedges(sc);
   if (sc.feat.farside) { placeDock(sc); placeOldJetty(sc); }   // Wick's jetty over there, the old one on this side
   if (id === 'gleampool' && state.overFalls) {        // the raft goes over the falls and breaks up at the bottom
@@ -335,8 +334,8 @@ function updateWorld(dt) {
     const k = 1 - Math.exp(-(h.stun > 0 ? 3 : sc.accel) * dt);
     h.vx += (inp.x * spd * L() - h.vx) * k;
     h.vy += (inp.y * spd * L() - h.vy) * k;
-    if (h.z > 0 && h.vz < 0) {                         // coming down over a stepping stone or a rock bank: settle onto it, don't sail past
-      const sc2 = sceneDef(), spots = (sc2.rocks || []).filter(r => r.island).map(r => [r.fx, r.fy, r.r]).concat(sc2.river && sc2.river.stones ? sc2.river.stones : []);
+    if (h.z > 0 && h.vz < 0) {                         // coming down over a stepping stone: settle onto it, don't sail past
+      const sc2 = sceneDef(), spots = sc2.river && sc2.river.stones ? sc2.river.stones : [];
       if (spots.some(([fx, fy, rU]) => Math.hypot(h.x - fx * W, h.y - fy * H) < rU * UNIT * 0.7) && !spots.some(([fx, fy]) => Math.hypot(h.x - fx * W, h.y - fy * H) < 1)) { h.vx *= 0.4; h.vy *= 0.4; }
     }
     if (h.z > 0) {                                     // in the air you only carry so far, then drop
@@ -354,7 +353,7 @@ function updateWorld(dt) {
     }
     if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
   }
-  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); clampCorridor(h, UNIT * 0.42); }
+  if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
   updateJump(dt);
 
@@ -433,16 +432,6 @@ function train(amount) {
   }
 }
 
-// on the mountain path the sides are rock: keep to the way
-function clampCorridor(a, r, bothSides = false) {
-  const sc = sceneDef(); if (!sc || !sc.corridor) return false;
-  const rock = sc.corridor.rock || 'B', [l, rt] = corridorSpan(sc, a.y / H), x0 = l * W + r, x1 = rt * W - r;
-  if (onIsland(sc, a.x / W, a.y / H)) return false;
-  if (x0 > x1) { a.x = (l + rt) / 2 * W; return true; }
-  if (a.x < x0 && (bothSides || rock !== 'R')) { a.x = x0; a.vx = Math.max(0, a.vx || 0); return true; }   // the rock stops you; the drop doesn't
-  if (a.x > x1 && (bothSides || rock !== 'L')) { a.x = x1; a.vx = Math.min(0, a.vx || 0); return true; }
-  return false;
-}
 function clampTo(a, r) {
   let wall = false;
   if (a.x < r) { a.x = r; a.vx = Math.max(0, a.vx); wall = true; }
@@ -490,7 +479,6 @@ function isChasm(x, y, pad = 0) {
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;
   const fx = x / W, fy = y / H, px = pad / W, py = pad / H;
-  if (sc.corridor && sc.corridor.rock && !onIsland(sc, fx, fy)) { const [l, rt] = corridorSpan(sc, fy); if (sc.corridor.rock === 'L' ? fx > rt + px : fx < l - px) return true; }   // off the edge
   return sc.chasms.some(c => { const [x0, y0, x1, y1] = c; if (sc.vista) return fx > x0 - px && fx < x1 + px && fy > y0 - py && fy < y1 + py;
     const [a0, a1] = chasmSpan(c, x0 === 0 && x1 === 1 || (x1 - x0) >= (y1 - y0) ? fx : fy);
     return (x1 - x0) >= (y1 - y0) ? fx > x0 - px && fx < x1 + px && fy > a0 - py && fy < a1 + py : fy > y0 - py && fy < y1 + py && fx > a0 - px && fx < a1 + px; });
@@ -532,7 +520,7 @@ function updateFeatures(dt) {
     if (h.x > lim && !open) { h.x = lim; h.vx = Math.min(0, h.vx); }
   }
   if (sc.river && sc.river.stones && !isChasm(h.x, h.y) && h.y > H * 0.85) heroNote(`Jump (${K.jump}) toward a stone to hop onto it.`, 1.3, { key: 'hoptip', tip: 'hop', life: 4 });
-  if (f.plants && f.plants.length && (sc.id === 'f1' || sc.id === 'f3')) { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
+  if (f.plants && f.plants.length && sc.id === 'f1') { const s = f.plants[0]; if (Math.hypot(h.x - s[0] * W, h.y - s[1] * H) < UNIT * 3) say(`Tall grass leans the way the next gust will blow. Jump (${K.jump}) while it blows to ride it.`, s[0] * W, s[1] * H - UNIT * 1.8, { key: 'sock', tip: 'sock' + sc.id, life: 5 }); }
 }
 
 // ---------------- jumping: always available; slam down with the sword ----------------
@@ -565,7 +553,6 @@ function updateJump(dt) {
     if (h.z <= 0) {
       h.z = 0; h.vz = 0;
       if (sc.river && sc.river.stones) catchStone(h, sc);
-      if (sc.rocks && sc.rocks.length) catchStone(h, { river: { stones: sc.rocks.filter(r => r.island).map(r => [r.fx, r.fy, r.r]) } });
       if (state.slam) slamDown();
       else if (sc.feat.hammocks && landInHammock()) { /* dropped into your hammock */ }
       else { spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); }
@@ -588,32 +575,6 @@ function layoutStones(sc) {
     out.push([x / W, y / H, 0.8]);
   }
   r.stones = out;
-}
-// The mountain path's ravines each get a column of rock banks, spaced in tiles for this screen so every hop
-// fits the shortest jump. The column stands where both banks are solid ground.
-function layoutRavineRocks(sc) {
-  sc.rocks = sc.rocks.filter(r => !r.island);
-  sc.chasms.forEach((c, i) => {
-    const inOther = (fx, fy) => sc.chasms.some((o, j) => j !== i && fx >= o[0] && fx <= o[2] && fy >= o[1] && fy <= o[3]);
-    const cs = corridorSpan(sc, (c[1] + c[3]) / 2), m = UNIT * 0.7 / W;
-    let lo = Math.max(0.2, c[0] + 0.08), hi = Math.min(0.8, c[2] - 0.08);
-    if (sc.corridor) { lo = Math.max(c[0] + 0.02, cs[0] + m); hi = Math.min(c[2] - 0.02, cs[1] - m); if (lo > hi) lo = hi = (cs[0] + cs[1]) / 2; }   // on the mountain path: the rocks stand on the way itself
-    // a clear run: solid ground above and below, nothing standing in the way of the hops
-    const blocked = (fx, fy) => sc.solids.some(s => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT);
-    let fx = null;
-    for (let t = 0; t < 30 && fx == null; t++) {
-      const x = lo + (hi - lo) * ((sc.rockCols[i] + t * 0.137) % 1);
-      if (!inOther(x, c[1] - 0.03) && !inOther(x, c[3] + 0.03) && !blocked(x, c[1] - UNIT * 0.8 / H) && !blocked(x, c[3] + UNIT * 0.8 / H) && !blocked(x, (c[1] + c[3]) / 2)) fx = x;
-    }
-    const full = c[0] <= 0.01 && c[2] >= 0.99;
-    if (fx == null && full) {                          // a full-width ravine must be crossable: clear boulders off the best spot
-      for (let t = 0; t < 30 && fx == null; t++) { const x = lo + (hi - lo) * ((sc.rockCols[i] + t * 0.137) % 1); if (!inOther(x, c[1] - 0.03) && !inOther(x, c[3] + 0.03)) fx = x; }
-      if (fx != null) sc.solids = sc.solids.filter(s => s.kind !== 'boulder' || ![c[1] - UNIT * 0.8 / H, (c[1] + c[3]) / 2, c[3] + UNIT * 0.8 / H].some(fy => Math.hypot(fx * W - s.fx * W, fy * H - s.fy * H) < (s.r + 1.1) * UNIT));
-    }
-    if (fx == null) return;                           // this part of the ravine is walked around, not crossed
-    const y0 = c[1] * H, y1 = c[3] * H, n = Math.max(1, Math.ceil((y1 - y0) / (UNIT * 1.85)) - 1);
-    for (let k = 1; k <= n; k++) sc.rocks.push({ fx, fy: (y0 + (y1 - y0) * k / (n + 1)) / H, r: 0.85, island: true });
-  });
 }
 // landing just short of a stone counts: you catch its edge
 function catchStone(h, sc) {

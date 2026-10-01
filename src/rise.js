@@ -107,10 +107,9 @@ function riseRows(land = riseLand()) {
 // collision radius as the game scales it for each kind (engine's refreshSceneGeometry): a stone collides at its drawn size
 const RISE_KIND = { boulder: 'boulder', crag: 'crag', tree: 'tree' }, RISE_F = { boulder: 0.95, crag: 1.15, tree: 1 };
 
-// the scene, built with the world (no rng: the rest of the world is laid out exactly as before). It takes f2's place:
+// the scene, built with the world (no rng: the rest of the world is laid out exactly as before). Where f2 was:
 // the first field's south way leads in at the north-west corner, and the pass at the far end leads south onto the
-// climb's first screen (build 203). The third field's north way still comes out at the pass, one way, until f3 to f7
-// retire (build 204).
+// climb's first screen (build 203).
 function addRise(S, add) {
   const land = riseLand(), { len, D } = RISE, oX = RISE.outX, oW = oX - 2.9, oE = oX + 3.2;
   const sc = add(newScene({ id: 'rise', area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 }));
@@ -125,12 +124,10 @@ function addRise(S, add) {
   // nothing breaks them). To open them to fire later, give each clump bar: 'risereeds'
   { const x = RISE.barX, hw = riseHalf(x); for (let y = RISE.mid - hw + 0.5; y <= RISE.mid + hw - 0.5; y += 0.85) sc.solids.push({ fx: (x + Math.sin(y * 2.1) * 0.25) / len, fy: y / D, r: 0.72, kind: 'reeds', v: Math.floor(y) % 3, flip: y % 2 < 1, pal: null, reedwall: true }); }
   for (const [x, y] of [[11, 18.8], [15, 11.6]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
-  const f1s = S.f1.exits.find(e => e.to === 'f2'), f3n = S.f3.exits.find(e => e.to === 'f2');
+  const f1s = S.f1.exits.find(e => e.to === 'rise');
   sc.exits.push({ side: 'n', a: 0.8 / len, b: (RISE.inX + 3) / len, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
   sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'climb1' });   // the climb lays its own start
-  Object.assign(f1s, { to: 'rise', arrive: [RISE.inX / len, 1.2 / D] });
-  Object.assign(f3n, { to: 'rise', arrive: [RISE.outX / len, 1 - 1.2 / D] });
-  delete S.f2;
+  f1s.arrive = [RISE.inX / len, 1.2 / D];
   return sc;
 }
 // the scene's own size in pixels, while it is the current one (every other scene is the screen)

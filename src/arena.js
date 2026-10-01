@@ -11,7 +11,7 @@ const ARENA_ZONES = {
   river: { name: 'Forest river', scene: 'riverbank', at: [0.6, 0.85], waves: [[['rabbit', 2]], [['gremlin', 3]], [['gremlin', 3], ['rabbit', 2]], [['gremlin', 5]], [['thief', 1], ['gremlin', 4]]] },
   cave: { name: 'Cave', scene: 'c4', at: [0.06, 0.5], waves: [[['stalker', 2]], [['stalker', 2], ['glowworm', 2]], [['charger', 1], ['diver', 2]], [['stalker', 2], ['charger', 1], ['diver', 2]], [['charger', 2], ['stalker', 3], ['diver', 2], ['glowworm', 2]]] },
   swamp: { name: 'Swamp', scene: 'sw2', at: [0.5, 0.06], waves: [[['lurker', 2]], [['lurker', 3], ['glowworm', 2]], [['gremlin', 3], ['lurker', 3]], [['lurker', 4], ['gremlin', 3]], [['lurker', 4], ['glowworm', 3], ['gremlin', 4]]] },
-  wind: { name: 'Windy ravines', scene: 'f4', at: [0.5, 0.06], waves: [[['rabbit', 3]], [['rabbit', 5]], [['gremlin', 3], ['rabbit', 3]], [['charger', 2]], [['charger', 2], ['rabbit', 4], ['gremlin', 2]]] },
+  wind: { name: 'Windy field', scene: 'f1', at: [0.5, 0.06], waves: [[['rabbit', 3]], [['rabbit', 5]], [['gremlin', 3], ['rabbit', 3]], [['charger', 2]], [['charger', 2], ['rabbit', 4], ['gremlin', 2]]] },
 };
 // the arena glade: a hub added to the real world, like the puzzle hub
 function genArenaHub(seed) {

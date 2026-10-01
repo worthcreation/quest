@@ -38,11 +38,10 @@ startTestScene('rise', (RISE.barX+2)/RISE.len, risePathY(RISE.barX+2)/RISE.D); r
 const [secs, seen]=walkEast(30); const zs=seen.map(s=>s[1]), mono=zs.every((v,i)=>!i||v<=zs[i-1]+1e-6), most=Math.max(0,...zs.slice(1).map((v,i)=>zs[i]-v));
 for (let k=0;k<60 && state.busy;k++) run(1); run(5); const onClimb=!!state.climb;
 console.log('5 ?mountain start at x', startAt[0].toFixed(1), 'y', startAt[1].toFixed(1), '(reeds at', RISE.barX+') | east and down the pass to', state.scene, '(climb running:', onClimb+') in', secs.toFixed(1), 's | zoom by second:', zs.map(v=>v.toFixed(2)).join(' '), '| only pulls back:', mono, '| biggest step', most.toFixed(3));
-// 6. in at the rise's east end (f3's north way still comes out at the pass, one way, until build 204), pulled back; then
-// west, the view comes back in
-state.climb=null; const n3=WORLD.f3.exits.find(e=>e.to==='rise'); enterScene('f3'); run(3); state.hero.x=(n3.a+n3.b)/2*W; state.hero.y=UNIT*0.7; state.keys.arrowup=true; run(40); off(); run(10);
+// 6. in at the rise's east end (back up from the climb, one day), pulled back; then west, the view comes back in
+state.climb=null; enterScene('rise', RISE.outX/RISE.len, 1-1.2/RISE.D); run(10);
 const inAt=[tx(), ty(), z()]; state.enemies=[]; state.keys.arrowup=true; run(60*2); off(); state.keys.arrowleft=true; run(60*3); off(); run(120);
-console.log('6 north from f3 ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), 'zoom', inAt[2].toFixed(2), '| up the pass 2 s, then 3 s west: x', tx().toFixed(1), 'y', ty().toFixed(1), 'zoom', z().toFixed(2));
+console.log('6 in at the pass ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), 'zoom', inAt[2].toFixed(2), '| up the pass 2 s, then 3 s west: x', tx().toFixed(1), 'y', ty().toFixed(1), 'zoom', z().toFixed(2));
 // 7. the walls open out as you go: wall to wall at three places
 const walls=x=>{ state.hero.x=x*UNIT; state.hero.y=15*UNIT; state.hero.vx=state.hero.vy=0; state.keys.arrowup=true; run(150); off(); const a=ty(); state.keys.arrowdown=true; run(240); off(); return ty()-a; };
 const w5=walls(10), w40=walls(40), w66=walls(66);
@@ -54,7 +53,8 @@ console.log('8 west end: stopped at x', wx.toFixed(2), '| up the way in ->', wes
 // 9. the wind, as on f1: the same gusts; standing still, the strong gust shoves you as far as it does on f1; the tall
 // grass stands clear of every stone; cloud shadows drift here too
 const shove=id=>{ enterScene(id); state.enemies=[]; state.items=[]; state.pip=null; const sc=WORLD[id], h=state.hero; let far=0;
-  const spot = id==='rise' ? [30, risePathY(30)] : [0.3*W/UNIT, 0.5*H/UNIT];   // open grass on each
+  let spot = id==='rise' ? [30, risePathY(30)] : [0.3*W/UNIT, 0.3*H/UNIT];   // open grass on each (on f1, off the ledges and clear of stones)
+  if (id==='f1') for (let q=0;q<200 && (onRock(sc, spot[0]*UNIT, spot[1]*UNIT, -UNIT*1.2) || sc.solids.some(o=>Math.hypot(o.fx*W-spot[0]*UNIT, o.fy*H-spot[1]*UNIT)<(o.r+2)*UNIT)); q++) spot=[(0.15+0.7*Math.random())*W/UNIT, (0.15+0.7*Math.random())*H/UNIT];
   h.x=spot[0]*UNIT; h.y=spot[1]*UNIT; run(5);
   let t=0; while(t<60*20){ const x0=h.x, y0=h.y; run(1); t++; if(state.gustPhase==='blow') far=Math.max(far, Math.hypot(h.x-x0, h.y-y0)*60/UNIT); } return far; };
 const sameGusts = JSON.stringify(WORLD.rise.gusts)===JSON.stringify(WORLD.f1.gusts);

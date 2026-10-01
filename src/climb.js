@@ -4,7 +4,7 @@
 // in a chain: the rise's pass > climb1 > climb2 > ... > climb5 > peak1 (the crags), joined in build 203. Every number
 // that shapes them is in CLIMB_TUNE and CLIMB_SPECS below.
 
-// ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=f3 (any screen id) starts there.
+// ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=peak1 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
 var START_SCENE = typeof location !== 'undefined' ? ((/[?&]scene=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
 function startTestScene(id, fx, fy) {                          // set up enough of the story that a mid-game screen makes sense

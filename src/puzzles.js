@@ -10,8 +10,6 @@ const PUZZLES = [
   { id: 'gate', name: 'Knock the prop', scene: 'w1', at: [0.06, 0.5], solved: () => broken('w1', 'crack1') },
   { id: 'ring', name: 'Mud wallow', scene: 'w2', at: [0.06, 0.5], solved: () => broken('w2', 'crack2') },
   { id: 'sword', name: 'Sword clearing', scene: 'w3', at: [0.06, 0.5], solved: () => !!state.inv.sword },
-  { id: 'gusts', name: 'Wind ravines', scene: 'f3', at: [0.5, 0.06], solved: () => state.scene === 'f4' },
-  { id: 'strong', name: 'Chained rides', scene: 'f5', at: [0.5, 0.06], solved: () => state.scene === 'f6' },
   { id: 'crags', name: 'The crags', scene: 'peak1', at: [0.06, 0.5], solved: () => state.scene === 'peak3' },
   { id: 'ford', name: 'Stepping stones', scene: 'ford', at: [0.5, 0.95], solved: () => state.scene === 'farbank' || (state.scene === 'ford' && state.hero.y < H * (0.5 - WORLD.ford.river.wH / 2)) },
   { id: 'rapids', name: 'Rapids', scene: 'rapids', raft: true, solved: () => state.scene === 'gleampool' },
@@ -39,7 +37,7 @@ function startPuzzleHub() {
 }
 function enterPuzzle(p) {
   const inv = state.inv;
-  for (const id of [p.scene, 'f4', 'f6', 'farbank', 'gleampool', 'h1', 'h3']) delete RT[id];
+  for (const id of [p.scene, 'farbank', 'gleampool', 'h1', 'h3']) delete RT[id];
   state.carry = null; state.aim.on = false;
   Object.assign(inv, { sword: false, fire: !!p.fire, raft: p.raft ? 2 : 0, tunnel: false });
   state.hero.vig = maxVig();

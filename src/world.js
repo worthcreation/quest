@@ -209,41 +209,6 @@ function crag(sc, id, at, size, extra = {}) {
   const tint = ['#8a8478', '#7f7a72', '#8c8272', '#77807e', '#857c70'][Math.floor(rng() * 5)];
   sc.solids.push(solid(at[0], at[1], size / 2, 'crag', null, { bar: id, size, hp: size, tint, ...extra })); claim(sc, at[0], at[1], size / 2 + 0.6);
 }
-// The mountain path: a way two to four tiles wide that runs diagonally from the north opening to the south one,
-// its sides wandering and bitten into; beyond it on both sides, the mountain. Returns [left, right] as fractions of W.
-function corridorSpan(sc, fy) {
-  const c = sc.corridor; if (!c) return [0, 1];
-  const e = Math.min(1, Math.max(0, fy)), k = e * e * (3 - 2 * e), s = c.seed;
-  const mid = c.n + (c.s - c.n) * k + (fy > 0.08 && fy < 0.92 ? Math.sin(fy * 7 + s) * 0.035 : 0);
-  // mostly broad ground (about half the screen across), wandering; at the pinch, the rock closes in to a narrow way
-  let hw = 0.25 + 0.04 * Math.sin(fy * 9 + s * 1.7) + 0.02 * Math.sin(fy * 23 + s);
-  if (c.pinch != null) { const d = Math.abs(fy - c.pinch), k2 = Math.max(0, 1 - d / 0.09); hw = hw * (1 - k2) + (1.25 * UNIT / W) * k2; }   // never under 2.5 tiles
-  if (fy < 0.06 || fy > 0.94) hw = Math.max(hw, 0.1);                                                                   // room at the openings
-  const bite = t => (Math.sin(fy * 41 + s * t) > 0.8 && (c.pinch == null || Math.abs(fy - c.pinch) > 0.12) ? 0.9 : 0) * UNIT / W;   // here and there the rock bites in
-  let lo = Math.max(0.03, mid - hw + bite(2.3)), hi = Math.min(0.97, mid + hw - bite(3.1));
-  if (c.rock) { const m = Math.min(1, Math.max(0, (Math.min(fy, 1 - fy) - 0.08) / 0.12));     // away from the openings, leave room for the drop and its islands
-    if (c.rock === 'L') hi = Math.min(hi, hi * (1 - m) + 0.7 * m); else lo = Math.max(lo, lo * (1 - m) + 0.3 * m);
-    if (hi - lo < 2.5 * UNIT / W) { if (c.rock === 'L') lo = hi - 2.5 * UNIT / W; else hi = lo + 2.5 * UNIT / W; } }
-  return [lo, hi];
-}
-const onIsland = (sc, fx, fy) => ((sc.corridor && sc.corridor.islands) || []).some(q => ((fx - q.fx) / q.rx) ** 2 + ((fy - q.fy) / q.ry) ** 2 < 1);
-const inCorridor = (sc, fx, fy, pad = 0) => { const [a, b] = corridorSpan(sc, fy); return fx > a + pad && fx < b - pad; };
-function fitToCorridor(sc) {
-  // on the mountain path every ravine runs right across the way (the mountain hides its ends), and ravines that would
-  // touch merge into one, so the way down is always a string of crossings: never a dead end
-  sc.chasms = (sc.chasms || []).map(c => [0, c[1], 1, c[3]]).sort((a, b) => a[1] - b[1]).reduce((out, c) => { const l = out[out.length - 1]; if (l && c[1] <= l[3] + 0.02) l[3] = Math.max(l[3], c[3]); else out.push(c); return out; }, []);
-  const into = (fx, fy, pad = 0.02) => { const [a, b] = corridorSpan(sc, fy); return Math.max(a + pad, Math.min(b - pad, fx)); };
-  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && !inCorridor(sc, s.fx, s.fy, -(s.r * UNIT / W))));   // the mountain takes the side boulders
-  const nearDrop = s => (sc.chasms || []).some(c => s.fy > c[1] - 0.16 && s.fy < c[3] + 0.16);
-  sc.solids = sc.solids.filter(s => !(s.kind === 'boulder' && nearDrop(s)));                                       // and the path is clear where it meets a ravine
-  sc.feat.updrafts = (sc.feat.updrafts || []).map(([x, y]) => [into(x, y, 0.04), y]);
-  sc.feat.plants = (sc.feat.plants || []).map(([x, y]) => [into(x, y, 0.03), y]);
-  sc.spawns.forEach(sp => { sp.fx = into(sp.fx, sp.fy, 0.03); });
-  sc.initItems.forEach(it => { if (!onIsland(sc, it.fx, it.fy)) it.fx = into(it.fx, it.fy, 0.03); });
-  sc.deco = sc.deco.filter(d => !d.fy || inCorridor(sc, d.fx, d.fy));
-  const pts = []; for (let k = 0; k <= 16; k++) { const fy = k / 16, [a, b] = corridorSpan(sc, fy); pts.push([(a + b) / 2, fy]); }
-  sc.paths = [pts];                                  // the worn track runs down the middle of the way
-}
 function keystone(sc, bar, at, rope, rU = 1.0, stone = null) { sc.solids.push(solid(at[0], at[1], rU, 'cracked', null, { bar, rope, stone })); claim(sc, at[0], at[1], rU + 0.8); }
 // breakable stones: how many good hits they take, and what's inside
 const STONES = {
@@ -275,12 +240,8 @@ function genWorld() {
     const n = { woods: 14, cave: 16, swamp: 8, forest: 5 }[kind];
     sc.feat.minis = []; for (let t = 0; t < n; t++) sc.feat.minis.push([rr(0.08, 0.92), rr(0.1, 0.9), 2 + Math.floor(rng() * 4), rng(), kind]);
   }
-  // the climb: the smooth field boulders turn to rough, craggy stone as you go up, a few more each screen, all of them by
-  // about halfway (f6 on); the crags and the High Reaches are all craggy
-  for (const sc of Object.values(S)) {
-    const m = /^f(\d)$/.exec(sc.id), frac = m ? Math.min(1, (Number(m[1]) - 1) / 5) : sc.area === 'peak' ? 1 : 0;
-    if (frac) sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < frac) s.craggy = true; });
-  }
+  // the crags and the High Reaches: every boulder is rough, craggy stone
+  for (const sc of Object.values(S)) if (sc.area === 'peak') sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < 1) s.craggy = true; });
   for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
   addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
@@ -548,84 +509,33 @@ function genWoods(add) {
 }
 
 function genField(add) {
-  // ---------------- Windswept field (south): a wind puzzle that builds up ----------------
-  // a = angle (0 blows south, + toward east, PI blows north), s = strength (1 strong, .5 weak).
-  // A strong gust carries you 0.3 of the screen height; a weak one only 0.14.
-  // Every crossing also has a way back: a strong north gust.
-  // Higher up the mountain, some gusts are too strong (s 2): jump into one and it throws you back to the foothill farm.
-  // Ride a gust by jumping while it blows.
-  const N = { a: Math.PI, s: 1 }, TOO = { a: Math.PI, s: 1 };
-  const FIELD = [
-    { msg: 'The mountain path begins', gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.4], rabbits: 0 },
-    { msg: 'Rabbits. They don\'t look friendly.', gusts: [{ a: 0, s: 1 }, { a: Math.PI, s: 1 }], chasms: [], ups: [], sock: [0.5, 0.35], rabbits: 2 },   // two: two tufts of fluff
-    { msg: 'A ravine. Too wide to jump.', gusts: [{ a: 0, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6]], ups: [[rr(0.3, 0.7), 0.35], [rr(0.3, 0.7), 0.66]], rabbits: 1, south: [0.2, 0.8] },
-    { msg: 'The far bank is broken', gusts: [{ a: 0.6, s: 1 }, { a: -0.6, s: 1 }, N], chasms: [[0, 0.42, 1, 0.6], [0.45, 0.6, 1, 0.8]], ups: [[0.5, 0.35], [0.22, 0.66]], rabbits: 1, south: [0.12, 0.3] },
-    { msg: 'Two ravines', gusts: [{ a: 0.5, s: 1 }, { a: 0, s: 1 }, { a: -0.5, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76]], ups: [[rr(0.3, 0.7), 0.25], [rr(0.3, 0.7), 0.52], [rr(0.3, 0.7), 0.81]], rabbits: 2, south: [0.2, 0.8], extra: TOO },
-    { msg: 'The rabbits guard every crossing', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.3, 1, 0.46], [0, 0.6, 1, 0.76], [0.45, 0.76, 1, 0.9]], ups: [[0.5, 0.25], [0.5, 0.52], [0.22, 0.81]], rabbits: 2, south: [0.12, 0.3], extra: TOO },
-    { msg: 'Whatever they guard is down there', gusts: [{ a: 0.6, s: 1 }, { a: 0, s: 1 }, { a: -0.6, s: 1 }, { a: 0, s: 1 }, N], chasms: [[0, 0.28, 1, 0.44], [0.5, 0.44, 1, 0.58], [0, 0.58, 1, 0.72]], ups: [[0.5, 0.23], [0.3, 0.51], [0.3, 0.77]], rabbits: 3, end: true, extra: TOO },
-  ];
-  let north = [0.42, 0.58];
-  FIELD.forEach((F, k) => {
-    const i = k + 1;
-    const sc = add(newScene({
-      id: 'f' + i, area: 'field', depth: i, msg: F.msg, music: 'field', amb: 'wind', floor: ['#7d9a4c', '#7b9550', '#789055', '#768a5a', '#74845f', '#727f64', '#707a69'][k], speed: 0.45, accel: 8,
-      gusts: F.extra ? F.gusts.concat(F.extra) : F.gusts, chasms: F.chasms, feat: { updrafts: F.ups, plants: F.ups.length ? F.ups.map(u => [u[0] + 0.07, u[1] - 0.02]) : [F.sock] },
-    }));
-    const pass = i >= 2 && !F.end;                     // the mountain path proper: a diagonal way between mountain walls
-    const nMid = (north[0] + north[1]) / 2;
-    const south = F.end ? null : pass ? gapAt(nMid < 0.5 ? rr(0.64, 0.8) : rr(0.2, 0.36), 0.08) : F.south ? gapAt(rr(F.south[0], F.south[1]), 0.08) : gapAt(rr(0.22, 0.78), 0.08);
-    if (pass) sc.corridor = { n: nMid, s: (south[0] + south[1]) / 2, seed: rng() * 100, rock: i % 2 ? 'L' : 'R' };   // the mountain rises on one side; the other drops away
-    sc.exits.push({ side: 'n', a: north[0], b: north[1], to: i === 1 ? 'start' : 'f' + (i - 1) });
-    if (south) sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'f' + (i + 1) });
-    const nPt = edgePoint('n', (north[0] + north[1]) / 2);
-    if (i === 1) sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'foot' });
-    edgeWall(sc, 'w', 'boulder', 1.0, i === 1 ? [[0.4, 0.6]] : []);
-    edgeWall(sc, 'e', 'boulder', 1.0, F.end ? [[0.76, 0.93]] : []);   // past the tortoise, on its bank, the climb begins
-    edgeWall(sc, 'n', 'boulder', 1.0, [north]);
-    edgeWall(sc, 's', 'boulder', 1.0, south ? [south] : []);
-    const keep = F.ups.map(u => [...u, 2.4]).concat(sc.feat.plants.map(s => [...s, 1.2]));
-    sc.feat.plants.forEach(p => claim(sc, p[0], p[1], 0.9));
-    sc.paths = F.ups.length ? [makePath(nPt, F.ups[0], 1)] : [makePath(nPt, south ? edgePoint('s', (south[0] + south[1]) / 2) : [0.5, 0.8], 2)];
-    if (south && F.ups.length) sc.paths.push(makePath([0.5, 0.86], edgePoint('s', (south[0] + south[1]) / 2), 0));
-    const top = F.chasms.length ? F.chasms[0][1] - 0.06 : 0.88;
-    scatter(sc, 3 + i, 'boulder', 0.7, 1.3, 1.8, keep, [0.1, 0.9, 0.12, Math.max(0.2, top)]);
-    if (F.end) { npc(sc, { kind: 'tortoise', fx: 0.5, fy: 0.87 }); }
-    for (let r = 0; r < F.rabbits; r++) {
-      const box = F.end ? [0.2, 0.8, 0.76, 0.9] : F.chasms.length ? [0.15, 0.85, F.chasms[F.chasms.length - 1][3] + 0.04, 0.9] : [0.15, 0.85, 0.3, 0.85];
-      const p = freeSpot(sc, box, 1.0);
-      sc.spawns.push({ type: 'rabbit', fx: p[0], fy: p[1] });
-    }
-    for (let t = 0; t < 90; t++) { const fx = rng(), fy = rng(); if (!inRects(F.chasms, fx, fy)) sc.deco.push({ kind: 'tuft', fx, fy, s: rr(0.6, 1.3), ph: rng() * 6 }); }
-    if (i === 1) for (let t = 0; t < 2; t++) { const q = freeSpot(sc, [0.2, 0.8, 0.35, 0.65], 0.6); item(sc, { type: 'fluff', fx: q[0], fy: q[1] }); }   // at most two tufts lying about, and the wind moves them; the rest is on the rabbits next door. rabbit fluff snagged on the grass
-    // rock banks: out in the ravines to hop across on, and slabs on the banks; the wind can't move you on rock
-    sc.rocks = [];
-    sc.rockCols = F.chasms.map(() => rng());                                 // where each ravine's rock column stands, fixed per seed
-    const edges = [0.1].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.92]).sort((a, b) => a - b);
-    sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges on every bank, laid out in tiles on arrival
-    if (F.end) sc.exits.push({ side: 'e', a: 0.76, b: 0.93, to: 'peak1', locked: () => !state.inv.tortoise });
-    if (sc.corridor) {                                 // islands out over the drop, each a short jump from the edge
-      const c = sc.corridor, drop = c.rock === 'L' ? 1 : -1; c.islands = [];
-      for (const fy of [0.2, 0.34, 0.53, 0.66, 0.84]) {
-        if (c.islands.length >= 2 || c.islands.some(q => Math.abs(q.fy - fy) < 0.25)) continue;
-        if (F.chasms.some(ch => fy > ch[1] - 0.06 && fy < ch[3] + 0.06)) continue;
-        const [a, b] = corridorSpan(sc, fy), edge = drop > 0 ? b : a, rx = 1.35 * UNIT / W, ry = 1.1 * UNIT / H, gap = 1.4 * UNIT / W;   // a running jump clears the gap
-        const fx = edge + drop * (gap + rx); if (fx - rx < 0.02 || fx + rx > 0.98) continue;
-        c.islands.push({ fx, fy, rx, ry });
-        item(sc, { type: rng() < 0.5 ? 'acorn' : 'stick', fx, fy });                  // something waiting out there
-      }
-    }
-    if (sc.corridor) {                                 // one narrow way per screen, on solid ground between the rifts
-      const edges = [0.18].concat(F.chasms.flatMap(c => [c[1], c[3]])).concat([0.82]).sort((a, b) => a - b), gaps = [];
-      for (let q = 0; q + 1 < edges.length; q += 2) if (edges[q + 1] - edges[q] > 0.12) gaps.push((edges[q] + edges[q + 1]) / 2);
-      sc.corridor.pinch = gaps.length ? gaps[Math.floor(rng() * gaps.length)] : null;
-      fitToCorridor(sc);                               // everything that belongs on the path is on the path
-    }
-    if (south) north = south;
-  });
+  // ---------------- Windswept field (south of the glade): where the wind is learned ----------------
+  // a = angle (0 blows south, + toward east, PI blows north), s = strength (1 strong, .5 weak). Ride a gust by jumping
+  // while it blows. The tall grass by the path leans the way the next one will blow. The way south leads onto the rise.
+  const sc = add(newScene({
+    id: 'f1', area: 'field', depth: 1, msg: 'The mountain path begins', music: 'field', amb: 'wind', floor: '#7d9a4c', speed: 0.45, accel: 8,
+    gusts: [{ a: -0.3, s: 1 }, { a: Math.PI + 0.3, s: 1 }, { a: 0.3, s: 1 }, { a: Math.PI - 0.3, s: 1 }], chasms: [], feat: { plants: [[0.5, 0.4]] },
+  }));
+  const north = [0.42, 0.58], south = gapAt(rr(0.22, 0.78), 0.08);
+  sc.exits.push({ side: 'n', a: north[0], b: north[1], to: 'start' });
+  sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'rise' });     // addRise sets where you arrive
+  sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'foot' });
+  edgeWall(sc, 'w', 'boulder', 1.0, [[0.4, 0.6]]);
+  edgeWall(sc, 'e', 'boulder', 1.0, []);
+  edgeWall(sc, 'n', 'boulder', 1.0, [north]);
+  edgeWall(sc, 's', 'boulder', 1.0, [south]);
+  const keep = sc.feat.plants.map(s => [...s, 1.2]);
+  sc.feat.plants.forEach(p => claim(sc, p[0], p[1], 0.9));
+  sc.paths = [makePath(edgePoint('n', (north[0] + north[1]) / 2), edgePoint('s', (south[0] + south[1]) / 2), 2)];
+  scatter(sc, 4, 'boulder', 0.7, 1.3, 1.8, keep, [0.1, 0.9, 0.12, 0.88]);
+  for (let t = 0; t < 90; t++) sc.deco.push({ kind: 'tuft', fx: rng(), fy: rng(), s: rr(0.6, 1.3), ph: rng() * 6 });
+  for (let t = 0; t < 2; t++) { const q = freeSpot(sc, [0.2, 0.8, 0.35, 0.65], 0.6); item(sc, { type: 'fluff', fx: q[0], fy: q[1] }); }   // at most two tufts lying about, and the wind moves them; the rest is on the rabbits
+  sc.rocks = [];
+  sc.windLedges = true; sc.ledgeSeed = rng();          // landing ledges, laid out in tiles on arrival; the wind can't move you on them
 }
 
 function genCrags(add) {
-  // ---------------- The High Crags: above the tortoise. Stone, cliffs, ravines you can jump, rocky outcrops ----------------
+  // ---------------- The High Crags: above the climb. Stone, cliffs, ravines you can jump, rocky outcrops ----------------
   const CRAGS = [
     { id: 'peak1', msg: 'The grass gives out. Only stone from here up.', ravines: [0.28], cliffs: [[0.47, 0.42, 1]], from: 'w' },
     { id: 'peak2', msg: 'Cliffs and cracks all the way up', ravines: [0.2, 0.58], cliffs: [[0.4, 0.35, 1], [0.76, 0, 0.62]], from: 's' },
@@ -854,7 +764,7 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], f3: [4, 5], f4: [4, 6], f5: [4, 7], f6: [4, 8], f7: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], climb1: [4, 5], climb2: [4, 6], climb3: [4, 7], climb4: [4, 8], climb5: [4, 9],
   c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
   fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
   sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],

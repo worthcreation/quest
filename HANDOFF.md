@@ -55,8 +55,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 
 ## File map (src/, in load order)
 - world.js      world generation: genWorld calls one function per region (genCamp to genHollow, in rng order), then
-                the tail; solids, exits, barriers, crag(), pullable(), corridorSpan and
-                fitToCorridor (mountain path), MAP_LAYOUT/MAP_NAMES, SHROOM_NAMES, the cellar
+                the tail; solids, exits, barriers, crag(), pullable(), MAP_LAYOUT/MAP_NAMES, SHROOM_NAMES, the
+                cellar; genField is the first field only (f1)
 - highlands.js  the High Reaches (hr1-hr3): enterHighlands (title card, vista birds), vistas, hawks, mantises,
                 crystal bugs, worms, the red beetle
 - climb.js      the climb screens (climb1-climb5): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
@@ -64,7 +64,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - rise.js       the rise (id 'rise', where f2 was): RISE table, riseH (height), riseHalf (the way's half-width,
                 growing with the view), riseLand (ground rows and props, laid out once in tiles), addRise (builds the
-                scene with the world: solids, the reeds, two rabbits, exits to f1 and f3), sceneSize (a scene's size
+                scene with the world: solids, the reeds, two rabbits, exits to f1 and climb1), sceneSize (a scene's size
                 in px: the rise's own, every other the screen), riseCamera, riseView/riseZoom/riseProj, riseToScreen
                 (toScreen on the rise), drawRise (ground rows, then everything standing drawn by the game's own code
                 at its spot, scaled), riseCragSprite (16 crag pictures, painted once), drawRiseTiles
@@ -110,9 +110,9 @@ before and after a world.js refactor, --total for the one line).
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
 - Down from f1: the rise (where f2 was: in from f1 at its north-west corner, one long slope east, out south through
-  a pass at the far end into f3), then the windy fields
-  f3 to f7 (f3-f6 are the mountain path: rock one side, a drop with islands the other),
-  then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the right.
+  a pass at the far end onto climb1), the climb climb1 to climb5 (climb.js, its own runtime until item 3 remakes
+  each on the main game), then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the
+  right. f3 to f7 (the windy fields' ravines and the mountain path) retired in build 204.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
 - climb1-climb5 exist but are not joined to the map yet (test links and System > Testing only).
 
@@ -122,7 +122,7 @@ before and after a world.js refactor, --total for the one line).
 - Anything the player gains shows in the pack (Gear lists keepsakes and plans).
 - Stones: rough ones are drawJagged with the zigzag soil line; throwing stones are lumpy drawRock with a seed that
   stays with the stone (ground, arms, air, landing).
-- Collision and drawing share one shape function (chasmSpan, corridorSpan, gap(x, z)); never draw an edge the game
+- Collision and drawing share one shape function (chasmSpan, gap(x, z)); never draw an edge the game
   doesn't test.
 - Anything that takes over update() (state.rapids, state.climb) handles its own death, menus and text.
 - Pip speaks only through pipLine (hold: true waits for F) or pipSay (once-only). Where Pip is on a screen is decided
@@ -133,7 +133,7 @@ before and after a world.js refactor, --total for the one line).
 ## Tests (tests/, by topic)
 acorn-skill arena book-tiles camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
-hud-banners intro-wander lanes ledge-ride lesson misc-51 mountain-side opening pack patch-hints pickup-sparkles
+hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
 pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
 robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
@@ -149,7 +149,7 @@ crags); worn out restarts the screen. Open questions: final look, how the screen
 ## The rise, where it stands (build 171)
 The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. In and out as the map lays them:
 f1's south way leads in at the north-west corner (x 4, a short way down between the west wall and a corner wall to
-the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads down into f3 (and back). It runs on the main game:
+the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads onto climb1 (and peak1's west way leads back onto climb5). It runs on the main game:
 while it's the current scene, W and H are its own size in px (sceneSize; update() and enterScene() set them, drawing
 and the HUD use the screen, SW and SH, and L() walks at the screen's pace), so the hero, Pip, the rabbits, items, fire,
 the tutorial coach and saving are the usual code. Only the drawing is its own (drawRise): the ground in rows, then
@@ -165,12 +165,12 @@ No ledges to ride to: a jump into the strong gust is just a jump.
 Two rabbits in the first stretch (the camp's fluff), with 9 stones and trees to duck behind. At x 20, just past a
 tree at x 18, a wall of reeds crosses the way wall to wall. For now nothing gets through it, fire included (the
 clumps have no bar; reedwall: true). To open it to fire later, give each clump bar: 'risereeds' (burning gas breaks
-reeds with a bar). Past it is out of reach for now, and with it f3 onward from this side.
+reeds with a bar). Past it is out of reach for now, and with it the climb from this side (test links reach it).
 Draws at about 7 to 10 ms a frame in the node renderer (a field screen is about 3 to 4).
 Open: what opens the reeds, their look (the marsh's dark bulrushes; straw-dry would suit a field), a line when you
 bump them, f2's two island pickups (a stick or an acorn each), which the rise doesn't have, and continuity at the
-seams: the rise's way in is at its far west and its way out at its far east, while f1's south opening and f3's north
-opening sit wherever the seed put them (moving them to the matching side means regenerating those edge walls).
+seams: the rise's way in is at its far west, while f1's south opening sits wherever the seed put it (moving it to
+the matching side means regenerating that edge wall).
 
 ## Next task (on Opus unless marked: WAYS 7a)
 Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
@@ -185,17 +185,13 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    ~~203 the join: the rise's pass leads onto climb1; climb5 to peak1 and peak1's west way back to climb5; ?mountain
    starts on the rise just east of the reeds (the reeds still stop real play, so only test links reach it). Tests:
    rise 5 walks the rise from there through the pass onto climb1; climb 6 runs climb5 out to peak1 and back.~~ (203)
-   204 retire f3 to f7, with the defaults put to Ross (he can still overrule): puzzle mode's two wind puzzles (Wind
-   ravines on f3, Chained rides on f5) retire; arena's wind round moves from f4 to f1; the corridor, fitToCorridor
-   and its islands, the too-strong gusts that throw you to the foothill farm, and whatever else only those screens
-   use go too (grep: puzzles.js, arena.js, engine.js f3 plants line, draw-ui.js HOME_MAP, rise.js f3n (its north way
-   still comes out at the rise's pass, one way, since 203), world.js genField and MAP_LAYOUT (climb1 to climb5 take
-   f3 to f7's squares); about 7 test files). The tortoise (f7, gating peak1) comes out with f7 but inv.tortoise and
-   its vigor depth stay for item 3 (build 212): until then peak1 is open from climb5. The farm stays (from f1). Removing their rng
-   draws shifts every region generated after genField (crags, farm, cave, marsh, swamp, Hollow) once, by design:
-   report the world hash change, and that older saves load those regions rearranged. Then state-owners move 8
-   (climbReturn behind one startClimb, or gone with the test rows). NEXT, FABLE.
-3. The mountain, one family after the rise (Ross, 1 Oct: what the climb was always meant to be). The plan, the
+   ~~204 retire f3 to f7: the wind puzzles, arena's wind round to f1, the corridor and its islands, ravine rocks, the
+   journal line; the tortoise's npc code (draw, interact, menu line) is parked for 212; world hash d75a001b2e31f342102c38f4
+   to 5ab0c475c4e33fce9b1ec4c8 (f1 and every region after it rearranged once; older saves load them that way).~~ (204)
+   Still open: state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows): with 211, when
+   climb.js goes. Gust rides to a ledge (rideGust, windTarget, layoutLedges) now live only on f1 (one bank: from the
+   north end the strong gust rides you onto a ledge); the ledge-to-ledge rides down a ravine come back with m1 (206).
+3. The mountain, one family after the rise (Ross, 1 Oct: what the climb was always meant to be). NEXT. The plan, the
    defaults and the build order are in docs/mountain-plan.md: 205 the wind by height (Opus); 206 m1 and the rabbit
    sizes, 207 hawks hunt rabbits, 208 m2, 209 m3 inside, 210 m4 rabbits fight the hawks, 211 m5 the buff rabbits and
    carrot juice (climb.js deleted), 212 the tortoise's home between m5 and peak1, peaches on the farm (all FABLE).

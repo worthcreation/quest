@@ -1367,8 +1367,8 @@ function drawBook(m) {
 }
 // Pip's map in the book: a pencil sketch of the places around home. Walked: inked with its name. Seen from next door
 // but not walked: a dashed box, still to finish. Past that, a few arrows off the edge of the page: what's beyond.
-const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'rise', 'f3'];
-const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', rise: 'Rise', f3: 'Field', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
+const HOME_MAP = ['farbank', 'ford', 'riverbank', 'camp', 'meadow2', 'meadow', 'start', 'w1', 'w2', 'w3', 'foot', 'f1', 'rise'];
+const MAP_SHORT = { riverbank: 'River', camp: 'Camp', meadow: 'Garden', start: 'Glade', w1: 'Woods', w2: 'Woods', w3: 'Woods', f1: 'Field', rise: 'Rise', farbank: 'Far bank', ford: 'Ford', meadow2: 'Rocks', foot: 'Old farm' };
 // Craft in three columns: Make (Combine, recipes) on the left, Materials in the middle, Made (greyed) on the right
 // Status as cards: you at the top (vigor), then one card per skill: a coloured strip, the name and level pips, a
 // progress bar, and two short lines, now and next. Upgrades are a row of small badges at the bottom.
@@ -1534,7 +1534,7 @@ function mapTodo() {
   for (const id of half.slice(0, 4)) out.push(`- ${MAP_SHORT[id] || id}: only peeked in. Still to draw.`);
   if (!seen('w3')) out.push('- Past the boulders in the woods. Something glints? No. Probably nothing.');
   out.push('- Downriver: Old Wick\'s pool, so shiny it hurts your eyes.');
-  out.push('- South, past the windy fields: mountains. Who lives up there?');
+  out.push('- South, past the windy field and up the rise: mountains. Who lives up there?');
   out.push('- I keep hearing digging under the woods...');
   return out;
 }
