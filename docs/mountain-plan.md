@@ -38,12 +38,15 @@ rise > m1 the wind shelf (moving) > m2 the stepping path (fixed, zoomed out) > m
 
 ## Side content
 - The windmill: beside a field mushroom, turning with the gusts.
-- The ornithologist: collects eggs from certain birds (the robin's, a hawk's, a mountain bird's), found in nests
-  hidden up the mountain (the secrets); he really wants to try carrot juice.
+- The ornithologist (Ross, 1 Oct): a traveller, not a resident. Start the game and he is struggling up the mountain
+  ahead of you; you meet him now and then on the way, not on every screen. Collects eggs from certain birds (the
+  robin's, a hawk's, a mountain bird's), found in nests hidden up the mountain (the secrets); he really wants to try
+  carrot juice.
 - Carrot juice: two carrots; a little vigor back; thrown, every rabbit in range fights over it.
 - The tortoise, in its hollow where the wind drops to a breeze: loves peaches; for peaches it gives peach stones
   (and what it gave before: the step up in vigor depth, the way on to the crags).
-- Trees: peach stones grow peach trees that bear peaches in time. Where trees grow is Ross's call (below).
+- Trees: peach stones grow peach trees that bear peaches in time. Trees grow only in dedicated tree patches (Ross,
+  1 Oct): a patch of their own kind, trees only, not convertible to an ordinary plant patch for now.
 
 ## Islands (Ross, 1 Oct: the islands are hard to read without the tiles on)
 Keep each screen's perspective as it is (no special camera over jumps). For now every island is at least 2 tiles
@@ -54,9 +57,10 @@ across, and every gap a sure running jump. Smaller platforms may come later, by 
 206 the generator: rise.js became mountain.js, the family's builder (MTN specs, RISE the first); no change in play
     (test output, renders, world and draw hashes identical). Done.
 New scenes first (Ross, 1 Oct):
-207 m1 the wind shelf on the generator, out of the rise's pass (climb1 out of climb.js; m1 leads on to climb2 until
-    m2 exists): the climb's winding ravine crossed at its narrow points, ledges the strong gust rides you to, the
-    rise's rabbits a size up and snarling, its own palette (drier grass, tan earth); a secret. Still mockup first. FABLE.
+207 m1 the wind shelf on the generator (scene mt1: m1 to m3 are the marsh's ids), out of the rise's pass, leading on
+    to climb2 until m2 exists: the ravine (M1.rav) crossed at three 1.3-tile narrows, ledge-to-ledge gust rides
+    where it's wide, an island on a pillar at the widest (the secret: carrots), hares, the dry palette. Done; dials
+    in M1 (rav.hw's wide 2.5 and narrow, cross, island, floor, earth, stoneAt).
 208 m2 the stepping path, fixed and zoomed out: islands at least 2 tiles across. FABLE.
 209 m3 inside the mountain, moving camera: rifts that crack open ahead of you; a hidden area. FABLE.
 210 m4 the windy crossing, fixed and wide: bare islands, big rocks to shelter behind. FABLE.
@@ -71,12 +75,10 @@ windPow, WIND_BITS, windFx, drawWindBit, tests/wind-height.js; 66 of 66 passed w
 Each screen sets its own palette and creatures in its spec (the height table is no longer a build of its own).
 Mockups: a still for every new look just before its build.
 
-## Waiting on Ross
-1. The wind mockup: OK, or bigger or warmer dust, a softer fur tuft.
-2. The windmill: which mushroom (f1 has none; the nearest field mushroom is the old foothill farm's, west of f1),
-   and does it only turn with the wind, or do something (grind, pump, a spore landmark)?
-3. Direction: each seed picks whether the mountain runs left or right (the read of "pan left or right").
-4. The ornithologist: where he lives (default: by the windmill), which birds' eggs, what he gives for them.
-5. Trees: one orchard (default: on the foothill farm), farm patches that convert to tree plots, special spots in
-   the world where certain trees grow, or a mix.
-6. Any secrets or hidden areas you already picture; otherwise they are designed screen by screen.
+## Ross's answers (1 Oct, the six questions)
+1. The wind mockup: OK as is (ships on Opus from docs/parked/wind-by-height.patch).
+2. The windmill: by the old foothill farm's mushroom; it only turns with the wind.
+3. Direction by seed: yes, each seed picks left or right.
+4. The ornithologist: a traveller struggling up the mountain, met now and then (above); eggs and reward by default.
+5. Trees: dedicated tree patches, trees only, not convertible (above).
+6. Secrets: none pictured yet; designed screen by screen.

@@ -481,6 +481,7 @@ function inView(x, y, tiles = 6) {
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
   if (sc.rocks && onRock(sc, x, y, pad)) return false;
+  if (sc.mtnGap) return sc.mtnGap(x, y, pad);        // a mountain screen's ravine: the generator's shape (mountain.js)
   if (sc.river && riverHit(sc, x, y, pad, pad === 0)) return true;
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }
   if (!sc.chasms) return false;

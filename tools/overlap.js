@@ -15,7 +15,8 @@ for (let n = 0; n < worlds; n++) {
   const Wd = buildWorld(1000 + n * 7919);
   for (const [id, sc] of Object.entries(Wd)) {
     const things = [];
-    const add = (kind, fx, fy, r) => things.push({ kind, x: fx * 1280, y: fy * 800, r: r * U });
+    const [SWd, SHd] = sc.virt ? [sc.virt[0] * U, sc.virt[1] * U] : [1280, 800];   // a mountain screen's size is its own (sceneSize)
+    const add = (kind, fx, fy, r) => things.push({ kind, x: fx * SWd, y: fy * SHd, r: r * U });
     if (sc.feat.shroom) add('mushroom', ...sc.feat.shroom, 1.0);
     for (const p of sc.feat.plots || []) add('plot', ...p, 0.5);
     for (const p of sc.pullables) add(p.kind, p.fx, p.fy, 0.8);

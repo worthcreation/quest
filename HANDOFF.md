@@ -31,8 +31,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 206): audit: 11076 lines, 0 unused, 0 functions over 150,
-  0 repeats, 160 state fields, frames avg 0.59 ms (2 slow, 0 errors); the slow two are the rise and a climb screen.
+  handoff updates docs/audit-baseline.json. Last run (build 207): audit: 11210 lines, 0 unused, 0 functions over 150,
+  0 repeats, 160 state fields, frames avg 0.55 ms (1 slow, 0 errors); the slow one is a climb screen's draw.
   Frame times swing with load: read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
@@ -59,11 +59,14 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 cellar; genField is the first field only (f1)
 - highlands.js  the High Reaches (hr1-hr3): enterHighlands (title card, vista birds), vistas, hawks, mantises,
                 crystal bugs, worms, the red beetle
-- climb.js      the climb screens (climb1-climb5): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
+- climb.js      the climb screens (climb2-climb5; climb1 became mt1 in 207): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE is
-                the rise's: size, foot, pathY, pathD, layout, scene, finish), mtnH (height), mtnColor, mtnHalf (the
+                the rise's, M1 the wind shelf's (scene mt1, 207): size, foot, pathY, pathD, layout, scene, finish; a
+                ravine as m.rav: cy, hw, depth, one shape for isChasm (sc.mtnGap) and the drawing (mtnRavinePts,
+                drawMtnRavine: a hole clipped out of the rows, far wall and stone floor painted once, drawMtnIsland
+                pillars; mtnPass shared), mtnH (height), mtnColor (floor, earth, stoneAt), mtnHalf (the
                 way's half-width, growing with the view), mtnView/mtnZoom/mtnLead/mtnProj, mtnLand (props laid out once
                 in tiles from m.seed, by m.layout with the pieces mtnWalls, mtnFootCrags, mtnTufts), mtnRows (ground
                 rows), addMtn (the scene: solids from the land, then m.finish: the rise's reeds, rabbits, exits to f1
@@ -113,8 +116,9 @@ before and after a world.js refactor, --total for the one line).
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
 - Down from f1: the rise (where f2 was: in from f1 at its north-west corner, one long slope east, out south through
-  a pass at the far end onto climb1), the climb climb1 to climb5 (climb.js, its own runtime until item 3 remakes
-  each on the main game), then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the
+  a pass at the far end onto the wind shelf mt1, 207), mt1 (the same shape of screen: in at the north-west corner,
+  the ravine along the way, a pass south at the far end onto climb2), the climb climb2 to climb5 (climb.js, its own
+  runtime until item 3 remakes each on the main game), then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the
   right. f3 to f7 (the windy fields' ravines and the mountain path) retired in build 204.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
 - climb1-climb5 exist but are not joined to the map yet (test links and System > Testing only).
@@ -143,12 +147,23 @@ text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-
 creature woken from a stun (it would have caught the High Reaches freeze).
 
 ## The climb, where it stands (tune with ?mountain)
-1 The wind trail: a winding ravine, cross at narrow points. 2 Stepping stones: round islands in a wide ravine.
+1 The wind trail: remade as the wind shelf, mt1 (207, below). 2 Stepping stones: round islands in a wide ravine.
 3 The broken meadow: rifts across the way, chasms, a short ravine (gap field). 4 The windy crossing: rifts with bare
 islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The last ledges: a side view.
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Ross, 1 Oct: the islands are hard
 to read without the tiles turned on: on the remade screens islands are at least 2 tiles across; the perspective stays. Open green for now (CLIMB_TUNE.ledge 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
+
+## The wind shelf, mt1 (build 207)
+Out of the rise's pass, 64 x 30 tiles, the rise's kind of screen (in at the north-west corner, moving camera, a pass
+south at the far end, onto climb2 until m2 is remade). M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
+narrowing to 0.65 (a 1.3-tile jump) at x 13, 25, 36 so the path zigzags bank to bank (M1.side), widening to 3.5 at
+x 42 where an island (r 1.0, on a pillar) sits between a ledge on each bank: rides only (gaps 2.5). Ledge pairs at
+x 19 and 30.5 for strong-gust rides; sc.rocks hold them (ledge: true; island: true for the pillar). A jump carries
+2.2 tiles at vigor 8 (jumpReach), so a crossing wants the jump within 0.9 of the lip; isChasm is a point test.
+Three hares (MONSTERS.hare: r 0.58, hp 3, drawSnarl), two carrots and an acorn on the island (sc.initItems).
+Dials: rav.hw (wide 2.5, the 1.85 drop at crossings), cross, island, floor, earth, stoneAt, dx 0.5, fine 6.
+tests/windshelf.js plays it end to end. Test links: ?scene=mt1, ?mountain then key 1.
 
 ## The rise, where it stands (build 171)
 The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep. In and out as the map lays them:
@@ -177,18 +192,18 @@ seams: the rise's way in is at its far west, while f1's south opening sits where
 the matching side means regenerating that edge wall).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-Questions for Ross (ask these first, in one short message, then start 207 on the defaults for any he skips):
-1. Wind mockup (quest-b205-wind-mockup.png from the 1 Oct chat): OK as is, or bigger or warmer dust, a softer fur
-   tuft? (If OK: apply docs/parked/wind-by-height.patch, check, ship; Opus.)
-2. Windmill: f1 has no mushroom; is it the old foothill farm's mushroom (west of f1)? Does it only turn with the
-   wind, or do something (grind, pump, mark the spot)?
-3. Direction by seed: each seed picks whether the mountain runs left or right. Right read of "pan left or right"?
-4. Ornithologist: where he lives (default by the windmill), which birds' eggs, what he gives for them.
-5. Trees: one orchard on the foothill farm (default), farm patches that convert to tree plots, special spots for
-   certain trees, or a mix?
-6. Secrets or hidden areas he already pictures (otherwise designed screen by screen).
-Ross also asked (1 Oct) whether he must dial in each scene first: no. Each screen is built fresh from the climb's
-ideas with its dials in its spec; he play-tests and says what to turn. A still mockup comes before each new look.
+FABLE: 208 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch (applies on 207 with
+`patch -p1 < docs/parked/m2-stepping-path.patch`; mountain.js and world.js): a fixed camera for the generator (m.fixed
+{ p }: mtnView holds p, mtnZoom fits the screen's width, mtnCamera sits at the centre or slides on a narrow phone,
+m.half holds the walls' width), walls skip the drop, M2 (40 x 24, ravine 5 across at the ends and wall to wall from
+x 10 to 30, a chain of seven islands r 1.05 with gaps 1.18 to 1.37 and an eighth off it 1.69 away with two carrots,
+in from mt1's pass, out south onto climb3), M1's exit moved to mt2, floor stones capped at half a tile, the tiles
+overlay green on an island. Mockups quest-b208-mt2-entry.png and -mid.png were shown; Ross's OK and any turns come
+first. Then: tests/stepping-path.js (hop the chain lined up like a player, the dare, in and out, a fall), remove
+climb2 from CLIMB_SPECS, world.js's climb list and MAP_LAYOUT (mt2: [4, 6]), MAP_NAMES, tests/climb.js's 2b, HISTORY,
+mountain-plan, design-rules story; ship. Open on the look: the big flat floor (mist or denser stones by the walls),
+island size, bare islands or grassy.
+Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).
 
 Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
 the last loose stone, and the stuck stone is locked until his loosen line (pullLocked, 'early'), so until then the
@@ -202,8 +217,8 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    layoutLedges) live only on f1 for now; ledge-to-ledge rides come back with m1.
 3. The mountain: the rise and the climb as one family (Ross, 1 Oct), docs/mountain-plan.md. New scenes first: Ross
    expected to see the reimagined flow, and 205 and 206 were groundwork. ~~205 the reeds hold~~ (205), ~~206 the
-   generator~~ (206: rise.js became mountain.js, no change in play). NEXT: 207 m1, the first new screen. Then 208 m2
-   (islands at least 2 tiles across), 209 m3 inside, 210 m4, 211 m5 and carrot juice (climb.js
+   generator~~ (206: rise.js became mountain.js, no change in play), ~~207 m1 the wind shelf~~ (207, scene mt1).
+   NEXT: 208 m2 (islands at least 2 tiles across; draft parked, mockup shown), 209 m3 inside, 210 m4, 211 m5 and carrot juice (climb.js
    deleted), 212 hawks hunt rabbits and the ornithologist's eggs, 213 the tortoise's hollow and peach stones, 214
    trees, 215 the windmill (Opus), 216 direction by seed; all FABLE but 215. The wind by height ships whenever Ross
    OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.

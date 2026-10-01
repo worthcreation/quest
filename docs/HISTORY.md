@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 207: the wind shelf, m1 (chat)
+The climb's first screen remade on the generator as scene mt1 (m1 to m3 are the marsh's ids): the rise's pass leads
+onto it, its pass onto climb2. A ravine (M1.rav: cy, hw, depth) runs the length of the way, one shape for collision
+(isChasm asks sc.mtnGap) and drawing (a hole cut from the ground's rows, far wall and floor of heaped stones painted
+once, lips drawn crisp); 5 tiles wide, a 1.3-tile jump at three crossings so the path zigzags bank to bank (a jump
+carries 2.2 tiles at vigor 8: jump within 0.9 of the lip); ledge pairs across the wide stretches for strong-gust
+rides, and at the widest an island on a pillar between a ledge on each bank, reached only by riding, with two carrots
+and an acorn on it (the secret). Dry palette (dry grass, tan earth, stone sooner), a column step and fine rows for the
+edges, mtnPass shared with the rise (its layout unchanged). Hares: the rabbit a size up (0.58 tiles), hp 3, snarling
+before it darts. climb1, zigHw and its spec gone from climb.js; ?mountain key 1 and the Testing row start on mt1.
+tests/windshelf.js plays it: in from the rise, three crossings jumped from half a tile before the lip (0.58 to 0.63
+past the far lip), the wide part drops you in and back on the bank, ledge to ledge and bank > island > bank rides,
+25 s of wind on the bank without falling, hares, out through the pass onto climb2, back north to the rise.
+
 ## Build 206: the mountain's generator (chat)
 rise.js is now mountain.js, the builder for the whole mountain family (docs/mountain-plan.md). Each screen is a spec
 in MTN; RISE is the first (size, foot, pathY, pathD, its layout from the pieces mtnWalls, mtnFootCrags, mtnTufts,

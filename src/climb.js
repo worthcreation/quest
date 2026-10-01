@@ -1,8 +1,8 @@
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: the rise's pass > climb1 > climb2 > ... > climb5 > peak1 (the crags), joined in build 203. Every number
-// that shapes them is in CLIMB_TUNE and CLIMB_SPECS below.
+// in a chain: the rise's pass > the wind shelf (mt1, mountain.js) > climb2 > ... > climb5 > peak1 (the crags), joined in
+// build 203. Every number that shapes them is in CLIMB_TUNE and CLIMB_SPECS below. climb1 was remade as mt1 (207).
 
 // ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=peak1 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
@@ -10,7 +10,7 @@ var START_SCENE = typeof location !== 'undefined' ? ((/[?&]scene=([a-z0-9]+)/.ex
 function startTestScene(id, fx, fy) {                          // set up enough of the story that a mid-game screen makes sense
   const inv = state.inv; inv.story = STORY.adventure; inv.tortoise = true; inv.sword = true; inv.acorns = 10; (inv.pipTips = inv.pipTips || {}).tada = true;
   state.intro = null; state.cut = null; state.pip = null; state.climbReturn = id; enterScene(id, fx, fy);
-  showScroll('Test link', MOUNTAIN ? 'The rise, past the reeds: the pass leads onto the climb. Keys 1 to 5 jump to the five climb screens; 0 goes to the first field.' : `Started on ${id}.`);
+  showScroll('Test link', MOUNTAIN ? 'The rise, past the reeds: the pass leads onto the wind shelf. Keys 1 to 5 jump to the mountain\'s five screens; 0 goes to the first field.' : `Started on ${id}.`);
 }
 // the shadow's aim, to tune: lead (how far toward the landing it goes), arrive (when in the jump it gets there),
 // follow (how quickly it chases; lower = lazier, smoother). On the ?mountain link: [ and ] change lead, - and = follow.
@@ -28,10 +28,8 @@ const CLIMB_TUNE = {
   side: { run: 0.28, jump: 0.95, gravity: 2.4, warn: 0.9, blow: 1.5, calm: [2, 4.5], push: 0.3, airPush: 0.5 },  // the side view, in screen widths and heights a second
 };
 const CLIMB_SPECS = {
-  // path: the way winds (amp tiles either side, over period tiles, shifted); ravine: wide everywhere, narrow enough
-  // to jump at each crossing [z, the side you come from]; islands [x from the path, z, radius]
-  climb1: { name: 'The wind trail', kind: 'trail', cam: { f: 0.62, horizon: 0.26, camH: 3.4 }, path: { amp: 2.6, period: 22, shift: 6 },
-            ravine: { wide: 1.9, narrow: 0.55, cross: [[15.5, 'R'], [10.5, 'L'], [6.8, 'R']] }, start: [2.4, 18], goalZ: 4.6, next: 'climb2' },
+  // path: the way winds (amp tiles either side, over period tiles, shifted); ravine: wide everywhere; islands [x from the
+  // path, z, radius]
   climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, path: { amp: 1.4, period: 30, shift: 4 },
             ravine: { wide: 2.6 }, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
             islands: [[1.3, 17.5, 1.0], [-0.2, 15.2, 1.0], [1.0, 12.8, 0.95], [-0.8, 10.3, 0.95], [0.6, 8.0, 0.95], [-0.9, 6.3, 0.95]] },   // a stepping path across and down
@@ -50,10 +48,6 @@ const CLIMB_SPECS = {
   climb5: { name: 'The last ledges', kind: 'side', ledges: 14, from: 0.78, top: 0.25, next: 'peak1' },   // ledges: how many, the first one's height, the highest any goes
 };
 const tri = (z, p, o) => { const t = (z + o) / p, k = t - Math.floor(t), v = 2 * Math.abs(k - 0.5) * 2 - 1; return 0.6 * v + 0.4 * v * v * v; };
-// the ravine's half-width: wide, narrowing smoothly to narrow near each crossing
-function zigHw(cross, wide, narrow) {
-  return z => { let w = wide; for (const [cz] of cross) { const k = Math.max(0, 1 - Math.abs(z - cz) / 1.1); w = Math.min(w, wide - (wide - narrow) * k * k * (3 - 2 * k)); } return w; };
-}
 function fieldGap(F) {
   const [wob, ka, kb] = F.wobble || [0, 0, 0];
   return (x, z) => {
@@ -72,11 +66,11 @@ function fieldGap(F) {
 function climbScreen(s) {
   const p = s.path, r = s.ravine;
   const cx = p ? z => p.amp * tri(z, p.period, p.shift) : () => 0;
-  const hw = !r ? () => 0 : r.cross ? zigHw(r.cross, r.wide, r.narrow) : () => r.wide;
+  const hw = !r ? () => 0 : () => r.wide;
   return Object.assign({}, s, { cx, hw }, s.field ? { gap: fieldGap(s.field) } : {});
 }
 const CLIMBS = Object.fromEntries(Object.entries(CLIMB_SPECS).map(([id, s]) => [id, climbScreen(s)]));
-const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb1;
+const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb2;
 const climbCx = (z, d = climbDef()) => d.cx(z);
 const climbHw = (z, d = climbDef()) => d.hw(z);
 const climbSlopeY = dx => 1.5;                                                   // the ledges are level ground
@@ -89,7 +83,7 @@ const onClimbIsland = (x, z, d = climbDef()) => (d.islands || []).some(([ix, iz,
 const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const dd = climbDef(); if (dd.gap) return dd.gap(x, z) || Math.abs(x) > 11; const s = climbSide(x, z), a = Math.abs(s); return a < climbHw(z) || a > climbHw(z) + CLIMB_TUNE.ledge; };   // the ravine, or off a ledge's outer edge
 
 function newClimb(id) {
-  const d = CLIMBS[id] || CLIMBS.climb1;
+  const d = CLIMBS[id] || CLIMBS.climb2;
   if (d.kind === 'side') return newSideClimb();
   setTimeout(climbTip, 400);
   return { kind: 'trail', x: d.cx(d.start[1]) + d.start[0], z: d.start[1], vx: 0, vz: 0, h: 0, vh: 0, air: false, fall: 0, safe: null,
@@ -105,7 +99,7 @@ function testHops() {
   const tap = k => { if (state.keys[k]) { state.keys[k] = false; return true; } return false; };
   if (tap('[')) SHADOW.lead = Math.max(0, SHADOW.lead - 0.05); if (tap(']')) SHADOW.lead = Math.min(1, SHADOW.lead + 0.05);
   if (tap('-')) SHADOW.follow = Math.max(1, SHADOW.follow - 1); if (tap('=')) SHADOW.follow = Math.min(30, SHADOW.follow + 1);
-  const ids = ['climb1', 'climb2', 'climb3', 'climb4', 'climb5'];
+  const ids = ['mt1', 'climb2', 'climb3', 'climb4', 'climb5'];
   for (let i = 0; i <= 5; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
   return false;
 }

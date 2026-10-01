@@ -163,6 +163,16 @@ const MONSTERS = {
       }
     },
   },
+  hare: {                                           // the mountain's rabbit: a size up, a hit tougher, and it snarls before it comes
+    stats: u => ({ r: u * 0.58, hp: 3, dmg: 1, mode: 'idle', t: rr(0.3, 1) }),
+    small: true, resume: ['flee', 0.8],
+    touches: e => e.mode === 'dart',
+    afterHit: fleeAfterHit,
+    onKill: e => { state.inv.rabbitKills = (state.inv.rabbitKills || 0) + 1; },
+    drop: [['fluff', 0.35], ['carrot', 0.4], ['thornseed', 0.08], ['carrotseed', 0.12]],
+    draw: (e, C, scale) => { drawRabbit(e, C, scale); drawSnarl(e); },
+    ai(e, dx, dy, dist, ease, dt) { MONSTERS.rabbit.ai(e, dx, dy, dist, ease, dt, 1.1); },
+  },
   gremlin: {
     stats: u => ({ r: u * 0.42, hp: 2, dmg: 1, mode: 'idle', t: rr(0.3, 1), fast: 1.25 }),
     small: true, slim: true, resume: ['flee', 0.6],

@@ -389,6 +389,13 @@ function drawRabbit(e, C, scale) {
   for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * (rage ? 0.09 : 0.06), 0, 6.28); ctx.fill(); }
   if (flash) { ctx.fillStyle = 'rgba(255,60,40,.35)'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(e.x + s * e.r * 0.3, y - e.r * 0.2, UNIT * 0.2, 0, 6.28); ctx.fill(); } }
 }
+// a hare's snarl: as it works itself up and darts, its lip curls and two teeth show
+function drawSnarl(e) {
+  if (e.mode !== 'rage' && e.mode !== 'dart') return;
+  const hop = Math.abs(Math.sin(state.time * 16)) * UNIT * 0.25, y = e.y - (e.mode === 'rage' ? Math.abs(Math.sin(state.time * 8)) * UNIT * 0.15 : hop), r = e.r, open = e.mode === 'dart' ? 1 : 0.5 + 0.5 * Math.abs(Math.sin(state.time * 20));
+  ctx.fillStyle = '#5a1e1e'; ctx.beginPath(); ctx.ellipse(e.x, y + r * 0.28, r * 0.34, r * 0.14 * open, 0, 0, 6.28); ctx.fill();
+  ctx.fillStyle = '#f6f2ea'; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * r * 0.08, y + r * 0.16); ctx.lineTo(e.x + s * r * 0.2, y + r * 0.16); ctx.lineTo(e.x + s * r * 0.14, y + r * (0.16 + 0.2 * open)); ctx.fill(); }
+}
 function drawDiver(e, C, scale) {
   const hgt = e.hgt || 0, y = e.y - hgt * UNIT * 6;
   if (e.mode !== 'ceiling') {
