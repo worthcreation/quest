@@ -1,4 +1,4 @@
-# Quest: handoff (build 202, 1 Oct 2026)
+# Quest: handoff (build 206, 1 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -31,9 +31,9 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 202): audit: 11230 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg
-  0.6 ms (2 slow, 0 errors). The slow two are the rise (2.3 ms draw) and climb4 (2.35 ms, 1.8 in build 200 with the
-  same paint calls: machine load). Frame times swing with load: read a change there only if it's large or on one screen.
+  handoff updates docs/audit-baseline.json. Last run (build 206): audit: 11076 lines, 0 unused, 0 functions over 150,
+  0 repeats, 160 state fields, frames avg 0.59 ms (2 slow, 0 errors); the slow two are the rise and a climb screen.
+  Frame times swing with load: read a change there only if it's large or on one screen.
 - Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
@@ -62,12 +62,15 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - climb.js      the climb screens (climb1-climb5): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
-- rise.js       the rise (id 'rise', where f2 was): RISE table, riseH (height), riseHalf (the way's half-width,
-                growing with the view), riseLand (ground rows and props, laid out once in tiles), addRise (builds the
-                scene with the world: solids, the reeds, two rabbits, exits to f1 and climb1), sceneSize (a scene's size
-                in px: the rise's own, every other the screen), riseCamera, riseView/riseZoom/riseProj, riseToScreen
-                (toScreen on the rise), drawRise (ground rows, then everything standing drawn by the game's own code
-                at its spot, scaled), riseCragSprite (16 crag pictures, painted once), drawRiseTiles
+- mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE is
+                the rise's: size, foot, pathY, pathD, layout, scene, finish), mtnH (height), mtnColor, mtnHalf (the
+                way's half-width, growing with the view), mtnView/mtnZoom/mtnLead/mtnProj, mtnLand (props laid out once
+                in tiles from m.seed, by m.layout with the pieces mtnWalls, mtnFootCrags, mtnTufts), mtnRows (ground
+                rows), addMtn (the scene: solids from the land, then m.finish: the rise's reeds, rabbits, exits to f1
+                and climb1), sceneSize (a scene's size in px: a mountain screen's own, every other the screen),
+                newMtnCam/mtnCamera (state.mtn), mtnToScreen (toScreen on a mountain screen), drawMtn (ground rows,
+                then everything standing drawn by the game's own code at its spot, scaled), mtnCragSprite (16 crag
+                pictures, painted once), drawMtnTiles
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
 - text.js       say() with pages and holds, showTitle, showScroll, notice (pickup scrolls)
 - engine.js     update(), enterScene, movement, jumps, wind and rides, chasms (isChasm, chasmSpan), hurtHero, checkEdges
@@ -143,7 +146,8 @@ creature woken from a stun (it would have caught the High Reaches freeze).
 1 The wind trail: a winding ravine, cross at narrow points. 2 Stepping stones: round islands in a wide ravine.
 3 The broken meadow: rifts across the way, chasms, a short ravine (gap field). 4 The windy crossing: rifts with bare
 islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The last ledges: a side view.
-Your shadow is the aim (it leads toward the landing, small at the top of a jump). Open green for now (CLIMB_TUNE.ledge 12, no
+Your shadow is the aim (it leads toward the landing, small at the top of a jump). Ross, 1 Oct: the islands are hard
+to read without the tiles turned on: on the remade screens islands are at least 2 tiles across; the perspective stays. Open green for now (CLIMB_TUNE.ledge 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
 
 ## The rise, where it stands (build 171)
@@ -152,12 +156,12 @@ f1's south way leads in at the north-west corner (x 4, a short way down between 
 the path); at the far end the pass turns south between crag walls (x 78 to 84) and leads onto climb1 (and peak1's west way leads back onto climb5). It runs on the main game:
 while it's the current scene, W and H are its own size in px (sceneSize; update() and enterScene() set them, drawing
 and the HUD use the screen, SW and SH, and L() walks at the screen's pace), so the hero, Pip, the rabbits, items, fire,
-the tutorial coach and saving are the usual code. Only the drawing is its own (drawRise): the ground in rows, then
+the tutorial coach and saving are the usual code. Only the drawing is its own (drawMtn): the ground in rows, then
 everything standing drawn by the game's own draw code at its spot on the tipped ground, scaled with the view;
 toScreen projects on the rise, so speech and hints sit right. The overview draws it as a flat thumbnail.
 The view: straight down at the west end; walking east it pulls back (zoom 1.00 to 0.50 on a laptop, 0.72 on a phone:
 never under 20 px of hero) and tips (0 to 54 degrees) evenly to the foot, looking a little ahead. The stone walls
-widen with it: 14 tiles apart by the fields, 30 at the foot (riseHalf). Crags line the foot and two unbroken walls
+widen with it: 14 tiles apart by the fields, 30 at the foot (mtnHalf). Crags line the foot and two unbroken walls
 line the pass. No ground lines for now (contours and haze out; Ross will add flair later); the worn path stays.
 Wind as on f1: the same gusts (sc.gusts copied from f1), so you, Pip and loose fluff are nudged and shoved just as
 there; five clumps of tall grass lean ahead of each gust; cloud shadows drift (4 per screen's worth of ground, 33).
@@ -173,6 +177,19 @@ seams: the rise's way in is at its far west, while f1's south opening sits where
 the matching side means regenerating that edge wall).
 
 ## Next task (on Opus unless marked: WAYS 7a)
+Questions for Ross (ask these first, in one short message, then start 207 on the defaults for any he skips):
+1. Wind mockup (quest-b205-wind-mockup.png from the 1 Oct chat): OK as is, or bigger or warmer dust, a softer fur
+   tuft? (If OK: apply docs/parked/wind-by-height.patch, check, ship; Opus.)
+2. Windmill: f1 has no mushroom; is it the old foothill farm's mushroom (west of f1)? Does it only turn with the
+   wind, or do something (grind, pump, mark the spot)?
+3. Direction by seed: each seed picks whether the mountain runs left or right. Right read of "pan left or right"?
+4. Ornithologist: where he lives (default by the windmill), which birds' eggs, what he gives for them.
+5. Trees: one orchard on the foothill farm (default), farm patches that convert to tree plots, special spots for
+   certain trees, or a mix?
+6. Secrets or hidden areas he already pictures (otherwise designed screen by screen).
+Ross also asked (1 Oct) whether he must dial in each scene first: no. Each screen is built fresh from the climb's
+ideas with its dials in its spec; he play-tests and says what to turn. A still mockup comes before each new look.
+
 Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
 the last loose stone, and the stuck stone is locked until his loosen line (pullLocked, 'early'), so until then the
 boulder can't be broken; walk off mid-visit and he calls "Over here!" for good. The slot flash only fires when Pip's
@@ -180,26 +197,16 @@ words match flashFor's keywords (acorn throw, eat, marsh fire, swing/lunge/slash
 second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps everything; saving is menu only.
 1. ~~Hammocks (195), groundShadow (197), borrowing Pip's hammock (198), genWorld split (199), hawk timer (200), the
    climb's dials (201).~~
-2. The climb, joined. FABLE. Ross, 1 Oct: the mountain is climb1 to climb5, back to back, out of the rise past the
-   reeds; f3 to f7 (the windy fields' ravines, the mountain path) go; the tortoise stays and moves (item 3). Builds:
-   ~~203 the join: the rise's pass leads onto climb1; climb5 to peak1 and peak1's west way back to climb5; ?mountain
-   starts on the rise just east of the reeds (the reeds still stop real play, so only test links reach it). Tests:
-   rise 5 walks the rise from there through the pass onto climb1; climb 6 runs climb5 out to peak1 and back.~~ (203)
-   ~~204 retire f3 to f7: the wind puzzles, arena's wind round to f1, the corridor and its islands, ravine rocks, the
-   journal line; the tortoise's npc code (draw, interact, menu line) is parked for 212; world hash d75a001b2e31f342102c38f4
-   to 5ab0c475c4e33fce9b1ec4c8 (f1 and every region after it rearranged once; older saves load them that way).~~ (204)
-   Still open: state-owners move 8 (climbReturn behind one startClimb, or gone with the test rows): with 211, when
-   climb.js goes. Gust rides to a ledge (rideGust, windTarget, layoutLedges) now live only on f1 (one bank: from the
-   north end the strong gust rides you onto a ledge); the ledge-to-ledge rides down a ravine come back with m1 (206).
-3. The mountain: the rise and the climb as one family (Ross, 1 Oct). NEXT. docs/mountain-plan.md has the plan, the
-   progression by height, the side content (windmill, ornithologist and eggs, carrot juice, the tortoise's peach
-   stones, trees) and the build order: ~~205 the reeds hold~~ (205); 206 wind by height (built, waiting on Ross's OK
-   of the mockup; the work is in the chat that made it: windHeight, windPow, WIND_BITS, windFx, drawWindBit and
-   tests/wind-height.js; rebuild from the plan if lost), Opus; 207 the generator (rise.js becomes the family's
-   builder, no change in play), 208 direction by seed, 209 the height table, 210 m1, 211 hawks hunt rabbits and the
-   ornithologist's eggs, 212 m2, 213 m3 inside, 214 m4, 215 m5 and carrot juice (climb.js deleted), 216 the tortoise's
-   hollow and peach stones, 217 trees, all FABLE; 218 the windmill, Opus. Six questions for Ross at the end of the
-   plan. Until the reeds open, all real play stays west of them.
+2. ~~The climb joined (203), f3 to f7 retired (204).~~ Still open: state-owners move 8 (climbReturn behind one
+   startClimb, or gone with the test rows), with 211 when climb.js goes. Gust rides to a ledge (rideGust, windTarget,
+   layoutLedges) live only on f1 for now; ledge-to-ledge rides come back with m1.
+3. The mountain: the rise and the climb as one family (Ross, 1 Oct), docs/mountain-plan.md. New scenes first: Ross
+   expected to see the reimagined flow, and 205 and 206 were groundwork. ~~205 the reeds hold~~ (205), ~~206 the
+   generator~~ (206: rise.js became mountain.js, no change in play). NEXT: 207 m1, the first new screen. Then 208 m2
+   (islands at least 2 tiles across), 209 m3 inside, 210 m4, 211 m5 and carrot juice (climb.js
+   deleted), 212 hawks hunt rabbits and the ornithologist's eggs, 213 the tortoise's hollow and peach stones, 214
+   trees, 215 the windmill (Opus), 216 direction by seed; all FABLE but 215. The wind by height ships whenever Ross
+   OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.
 5. Slot flash: Pip's lines name their slot outright instead of flashFor's keyword guessing. Opus.

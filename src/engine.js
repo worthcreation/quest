@@ -46,7 +46,7 @@ function saveScene() {
 function enterScene(id, fx, fy) {
   const sv = [W, H]; [W, H] = sceneSize(id);
   try { enterSceneIn(id, fx, fy); } finally { [W, H] = sv; }
-  if (state.rise) riseCamera(0, state.rise, true);
+  if (state.mtn) mtnCamera(0, state.mtn, true);
 }
 function enterSceneIn(id, fx, fy) {
   if (WORLD[state.scene] && RT[state.scene]) saveScene();
@@ -102,7 +102,7 @@ function enterSceneIn(id, fx, fy) {
   if (ARENA) arenaEnter(id);
   state.rapids = id === 'rapids' ? newRapids() : null;
   state.climb = CLIMBS[id] ? newClimb(id) : null;
-  state.rise = id === 'rise' ? newRise() : null;
+  state.mtn = MTN[id] ? newMtnCam(MTN[id]) : null;
   if (sc.river && sc.river.stones) layoutStones(sc);
   if (sc.ravines) sc.chasms = sc.ravines.map(r => [0, r.y - r.hU * UNIT / H / 2, 1, r.y + r.hU * UNIT / H / 2]);
   if (sc.windLedges) layoutLedges(sc);
@@ -247,7 +247,7 @@ function update(dt) {
   if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }   // a beat of slow motion (a dodge, a relic): counts down in real time
   const sv = [W, H]; [W, H] = sceneSize(state.scene);
   try { updateWorld(dt); } finally { [W, H] = sv; }
-  if (state.rise) riseCamera(dt);
+  if (state.mtn) mtnCamera(dt);
 }
 function updateWorld(dt) {
   if (state.radial) dt *= 0.05;                       // the wheel all but stops the world

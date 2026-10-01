@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 206: the mountain's generator (chat)
+rise.js is now mountain.js, the builder for the whole mountain family (docs/mountain-plan.md). Each screen is a spec
+in MTN; RISE is the first (size, foot, pathY, pathD, its layout from the pieces mtnWalls, mtnFootCrags, mtnTufts,
+its scene and finish). The generator does the height, colour, rows, props as solids, the scene, the camera
+(state.mtn) and the drawing for any of them. No change in play: the rise and reeds-hold tests print the same, 14
+renders of the rise (seven spots, laptop and phone) are pixel-identical, and the world hash and draw-record hash
+match. 65 of 65 pass. Delete src/rise.js by hand. Handoff: the plan reordered so the new scenes come first (207 m1),
+islands at least 2 tiles across (design rule; perspective unchanged), the wind work parked as docs/parked/wind-by-height.patch, Ross's six questions at the
+top of HANDOFF's Next task.
+
 ## Build 205: the reeds hold (chat)
 A dash or a charged lunge on a slow frame (dt up to 0.05) or a phone screen moved farther in one frame than a reed
 clump is wide and came out the far side (and through the rise's side boulders). stepHero moves the hero in pieces

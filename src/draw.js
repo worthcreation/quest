@@ -24,7 +24,7 @@ function draw() {
   const c = state.cam, sc = sceneDef();
   ctx.save();
   if (state.shake > 0) { const m = state.shake * UNIT * 0.5; ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m); }
-  if (!state.rise) { ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey); }   // (the rise places everything itself)
+  if (!state.mtn) { ctx.translate(W / 2, H / 2); ctx.scale(c.ez, c.ez); ctx.translate(-c.ex, -c.ey); }   // (a mountain screen places everything itself)
   state.frameNo = (state.frameNo || 0) + 1;
   if (DRAW_SCENE_STRIDE === 1 || state.frameNo % DRAW_SCENE_STRIDE === 0) { drawScene(sc); if (sc.id === 'tentin') { drawCandles(sc); drawTentLantern(sc); } if (sc.feat.snorkels) drawSnorkels(sc); if (sc.feat.beetle) drawBeetleWaiting(sc); }
   ctx.restore();
@@ -45,7 +45,7 @@ function draw() {
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
   drawRideVignette();
-  if (state.settings.tiles && !state.climb && !state.rise) drawTiles();   // (the climb and the rise draw their own grids, in perspective)
+  if (state.settings.tiles && !state.climb && !state.mtn) drawTiles();   // (the climb and the mountain screens draw their own grids, in perspective)
   drawActionHint();
   drawHUD();
   drawPlaceTag();
@@ -89,7 +89,7 @@ function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
   if (state.climb) { drawClimb(); return; }
-  if (state.rise) { drawRise(); return; }
+  if (state.mtn) { drawMtn(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
@@ -1244,7 +1244,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 205';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 206';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

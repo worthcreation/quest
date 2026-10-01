@@ -64,9 +64,9 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - Climb screens: CLIMB_TUNE (movement, wind) and CLIMB_SPECS (each screen's layout, as numbers) [climb]; climbScreen
   turns a spec into CLIMBS[id] (cx, hw, gap); newClimb/updateClimb/drawClimb; SHADOW tuning.
 - A scene bigger than the screen: give it sc.virt = [w, h] in tiles; sceneSize makes W and H its size while it's
-  current (update and enterScene), and L() walks at the screen's pace. The rise is the one: riseLand, addRise,
-  riseHalf, riseView, riseCamera, drawRise (draws the game's own things at their spot on its ground), riseCragSprite
-  [rise]. Its solids are the collision; nothing else tests an edge there.
+  current (update and enterScene), and L() walks at the screen's pace. Every mountain screen is one: a spec in MTN
+  (mountain.js), built by mtnLand, addMtn, mtnHalf, mtnView, mtnCamera, drawMtn (draws the game's own things at their
+  spot on its ground), mtnCragSprite [mountain]. Its solids are the collision; nothing else tests an edge there.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
 ## 5. Audit

@@ -243,7 +243,7 @@ function genWorld() {
   // the crags and the High Reaches: every boulder is rough, craggy stone
   for (const sc of Object.values(S)) if (sc.area === 'peak') sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < 1) s.craggy = true; });
   for (const id of ['climb1', 'climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
-  addRise(S, add);                                  // the second field is the rise (rise.js): one long slope to the mountain
+  addMtn(S, add, RISE);                             // the second field is the rise (mountain.js): one long slope to the mountain
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -518,7 +518,7 @@ function genField(add) {
   }));
   const north = [0.42, 0.58], south = gapAt(rr(0.22, 0.78), 0.08);
   sc.exits.push({ side: 'n', a: north[0], b: north[1], to: 'start' });
-  sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'rise' });     // addRise sets where you arrive
+  sc.exits.push({ side: 's', a: south[0], b: south[1], to: 'rise' });     // the rise's finish sets where you arrive
   sc.exits.push({ side: 'w', a: 0.4, b: 0.6, to: 'foot' });
   edgeWall(sc, 'w', 'boulder', 1.0, [[0.4, 0.6]]);
   edgeWall(sc, 'e', 'boulder', 1.0, []);
@@ -814,7 +814,7 @@ function renderOverview(seed) {
   for (const id of Object.keys(MAP_LAYOUT)) {
     const sc = WORLD[id];
     enterScene(id);
-    if (sc.virt) { state.rise = null; refreshSceneGeometry(); }   // the rise, as a flat thumbnail: its tiles squeezed into the frame
+    if (sc.virt) { state.mtn = null; refreshSceneGeometry(); }   // the rise, as a flat thumbnail: its tiles squeezed into the frame
     const h = state.hero; h.x = -9999; h.y = -9999;
     state.texts = []; state.title = null; state.fx = []; state.glimpse = null;
     const shade = sc.shade; sc.shade = Math.min(shade || 0, 0.35);   // dim, not black, so dark screens can be read

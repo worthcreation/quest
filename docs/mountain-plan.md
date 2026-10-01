@@ -7,7 +7,7 @@ which way the mountain runs (left or right), and the layout follows it. Until th
 west of them; only test links (?mountain) start past them.
 
 ## One generator
-The rise is the first screen of the family, and rise.js becomes the family's builder: one function that lays out a
+The rise is the first screen of the family, and rise.js became the family's builder, mountain.js (206): one function that lays out a
 mountain screen from a spec, in tiles at enterScene, from its own stream (mulberry32 of the seed and the screen id,
 never the world's rng), collision and drawing from the same shape functions. A spec gives:
 - size, and camera: fixed and zoomed out, or moving (the rise's pull-back and tilt);
@@ -45,28 +45,34 @@ rise > m1 the wind shelf (moving) > m2 the stepping path (fixed, zoomed out) > m
   (and what it gave before: the step up in vigor depth, the way on to the crags).
 - Trees: peach stones grow peach trees that bear peaches in time. Where trees grow is Ross's call (below).
 
+## Islands (Ross, 1 Oct: the islands are hard to read without the tiles on)
+Keep each screen's perspective as it is (no special camera over jumps). For now every island is at least 2 tiles
+across, and every gap a sure running jump. Smaller platforms may come later, by Ross's call.
+
 ## Builds (main's BUILD plus one each, one at a time)
-205 the reeds hold (dash and lunge stepped in pieces). FABLE.
-206 the wind by height (built, waiting on Ross's OK of the mockup). Opus.
-207 the generator: rise.js becomes the family's builder; the rise rebuilt on it, no change in play (every test's output
-    and the draw-record hash identical). FABLE.
-208 direction by seed: the rise and everything after it run left or right as the seed says; f1's way down moves to
-    match. FABLE.
-209 the height table: palette, ground, stones, plants and rabbit size and temper by height (the rise shows the first
-    steps). FABLE.
-210 m1 on the generator (climb1 out of climb.js); its secret. FABLE.
-211 hawks hunt rabbits; nests and eggs as secrets; the ornithologist and his egg quest. FABLE.
-212 m2. 213 m3 inside, its hidden area. 214 m4, rabbits drive off the hawks. FABLE each.
-215 m5, the buff rabbits, carrot juice (and the ornithologist's taste of it); climb.js deleted. FABLE.
-216 the tortoise's hollow, peaches, peach stones. FABLE.
-217 trees: growing peach trees where Ross chooses, harvests. FABLE.
-218 the windmill. Opus (FABLE if it does more than turn).
-Mockups: a still for every new look just before its build (the generator's palette by height before 209, the
-hawk lifting a rabbit before 211, the ornithologist before 211, the interior before 213, the buff rabbit before
-215, the hollow before 216, the windmill before 218).
+205 the reeds hold (dash and lunge stepped in pieces). Done.
+206 the generator: rise.js became mountain.js, the family's builder (MTN specs, RISE the first); no change in play
+    (test output, renders, world and draw hashes identical). Done.
+New scenes first (Ross, 1 Oct):
+207 m1 the wind shelf on the generator, out of the rise's pass (climb1 out of climb.js; m1 leads on to climb2 until
+    m2 exists): the climb's winding ravine crossed at its narrow points, ledges the strong gust rides you to, the
+    rise's rabbits a size up and snarling, its own palette (drier grass, tan earth); a secret. Still mockup first. FABLE.
+208 m2 the stepping path, fixed and zoomed out: islands at least 2 tiles across. FABLE.
+209 m3 inside the mountain, moving camera: rifts that crack open ahead of you; a hidden area. FABLE.
+210 m4 the windy crossing, fixed and wide: bare islands, big rocks to shelter behind. FABLE.
+211 m5 the last ledges, side view on the main game: the buff rabbits, carrot juice; climb.js deleted. FABLE.
+212 hawks hunt rabbits on m1 to m4 (the rabbits drive them off on m4); nests and eggs; the ornithologist. FABLE.
+213 the tortoise's hollow, peaches, peach stones. FABLE.
+214 trees. FABLE.
+215 the windmill. Opus (FABLE if it does more than turn).
+216 direction by seed: the whole family runs left or right as the seed says. FABLE.
+Any time Ross OKs the mockup: the wind by height (docs/parked/wind-by-height.patch applies on 206: windHeight,
+windPow, WIND_BITS, windFx, drawWindBit, tests/wind-height.js; 66 of 66 passed with it). Opus.
+Each screen sets its own palette and creatures in its spec (the height table is no longer a build of its own).
+Mockups: a still for every new look just before its build.
 
 ## Waiting on Ross
-1. The wind mockup (206): OK, or bigger or warmer dust, a softer fur tuft.
+1. The wind mockup: OK, or bigger or warmer dust, a softer fur tuft.
 2. The windmill: which mushroom (f1 has none; the nearest field mushroom is the old foothill farm's, west of f1),
    and does it only turn with the wind, or do something (grind, pump, a spore landmark)?
 3. Direction: each seed picks whether the mountain runs left or right (the read of "pan left or right").

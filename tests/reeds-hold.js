@@ -8,7 +8,7 @@ run(5,1/60); state.intro=null; state.pip=null;
 const out=[];
 for (const [w,hh,dt] of [[1280,800,1/60],[1280,800,0.05],[390,844,0.05]]) { window.innerWidth=w; window.innerHeight=hh; resize();
   startTestScene('rise'); state.pip=null; state.enemies=[]; state.inv.sword=true; state.inv.step=3; let through=0, tries=0;
-  const hw=riseHalf(RISE.barX), h=state.hero;
+  const hw=mtnHalf(RISE, RISE.barX), h=state.hero;
   for (let y=RISE.mid-hw+0.3; y<=RISE.mid+hw-0.3; y+=0.4) for (const how of ['walk','dash','dash3','lunge']) for (const dy of [-1,0,1]) {
     h.x=(RISE.barX-1.8)*UNIT; h.y=y*UNIT; if (state.solids.some(o=>Math.hypot(o.x-h.x,o.y-h.y)<o.r+UNIT*0.45)) continue; tries++;
     h.vx=h.vy=0; h.fx=1; h.fy=0; h.dashT=0; state.atk=null; h.vig=maxVig(); run(2,dt);

@@ -1,0 +1,209 @@
+diff -ruN /home/claude/quest/src/actions.js src/actions.js
+--- a/src/actions.js
++++ b/src/actions.js
+@@ -205,7 +205,7 @@
+ }
+ function windNow() {
+   const sc = sceneDef();
+-  if (sc.gusts) { const [wx, wy] = gustVec(); const k = 0.1 + state.gust * 0.5; return [wx * k * L(), wy * k * L()]; }
++  if (sc.gusts) { const [wx, wy] = gustVec(); const k = (0.1 + state.gust * 0.5) * windPow(sc); return [wx * k * L(), wy * k * L()]; }
+   if (sc.breeze) return [Math.sin(state.time * 0.1) * sc.breeze * L(), sc.breeze * 0.3 * L()];
+   return [0, 0];
+ }
+diff -ruN /home/claude/quest/src/critters.js src/critters.js
+--- a/src/critters.js
++++ b/src/critters.js
+@@ -355,7 +355,8 @@
+   for (let i = state.fx.length - 1; i >= 0; i--) {
+     const p = state.fx[i];
+     p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt;
+-    if (p.color !== 'streak' && p.color !== 'leaf') { p.vx *= 0.9; p.vy *= 0.9; }
++    if (!WIND_FX.has(p.color)) { p.vx *= 0.9; p.vy *= 0.9; }
++    else if (p.color === 'fur' || p.color === 'feather') p.vx += Math.sin(p.t * 3 + p.spin) * UNIT * 2 * dt;   // light things flutter side to side
+     if (p.t > p.life) state.fx.splice(i, 1);
+   }
+ }
+diff -ruN /home/claude/quest/src/draw-ui.js src/draw-ui.js
+--- a/src/draw-ui.js
++++ b/src/draw-ui.js
+@@ -445,6 +445,17 @@
+   ctx.fillStyle = '#e8c860'; ctx.beginPath(); ctx.moveTo(e.x - u * 0.06, y - u * 0.26); ctx.lineTo(e.x + u * 0.06, y - u * 0.26); ctx.lineTo(e.x, y - u * 0.38); ctx.fill();   // beak
+   if (e.mode === 'dive') { ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(e.x + s * u * 0.3, y - u * 0.4); ctx.lineTo(e.x + s * u * 0.5, y - u * 1.1); ctx.stroke(); } }   // whoosh
+ }
++// what the wind carries (WIND_BITS), drawn at the origin: a leaf; a chip of rock, tumbling; a tuft of rabbit fur, a few
++// soft hairs; a feather, a vane with its quill, rocking as it floats
++function drawWindBit(kind, spin, t) {
++  const u = UNIT;
++  if (kind === 'leaf') { ctx.rotate(spin + t * 6); ctx.fillStyle = '#9aa84a'; ctx.fillRect(-u * 0.12, -u * 0.05, u * 0.24, u * 0.1); return; }
++  if (kind === 'grit') { ctx.rotate(spin + t * 9); ctx.fillStyle = spin > 3 ? '#7d766c' : '#8e857a'; ctx.beginPath(); ctx.moveTo(-u * 0.07, -u * 0.04); ctx.lineTo(u * 0.05, -u * 0.06); ctx.lineTo(u * 0.07, u * 0.03); ctx.lineTo(-u * 0.02, u * 0.06); ctx.closePath(); ctx.fill(); return; }
++  if (kind === 'fur') { ctx.rotate(spin + Math.sin(t * 2) * 0.6); ctx.strokeStyle = spin > 3 ? '#d8cbb4' : '#b89d7c'; ctx.lineWidth = Math.max(1, u * 0.03); ctx.lineCap = 'round';
++    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(u * 0.08 * i, -u * 0.1, u * (0.05 * i + 0.04), -u * 0.18); ctx.stroke(); } return; }
++  if (kind === 'feather') { ctx.rotate(spin + Math.sin(t * 1.6) * 0.5); ctx.fillStyle = '#9a8a76'; ctx.beginPath(); ctx.ellipse(0, 0, u * 0.24, u * 0.07, 0, 0, 6.28); ctx.fill();
++    ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = Math.max(1, u * 0.025); ctx.beginPath(); ctx.moveTo(-u * 0.3, 0); ctx.lineTo(u * 0.24, 0); ctx.stroke(); }
++}
+ function drawMantis(e, C) {                                          // a big mountain mantis, green-grey, forelegs up
+   const u = UNIT, r = e.r, rear = e.mode === 'rear' ? 1 : 0, t = state.time;
+   groundShadow(e.x, e.y, r * 1.1, r * 0.35, 0, { dy: r * 0.5 });
+@@ -543,9 +554,10 @@
+       ctx.strokeStyle = `rgba(240,245,230,${0.18 * a})`; ctx.lineWidth = 1.2;
+       const m = Math.hypot(p.vx, p.vy) || 1;
+       ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx / m * p.size * 2, p.y - p.vy / m * p.size * 2); ctx.stroke();
+-    } else if (p.color === 'leaf') {
+-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.spin + p.t * 6); ctx.globalAlpha = a;
+-      ctx.fillStyle = '#9aa84a'; ctx.fillRect(-UNIT * 0.12, -UNIT * 0.05, UNIT * 0.24, UNIT * 0.1); ctx.restore();
++    } else if (p.color === 'leaf' || p.color === 'grit' || p.color === 'fur' || p.color === 'feather') {
++      ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = a; drawWindBit(p.color, p.spin, p.t); ctx.restore();
++    } else if (p.color === 'dust') {
++      ctx.fillStyle = `rgba(196,176,140,${0.55 * a})`; ctx.fillRect(p.x, p.y, p.size, p.size);
+     } else if (p.color === 'note') {
+       ctx.globalAlpha = a; ctx.fillStyle = '#fdf6e3'; ctx.font = `${Math.round(UNIT * 0.5)}px serif`; ctx.fillText('\u266A', p.x, p.y);
+     } else if (p.life > 0) {
+diff -ruN /home/claude/quest/src/engine.js src/engine.js
+--- a/src/engine.js
++++ b/src/engine.js
+@@ -346,12 +346,12 @@
+     }
+     stepHero(h, h.vx * dt, h.vy * dt);
+     if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle')) {   // loose fluff blows about in the wind, and can blow clean away
+-      const w = gustVec(), k = state.gustPhase === 'blow' ? 0.035 : 0.01;
++      const w = gustVec(), k = (state.gustPhase === 'blow' ? 0.035 : 0.01) * windPow(sc);
+       for (let i = state.items.length - 1; i >= 0; i--) { const it = state.items[i]; if (it.type !== 'fluff' || it.magnet) continue;
+         it.x += w[0] * k * L() * dt; it.y += w[1] * k * L() * dt;
+         if (it.x < -UNIT || it.x > W + UNIT || it.y < -UNIT || it.y > H + UNIT) { state.items.splice(i, 1); if (!state.tipsSeen.fluffGone) { state.tipsSeen.fluffGone = true; heroNote('Whoosh! The wind took a tuft of fluff.', 1.3, { key: 'wind', life: 2.5, color: '#d8f0ff' }); } } }
+     }
+-    if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
++    if (sc.gusts && h.z <= 0 && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, h.x, h.y)) { const w = gustVec(), k = (state.gustPhase === 'blow' ? 0.09 : 0.035) * windPow(sc); h.x += w[0] * k * L() * dt; h.y += w[1] * k * L() * dt; }   // gentle gusts nudge, the strong one shoves   // same push, same direction as the streaks
+   }
+   if (!h.ride) { collideSolids(h, UNIT * 0.42); clampTo(h, UNIT * 0.5); }
+   h.stun -= dt; h.invuln -= dt; h.dashCool -= dt;
+@@ -446,6 +446,12 @@
+   const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (UNIT * 0.15)));
+   for (let i = 0; i < n; i++) { h.x += dx / n; h.y += dy / n; if (n > 1) collideSolids(h, UNIT * 0.42); }
+ }
++// move the hero in steps no longer than a sixth of a tile, colliding after each, so a dash or a charged lunge on a slow
++// frame (dt up to 0.05) or a small screen can't step clean past a stone or the rise's reeds
++function stepHero(h, dx, dy) {
++  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (UNIT * 0.15)));
++  for (let i = 0; i < n; i++) { h.x += dx / n; h.y += dy / n; if (n > 1) collideSolids(h, UNIT * 0.42); }
++}
+ function collideSolids(a, r) {
+   let hit = null;
+   const slim = monster(a).slim;                                        // gremlins slip through gaps you can't
+@@ -641,6 +647,40 @@
+ 
+ // ---------------- wind: a schedule of gusts the windsock announces ----------------
+ const gustVec = () => { const g = (sceneDef().gusts || [])[state.gustIdx]; return g ? [Math.sin(g.a), Math.cos(g.a)] : [0, 0]; };   // every gust the same strength (none on a field without gusts: the rise)
++// How high up the mountain you are, 0 (the first field) to 1 (the High Reaches): a screen's windH, or on the rise how
++// far east of the reeds you've walked (0 there, 0.3 at the pass). It decides what the wind carries and how hard it
++// pushes. The mountain's screens (docs/mountain-plan.md) each get their own windH.
++function windHeight(sc = sceneDef()) {
++  if (sc.id === 'rise') return 0.3 * mtnClamp((state.hero.x / UNIT - RISE.barX) / (RISE.outX - RISE.barX));
++  return sc.windH || 0;
++}
++const windPow = (sc = sceneDef()) => 1 + 0.3 * windHeight(sc);   // every push, a third harder at the top
++// What a gust carries, from each height up (weights): leaves low, then dust, grit of rock higher, now and then a tuft
++// of rabbit fur, and a feather where the hawks hunt. One bit per pick; dust comes in little clouds of specks.
++const WIND_BITS = [
++  [0, { leaf: 1 }],
++  [0.12, { leaf: 0.65, dust: 0.35 }],
++  [0.25, { leaf: 0.3, dust: 0.55, fur: 0.15 }],
++  [0.45, { leaf: 0.05, dust: 0.55, grit: 0.25, fur: 0.15 }],
++  [0.6, { dust: 0.5, grit: 0.3, fur: 0.1, feather: 0.1 }],
++  [0.85, { dust: 0.55, grit: 0.35, feather: 0.1 }],
++];
++function windBit(hgt) {
++  let row = WIND_BITS[0][1]; for (const [from, w] of WIND_BITS) if (hgt >= from) row = w;
++  let r = Math.random() * Object.values(row).reduce((a, b) => a + b, 0);
++  for (const [k, w] of Object.entries(row)) { r -= w; if (r <= 0) return k; }
++  return 'leaf';
++}
++const WIND_FX = new Set(['streak', 'leaf', 'dust', 'grit', 'fur', 'feather']);   // carried by the wind: they keep their speed
++function windFx(wx, wy, mag, hgt) {
++  const bit = windBit(hgt), x = Math.random() * W, y = wy < 0 ? H + 10 : -10, side = wy < 0 ? -UNIT : UNIT;
++  const sp = { leaf: 0.3, dust: 0.55, grit: 0.45, fur: 0.22, feather: 0.18 }[bit] * (0.7 + state.gust * 0.6);
++  const p = { x, y, vx: wx / mag * L() * sp, vy: wy / mag * L() * sp + side, t: 0, life: 4, color: bit, spin: Math.random() * 6 };
++  if (bit === 'dust') { for (let i = 0; i < 4; i++) state.fx.push({ ...p, x: x + (Math.random() - 0.5) * UNIT * 1.5, y: y + (Math.random() - 0.5) * UNIT, size: 1 + Math.random() * 1.6, life: 2.5 + Math.random() }); return; }
++  if (bit === 'grit') p.vy += UNIT * 0.6;                         // heavier: it falls as it goes
++  if (bit === 'fur' || bit === 'feather') p.life = 6;             // light: it drifts and floats a long while
++  state.fx.push(p);
++}
+ function updateWind(dt, sc) {
+   state.gustT += dt;
+   const SEQ = ['lull', 'gentle', 'lull', 'gentle', 'lull', 'blow'], T = { lull: 1.3, gentle: 1.1, blow: 1.8 };
+@@ -659,13 +699,13 @@
+   const g = sc.gusts[state.gustIdx];
+   ambLevel(0.04 + state.gust * g.s * 0.2, 380 + state.gust * g.s * 800);
+   const [wx, wy] = gustVec(), mag = Math.hypot(wx, wy) || 1;
+-  const n = state.gust * 4 * g.s;
++  const hgt = windHeight(sc), n = state.gust * 4 * g.s * windPow(sc);
+   for (let i = 0; i < n; i++) if (Math.random() < 0.5) {
+     // streaks start on the upwind side, whichever way the gust blows
+     const up = wy < 0 ? H * (0.7 + Math.random() * 0.3) + UNIT * 2 : Math.random() * H * 0.3 - UNIT * 2;
+     state.fx.push({ x: Math.random() * W - wx / mag * UNIT * 3, y: up, vx: wx / mag * L() * (0.5 + state.gust), vy: wy / mag * L() * (0.5 + state.gust), t: 0, life: 2.5, color: 'streak', size: UNIT * (0.8 + state.gust * 1.6) });
+   }
+-  if (Math.random() < 0.05 + state.gust * 0.3) state.fx.push({ x: Math.random() * W, y: wy < 0 ? H + 10 : -10, vx: wx / mag * L() * 0.3, vy: wy / mag * L() * 0.3 + (wy < 0 ? -UNIT : UNIT), t: 0, life: 4, color: 'leaf', spin: Math.random() * 6 });
++  if (Math.random() < 0.05 + state.gust * 0.3) windFx(wx, wy, mag, hgt);
+   for (const c of state.clouds) { c.x += L() * 0.02 * dt * wx / mag; c.y += L() * 0.02 * dt * wy / mag; if (c.x > W + c.r) c.x = -c.r; if (c.x < -c.r) c.x = W + c.r; if (c.y > H + c.r) c.y = -c.r; if (c.y < -c.r) c.y = H + c.r; }
+ }
+ 
+diff -ruN /home/claude/quest/src/highlands.js src/highlands.js
+--- a/src/highlands.js
++++ b/src/highlands.js
+@@ -15,7 +15,7 @@
+     sc.exits = [{ side: 's', a: k ? 0.42 : 0.08, b: k ? 0.58 : 0.24, to: k ? HR[k - 1].id : 'peak3' }];   // hr1 is a diagonal step up from the old summit: you come in at its bottom-left
+     if (k < HR.length - 1) sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: HR[k + 1].id });
+     else sc.exits.push({ side: 'n', a: 0.42, b: 0.58, to: 'hrtop', locked: () => true });            // the peak: nothing has gone up and come back
+-    sc.gusts = [{ a: Math.PI / 2 * (k % 2 ? 1 : -1), s: 1 }, { a: 0, s: 0.6 }];
++    sc.gusts = [{ a: Math.PI / 2 * (k % 2 ? 1 : -1), s: 1 }, { a: 0, s: 0.6 }]; sc.windH = 1;   // the top of the wind (windHeight)
+     // the drops: where the ledge ends and the view begins (fall = back down, a little hurt)
+     if (C.drop) sc.chasms.push(C.drop);
+     if (C.ridge) { sc.chasms.push([0, 0.22, 0.36, 0.78], [0.64, 0.22, 1, 0.78]); }                     // a ridge crossing with sky on both sides
+diff -ruN /home/claude/quest/src/pip.js src/pip.js
+--- a/src/pip.js
++++ b/src/pip.js
+@@ -306,7 +306,7 @@
+     p.side = mx > 0 ? 1 : -1;
+   }
+   if (sc.gusts && (state.gustPhase === 'blow' || state.gustPhase === 'gentle') && !onRock(sc, p.x, p.y) && p.show) {   // the wind shoves Pip too
+-    const w = gustVec(), k = state.gustPhase === 'blow' ? 0.09 : 0.035; p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
++    const w = gustVec(), k = (state.gustPhase === 'blow' ? 0.09 : 0.035) * windPow(); p.x += w[0] * k * L() * dt; p.y += w[1] * k * L() * dt;
+     if (state.gustPhase === 'blow' && !p.windT) { p.windT = state.time; if (Math.random() < 0.3 && !speakingNow()) pipLine(['Whoa!', 'Hold on to something!', 'This wind!'][Math.floor(Math.random() * 3)], { size: 0.9 }); }
+     if (state.gustPhase !== 'blow') p.windT = 0;
+   }
+--- a/tests/rise.js
++++ b/tests/rise.js
+@@ -62,7 +62,8 @@
+ const clear=WORLD.rise.feat.plants.every(([fx,fy])=>mtnLand(RISE).solids.every(p=>Math.hypot(p.x-fx*RISE.len,p.y-fy*RISE.D)>p.r+0.9));
+ console.log('9 gusts same as f1:', sameGusts, '| strong-gust shove, tiles/s: rise', vR.toFixed(2), 'f1', vF.toFixed(2), '| tall grass', WORLD.rise.feat.plants.length, 'clumps, all clear of stones:', clear, '| clouds', state.clouds.length);
+ if (!(seen.length && onClimb && startAt[0]>RISE.barX && startAt[0]<RISE.barX+3)) errs++;
+-if (!(sameGusts && Math.abs(vR-vF)<0.05 && vR>0.5 && clear && state.clouds.length>4)) errs++;
++const powR=1+0.3*0.3*mtnClamp((30-RISE.barX)/(RISE.outX-RISE.barX));   // at x 30 the wind is a little higher (windHeight)
++if (!(sameGusts && Math.abs(vR-vF*powR)<0.02 && vR>0.5 && clear && state.clouds.length>4)) errs++;
+ if (!(WORLD.f2===undefined && rab.length===2 && cover>=6 && stopped<RISE.barX && afterFire>0 && secs>0 && mono && most<0.12 && w40>w5+3 && w66>w40+3 && wx>0.3 && west==='f1' && px>=20)) errs++;
+ console.log('BUILD', BUILD, '| errs', errs);
+ `);
+--- /dev/null
++++ b/tests/wind-height.js
+@@ -0,0 +1,22 @@
++const src = require('./harness.js').src;
++eval(src+`;
++begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
++run(5); state.intro=null; state.texts=[]; state.pip=null;
++// stand still in the open for 30 s at each place, counting what the gusts carry past and the strongest shove
++const at=(id, tx, ty)=>{ startTestScene(id); state.pip=null; state.enemies=[]; state.items=[]; run(3); const h=state.hero;
++  if (tx!=null){ h.x=tx*UNIT; h.y=ty*UNIT; } else { let x=W*0.5, y=H*0.4; for (let q=0;q<300 && (onRock(sceneDef(),x,y,-UNIT*1.2) || isChasm(x,y,UNIT*2) || state.solids.some(o=>Math.hypot(o.x-x,o.y-y)<o.r+UNIT*2)); q++){ x=W*(0.15+0.7*Math.random()); y=H*(0.15+0.7*Math.random()); } h.x=x; h.y=y; }
++  const seen={}, before=new Set(state.fx); let far=0, t=0; const hgt=windHeight();
++  while(t<60*30){ const x0=h.x, y0=h.y; run(1); t++; h.vig=maxVig(); if(state.gustPhase==='blow' && h.z<=0 && !h.ride) far=Math.max(far, Math.hypot(h.x-x0,h.y-y0)*60/UNIT);
++    for (const p of state.fx) if (!before.has(p)) { before.add(p); if (p.color!=='streak') seen[p.color]=(seen[p.color]||0)+1; }
++    if (Math.hypot(h.x-x0,h.y-y0) > UNIT*3) { h.x=x0; h.y=y0; } }
++  return { id, hgt, seen, far }; };
++const rows=[at('f1'), at('rise', RISE.barX+1, RISE.pathY(RISE.barX+1)), at('rise', 50, RISE.pathY(50)), at('rise', RISE.outX-3, RISE.pathY(RISE.outX-3)), at('hr1')];
++for (const r of rows) console.log(r.id.padEnd(5), 'height', r.hgt.toFixed(2), '| shove', r.far.toFixed(2), 'tiles/s | carried:', Object.entries(r.seen).map(([k,v])=>k+' '+v).join(', '));
++const [f1, reeds, mid, pass, hr]=rows, has=(r,k)=>(r.seen[k]||0)>0;
++const leavesOnlyLow = has(f1,'leaf') && !has(f1,'dust') && !has(f1,'grit') && !has(reeds,'dust');
++const dustUp = has(pass,'dust') && has(hr,'dust') && has(hr,'grit') && !has(hr,'leaf');
++const harder = Math.abs(reeds.far-f1.far)<0.05 && pass.far>f1.far*1.05 && hr.hgt===1;
++console.log('leaves only down low:', leavesOnlyLow, '| dust by the pass, dust and grit up top, no leaves there:', dustUp, '| shove: same at the reeds as f1, harder at the pass:', harder, (pass.far/f1.far).toFixed(3)+'x');
++if (!(leavesOnlyLow && dustUp && harder)) errs++;
++console.log('BUILD', BUILD, '| errs', errs);
++`);

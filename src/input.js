@@ -416,6 +416,6 @@ function updateCam(dt) {
   c.ex = Math.max(hw, Math.min(W - hw, c.ex));
   c.ey = Math.max(hh, Math.min(H - hh, c.ey));
 }
-const toScreen = (x, y) => state.rise ? riseToScreen(x, y) : [(x - state.cam.ex) * state.cam.ez + W / 2, (y - state.cam.ey) * state.cam.ez + H / 2];
+const toScreen = (x, y) => state.mtn ? mtnToScreen(x, y) : [(x - state.cam.ex) * state.cam.ez + W / 2, (y - state.cam.ey) * state.cam.ez + H / 2];
 
 function speakingNow() { return !!state.npcTalk || state.texts.some(t => SPEECH.has(t.key) && t.t < t.life - 0.3); }
