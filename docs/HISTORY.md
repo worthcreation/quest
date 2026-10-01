@@ -1,6 +1,18 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 209: the rise runs smooth (chat)
+Ross: 208 looked right but ran jumpy. Measured in the harness (headless canvas, so the browser's numbers differ but the
+ratios hold), a frame by the big ravine was 117 to 149 ms against 11 to 15 with no ravines. Four causes, each fixed:
+the soil over each wall stone read its colour back off the canvas (getImageData, 9 to 16 a frame, which also stalls a
+GPU canvas: now the wall's own colour at that depth and light, worked out); every isChasm measured every stretch of
+every spine (about 2,800 calls a frame from the hero, Pip and the rabbits: now ravFieldAt reads a grid sampled once a
+fifth of a tile apart, ravGrid, which ravRings traces from too); the outline was traced on the first frame (a hitch:
+now newMtnCam works the ravines out on the way in); the walls drew a gradient quad for every lip point, on screen or not
+(now every other point, none off the screen; stones off the screen skipped too). Rows the holes don't reach skip the
+clip. The same frames now 34 to 46 ms in the harness. tests/rise-ravines.js checks that a second of play by the ravine
+never measures a spine or reads the canvas back. m2 and everything after it renumbered one on (210 to 218).
+
 ## Build 208: the rise reworked, ravines from a generator (chat)
 Ravines are bottomless now and come from a generator: a spine (polylines in tiles, each point with a half-width;
 genRavine kinds long, thin, spider by seed, walks pulled back toward their heading), the drop everywhere nearer a spine

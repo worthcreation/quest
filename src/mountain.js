@@ -93,12 +93,26 @@ function ravField(r, x, y, want) {                                              
   }
   return want === 'p' ? p : f;
 }
-function ravRings(r) {
-  if (r.rings) return r.rings;
+// the field sampled once on a grid a fifth of a tile apart (build 209): the outline is traced from it and the game's
+// test (ravGap) reads it, rather than measuring every stretch of every spine each time something moves
+function ravGrid(r) {
+  if (r.grid) return r.grid;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const br of r.spine) for (const [x, y, w] of br) { x0 = Math.min(x0, x - w - 1); y0 = Math.min(y0, y - w - 1); x1 = Math.max(x1, x + w + 1); y1 = Math.max(y1, y + w + 1); }
   const st = 0.2, nx = Math.ceil((x1 - x0) / st) + 1, ny = Math.ceil((y1 - y0) / st) + 1, g = [];
-  for (let j = 0; j < ny; j++) { g.push([]); for (let i = 0; i < nx; i++) g[j].push(ravField(r, x0 + i * st, y0 + j * st)); }
+  for (let j = 0; j < ny; j++) { g.push(new Float32Array(nx)); for (let i = 0; i < nx; i++) g[j][i] = ravField(r, x0 + i * st, y0 + j * st); }
+  return (r.grid = { x0, y0, x1, y1, st, nx, ny, g });
+}
+// the field at a spot from the grid (bilinear); off the grid, nothing near
+function ravFieldAt(r, x, y) {
+  const G = ravGrid(r), fx = (x - G.x0) / G.st, fy = (y - G.y0) / G.st, i = Math.floor(fx), j = Math.floor(fy);
+  if (i < 0 || j < 0 || i >= G.nx - 1 || j >= G.ny - 1) return 9;
+  const u = fx - i, v = fy - j, a = G.g[j], b = G.g[j + 1];
+  return (a[i] * (1 - u) + a[i + 1] * u) * (1 - v) + (b[i] * (1 - u) + b[i + 1] * u) * v;
+}
+function ravRings(r) {
+  if (r.rings) return r.rings;
+  const { x0, y0, st, nx, ny, g } = ravGrid(r);
   // every cell edge the outline crosses gets a point; each cell links its two (or four) crossings; then the links are walked into loops
   const key = (i, j, e) => (j * nx + i) * 2 + e, pts = new Map(), links = new Map();            // e 0: the edge from (i,j) to (i+1,j); e 1: from (i,j) to (i,j+1)
   const cross = (i, j, e) => { const k = key(i, j, e); if (!pts.has(k)) { const a = g[j][i], b = e ? g[j + 1][i] : g[j][i + 1], t = a / (a - b); pts.set(k, [x0 + (i + (e ? 0 : t)) * st, y0 + (j + (e ? t : 0)) * st]); } return k; };
@@ -159,7 +173,7 @@ function mtnDrawRavs(m) {
   const sp = mtnRavs(m).filter(r => r.spine), rest = mtnRavs(m).filter(r => !r.spine);
   return (m.ravDraw = sp.length ? rest.concat([{ spine: [].concat(...sp.map(r => r.spine)), floor: false, depth: Math.max(...sp.map(r => r.depth || 5)) }]) : rest);
 }
-const ravGap = (r, x, y, pad) => r.spine ? ravField(r, x, y) < pad : r.axis === 'y' ? y > r.y0 && y < r.y1 && Math.abs(x - r.cx(y)) < r.hw(y) + pad : x > r.x0 && x < r.x1 && Math.abs(y - r.cy(x)) < r.hw(x) + pad;
+const ravGap = (r, x, y, pad) => r.spine ? ravFieldAt(r, x, y) < pad : r.axis === 'y' ? y > r.y0 && y < r.y1 && Math.abs(x - r.cx(y)) < r.hw(y) + pad : x > r.x0 && x < r.x1 && Math.abs(y - r.cy(x)) < r.hw(x) + pad;
 const mtnGap = (m, x, y, pad = 0) => mtnRavs(m).some(r => ravGap(r, x, y, pad));
 // the way between its two walls of stone: 14 tiles wide where the view is close, opening out as it pulls back
 const mtnHalf = (m, x) => 7 + 8 * mtnView(m, x);
@@ -342,7 +356,7 @@ M1.finish = function (sc, S) {
 // the scene's own size in pixels, while it is the current one (every other scene is the screen)
 const sceneSize = id => { const sc = typeof WORLD !== 'undefined' && WORLD && WORLD[id]; return sc && sc.virt ? [sc.virt[0] * UNIT, sc.virt[1] * UNIT] : [SW, SH]; };
 
-function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamera(0, c, true); return c; }
+function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamera(0, c, true); for (const r of mtnDrawRavs(m)) if (r.spine) { ravRings(r); genRavRiver(r); } for (const r of mtnRavs(m)) if (r.spine) ravGrid(r); return c; }   // (the ravines worked out on the way in, not on the first frame)
 // the view: pulled back and tipped by how far along you are, looking ahead up the slope; it eases, never snaps
 function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
@@ -382,7 +396,8 @@ function drawMtn() {
   let landClip = null;
   if (mtnDrawRavs(m).length && typeof Path2D === 'function') { const row0 = mtnRows(m, land)[0]; landClip = new Path2D(); landClip.moveTo(-W, H * 3); idx.forEach(i => landClip.lineTo(sxOf(land.xs[i]), sy(row0.y, row0.top[i]))); landClip.lineTo(W * 2, H * 3); landClip.closePath(); }
   const onLand = fn => () => { ctx.save(); if (landClip) ctx.clip(landClip); fn(); ctx.restore(); };
-  for (const r0 of mtnDrawRavs(m)) for (const rv of mtnRavinePts(m, r0, sxOf, sy, hole)) { list.push([rv.yTop + 0.26, onLand(() => drawMtnRavine(rv, s))]); if (rv.yBot != null) list.push([rv.yBot + 0.6, onLand(() => drawMtnBrink(rv, s))]); }   // (the brink is painted over the ground, once every row the lip crosses is down)
+  let holeY0 = Infinity, holeY1 = -Infinity, holeX0 = Infinity, holeX1 = -Infinity;                // the holes' extent on the screen: a row that misses it needs no clip
+  for (const r0 of mtnDrawRavs(m)) for (const rv of mtnRavinePts(m, r0, sxOf, sy, hole)) { for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; } list.push([rv.yTop + 0.26, onLand(() => drawMtnRavine(rv, s))]); if (rv.yBot != null) list.push([rv.yBot + 0.6, onLand(() => drawMtnBrink(rv, s))]); }   // (the brink is painted over the ground, once every row the lip crosses is down)
   for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
@@ -398,7 +413,8 @@ function drawMtn() {
     let lo = Infinity, hi = -Infinity; const tp = idx.map(i => { const v = sy(yT, row.top[i]); lo = Math.min(lo, v); hi = Math.max(hi, v); return v; });
     const bp = idx.map(i => sy(yB, row.bot[i]) + 1);                                    // (a pixel of overlap: no seams)
     if (!(hi < -UNIT * 4 || Math.min(...bp) > H + UNIT * 4 && lo > H)) {
-      ctx.save(); if (hole) ctx.clip(hole, 'evenodd');                                   // (the rows stop at the ravine's lips)
+      const cut = hole && hi >= holeY0 - 2 && lo <= holeY1 + 2 && holeX1 >= -2 && holeX0 <= W + 2;
+      ctx.save(); if (cut) ctx.clip(hole, 'evenodd');                                    // (the rows stop at the ravine's lips; only rows the holes reach are clipped)
       ctx.translate(W / 2 - r.cx * us, 0); ctx.scale(us, 1);                              // x in tiles, y in pixels: the row's colours are a gradient along x
       ctx.beginPath(); idx.forEach((i, j) => j ? ctx.lineTo(land.xs[i], tp[j]) : ctx.moveTo(land.xs[i], tp[j])); for (let j = idx.length - 1; j >= 0; j--) ctx.lineTo(land.xs[idx[j]], bp[j]); ctx.closePath();
       ctx.fillStyle = row.grad; ctx.fill(); ctx.restore();
@@ -496,8 +512,10 @@ function drawMtnDrop(rv, s, poly) {
   if (rv.F) { let a = 0; for (let i = 0; i < N.length; i++) { const [x0, y0] = N[i], [x1, y1] = N[(i + 1) % N.length]; a += x0 * y1 - x1 * y0; } if (a < 0) F = F.slice().reverse(); }   // (reversed with the ring)
   ctx.save(); poly(N, S); ctx.clip();
   ctx.fillStyle = '#0c1014'; ctx.fillRect(0, 0, W, H);
-  for (let i = 0; i < ring.length; i++) {                                                 // the walls: one quad per lip segment, lit by where it faces (the light is from the west), dark at the lip's overhang, into the haze below
-    const j = (i + 1) % ring.length, [X0, Y0] = ring[i], [X1, Y1] = ring[j], [x0, y0] = F[i], [x1, y1] = F[j];
+  const off = (a, b, c2, d) => Math.max(a[0], b[0], c2[0], d[0]) < -2 || Math.min(a[0], b[0], c2[0], d[0]) > W + 2 || Math.max(a[1], b[1], c2[1], d[1]) < -2 || Math.min(a[1], b[1], c2[1], d[1]) > H + 2;
+  for (let i = 0; i < ring.length; i += 2) {                                              // the walls: a quad every other lip point (a third of a tile or so), lit by where it faces (the light is from the west), dark at the lip's overhang, into the haze below; none off the screen
+    const j = (i + 2) % ring.length, [X0, Y0] = ring[i], [X1, Y1] = ring[j], [x0, y0] = F[i], [x1, y1] = F[j];
+    if (off(ring[i], ring[j], F[i], F[j])) continue;
     const ex = X1 - X0, ey = Y1 - Y0, L = Math.hypot(ex, ey) || 1, nx = ey / L, ny = -ex / L;    // n: the wall's facing, into the hole (the ring runs clockwise on the screen)
     const lit = 0.5 + 0.5 * (-nx) - 0.15 * ny, mx = (X0 + X1) / 2, my = (Y0 + Y1) / 2, fx = (x0 + x1) / 2, fy = (y0 + y1) / 2;
     if (Math.hypot(fx - mx, fy - my) < 1) continue;
@@ -523,7 +541,7 @@ function drawMtnDrop(rv, s, poly) {
   ctx.strokeStyle = 'rgba(30,22,14,.4)'; ctx.lineWidth = Math.max(1, 1.5 * s);           // strata, ring by ring down the walls
   for (const t of [0.22, 0.4, 0.6]) { ctx.beginPath(); ring.forEach(([X, Y], i) => { const w = t + 0.04 * Math.sin(i * 0.9 + rv.seed); const x = X + (F[i][0] - X) * w, y = Y + (F[i][1] - Y) * w; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.closePath(); ctx.stroke(); }
   for (let i = 0; i < ring.length; i += 3) {                                             // grey stones set in the walls from a tile and a half under the lip down, most of each buried: a cap shows, jutting toward you; pebbles to boulders, dimmer the deeper
-    const [X, Y] = ring[i], [x, y] = F[i], n = (i * 7 + rv.seed) % 29 < 4 ? 1 : 0; if (Math.hypot(x - X, y - Y) < 2) continue;
+    const [X, Y] = ring[i], [x, y] = F[i], n = (i * 7 + rv.seed) % 29 < 4 ? 1 : 0; if (!n || Math.hypot(x - X, y - Y) < 2 || X < -us * 3 || X > W + us * 3 || Y < -us * 3 || Y > H + us * 3) continue;
     for (let q = 0; q < n; q++) { const h = ((i * 31 + q * 17 + rv.seed * 3) % 97) / 97, t0 = Math.min(0.7, 1.5 / depth), t = t0 + ((i * 13 + q * 29) % 53) / 53 * (0.6 - t0), r = (0.15 + h * h * 1.15) * us * (1 - t * 0.4), v = Math.round(118 - t * 90), d = v - 14, l = v + 16;
       const px = X + (x - X) * t + (h - 0.5) * us * 0.3, py = Y + (y - Y) * t, ax = x - X, ay = y - Y, L = Math.hypot(ax, ay) || 1, ox = ax / L * r, oy = ay / L * r;   // the stone juts out of the wall's face: down the wall on the screen, the way the wall falls away
       if (ring.some(([X2, Y2], i2) => Math.min(Math.abs(i2 - i), ring.length - Math.abs(i2 - i)) > 16 && Math.hypot(X2 - px, Y2 - py) < r * 1.5) || F.some(([X2, Y2]) => Math.hypot(X2 - px, Y2 - py) < r * 1.1)) continue;   // never across another stretch of lip (a fork's, the far side's) or the walls' foot
@@ -537,8 +555,8 @@ function drawMtnDrop(rv, s, poly) {
       drawJagged(px, py, Math.max(2, r), i * 0.53 + q * 2.1 + rv.seed, [`rgb(${v},${v - 2},${v - 8})`, `rgb(${l},${l - 2},${l - 8})`, `rgb(${Math.max(6, d)},${Math.max(6, d - 2)},${Math.max(6, d - 6)})`]);
       ctx.restore();
       // the earth at the join: an oblong, irregular patch of soil over the seam, on stone and wall alike, fading at its edges (as a crag sits in its soil line)
-      let wc = wt.map(v => v * lit); try { const px0 = ctx.getImageData(Math.round(cx0 - ux * r * 1.4), Math.round(cy0 - uy * r * 1.4), 1, 1).data; if (px0[3] > 200) wc = [px0[0], px0[1], px0[2]]; } catch (e) {}   // the wall's own colour just past the stone along the seam, so the soil matches where it sits
-      { let mean = (wc[0] + wc[1] + wc[2]) / 3; if (mean < 24) { wc = wt.map(c => c * lit); mean = (wc[0] + wc[1] + wc[2]) / 3 || 1; } const want = v * 0.92; wc = wc.map(c => c * want / mean); }   // (a read that landed in the dark, or on the water, falls back to the wall's colour)   // the wall's hue at the stone's value, so the soil is as light or dark as the stone it sits on
+      let wc = wt.map(v => v * lit);                                                       // the wall's own colour at this depth and light (as its gradient paints it)
+      { const mean = (wc[0] + wc[1] + wc[2]) / 3 || 1, want = v * 0.92; wc = wc.map(c => c * want / mean); }   // (a read that landed in the dark, or on the water, falls back to the wall's colour)   // the wall's hue at the stone's value, so the soil is as light or dark as the stone it sits on
       const soil = a => `rgba(${wc.map(c => Math.round(mtnClamp(c, 0, 255))).join(',')},${a})`, blob = (sc, a) => { ctx.fillStyle = soil(a); ctx.beginPath(); for (let j = 0; j < 14; j++) { const th = j / 14 * Math.PI * 2, rr = 1 + 0.22 * Math.sin(j * 2.1 + i) + 0.12 * Math.sin(j * 4.7 + q), ax0 = Math.cos(th) * r * 1.15 * rr * sc, ay0 = Math.sin(th) * r * 0.3 * rr * sc;
         const X = cx0 + ox * 0.04 + ux * ax0 + ox / r * ay0, Y = cy0 + oy * 0.04 + uy * ax0 + oy / r * ay0; j ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); } ctx.closePath(); ctx.fill(); };
       for (let b = 0; b < 7; b++) blob(1 - b * 0.08, 0.11); }                                 // seven, each a little smaller: one soft fade, no steps

@@ -66,7 +66,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
                 seed, walk with keep) or M1's old cy/hw one with a floor; ravField (the drop, one shape for isChasm via
                 sc.mtnGap and the drawing), ravRings (the outline traced once, islands swallowed), mtnDrawRavs (all spines
-                on a screen as one field), genRavRiver (a faint river on the biggest), mtnRavinePts, drawMtnDrop (far walls
+                on a screen as one field), ravGrid/ravFieldAt (the field sampled once; the game's test reads it, 209), genRavRiver (a faint river on the biggest), mtnRavinePts, drawMtnDrop (far walls
                 leaning toward the view, stones set in, river), drawMtnBrink (the lip, painted after the ground),
                 drawMtnRavine/drawMtnIsland for M1's; riseRavines (the rise's three), mtnHold (the mountain itself holds
                 east of the foot, the way through the pass excepted; clampTo asks sc.mtnHold). mtnH (height), mtnColor,
@@ -192,11 +192,11 @@ seams: the rise's way in is at its far west, while f1's south opening sits where
 the matching side means regenerating that edge wall).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 209 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch, written on 207
+FABLE: 210 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch, written on 207
 (mountain.js and world.js: a fixed camera for the generator (m.fixed { p }), walls that skip the drop, M2 40 x 24 with a
 ravine 5 across at the ends and wall to wall from x 10 to 30, a chain of seven islands r 1.05 with gaps 1.18 to 1.37 and
 an eighth off it 1.69 away with two carrots, in from mt1's pass, out south onto climb3, M1's exit moved to mt2, floor
-stones capped at half a tile, the tiles overlay green on an island). It will not apply clean on 208: the ravine is now
+stones capped at half a tile, the tiles overlay green on an island). It will not apply clean on 208 or later: the ravine is now
 m.ravs (spines, ravField, ravRings, drawMtnDrop) and the walls of stone are gone from the rise (M1 still has its
 mtnWalls, mtnFootCrags and the old cy/hw ravine with a floor; leave M1 as it is until its own build). Re-base the patch
 by hand, then: islands are their own generator (Ross, 1 Oct: ravines first, then islands laid on purpose, then rivers),
@@ -224,10 +224,10 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    expected to see the reimagined flow, and 205 and 206 were groundwork. ~~205 the reeds hold~~ (205), ~~206 the
    generator~~ (206: rise.js became mountain.js, no change in play), ~~207 m1 the wind shelf~~ (207, scene mt1).
    ~~208 the rise reworked~~ (208: bottomless ravines from a generator, the
-   big one plus the reeds as the boundary, no walls of stone). NEXT: 209 m2 (islands at least 2 tiles across; draft parked
-   on 207, re-base), 210 m3 inside, 211 m4, 212 m5 and carrot juice (climb.js deleted), 213 hawks hunt rabbits and the
-   ornithologist's eggs, 214 the tortoise's hollow and peach stones, 215 trees, 216 the windmill (Opus), 217 direction by
-   seed; all FABLE but 216. The wind by height ships whenever Ross
+   big one plus the reeds as the boundary, no walls of stone), ~~209 the rise runs smooth~~ (209). NEXT: 210 m2 (islands at
+   least 2 tiles across; draft parked on 207, re-base), 211 m3 inside, 212 m4, 213 m5 and carrot juice (climb.js deleted),
+   214 hawks hunt rabbits and the ornithologist's eggs, 215 the tortoise's hollow and peach stones, 216 trees, 217 the
+   windmill (Opus), 218 direction by seed; all FABLE but 217. The wind by height ships whenever Ross
    OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.
 4. River lesson: Pip at the boulder within 7 s of the last loose stone, boulder and loosen lines as one visit, the
    stuck stone never locked for good, a real-play test (no pipTips shortcut). Opus.

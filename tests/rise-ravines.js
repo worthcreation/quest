@@ -42,5 +42,10 @@ const okWay = falls===3 && reedsStop<RISE.barX && jumpReach()<widest*2 && slitFa
 const okMtn = stop1[0]<=stop1[1]+0.4 && stop2[0]<=stop2[1]+0.4 && inPass>RISE.foot(RISE.pathY(74))+2 && pd<=2.3;
 if (!okRav) errs++; if (!okGap) errs++; if (!okWay) errs++; if (!okMtn) errs++;
 console.log('6 drew with the overlay | ok: ravines', okRav, 'nothing inside', okGap, 'the way shut', okWay, 'the mountain holds', okMtn);
+// 7. (build 209) smooth: once on the screen, a second of play and drawing never measures a spine (the test reads the
+// grid made on the way in) and never reads the canvas back
+{ let calls=0; const f0=ravField; ravField=(...a)=>{ calls++; return f0(...a); }; let reads=0; const g0=ctx.getImageData; ctx.getImageData=(...a)=>{ reads++; return g0 ? g0.apply(ctx,a) : null; };
+  at(12, 10); state.keys.arrowright=true; for (let k=0;k<60;k++){ run(1); draw(); } off(); ravField=f0; ctx.getImageData=g0;
+  console.log('7 a second walking by the big ravine: spine measured', calls, 'times, canvas read back', reads, 'times'); if (calls || reads) errs++; }
 console.log('BUILD', BUILD, '| errs', errs);
 `);
