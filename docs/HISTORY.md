@@ -1,7 +1,7 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
-## Build 223: the editor's camera tilts; R only turns (chat)
+## Build 223: the editor's camera tilts; R only turns (chat; handoff after the editor chat, 212 to 223)
 Ross, after 222: tilt the camera; R should rotate, not scale. The editor's view now has its own tilt (state.edit.p):
 Q flatter toward straight down, Z tipped further (to about 79 degrees), shift and the wheel the same, V resets zoom
 and tilt; the bottom line shows the tilt in degrees. Trying it (T) uses the game's camera. R's turn was folded into

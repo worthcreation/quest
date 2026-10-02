@@ -32,7 +32,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after build 214, 2 Oct): audit: 11826 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 1.07 ms (4 slow, 0 errors); mt2's draw is 15 ms in the harness (the plates' per-frame work: on the cleanup list), the rise 7.7, climb3 and climb4 just over 2. drawMtn is 131 lines (split it when next in there).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 223, 2 Oct): audit: 12131 lines, 0 unused, 0 functions over 150, 0 repeats, 161 state fields, frames avg 1.04 ms (5 slow, 0 errors); mt2's draw 13.6 ms in the harness, the rise 6.9, flat 3.9, climb3 and climb4 just over 2 (the plates' per-frame work: cleanup item 1). drawMtn still long (cleanup item 2).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -236,7 +236,30 @@ the kind's colour (step green, hop yellow, high orange, face red). tests/edit.js
 editWheel and the keys on mt2 and flat. Not in it yet: undo (O with the last S), snapping, multi-select.
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 224 LAYERED GROUND (below, numbered 216 when planned; 216 to 223 went to the editor's keys and the flat board, overhangs and the overlap order, the editor editing what it highlights, its key sheet, and tops painted by height: HISTORY). Faces settled in 221 (plain, the eye at 40). Tunnels built in 222. Waiting on Ross: where the pit into the ground goes. Also open, from Ross's question in 219: a PIT INTO THE GROUND (the base cut too: treat the base as a plate from floor to 0 for a pit with a floor under 0, its cut face and floor drawn under the ground's wash, the hero dropping in; one build, FABLE), to slot after layered ground or before, as Ross wants. 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
+FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw). Ross, after 223: shift and the wheel keep tilting; holding the mouse wheel
+(the middle button) and dragging left or right turns the camera that way. Editor only at first (state.edit.yaw, V
+resets it, T tries at the game's camera). What it touches, why it is FABLE: mtnProj turns (x - c.cx, y - c.cy) by the
+yaw before the tilt and editTile turns back; every draw key that is a tile y (the ground order, items, the hero, the
+plates' fkey and localS in platesLay, plateKeyUnder, plateOverHero) becomes depth along the turned view's south, so
+platesLay's order is worked out per view (cache it by the yaw); the base ground's rows are tile rows, so under a turn
+they must be drawn as projected quads in depth order (check fillRows and the wash's chunks); the faces' rule is in
+screen space already (foot below the lip) and should hold. Tests: a quarter turn shows the east walls; collision and
+picking unchanged; S and O unchanged. Mouse: pointerdown with button 1 starts a turn, pointermove turns by dx.
+
+Then, from Ross's screenshot after 223 (his question "what looks off", answered in the chat; one build each):
+(a) A tunnel's roof between layers: a 1.2 roof through 0.74 slabs cuts the second slab (0.74 to 1.48) whole, so it is
+a trench open to the sky up to 1.48, not a tunnel under a roof at 1.2. Fix: E steps the roof between the layer
+boundaries the strip crosses (the label shows the roof that will hold), or a slab straddling the roof is notched only
+below it. Opus once Ross picks.
+(b) The flat board's far edge is a hard line against the sky when tilted far: run the base out past the view or fade
+it into the haze. Opus.
+(c) Nothing shrinks with distance: the eye at 40 is nearly parallel, so tilted far the back slabs are as big as the
+front ones (a diorama look). A real perspective for the tilted view (scale by distance along the view) is the fix;
+whether play gets it too is Ross's call. FABLE.
+(d) Stacked tiers of one thickness merge: tops one tone, faces one shade. Stills first: tops a touch lighter the
+higher, or a dark contact line where a face meets the slab below. Opus.
+
+FABLE: 225 LAYERED GROUND (numbered 216 when planned; 216 to 223 went to the editor's keys and the flat board, overhangs and the overlap order, the editor editing what it highlights, its key sheet, and tops painted by height: HISTORY). Faces settled in 221 (plain, the eye at 40). Tunnels built in 222. Waiting on Ross: where the pit into the ground goes. Also open, from Ross's question in 219: a PIT INTO THE GROUND (the base cut too: treat the base as a plate from floor to 0 for a pit with a floor under 0, its cut face and floor drawn under the ground's wash, the hero dropping in; one build, FABLE), to slot after layered ground or before, as Ross wants. 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
 mt2 is the plates' test screen, grey, its close view following you (the eye over you), a staggered stack of four with
 a pitfall punched to the base (floor on its far side, L-shaped ledges a hop apart up the south-west), a stack with a
 1.2 face, a perch, a north-bank two-step, a seam; the islands' pillars solid; you hop and jump onto plates, drop off
@@ -293,7 +316,7 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
 - ~~215 THE EDITOR~~ (215: as planned, with Ross's calls: the wheel zooms, [ ] thickness; the keys in "The editor"
   above; the layout is src/layouts/<scene>.js, LAYOUTS[id], read by plateLayout; plateStack gone (plateNext too, in 218);
   plate tops cached by seed and size).
-- 224 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214, overhangs and the draw order where plates overlap in 217; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
+- 225 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214, overhangs and the draw order where plates overlap in 217; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
   at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
   in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
   and he lands on whatever is below (a missed jump lands on the plate under; a pit is just a spot where that is several
@@ -303,11 +326,11 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   hop 0.25 to 0.5 (a tap clears it unless tired), high hop 0.5 to 1 (a held jump at the start, a tap by vigor 20),
   face > 1, m2's walls >= 2.5 (past any jump); drops under 1.5 a puff, 1.5 to 3 a stagger, over 3 a heart. Measured:
   tap 0.56 / held 0.95 at start, 0.94 / 1.5 at vigor 20, tired 0.2 / 0.34.
-- 225 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
+- 226 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
   by list; laid so stacks sit a tile and a half to two apart at a like height for the jumps between them.
-- 226 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
-  for m1); 227 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
-  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 228+ m3 (a pit into it as one way in).
+- 227 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
+  for m1); 228 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
+  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 229+ m3 (a pit into it as one way in).
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
