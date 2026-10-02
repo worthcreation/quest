@@ -258,7 +258,7 @@ function mtnColor(m, x, y) {
 // how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the far end)
 const mtnView = (m, x) => m.fixed ? m.fixed.p : mtnClamp((x - 1) / (m.len - 10));   // evenly, from the first step to the foot: no late rush (a fixed screen holds one view)
 // a moving view shrinks with p; a fixed screen (m.fixed) shows its whole width when the screen allows, never smaller than the floor
-const mtnZoom = (p, m) => m && m.fixed ? m.fixed.zoom || Math.max(mtnZoomMin(), Math.min(1, SW / ((m.len + 1) * UNIT))) : 1 - (1 - mtnZoomMin()) * p;   // (fixed.zoom: a close fixed view, the moving screens' zoom at that p)
+const mtnZoom = (p, m) => (state.edit ? state.edit.zoom : 1) * (m && m.fixed ? m.fixed.zoom || Math.max(mtnZoomMin(), Math.min(1, SW / ((m.len + 1) * UNIT))) : 1 - (1 - mtnZoomMin()) * p);   // (fixed.zoom: a close fixed view, the moving screens' zoom at that p; the editor's wheel scales it)
 const mtnLead = (m, p) => Math.min(m.lead, 0.3 * SW / 2 / (UNIT * mtnZoom(p, m))) * p;   // how far ahead of you the view looks (less on a narrow screen)
 // the one projection, tiles to the screen (whatever size the scene is): the view's zoom and tilt at p, then, on a
 // screen with an eye (m.eye, tiles up: the plates' screens), the eye's push-out from the screen's centre of anything
@@ -396,18 +396,10 @@ M2.layout = function (lay) {
   for (let i = 0; i < 40; i++) { const x = X0 + rnd() * (m.foot(12) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (m.pathD(x, y) < 2.2 || mtnGap(m, x, y, r + 1.2) || !clearOf(x, y, r)) continue; put('crag', x, y, r, true); }
   mtnTufts(lay, 200);
 };
-// the plates' test layout (212, the pit 215): on the south-west bank a staggered stack of four with a pitfall punched
+// the plates' test layout (212, the pit 213, in its file since 215): on the south-west bank a staggered stack of four with a pitfall punched
 // through all of it to the base, each plate a ledge inside it a hop above the last (the way out), a short stack beside it with a face partway up, a perch of two, and a seam across the bank
 // from the west edge to the drop's lip; on the north bank's east end a step of two. Nothing on the way.
-M2.plates = function (pl) {
-  plateStack(pl, 4.4, 21.0, 7.4, 5.0, [0.5, -0.3], [0.4, 0.45, 0.35, 0.45], 60);   // staggered, a pitfall punched through it to the base, its ledges the way out
-  platePit(pl, 5.5, 20.35, 3.4, 3.0, 13.3, 0, 0.55);                                   // (over the part all four share, so every ledge is whole)
-  plateStack(pl, 2.4, 15.6, 4.2, 2.6, [0.6, -0.3], [0.4, 1.2, 0.5], 80, 136);
-  plateStack(pl, 8.2, 16.3, 3.2, 2.2, [0.4, -0.3], [0.25, 0.3], 100, 138);
-  plateStack(pl, 31.6, 4.4, 3, 2.2, [0.3, 0.3], [0.3, 0.3], 120, 140);
-  const spine = []; for (let y = 24.5; y >= 14.2; y -= 0.4) spine.push([1.2 + (24.5 - y) * 0.42 + 0.45 * Math.sin(y * 0.7 + 1) + 0.2 * Math.sin(y * 2.3), y, 0.06 + 0.04 * Math.sin(y * 0.9)]);
-  plateSeam(pl, spine);
-};
+M2.plates = pl => plateLayout(pl, 'mt2');                                                 // src/layouts/mt2.js (laid in the editor, ?edit=mt2)
 M2.scene = { area: 'field', depth: 4, msg: 'The stepping path. Islands out in the drop, each a jump from the last.', music: 'field', amb: 'wind', floor: M2.floor, speed: 0.45, accel: 8 };
 M2.finish = function (sc, S) {
   const m = this, { len, D } = m, oX = m.outX, oW = oX - 2.9, oE = oX + 3.2;
@@ -429,6 +421,7 @@ function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamer
 function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
   const m = c.m, h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = mtnView(m, x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
+  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = mtnView(m, E.cx); c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); return; }   // the editor's free view (edit.js)
   if (m.fixed) {                                                                        // a still view at one tilt and zoom (the whole screen, or close: fixed.zoom); on a screen too narrow for it, it slides along with you, never past the ends
     const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = m.fixed.follow ? x : half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = m.fixed.follow ? y : halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);   // (follow: the view centres on you, past the scene's edges too, so the eye is always over you and you see down into whatever you're in)
     c.p = p; c.cx += (cx - c.cx) * e; c.cy += (cy - c.cy) * e; c.ch += (mtnH(m, c.cx, c.cy) - c.ch) * e; return;
@@ -509,7 +502,7 @@ function drawMtn() {
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
     const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity);
-    list.push([hk, () => at(h.x, h.y, drawHero, 4, h)]);   // (on a plate: after it; down a pit: among its plates)
+    list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
     PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
     const rims = over;
     // the x-ray: what is drawn after you and over you (a plate above you, a stone or tree south of you, a pit's near

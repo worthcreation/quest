@@ -20,15 +20,19 @@
 // - seams: a crack under half a tile wide, its tones inside its own width (mid-dark, the east half near black),
 //   painted on the base, then on each top after that top, clipped to it: it jogs up every face and a plate nearer the
 //   eye hides it; it stops at a pit's rim.
-// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until build 214 lays the
-// ground in layers, every plate holds (plateHold: the foot ring is a wall, as the mountain is).
+// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until build 216 lays the
+// ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
+// What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
+// plates each { x, y, w, h, seed, base, thick, tone, rot, under }, pits { x, y, w, h, seed, floor, ledge }, seams
+// { spine }. plateLayout reads it (the editor's working copy while that screen is being edited).
 
+const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
 let PL_HERO = null;                                                                     // down a pit: { pit, lift, box } (drawMtn sets it each frame: the far walls above you leave your box out)
-const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8;                                            // texture px per tile; outline points before the cutting; the first plate's grey
+const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map();                                            // texture px per tile; outline points before the cutting; the first plate's grey
 function plateRng(seed) { const R = mulberry32((Math.floor(seed * 7919) * 2654435761) >>> 0); return (a = 0, b = 1) => a + R() * (b - a); }
 // a plate's outline in tiles: squarish (a superellipse), corners knocked, a jog or two; worn, not cut
-function plateOutline(cx, cy, w, h, seed, n = PL_N) {
-  const rnd = plateRng(seed), P = [], rot = rnd(-0.5, 0.5) * 0.35;
+function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                        // turn: the editor's R, radians on top of the seed's own tilt
+  const rnd = plateRng(seed), P = [], rot = rnd(-0.5, 0.5) * 0.35 + turn;
   for (let k = 0; k < n; k++) { const a = k / n * 6.28 + rnd(-0.5, 0.5) * 0.25, ex = Math.cos(a), ey = Math.sin(a), rr = Math.pow(Math.pow(Math.abs(ex), 4) + Math.pow(Math.abs(ey), 4), -1 / 4), j = rnd(0.86, 1.1), px = ex * rr * w / 2 * j, py = ey * rr * h / 2 * j; P.push([cx + px * Math.cos(rot) - py * Math.sin(rot) * 0.5, cy + py * Math.cos(rot) + px * Math.sin(rot) * 0.5]); }
   let Q = P; for (let r = 0; r < 2; r++) { const R = []; for (let k = 0; k < Q.length; k++) { const [ax, ay] = Q[k], [bx, by] = Q[(k + 1) % Q.length]; R.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } Q = R; }
   return Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]);
@@ -38,11 +42,17 @@ const plateHas = (p, x, y) => plateIn(p.P, x, y);                               
 const plateKind = thick => thick <= 0.25 ? 'step' : thick <= 0.5 ? 'hop' : thick <= 1 ? 'high' : 'face';
 const plateTop = p => p.base + p.thick;
 const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
-// a stack: a foot plate and the ones on it, each on the top of the one under, shifted along the lean and a little
-// smaller, as thick as kinds says; the plates are listed foot first (draw order needs the one under drawn first)
-function plateStack(pl, x0, y0, w0, h0, lean, kinds, seed, tone = PL_TONE) {
-  let base = 0, x = x0, y = y0, w = w0, h = h0, under = null;
-  kinds.forEach((thick, i) => { const p = { x, y, w, h, seed: seed + i * 1.3, base, thick, tone: tone + i * 2, under, P: plateOutline(x, y, w, h, seed + i * 1.3) }; pl.list.push(p); under = p; base += thick; x += lean[0]; y += lean[1]; w = Math.max(3, w - 0.45); h = Math.max(2.2, h - 0.28); });
+// one plate from its spec (a layout's line): its outline from its seed and turn; under is set by plateLayout
+const plateAdd = (pl, s) => { const p = { x: s.x, y: s.y, w: s.w, h: s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, P: plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0) }; pl.list.push(p); return p; };
+// the spec of the plate that would stand on p up a stack: shifted along the lean, a little smaller, as thick as given
+// (the editor's D; build 217's stacks are rows of these)
+const plateNext = (p, lean, thick = p.thick) => ({ x: p.x + lean[0], y: p.y + lean[1], w: Math.max(3, p.w - 0.45), h: Math.max(2.2, p.h - 0.28), seed: +(p.seed + 1.3).toFixed(2), base: plateTop(p), thick, tone: p.tone + 2, rot: p.rot });
+// a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
+function plateLayout(pl, id) {
+  const L = state.edit && state.edit.id === id ? state.edit.layout : LAYOUTS[id]; if (!L) return;
+  const ps = (L.plates || []).map(s => plateAdd(pl, s)); ps.forEach((p, i) => { const u = L.plates[i].under; p.under = u >= 0 && ps[u] && ps[u] !== p ? ps[u] : null; });
+  for (const q of L.pits || []) platePit(pl, q.x, q.y, q.w, q.h, q.seed, q.floor, q.ledge);
+  for (const sm of L.seams || []) plateSeam(pl, sm.spine);
 }
 // a pit: a ring punched straight down through every plate it crosses to floor (Ross: like punching out a hole; each
 // plate shows its own cut face inside it). ledge (tiles): the way out, a staircase. Each plate down, the ring is cut
@@ -57,7 +67,9 @@ const plateSeam = (pl, spine) => pl.seams.push({ spine });                      
 function platesLay(m) {
   if (m.pl) return m.pl;
   const pl = { list: [], pits: [], seams: [], tone: m.plateTone || 143 }; m.plates(pl);
-  for (const p of pl.list) { p.box = plateBox(p.P); p.key = Math.max(p.box[3], p.under ? p.under.key + 1e-3 : -Infinity); p.kind = plateKind(p.thick); }
+  for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); }
+  const keyOf = (p, d = 0) => p.key !== undefined ? p.key : (p.key = Math.max(p.box[3], p.under && d < 64 ? keyOf(p.under, d + 1) + 1e-3 : -Infinity));   // (its foot's south edge, never before the one it stands on, whatever order the list has them)
+  for (const p of pl.list) keyOf(p);
   for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
@@ -120,6 +132,8 @@ function platePaintLip(R, s) { ctx.lineJoin = 'round'; ctx.lineCap = 'round';
 // lichen flakes; the base denser, with loose stones lying on it. Laid on the screen through the projection each frame
 function plateTex(p, m) {
   if (p.tex !== undefined) return p.tex;
+  const key = [p.base_ ? 'b' : 'p', p.seed, p.tone, (p.box[2] - p.box[0]).toFixed(3), (p.box[3] - p.box[1]).toFixed(3)].join('|');   // the same seed and size paint the same texture (the editor relays the plates at every change: a move keeps its top)
+  if (PL_TEX.has(key)) return (p.tex = PL_TEX.get(key));
   let tex = null;
   try { const [x0, y0, x1, y1] = p.box, wpx = Math.ceil((x1 - x0) * PL_PX), hpx = Math.ceil((y1 - y0) * PL_PX), cv = document.createElement('canvas'); cv.width = wpx; cv.height = hpx; const g = cv.getContext && cv.getContext('2d');
     if (g && g.fillRect) { const more = p.base_ ? 2.2 : 1, rnd = plateRng(p.seed * 131), area = wpx * hpx, tone = p.tone;
@@ -134,6 +148,7 @@ function plateTex(p, m) {
       for (let i = 0; i < area / 40000 * more; i++) { if (rnd() < 0.5) continue; g.fillStyle = 'rgba(176,186,160,.3)'; const x = rnd(0, wpx), y = rnd(0, hpx); for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(x + rnd(-5, 5), y + rnd(-3, 3), rnd(2, 5), rnd(1.5, 3), rnd(0, 3), 0, 6.28); g.fill(); } }
       if (p.base_) for (let i = 0; i < area / 7000; i++) { const x = rnd(0, wpx), y = rnd(0, hpx), r = rnd(1.5, 3.5); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x + 1.2, y + 1.2, r, r * 0.6, 0, 0, 6.28); g.fill(); drawJagged(x, y, r, i * 0.7, ['#8c8a80', '#a09e94', '#6a6860'], null, g); }   // loose stones lying on the base
       tex = cv; } } catch (e) { tex = null; }
+  if (tex) PL_TEX.set(key, tex);
   return (p.tex = tex);
 }
 // the texture's tiles [x0, y0] to [x1, y1] laid on the screen between the three corners the projection gives (one

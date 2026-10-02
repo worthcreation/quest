@@ -1497,15 +1497,19 @@ function drawSideClimb(c) {
 // - seams: a crack under half a tile wide, its tones inside its own width (mid-dark, the east half near black),
 //   painted on the base, then on each top after that top, clipped to it: it jogs up every face and a plate nearer the
 //   eye hides it; it stops at a pit's rim.
-// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until build 214 lays the
-// ground in layers, every plate holds (plateHold: the foot ring is a wall, as the mountain is).
+// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until build 216 lays the
+// ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
+// What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
+// plates each { x, y, w, h, seed, base, thick, tone, rot, under }, pits { x, y, w, h, seed, floor, ledge }, seams
+// { spine }. plateLayout reads it (the editor's working copy while that screen is being edited).
 
+const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
 let PL_HERO = null;                                                                     // down a pit: { pit, lift, box } (drawMtn sets it each frame: the far walls above you leave your box out)
-const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8;                                            // texture px per tile; outline points before the cutting; the first plate's grey
+const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map();                                            // texture px per tile; outline points before the cutting; the first plate's grey
 function plateRng(seed) { const R = mulberry32((Math.floor(seed * 7919) * 2654435761) >>> 0); return (a = 0, b = 1) => a + R() * (b - a); }
 // a plate's outline in tiles: squarish (a superellipse), corners knocked, a jog or two; worn, not cut
-function plateOutline(cx, cy, w, h, seed, n = PL_N) {
-  const rnd = plateRng(seed), P = [], rot = rnd(-0.5, 0.5) * 0.35;
+function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                        // turn: the editor's R, radians on top of the seed's own tilt
+  const rnd = plateRng(seed), P = [], rot = rnd(-0.5, 0.5) * 0.35 + turn;
   for (let k = 0; k < n; k++) { const a = k / n * 6.28 + rnd(-0.5, 0.5) * 0.25, ex = Math.cos(a), ey = Math.sin(a), rr = Math.pow(Math.pow(Math.abs(ex), 4) + Math.pow(Math.abs(ey), 4), -1 / 4), j = rnd(0.86, 1.1), px = ex * rr * w / 2 * j, py = ey * rr * h / 2 * j; P.push([cx + px * Math.cos(rot) - py * Math.sin(rot) * 0.5, cy + py * Math.cos(rot) + px * Math.sin(rot) * 0.5]); }
   let Q = P; for (let r = 0; r < 2; r++) { const R = []; for (let k = 0; k < Q.length; k++) { const [ax, ay] = Q[k], [bx, by] = Q[(k + 1) % Q.length]; R.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } Q = R; }
   return Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]);
@@ -1515,11 +1519,17 @@ const plateHas = (p, x, y) => plateIn(p.P, x, y);                               
 const plateKind = thick => thick <= 0.25 ? 'step' : thick <= 0.5 ? 'hop' : thick <= 1 ? 'high' : 'face';
 const plateTop = p => p.base + p.thick;
 const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
-// a stack: a foot plate and the ones on it, each on the top of the one under, shifted along the lean and a little
-// smaller, as thick as kinds says; the plates are listed foot first (draw order needs the one under drawn first)
-function plateStack(pl, x0, y0, w0, h0, lean, kinds, seed, tone = PL_TONE) {
-  let base = 0, x = x0, y = y0, w = w0, h = h0, under = null;
-  kinds.forEach((thick, i) => { const p = { x, y, w, h, seed: seed + i * 1.3, base, thick, tone: tone + i * 2, under, P: plateOutline(x, y, w, h, seed + i * 1.3) }; pl.list.push(p); under = p; base += thick; x += lean[0]; y += lean[1]; w = Math.max(3, w - 0.45); h = Math.max(2.2, h - 0.28); });
+// one plate from its spec (a layout's line): its outline from its seed and turn; under is set by plateLayout
+const plateAdd = (pl, s) => { const p = { x: s.x, y: s.y, w: s.w, h: s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, P: plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0) }; pl.list.push(p); return p; };
+// the spec of the plate that would stand on p up a stack: shifted along the lean, a little smaller, as thick as given
+// (the editor's D; build 217's stacks are rows of these)
+const plateNext = (p, lean, thick = p.thick) => ({ x: p.x + lean[0], y: p.y + lean[1], w: Math.max(3, p.w - 0.45), h: Math.max(2.2, p.h - 0.28), seed: +(p.seed + 1.3).toFixed(2), base: plateTop(p), thick, tone: p.tone + 2, rot: p.rot });
+// a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
+function plateLayout(pl, id) {
+  const L = state.edit && state.edit.id === id ? state.edit.layout : LAYOUTS[id]; if (!L) return;
+  const ps = (L.plates || []).map(s => plateAdd(pl, s)); ps.forEach((p, i) => { const u = L.plates[i].under; p.under = u >= 0 && ps[u] && ps[u] !== p ? ps[u] : null; });
+  for (const q of L.pits || []) platePit(pl, q.x, q.y, q.w, q.h, q.seed, q.floor, q.ledge);
+  for (const sm of L.seams || []) plateSeam(pl, sm.spine);
 }
 // a pit: a ring punched straight down through every plate it crosses to floor (Ross: like punching out a hole; each
 // plate shows its own cut face inside it). ledge (tiles): the way out, a staircase. Each plate down, the ring is cut
@@ -1534,7 +1544,9 @@ const plateSeam = (pl, spine) => pl.seams.push({ spine });                      
 function platesLay(m) {
   if (m.pl) return m.pl;
   const pl = { list: [], pits: [], seams: [], tone: m.plateTone || 143 }; m.plates(pl);
-  for (const p of pl.list) { p.box = plateBox(p.P); p.key = Math.max(p.box[3], p.under ? p.under.key + 1e-3 : -Infinity); p.kind = plateKind(p.thick); }
+  for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); }
+  const keyOf = (p, d = 0) => p.key !== undefined ? p.key : (p.key = Math.max(p.box[3], p.under && d < 64 ? keyOf(p.under, d + 1) + 1e-3 : -Infinity));   // (its foot's south edge, never before the one it stands on, whatever order the list has them)
+  for (const p of pl.list) keyOf(p);
   for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
@@ -1597,6 +1609,8 @@ function platePaintLip(R, s) { ctx.lineJoin = 'round'; ctx.lineCap = 'round';
 // lichen flakes; the base denser, with loose stones lying on it. Laid on the screen through the projection each frame
 function plateTex(p, m) {
   if (p.tex !== undefined) return p.tex;
+  const key = [p.base_ ? 'b' : 'p', p.seed, p.tone, (p.box[2] - p.box[0]).toFixed(3), (p.box[3] - p.box[1]).toFixed(3)].join('|');   // the same seed and size paint the same texture (the editor relays the plates at every change: a move keeps its top)
+  if (PL_TEX.has(key)) return (p.tex = PL_TEX.get(key));
   let tex = null;
   try { const [x0, y0, x1, y1] = p.box, wpx = Math.ceil((x1 - x0) * PL_PX), hpx = Math.ceil((y1 - y0) * PL_PX), cv = document.createElement('canvas'); cv.width = wpx; cv.height = hpx; const g = cv.getContext && cv.getContext('2d');
     if (g && g.fillRect) { const more = p.base_ ? 2.2 : 1, rnd = plateRng(p.seed * 131), area = wpx * hpx, tone = p.tone;
@@ -1611,6 +1625,7 @@ function plateTex(p, m) {
       for (let i = 0; i < area / 40000 * more; i++) { if (rnd() < 0.5) continue; g.fillStyle = 'rgba(176,186,160,.3)'; const x = rnd(0, wpx), y = rnd(0, hpx); for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(x + rnd(-5, 5), y + rnd(-3, 3), rnd(2, 5), rnd(1.5, 3), rnd(0, 3), 0, 6.28); g.fill(); } }
       if (p.base_) for (let i = 0; i < area / 7000; i++) { const x = rnd(0, wpx), y = rnd(0, hpx), r = rnd(1.5, 3.5); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x + 1.2, y + 1.2, r, r * 0.6, 0, 0, 6.28); g.fill(); drawJagged(x, y, r, i * 0.7, ['#8c8a80', '#a09e94', '#6a6860'], null, g); }   // loose stones lying on the base
       tex = cv; } } catch (e) { tex = null; }
+  if (tex) PL_TEX.set(key, tex);
   return (p.tex = tex);
 }
 // the texture's tiles [x0, y0] to [x1, y1] laid on the screen between the three corners the projection gives (one
@@ -1718,6 +1733,30 @@ function drawPlateTiles(m, pr) {
   const pl = platesLay(m), h = state.hero, hx = h.x / UNIT, x0 = Math.max(0, Math.floor(hx - 14)), x1 = Math.min(m.len, Math.ceil(hx + 14));
   for (let y = 0; y < m.D; y++) for (let x = x0; x < x1; x++) { const z = plateTopAt(pl, x + 0.5, y + 0.5); if (z <= 0) continue; const c = [pr(x, y, z), pr(x + 1, y, z), pr(x + 1, y + 1, z), pr(x, y + 1, z)]; plPath(c); ctx.fillStyle = 'rgba(255,255,255,' + Math.min(0.6, 0.12 + z * 0.1).toFixed(2) + ')'; ctx.fill(); }
 }
+// ===== layouts/mt2.js: mt2's plates, pits and seams, laid in the editor (?edit=mt2; S copies this file: paste it over
+// this one). plateLayout reads it at enterScene. A plate: its middle x, y and size w, h in tiles, its outline's seed and
+// turn (rot), base and thickness above the base plate, tone, and under (the index of the plate it stands on, or -1).
+LAYOUTS.mt2 = {
+  "plates": [
+    {"x": 4.4, "y": 21, "w": 7.4, "h": 5, "seed": 60, "base": 0, "thick": 0.4, "tone": 134, "rot": 0, "under": -1},
+    {"x": 4.9, "y": 20.7, "w": 6.95, "h": 4.72, "seed": 61.3, "base": 0.4, "thick": 0.45, "tone": 136, "rot": 0, "under": 0},
+    {"x": 5.4, "y": 20.4, "w": 6.5, "h": 4.44, "seed": 62.6, "base": 0.85, "thick": 0.35, "tone": 138, "rot": 0, "under": 1},
+    {"x": 5.9, "y": 20.1, "w": 6.05, "h": 4.16, "seed": 63.9, "base": 1.2, "thick": 0.45, "tone": 140, "rot": 0, "under": 2},
+    {"x": 2.4, "y": 15.6, "w": 4.2, "h": 2.6, "seed": 80, "base": 0, "thick": 0.4, "tone": 136, "rot": 0, "under": -1},
+    {"x": 3, "y": 15.3, "w": 3.75, "h": 2.32, "seed": 81.3, "base": 0.4, "thick": 1.2, "tone": 138, "rot": 0, "under": 4},
+    {"x": 3.6, "y": 15, "w": 3.3, "h": 2.2, "seed": 82.6, "base": 1.6, "thick": 0.5, "tone": 140, "rot": 0, "under": 5},
+    {"x": 8.2, "y": 16.3, "w": 3.2, "h": 2.2, "seed": 100, "base": 0, "thick": 0.25, "tone": 138, "rot": 0, "under": -1},
+    {"x": 8.6, "y": 16, "w": 3, "h": 2.2, "seed": 101.3, "base": 0.25, "thick": 0.3, "tone": 140, "rot": 0, "under": 7},
+    {"x": 31.6, "y": 4.4, "w": 3, "h": 2.2, "seed": 120, "base": 0, "thick": 0.3, "tone": 140, "rot": 0, "under": -1},
+    {"x": 31.9, "y": 4.7, "w": 3, "h": 2.2, "seed": 121.3, "base": 0.3, "thick": 0.3, "tone": 142, "rot": 0, "under": 9}
+  ],
+  "pits": [
+    {"x": 5.5, "y": 20.35, "w": 3.4, "h": 3, "seed": 13.3, "floor": 0, "ledge": 0.55}
+  ],
+  "seams": [
+    { "spine": [[0.871, 24.5, 0.058], [0.814, 24.1, 0.072], [0.929, 23.7, 0.085], [1.218, 23.3, 0.094], [1.57, 22.9, 0.099], [1.851, 22.5, 0.099], [2.004, 22.1, 0.095], [2.098, 21.7, 0.085], [2.262, 21.3, 0.073], [2.585, 20.9, 0.058], [3.032, 20.5, 0.044], [3.472, 20.1, 0.032], [3.768, 19.7, 0.024], [3.882, 19.3, 0.02], [3.902, 18.9, 0.021], [3.964, 18.5, 0.028], [4.148, 18.1, 0.038], [4.412, 17.7, 0.051], [4.63, 17.3, 0.066], [4.693, 16.9, 0.079], [4.602, 16.5, 0.09], [4.473, 16.1, 0.098], [4.451, 15.7, 0.1], [4.606, 15.3, 0.097], [4.881, 14.9, 0.09], [5.142, 14.5, 0.079]] }
+  ]
+};
 // ===== mountain.js: the mountain's screens, one family from one generator (docs/mountain-plan.md). Each screen is a
 // spec in MTN (by scene id): its size, how its ground rises (foot, pathY), where its way runs (pathD), its camera and
 // its layout. The generator does the rest the same way for all of them: the ground's height and colour, the land's
@@ -1978,7 +2017,7 @@ function mtnColor(m, x, y) {
 // how far along the change you are (0 = looking straight down, 1 = pulled back and tipped at the far end)
 const mtnView = (m, x) => m.fixed ? m.fixed.p : mtnClamp((x - 1) / (m.len - 10));   // evenly, from the first step to the foot: no late rush (a fixed screen holds one view)
 // a moving view shrinks with p; a fixed screen (m.fixed) shows its whole width when the screen allows, never smaller than the floor
-const mtnZoom = (p, m) => m && m.fixed ? m.fixed.zoom || Math.max(mtnZoomMin(), Math.min(1, SW / ((m.len + 1) * UNIT))) : 1 - (1 - mtnZoomMin()) * p;   // (fixed.zoom: a close fixed view, the moving screens' zoom at that p)
+const mtnZoom = (p, m) => (state.edit ? state.edit.zoom : 1) * (m && m.fixed ? m.fixed.zoom || Math.max(mtnZoomMin(), Math.min(1, SW / ((m.len + 1) * UNIT))) : 1 - (1 - mtnZoomMin()) * p);   // (fixed.zoom: a close fixed view, the moving screens' zoom at that p; the editor's wheel scales it)
 const mtnLead = (m, p) => Math.min(m.lead, 0.3 * SW / 2 / (UNIT * mtnZoom(p, m))) * p;   // how far ahead of you the view looks (less on a narrow screen)
 // the one projection, tiles to the screen (whatever size the scene is): the view's zoom and tilt at p, then, on a
 // screen with an eye (m.eye, tiles up: the plates' screens), the eye's push-out from the screen's centre of anything
@@ -2116,18 +2155,10 @@ M2.layout = function (lay) {
   for (let i = 0; i < 40; i++) { const x = X0 + rnd() * (m.foot(12) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (m.pathD(x, y) < 2.2 || mtnGap(m, x, y, r + 1.2) || !clearOf(x, y, r)) continue; put('crag', x, y, r, true); }
   mtnTufts(lay, 200);
 };
-// the plates' test layout (212, the pit 215): on the south-west bank a staggered stack of four with a pitfall punched
+// the plates' test layout (212, the pit 213, in its file since 215): on the south-west bank a staggered stack of four with a pitfall punched
 // through all of it to the base, each plate a ledge inside it a hop above the last (the way out), a short stack beside it with a face partway up, a perch of two, and a seam across the bank
 // from the west edge to the drop's lip; on the north bank's east end a step of two. Nothing on the way.
-M2.plates = function (pl) {
-  plateStack(pl, 4.4, 21.0, 7.4, 5.0, [0.5, -0.3], [0.4, 0.45, 0.35, 0.45], 60);   // staggered, a pitfall punched through it to the base, its ledges the way out
-  platePit(pl, 5.5, 20.35, 3.4, 3.0, 13.3, 0, 0.55);                                   // (over the part all four share, so every ledge is whole)
-  plateStack(pl, 2.4, 15.6, 4.2, 2.6, [0.6, -0.3], [0.4, 1.2, 0.5], 80, 136);
-  plateStack(pl, 8.2, 16.3, 3.2, 2.2, [0.4, -0.3], [0.25, 0.3], 100, 138);
-  plateStack(pl, 31.6, 4.4, 3, 2.2, [0.3, 0.3], [0.3, 0.3], 120, 140);
-  const spine = []; for (let y = 24.5; y >= 14.2; y -= 0.4) spine.push([1.2 + (24.5 - y) * 0.42 + 0.45 * Math.sin(y * 0.7 + 1) + 0.2 * Math.sin(y * 2.3), y, 0.06 + 0.04 * Math.sin(y * 0.9)]);
-  plateSeam(pl, spine);
-};
+M2.plates = pl => plateLayout(pl, 'mt2');                                                 // src/layouts/mt2.js (laid in the editor, ?edit=mt2)
 M2.scene = { area: 'field', depth: 4, msg: 'The stepping path. Islands out in the drop, each a jump from the last.', music: 'field', amb: 'wind', floor: M2.floor, speed: 0.45, accel: 8 };
 M2.finish = function (sc, S) {
   const m = this, { len, D } = m, oX = m.outX, oW = oX - 2.9, oE = oX + 3.2;
@@ -2149,6 +2180,7 @@ function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamer
 function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
   const m = c.m, h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = mtnView(m, x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
+  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = mtnView(m, E.cx); c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); return; }   // the editor's free view (edit.js)
   if (m.fixed) {                                                                        // a still view at one tilt and zoom (the whole screen, or close: fixed.zoom); on a screen too narrow for it, it slides along with you, never past the ends
     const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = m.fixed.follow ? x : half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = m.fixed.follow ? y : halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);   // (follow: the view centres on you, past the scene's edges too, so the eye is always over you and you see down into whatever you're in)
     c.p = p; c.cx += (cx - c.cx) * e; c.cy += (cy - c.cy) * e; c.ch += (mtnH(m, c.cx, c.cy) - c.ch) * e; return;
@@ -2229,7 +2261,7 @@ function drawMtn() {
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
     const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity);
-    list.push([hk, () => at(h.x, h.y, drawHero, 4, h)]);   // (on a plate: after it; down a pit: among its plates)
+    list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
     PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
     const rims = over;
     // the x-ray: what is drawn after you and over you (a plate above you, a stone or tree south of you, a pit's near
@@ -2475,6 +2507,171 @@ function drawMtnTiles(r, gp) {
     ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke();
   }
   ctx.restore();
+}
+// ===== edit.js: the layout editor (build 215): ?edit=<scene> on a plates screen (one with a layout: LAYOUTS[id],
+// src/layouts/<id>.js). On the main game's code: the scene is entered as a test link and the world stands still (the
+// hero parked where he stood, drawn faint) while you lay plates, pits and seams; what you lay is relaid at once
+// (plateLayout reads the editor's copy), so collision and the drawing are the one shape as in play. Keys:
+// - arrows pan, the wheel zooms about the cursor (Ross: a scroll never edits by accident); drag on open ground pans
+// - click selects (a pit inside a plate before the plate, a seam by its line), drag moves it (a plate takes the ones
+//   stacked on it along); click on open ground clears the selection
+// - [ ] set the selected plate's thickness (a pit's ledge, a seam's width), - = its width, , . its depth, ; ' a plate's
+//   base (it then stands on nothing) or a pit's floor, R turns it; D duplicates (one plate up a stack: shifted along the
+//   stack's lean, a little smaller, a little thinner; a pit a tile over), Delete removes (the plates on a removed one
+//   stand on what it stood on)
+// - N a new plate under the cursor (on the plate there, if any), P a pit there, C starts a crack and clicks lay its
+//   points (C again ends it), T drops the hero at the cursor to try it (the game runs: T again parks him there)
+// - S copies the layout as the file src/layouts/<scene>.js (the save is pasting it over that file); L loads one pasted
+// Every plate shows its thickness, coloured by kind (step green, hop yellow, high hop orange, face red); the selected
+// one its base too, with a dashed outline. tests/edit.js drives it through editDown/editMove/editUp/editWheel.
+var EDIT_SCENE = typeof location !== 'undefined' ? ((/[?&]edit=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
+const ED_KIND = { step: '#8fd18f', hop: '#f0d060', high: '#f0a040', face: '#f06060' }, ED_LEAN = [0.5, -0.3];
+const editM = () => state.edit && MTN[state.edit.id];
+const editCopy = L => JSON.parse(JSON.stringify(L));
+function startEdit(id) {
+  const m = MTN[id]; startTestScene(id, m && m.inX != null ? m.inX / m.len : undefined, m && m.inX != null ? m.pathY(m.inX) / m.D : undefined);   // parked at the way in
+  const h = state.hero;
+  if (!m || !m.plates) { showScroll('Not a plates screen', `${id} has no layout to edit.`); return; }
+  state.edit = { id, layout: editCopy(LAYOUTS[id] || { plates: [], pits: [], seams: [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
+  editRelay(); mtnCamera(0, state.mtn, true);
+  showScroll('The editor', 'Arrows pan, wheel zooms. Click selects, drag moves. N plate, P pit, C crack, D duplicate, Delete. [ ] thickness, - = width, , . depth, ; \' base. T tries it. S copies the layout.');
+}
+// relay the plates from the editor's copy: collision, drawing and the labels all read the one lay
+function editRelay() { const m = editM(); if (!m) return; m.pl = null; platesLay(m); const h = state.hero; h.liftAt = null; }
+const editSel = () => { const E = state.edit; return E && E.sel ? E.sel : null; };
+// the screen to the base plate's ground, in tiles (the projection run backwards; the ground's height found by iteration)
+function editTile(X, Y) {
+  const c = state.mtn, m = c.m, s = mtnZoom(c.p, m), th = m.tilt * c.p; let z = c.ch, x = c.cx, y = c.cy;
+  for (let i = 0; i < 4; i++) { const k = mtnPush(z, c) * UNIT * s; x = c.cx + (X - SW / 2) / k; y = c.cy + ((Y - SH / 2) / k + (z - c.ch) * Math.sin(th)) / Math.cos(th); z = mtnH(m, x, y); }
+  return [x, y];
+}
+const editPr = () => { const c = state.mtn, m = c.m; return (x, y, z) => mtnProj(x, y, mtnH(m, x, y) + z, c); };
+// what is under a point on the screen: a pit (inside its ring at its top), else the highest plate whose top holds it,
+// else a seam within half a tile of its line. Returns { kind, i } into the layout, or null
+function editPick(X, Y) {
+  const E = state.edit, m = editM(), pl = platesLay(m), pr = editPr(), L = E.layout;
+  for (let i = 0; i < pl.pits.length; i++) { const q = pl.pits[i]; if (plateIn(q.P.map(([x, y]) => pr(x, y, q.top)), X, Y)) return { kind: 'pit', i }; }
+  let best = null; pl.list.forEach((p, i) => { if (plateIn(p.P.map(([x, y]) => pr(x, y, plateTop(p))), X, Y) && (!best || plateTop(p) > plateTop(pl.list[best.i]))) best = { kind: 'plate', i }; });
+  if (best) return best;
+  const us = UNIT * mtnZoom(state.mtn.p, m);
+  for (let i = 0; i < L.seams.length; i++) { const C = L.seams[i].spine.map(([x, y]) => pr(x, y, 0)); for (let k = 1; k < C.length; k++) { const [ax, ay] = C[k - 1], [bx, by] = C[k], dx = bx - ax, dy = by - ay, t = mtnClamp(((X - ax) * dx + (Y - ay) * dy) / (dx * dx + dy * dy || 1e-9)); if (Math.hypot(X - ax - dx * t, Y - ay - dy * t) < us * 0.3) return { kind: 'seam', i }; } }
+  return null;
+}
+const editObj = sel => { const L = state.edit.layout; return sel ? (sel.kind === 'plate' ? L.plates : sel.kind === 'pit' ? L.pits : L.seams)[sel.i] : null; };
+const editOn = i => state.edit.layout.plates.map((p, k) => p.under === i ? k : -1).filter(k => k >= 0);   // the plates standing straight on plate i
+// move a plate and every plate stacked on it (a pit, a seam: just itself)
+function editShift(sel, dx, dy) {
+  const o = editObj(sel); if (!o) return;
+  if (sel.kind === 'seam') { for (const q of o.spine) { q[0] += dx; q[1] += dy; } return; }
+  o.x += dx; o.y += dy; if (sel.kind === 'plate') for (const k of editOn(sel.i)) editShift({ kind: 'plate', i: k }, dx, dy);
+}
+// a plate's base is the top of the one it stands on (the chain settled after any change of thickness or base)
+function editBases() { const P = state.edit.layout.plates; for (let r = 0; r < 8; r++) for (const p of P) if (p.under >= 0 && P[p.under]) p.base = +(P[p.under].base + P[p.under].thick).toFixed(3); }
+function editRemove(sel) {
+  const L = state.edit.layout;
+  if (sel.kind === 'plate') { const gone = L.plates[sel.i]; for (const k of editOn(sel.i)) L.plates[k].under = gone.under; L.plates.splice(sel.i, 1); for (const p of L.plates) if (p.under > sel.i) p.under--; editBases(); }
+  else (sel.kind === 'pit' ? L.pits : L.seams).splice(sel.i, 1);
+  state.edit.sel = null;
+}
+const editSeed = () => +(Math.max(0, ...state.edit.layout.plates.map(p => p.seed), ...state.edit.layout.pits.map(q => q.seed)) + 7).toFixed(2);
+// the mouse (edit.js listens on the canvas; the test calls these): a press, a move with it held, its release, the wheel
+function editDown(X, Y) { const E = state.edit; if (!E || E.trying || state.menu) return; E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack ? null : editPick(X, Y) }; }
+function editMove(X, Y) {
+  const E = state.edit; if (!E) return; E.cur = editTile(X, Y); const d = E.down; if (!d || E.trying) return;
+  if (!d.moved && Math.hypot(X - d.X, Y - d.Y) < 3) return; d.moved = true;
+  const c = state.mtn, m = c.m, s = mtnZoom(c.p, m), th = m.tilt * c.p;
+  if (d.pick) { const o = editObj(d.pick), z = d.pick.kind === 'plate' ? o.base + o.thick : d.pick.kind === 'pit' ? platesLay(m).pits[d.pick.i].top : 0, [ox, oy] = d.pick.kind === 'seam' ? o.spine[0] : [o.x, o.y], k = mtnPush(mtnH(m, ox, oy) + z, c) * UNIT * s;   // dragged at its own height on the screen
+    editShift(d.pick, (X - d.x) / k, (Y - d.y) / (k * Math.cos(th))); E.sel = d.pick; editRelay(); }
+  else { const k = UNIT * s; E.cx -= (X - d.x) / k; E.cy -= (Y - d.y) / (k * Math.cos(th)); mtnCamera(0, c, true); }   // open ground: pan
+  d.x = X; d.y = Y;
+}
+function editUp(X, Y) {
+  const E = state.edit; if (!E || E.trying) return; const d = E.down; E.down = null; if (!d) return;
+  if (d.moved) { if (d.pick) editRound(d.pick); return; }                                                 // a drag done: what moved settles on a hundredth of a tile
+  const [x, y] = editTile(X, Y);
+  if (E.crack) { E.crack.spine.push([+x.toFixed(3), +y.toFixed(3), E.crack.hw]); return; }                   // a click lays the crack's next point
+  E.sel = d.pick;
+}
+const editRound = sel => { const o = editObj(sel); if (o && sel.kind !== 'seam') { o.x = +o.x.toFixed(2); o.y = +o.y.toFixed(2); editRelay(); } else if (o) { for (const q of o.spine) { q[0] = +q[0].toFixed(3); q[1] = +q[1].toFixed(3); } editRelay(); } };
+function editWheel(dy, X, Y) {
+  const E = state.edit; if (!E || E.trying) return; const c = state.mtn;
+  const [bx, by] = editTile(X, Y); E.zoom = mtnClamp(E.zoom * (dy > 0 ? 1 / 1.12 : 1.12), 0.3, 4); mtnCamera(0, c, true);
+  const [ax, ay] = editTile(X, Y); E.cx += bx - ax; E.cy += by - ay; mtnCamera(0, c, true);                    // about the cursor: the tile under it stays put
+}
+// the layout as its file, src/layouts/<id>.js (S copies it; the save is pasting it over that file)
+function editText(L, id) {
+  const n = v => +(+v).toFixed(3), line = o => JSON.stringify(o).replace(/"(\w+)":/g, '"$1": ').replace(/,/g, ', ');
+  const plates = L.plates.map(p => '    ' + line({ x: n(p.x), y: n(p.y), w: n(p.w), h: n(p.h), seed: n(p.seed), base: n(p.base), thick: n(p.thick), tone: p.tone, rot: n(p.rot || 0), under: p.under >= 0 ? p.under : -1 }));
+  const pits = L.pits.map(q => '    ' + line({ x: n(q.x), y: n(q.y), w: n(q.w), h: n(q.h), seed: n(q.seed), floor: n(q.floor), ledge: n(q.ledge) }));
+  const seams = L.seams.map(s => '    { "spine": [' + s.spine.map(q => '[' + q.map(n).join(', ') + ']').join(', ') + '] }');
+  const block = (name, rows) => `  "${name}": [\n${rows.join(',\n')}\n  ]`;
+  return `// ===== layouts/${id}.js: ${id}'s plates, pits and seams, laid in the editor (?edit=${id}; S copies this file: paste it over\n// this one). plateLayout reads it at enterScene. A plate: its middle x, y and size w, h in tiles, its outline's seed and\n// turn (rot), base and thickness above the base plate, tone, and under (the index of the plate it stands on, or -1).\nLAYOUTS.${id} = {\n${[block('plates', plates), block('pits', pits), block('seams', seams)].join(',\n')}\n};\n`;
+}
+// a pasted layout: the file above, or its bare object
+function editLoad(text) {
+  const E = state.edit; let t = String(text || '').trim(); const i = t.indexOf('{'), j = t.lastIndexOf('}'); if (i < 0 || j < i) return false;
+  try { const L = JSON.parse(t.slice(i, j + 1)); if (!Array.isArray(L.plates)) return false; E.layout = { plates: L.plates, pits: L.pits || [], seams: L.seams || [] }; E.sel = null; editBases(); editRelay(); return true; } catch (e) { return false; }
+}
+function editCopyOut() {
+  const E = state.edit, text = editText(E.layout, E.id);
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(() => { E.msg = 'copied: paste over src/layouts/' + E.id + '.js'; }, () => { E.msg = 'the clipboard refused; the layout is in the prompt'; if (typeof prompt === 'function') prompt('The layout', text); });
+  else { E.msg = 'no clipboard here: the layout is in the prompt'; if (typeof prompt === 'function') prompt('The layout', text); }
+}
+// the keys, each frame; true while editing (the world stands still), false while trying it (the game runs)
+function updateEdit(dt) {
+  const E = state.edit; if (!E) return false; const h = state.hero, m = editM(), tap = k => { if (state.keys[k]) { state.keys[k] = false; return true; } return false; };
+  if (tap('t')) {                                                                        // try it: the hero to the cursor and the game runs; again: parked where he is now
+    if (E.trying) { if (state.scene === E.id) { E.trying = false; E.cx = h.x / UNIT; E.cy = h.y / UNIT; mtnCamera(0, state.mtn, true); } else E.msg = 'come back to ' + E.id + ' to edit'; }
+    else { const [x, y] = E.cur; h.x = x * UNIT; h.y = y * UNIT; h.vx = h.vy = 0; h.z = 0; h.vz = 0; h.liftAt = null; h.plPrev = [h.x, h.y]; E.trying = true; E.zoom = 1; E.sel = null; E.crack = null; }
+    return !E.trying; }
+  if (E.trying) return false;
+  const L = E.layout, sel = editSel(), o = editObj(sel), step = (k, v) => tap(k) ? v : 0;
+  const pan = 14 * dt / E.zoom; if (state.keys.arrowleft) E.cx -= pan; if (state.keys.arrowright) E.cx += pan; if (state.keys.arrowup) E.cy -= pan; if (state.keys.arrowdown) E.cy += pan;
+  const [cx, cy] = E.cur.map(v => +v.toFixed(2));
+  if (tap('c')) { if (E.crack) { if (E.crack.spine.length >= 2) { L.seams.push({ spine: E.crack.spine }); E.sel = { kind: 'seam', i: L.seams.length - 1 }; } E.crack = null; editRelay(); } else { E.crack = { spine: [], hw: 0.08 }; E.sel = null; E.msg = 'click to lay the crack; C ends it'; } }
+  else if (tap('n')) { const pl = platesLay(m); let under = -1, top = -1; pl.list.forEach((p, i) => { if (plateHas(p, cx, cy) && plateTop(p) > top) { top = plateTop(p); under = i; } }); L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: under >= 0 ? top : 0, thick: 0.4, tone: PL_TONE, rot: 0, under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
+  else if (tap('p')) { L.pits.push({ x: cx, y: cy, w: 3.4, h: 3, seed: editSeed(), floor: 0, ledge: 0.55 }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; }
+  else if (tap('s')) editCopyOut();
+  else if (tap('l')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
+  else if (o && (tap('delete') || tap('backspace'))) editRemove(sel);
+  else if (o && tap('d')) { if (sel.kind === 'plate') { L.plates.push({ ...plateNext(o, ED_LEAN, Math.max(0.2, +(o.thick * 0.9).toFixed(2))), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } }
+  else if (o && tap('r') && sel.kind !== 'seam') o.rot = +((o.rot || 0) + Math.PI / 12).toFixed(3);
+  else if (o) {
+    const d1 = step(']', 0.05) - step('[', 0.05), d2 = step('=', 0.2) - step('-', 0.2), d3 = step('.', 0.2) - step(',', 0.2), d4 = step("'", 0.05) - step(';', 0.05);
+    if (!(d1 || d2 || d3 || d4)) return true;
+    if (sel.kind === 'seam') { for (const q of o.spine) q[2] = +mtnClamp(q[2] + d1 / 2.5, 0.02, 0.24).toFixed(3); }
+    else { o.w = +Math.max(1, o.w + d2).toFixed(2); o.h = +Math.max(1, o.h + d3).toFixed(2);
+      if (sel.kind === 'plate') { o.thick = +Math.max(0.05, o.thick + d1).toFixed(2); if (d4) { o.base = +Math.max(0, o.base + d4).toFixed(2); o.under = -1; } }
+      else { o.ledge = +Math.max(0, o.ledge + d1).toFixed(2); o.floor = +Math.max(0, o.floor + d4).toFixed(2); } }
+  }
+  else return true;
+  editBases(); editRelay(); return true;
+}
+// the overlay: every plate's thickness in its kind's colour at its top's middle (the selected one's base too, and a
+// dashed outline), each pit's floor and ledge, each seam's width, the crack being laid, the cursor, the help line
+function drawEdit() {
+  const E = state.edit, m = editM(); if (!E || !m || state.scene !== E.id) return;
+  const pl = platesLay(m), pr = editPr(), sel = editSel(), s = mtnZoom(state.mtn.p, m), us = UNIT * s;
+  const mid = R => { let x = 0, y = 0; for (const [X, Y] of R) { x += X / R.length; y += Y / R.length; } return [x, y]; };
+  const label = (X, Y, text, col) => { ctx.font = `${Math.max(10, Math.min(16, 12 * s)).toFixed(0)}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(text).width + 8; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(X - w / 2, Y - 8, w, 16); ctx.fillStyle = col; ctx.fillText(text, X, Y); };
+  const dashed = R => { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); plPath(R); ctx.stroke(); ctx.restore(); };
+  if (!E.trying) {
+    pl.list.forEach((p, i) => { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), [X, Y] = mid(T), on = sel && sel.kind === 'plate' && sel.i === i; if (on) dashed(T); label(X, Y, on ? `${p.thick.toFixed(2)} on ${p.base.toFixed(2)}` : p.thick.toFixed(2), ED_KIND[p.kind]); });
+    pl.pits.forEach((q, i) => { const R = q.P.map(([x, y]) => pr(x, y, q.top)), [X, Y] = mid(R), on = sel && sel.kind === 'pit' && sel.i === i; if (on) dashed(R); label(X, Y, `pit floor ${q.floor.toFixed(2)} ledge ${q.ledge.toFixed(2)}`, '#9fd8ff'); });
+    pl.seams.forEach((sm, i) => { const C = sm.spine.map(([x, y]) => pr(x, y, 0)), on = sel && sel.kind === 'seam' && sel.i === i; if (on) { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); } const [X, Y] = C[Math.floor(C.length / 2)]; label(X, Y, `seam ${(Math.max(...sm.spine.map(q => q[2])) * 2).toFixed(2)}`, '#d0c8ff'); });
+    if (E.crack) { const C = E.crack.spine.map(([x, y]) => pr(x, y, 0)).concat([pr(E.cur[0], E.cur[1], 0)]); ctx.save(); ctx.strokeStyle = '#ffe080'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); }
+    const [CX, CY] = pr(E.cur[0], E.cur[1], 0); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(CX - us * 0.3, CY); ctx.lineTo(CX + us * 0.3, CY); ctx.moveTo(CX, CY - us * 0.3); ctx.lineTo(CX, CY + us * 0.3); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, H - 46, Math.min(W - 16, 900), 38); ctx.fillStyle = '#fdf6e3'; ctx.font = '12px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  const what = sel ? `${sel.kind} ${sel.i}` : E.crack ? `crack: ${E.crack.spine.length} points` : 'nothing selected';
+  ctx.fillText(E.trying ? `trying it (T parks you and edits again)  ${E.msg}` : `edit ${E.id}  cursor ${E.cur[0].toFixed(1)}, ${E.cur[1].toFixed(1)}  zoom ${E.zoom.toFixed(2)}  ${what}  ${E.msg}`, 14, H - 30);
+  ctx.fillText('arrows pan  wheel zoom  click/drag  N plate  P pit  C crack  D dup  Del  [ ] thick/ledge/width  - = w  , . h  ; \' base/floor  R turn  T try  S copy  L load', 14, H - 14);
+}
+if (typeof canvas !== 'undefined' && canvas && canvas.addEventListener && EDIT_SCENE) {
+  canvas.addEventListener('pointerdown', e => { if (e.button === 0) editDown(e.clientX, e.clientY); });
+  canvas.addEventListener('pointermove', e => editMove(e.clientX, e.clientY));
+  canvas.addEventListener('pointerup', e => editUp(e.clientX, e.clientY));
+  canvas.addEventListener('wheel', e => { e.preventDefault(); editWheel(e.deltaY, e.clientX, e.clientY); }, { passive: false });
 }
 // ===== input.js: Keys, touch buttons, the camera (zoomPulse), readPresses, refreshButtons.
 
@@ -3286,6 +3483,7 @@ function updateWorld(dt) {
   if (state.rapids) { updateFx(dt); updateRapids(dt); if (PUZZLE) updatePuzzle(dt); return; }
   if (state.climb) { updateClimb(dt); return; }                     // the climb prototype runs its own world
   if (testHops()) return;
+  if (updateEdit(dt)) return;                                       // the editor: the world stands still while you lay plates (edit.js)
   updateFx(dt);
   state.playTime += dt;
   const sc = sceneDef(), h = state.hero, inv = state.inv;
@@ -8259,7 +8457,7 @@ function drawScene(sc) {
   const dark = sc.area === 'cave' || sc.area === 'hollow';
   if (sc.id === 'rapids') { drawRapids(); drawFx(); return; }
   if (state.climb) { drawClimb(); return; }
-  if (state.mtn) { drawMtn(); return; }
+  if (state.mtn) { drawMtn(); if (state.edit) drawEdit(); return; }
   ctx.fillStyle = sc.floor; ctx.fillRect(0, 0, W, H);
   if (sc.wade) drawWaterScreen(sc); else if (sc.area === 'peak') drawCrags(sc); else drawGround(sc);
   if (sc.vista) { drawHighVista(sc); drawLedgeLips(sc); }   // the High Reaches: the view down past the edge
@@ -9414,7 +9612,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 214';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 215';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
@@ -10555,12 +10753,12 @@ function openCreator(done) {
 }
 function begin() {
   if (state.started) return;
-  if (!ARENA && !PUZZLE && !MOUNTAIN && !START_SCENE && !state.created && typeof document !== 'undefined' && document.body && !TEST_MODE) { state.created = true; startEl.style.display = 'none'; openCreator(() => { startEl.style.display = ''; begin(); }); return; }
+  if (!ARENA && !PUZZLE && !MOUNTAIN && !START_SCENE && !EDIT_SCENE && !state.created && typeof document !== 'undefined' && document.body && !TEST_MODE) { state.created = true; startEl.style.display = 'none'; openCreator(() => { startEl.style.display = ''; begin(); }); return; }
   if (TOUCH) goFullscreen();                         // the first tap on a phone also takes the screen
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, RISE.pathY(RISE.barX + 2) / RISE.D); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, RISE.pathY(RISE.barX + 2) / RISE.D); else if (EDIT_SCENE && WORLD[EDIT_SCENE]) startEdit(EDIT_SCENE); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
   startMusic();
 }
 function resizeCanvasOnly() {

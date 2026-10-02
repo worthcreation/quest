@@ -15,7 +15,8 @@ you look into) and jog up every face. The look rules, all from the stills (docs/
 - A hole (pit, ravine) is lit by its own shade, one wall from floor to lip, and paints NOTHING outside its lip; the
   brink is the plate's. A seam's tones are all inside its own width. Grey throughout, light from the west.
 - Texture is the same on every top, the base's denser, with loose stones; no ovals, no outlines on the tops.
-- Scenes are laid by Ross in the editor (?edit=<scene>), the generator filling grain and grit round what he laid.
+- Scenes are laid by Ross in the editor (?edit=<scene>, built in 215: HANDOFF "The editor"), the layout saved as
+  src/layouts/<scene>.js, the generator filling grain and grit round what he laid.
 - Built (212 to 214): you climb plates (a step <= 0.25 walks, higher you jump onto, faces hold, your body against
   walls); a pit is a ring punched through every plate it crosses, each plate's cut face showing, a shade deeper per
   plate; with a ledge width each plate down is cut back on the near sides so L-shaped ledges a hop apart lead out and

@@ -47,7 +47,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (keys 1-4 jump between mt2 and climb3 to climb5, 0 to the first field, [ ] and - = tune the
-  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
+  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?edit=mt2` (the layout editor, 215), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
@@ -61,12 +61,14 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - plates.js     the plate (212, docs/mountain-plan.md "Plates"): plateOutline (a seed's worn squarish ring), plateHas (the one
-                shape), plateKind, plateStack/platePit/plateSeam (a screen's m.plates lays them; platesLay works out keys,
-                pit cuts, floors), plateTopAt, plateHold (every plate holds until 214), platesAt; the drawing: plateTex
-                (a top's texture once, tile space), plateLay (laid through the projection), platePaintFaces (faces north
+                shape), plateKind, plateAdd/plateNext/platePit/plateSeam, plateLayout (a screen's m.plates reads LAYOUTS[id],
+                or the editor's copy; platesLay works out keys, pit cuts, floors), plateTopAt, plateHold (every plate holds until 214), platesAt; the drawing: plateTex
+                (a top's texture once, tile space, cached by seed and size in PL_TEX), plateLay (laid through the projection), platePaintFaces (faces north
                 only), platePaintBrink/Lip, platePaintSeam, platesBase (the base's wash in 8-tile chunks), drawPlate,
-                drawPit, drawPlateTiles. mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
+                drawPlateTiles (no drawPit: the pit is drawn in drawPlate). mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
                 colour the ravines (grey on a plates screen).
+- layouts/      a plates screen's layout by scene id (LAYOUTS[id]: plates, pits, seams in tiles), laid in the editor and
+                read by plateLayout at enterScene; mt2.js now. S in the editor copies the file; the save is pasting it over.
 - mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE the rise's,
                 M2 the stepping path's (scene mt2): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
                 screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
@@ -80,6 +82,9 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 with mtnWalls, mtnFootCrags, mtnTufts, mtnPass; nothing in a ravine), mtnRows (ground rows), addMtn,
                 sceneSize, newMtnCam/mtnCamera (state.mtn), mtnToScreen, drawMtn (ground rows, ravines clipped to the land,
                 everything standing drawn by the game's own code at its spot, scaled), mtnCragSprite, drawMtnTiles
+- edit.js       the layout editor (215): ?edit=<scene> on a plates screen; startEdit, editTile (screen to tiles), editPick,
+                editDown/Move/Up/Wheel (the mouse), updateEdit (the keys; true while the world stands still), editText
+                (the layout as its file) / editLoad, drawEdit (labels by kind, the help line)
 - input.js      keys, touch, camera, sfx (deduped), music and ambience
 - text.js       say() with pages and holds, showTitle, showScroll, notice (pickup scrolls)
 - engine.js     update(), enterScene, movement, jumps, wind and rides, chasms (isChasm, chasmSpan), hurtHero, checkEdges
@@ -165,7 +170,8 @@ crags); worn out restarts the screen. Open questions: final look, how the screen
 ## The stepping path, mt2 (build 211; the plates' test screen since 212)
 Since 212: grey throughout (M2.stone, stoneAt -9, no path tint; the ravine in RAV_GREY), the eye 14 tiles up (M2.eye,
 mtnProj's push-out), close throughout (M2.fixed { p: 0.35, zoom: 0.825, follow: true }: the still's view, centred on you since
-214, past the edges too, its ground eased under the view's middle), M2.plates: on the south-west bank a staggered stack of four (0.4, 0.45, 0.35, 0.45) with a pitfall punched
+214, past the edges too, its ground eased under the view's middle), M2.plates (since 215 src/layouts/mt2.js, laid in
+the editor ?edit=mt2): on the south-west bank a staggered stack of four (0.4, 0.45, 0.35, 0.45) with a pitfall punched
 to the base (ledge 0.55, floor on its far side; 214), a stack of three with a 1.2 face partway up, a perch of
 two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. You climb the plates (plateStepHero,
 213); Pip and the hares are held off them (plateHold) until layered ground. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
@@ -210,15 +216,25 @@ Open: what opens the reeds, a line when you bump them, the seam with f1 (the ris
 south opening wherever the seed put it), and if it still stutters on Ross's machine, flat wall colours plus one dark
 wash (a still first).
 
+## The editor (215, ?edit=<scene>, src/edit.js)
+On a plates screen (one with LAYOUTS[id]). The world stands still, the hero parked at the way in, drawn faint. Arrows
+pan, the wheel zooms about the cursor, a drag on open ground pans. Click selects (a pit inside a plate before the
+plate, a seam by its line), drag moves (a plate takes its stack along), click on open ground clears. [ ] thickness
+(pit: ledge; seam: width), - = width, , . depth, ; ' base (the plate then stands on nothing) or floor, R turns, D
+duplicates up the stack (plateNext), Delete, N a plate under the cursor (on the plate there), P a pit, C a crack (clicks
+lay its points, C ends), T try it (the game runs; T parks you where you are). S copies src/layouts/<scene>.js to the
+clipboard (the save: paste it over that file, rebuild); L loads a pasted one. Labels: thickness in the kind's colour
+(step green, hop yellow, high orange, face red), the selected plate's base too. tests/edit.js drives editDown/editMove/
+editUp/editWheel and the keys. Not in it yet: undo (use L with the last S), snapping, multi-select.
+
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 215 THE EDITOR (below), on mt2 as 214 left it. Where things stand after the plates chat (212 to 214, 2 Oct):
+FABLE: 216 LAYERED GROUND (below). 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
 mt2 is the plates' test screen, grey, its close view following you (the eye over you), a staggered stack of four with
 a pitfall punched to the base (floor on its far side, L-shaped ledges a hop apart up the south-west), a stack with a
 1.2 face, a perch, a north-bank two-step, a seam; the islands' pillars solid; you hop and jump onto plates, drop off
 edges, are drawn among a pit's layers (smaller the deeper), and the x-ray shows the covered part of you only. mt1 is
-gone: the rise's pass leads onto mt2. Before the editor, Ross answers two calls: where the hero is parked while you
-edit, and whether the wheel zooms or sets a plate's thickness (my suggestions: parked where he stood, drawn faint; the
-wheel zooms, [ ] set thickness on the selected plate, so a scroll never edits by accident).
+gone: the rise's pass leads onto mt2. Ross's calls for the editor (2 Oct): the hero parked where he stood, drawn faint;
+the wheel zooms, [ ] set thickness (so a scroll never edits by accident). Both built in 215.
 Cleanup list (one build each, when it suits): (1) mt2's draw cost, 15 ms in the harness: cache plateScreenBox and each
 pit's projected rings per frame, skip heroHid's shapes unless a box meets yours first, plateTopAt for items and
 creatures from a grid at a fifth of a tile (as the ravines' ravGrid). Opus. (2) drawMtn at 131 lines: split the
@@ -266,12 +282,9 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   far walls leave your box out: PL_HERO, plateBehindHero); a faint copy of you and a dashed outline only where something drawn after you covers you (heroHid's shapes as
   a clip; state.mtn.xray); mt2's view follows you (fixed.follow), the eye over you; a pit's floor on its far side;
   your body (PL_BODY 0.35) against walls.
-- 215 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
-  parked); click selects a plate, drag moves it, wheel on it sets thickness, [ ] size, R rotates, D duplicates (one
-  plate up a stack is a duplicate shifted and thinned), Delete removes, N a new plate under the cursor, P a pit, C
-  starts a crack and clicks lay its points, T drops the hero at the cursor to try it; thickness shown on each plate
-  and coloured by kind (step, hop, face). S copies the layout as JSON to the clipboard; the save is pasting it into
-  src/layouts/<scene>.js; a paste box loads one. The scene's spec reads layout at enterScene and lays it in tiles.
+- ~~215 THE EDITOR~~ (215: as planned, with Ross's calls: the wheel zooms, [ ] thickness; the keys in "The editor"
+  above; the layout is src/layouts/<scene>.js, LAYOUTS[id], read by plateLayout; plateStack gone, plateNext in its
+  place; plate tops cached by seed and size).
 - 216 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
   at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
   in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
@@ -290,8 +303,8 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
-Next: 215 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
-of stacks, pits and seams the scene's spec reads instead). Then 214.
+Next: 216 layered ground (above). The editor is in: Ross can lay mt2's plates himself now (?edit=mt2, S, paste over
+src/layouts/mt2.js, node tools/build.js).
 Also waiting on Ross: his hand-adjusted stills of the climb screens (delivered as quest-b207-stills.zip).
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).
 

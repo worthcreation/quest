@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 215: the editor (chat)
+?edit=<scene> (src/edit.js) on a plates screen, on the main game's code: the scene opens as a test link, the hero
+parked at the way in and drawn faint, the world standing still while you lay plates, pits and seams. Arrows pan, the
+wheel zooms about the cursor (Ross's call: a scroll never edits by accident), a drag on open ground pans. Click selects
+(a pit inside a plate first, a seam by its line), drag moves (a plate takes the ones stacked on it along); [ ] set
+thickness (a pit's ledge, a seam's width), - = width, , . depth, ; ' base or floor, R turns the outline, D duplicates
+up a stack (plateNext: shifted, a little smaller and thinner), Delete removes, N lays a plate under the cursor (on the
+plate there), P a pit, C and clicks lay a crack, T drops you at the cursor to try it (T parks you again). Every plate
+shows its thickness in its kind's colour. S copies the layout as the file src/layouts/<scene>.js; the save is pasting
+it over that file; L loads one pasted. What a screen lays now comes from its layout (LAYOUTS[id], plateLayout; mt2's
+hand layout became src/layouts/mt2.js, read back to the same plates: tests/plates.js unchanged); plateStack is gone
+(plateAdd and plateNext in its place). Plate tops are cached by seed and size (PL_TEX), so a move keeps its texture.
+tests/edit.js plays it with the mouse and keys. Link: ?edit=mt2.
+
 ## Build 214: down in the pit; the x-ray; smaller further away (chat)
 Ross, after 213: in the pit you looked like you stood on the top layer; you should look further away the deeper you
 are, and be covered by the layers above you. Things drawn at a spot (at() in drawMtn: you, items, creatures) now scale

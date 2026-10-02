@@ -11,4 +11,4 @@ console.log('```powershell');
 const unzip = local ? '' : `Expand-Archive -Force ~\\Downloads\\${zip} .; Remove-Item ~\\Downloads\\${zip}; `;
 console.log(`cd ~\\quest -ErrorAction Stop; ${unzip}git add -A; git commit -m "${msg.replace(/"/g, "'")}"; git push`);
 console.log('```\n');
-for (const q of [`?seed=${seed}`, '?arena', '?puzzle', '?mountain', `?scene=${scene}`, `?overview=${seed}`, '?model']) console.log(`- ${base}${q}`);
+for (const q of [`?seed=${seed}`, '?arena', '?puzzle', '?mountain', `?scene=${scene}`, '?edit=mt2', `?overview=${seed}`, '?model']) console.log(`- ${base}${q}`);
