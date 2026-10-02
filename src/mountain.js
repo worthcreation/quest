@@ -9,7 +9,7 @@
 // walk back and it comes in again. Everything standing is drawn where it touches the ground, scaled with the view.
 //
 // The rise (RISE) is the first screen: one long slope, 86 tiles west to east and 30 deep, from the first field up to
-// a pass into the mountain, and through it onto the wind shelf (M1, scene mt1: the marsh already has m1 to m3 as ids),
+// a pass into the mountain, and through it onto the stepping path (M2, scene mt2: the marsh already has m1 to m3 as ids),
 // and from its pass onto the climb (climb.js, until each climb screen is remade here).
 // At x 20, just past a tree, a wall of reeds crosses the way: for now nothing gets through it.
 // A screen can have a ravine (m.rav): one shape, mtnGap, that the game tests (isChasm) and drawMtnRavine draws (a
@@ -34,36 +34,7 @@ const RISE = {
     return d;
   },
 };
-// The wind shelf (M1, scene mt1), out of the rise's pass: the same kind of slope, drier (dry grass, tan earth showing
-// through, stone sooner), split along its length by a ravine that winds with the way. It narrows to a running jump
-// at three crossings, so the path zigzags from bank to bank; where it runs wide, grassy ledges face each other across
-// it and the strong gust rides you over (ledge to ledge, as on the first field). At its widest, an island out in the
-// drop, reached only by a ride: the screen's secret. The rise's rabbits a size up and snarling (hares). At the far
-// end the ravine closes and a pass leads south onto the stepping path (mt2).
-const M1 = {
-  id: 'mt1', len: 64, D: 30, flat: 0, grade: 0.0021, mid: 15, floor: '#a4a45c', earth: '#b8976a', stoneAt: 4.2, inX: 4, outX: 58.2, tilt: 0.95, lead: 6, lift: 4.5,
-  X0: -16, X1: 100, Y0: -6, Y1: 72, seed: 11, dx: 0.5, fine: 6,
-  foot: y => 54 + Math.sin(y * 0.33 + 1) * 2.5 + Math.sin(y * 0.8) * 0.8,
-  // the ravine: from x 5 to x 48 (closed again well before the foot), its middle wandering (cy), 5 tiles across where
-  // it's wide (hw 2.5), a 1.3-tile jump at each crossing, 7 across at the island (x 42); 3 tiles deep. cross: the
-  // crossings' x, in order: the path starts on the north bank and swaps banks at each
-  rav: { x0: 5, x1: 48, depth: 3, cross: [13, 25, 36], island: [42, 1.0],
-    cy: x => 15 + 2.2 * Math.sin(x * 0.21 + 0.8) + 0.12 * Math.sin(x * 3.1) + 0.08 * Math.sin(x * 7.3),
-    hw(x) { let w = 2.5; for (const cx of this.cross) { const k = Math.max(0, 1 - Math.abs(x - cx) / 1.8); w = Math.min(w, 2.5 - 1.85 * k * k * (3 - 2 * k)); }
-      { const k = Math.max(0, 1 - Math.abs(x - this.island[0]) / 4); w += 1 * k * k * (3 - 2 * k); }
-      return w * mtnClamp((x - this.x0) / 3) * mtnClamp((this.x1 - x) / 3); } },
-  side: x => M1.rav.cross.filter(c => c < x).length % 2 ? 1 : -1,                        // which bank the path is on at x
-  pathY(x) { const r = this.rav; return r.cy(x) + this.side(x) * (r.hw(x) + 1.8); },
-  pathD(x, y) {
-    const { inX, outX, D } = this, y0 = this.pathY(inX + 6), y1 = this.pathY(outX);
-    let d = x >= inX + 4 && x <= outX ? Math.abs(y - this.pathY(x)) : 99;
-    for (const cx of this.rav.cross) { const a = this.pathY(cx - 0.7), b = this.pathY(cx + 0.7); if (y > Math.min(a, b) - 0.3 && y < Math.max(a, b) + 0.3) d = Math.min(d, Math.abs(x - cx)); }   // straight across at each crossing
-    if (y <= y0 + 0.5) { const t = mtnClamp((y + 1) / (y0 + 1)); d = Math.min(d, Math.abs(x - (inX + 6 * t * t))); }
-    if (y >= y1 - 0.5) { const t = mtnClamp((y - y1) / (D + 1 - y1)); d = Math.min(d, Math.abs(x - (outX + 0.6 * t))); }
-    return d;
-  },
-};
-// The stepping path (M2, scene mt2), out of the wind shelf's pass: a fixed screen, pulled back and tipped so the whole
+// The stepping path (M2, scene mt2), out of the rise's pass (the wind shelf, mt1, retired in 213): a fixed screen, pulled back and tipped so the whole
 // of it is in view at once (on a phone it slides along with you). The ravine runs the length of the way, 5 across at
 // either end, and for the middle stretch eats the banks wall to wall: the only way on is a chain of islands out in the
 // drop, each at least 2 tiles across, each a sure running jump from the last, zigzagging east (genIslands lays them from
@@ -96,7 +67,7 @@ const M2 = {
     return d;
   },
 };
-const MTN = { rise: RISE, mt1: M1, mt2: M2 };                                           // every screen of the family, by scene id
+const MTN = { rise: RISE, mt2: M2 };                                           // every screen of the family, by scene id
 // the lowest a moving view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const mtnZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the way on)
@@ -257,15 +228,15 @@ function genIslands(m) {
   }
   return out;
 }
-const mtnRavs = m => m.ravs || (m.rav ? [m.rav] : []);
+const mtnRavs = m => m.ravs || [];
 // for drawing, every spine ravine on a screen is one field (where two cross, the drop is one drop, not a strip of
 // ground between): traced together, the deepest one's depth
 function mtnDrawRavs(m) {
   if (m.ravDraw) return m.ravDraw;
-  const sp = mtnRavs(m).filter(r => r.spine), rest = mtnRavs(m).filter(r => !r.spine);
-  return (m.ravDraw = sp.length ? rest.concat([{ spine: [].concat(...sp.map(r => r.spine)), floor: false, depth: Math.max(...sp.map(r => r.depth || 5)), river: [].concat(...sp.map(r => genRavRiver(r))) }]) : rest);   // (each ravine's own river, or none if it says so)
+  const sp = mtnRavs(m);
+  return (m.ravDraw = sp.length ? ([{ spine: [].concat(...sp.map(r => r.spine)), floor: false, depth: Math.max(...sp.map(r => r.depth || 5)), river: [].concat(...sp.map(r => genRavRiver(r))) }]) : []);   // (each ravine's own river, or none if it says so)
 }
-const ravGap = (r, x, y, pad) => r.spine ? ravFieldAt(r, x, y) < pad : r.axis === 'y' ? y > r.y0 && y < r.y1 && Math.abs(x - r.cx(y)) < r.hw(y) + pad : x > r.x0 && x < r.x1 && Math.abs(y - r.cy(x)) < r.hw(x) + pad;
+const ravGap = (r, x, y, pad) => ravFieldAt(r, x, y) < pad;
 const mtnGap = (m, x, y, pad = 0) => mtnRavs(m).some(r => ravGap(r, x, y, pad)) && !onIsl(m, x, y, pad);   // over the drop, unless on an island
 // the way between its two walls of stone: 14 tiles wide where the view is close, opening out as it pulls back
 const mtnHalf = (m, x) => 7 + 8 * mtnView(m, x);
@@ -294,7 +265,7 @@ const mtnLead = (m, p) => Math.min(m.lead, 0.3 * SW / 2 / (UNIT * mtnZoom(p, m))
 // above the camera's ground, 1 + z / eye (linear, so a tall stack never blows up; the ravines' floors keep their
 // 14 / (14 + depth), the same to first order)
 function mtnProj(x, y, z, c = state.mtn) {
-  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = c.m.eye ? 1 + (z - c.ch) / c.m.eye : 1;
+  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = c.m.eye ? 1 + mtnClamp(z - c.ch, -c.m.eye / 2, c.m.eyeMax || 3) / c.m.eye : 1;   // (capped: the mountain past the foot, tens of tiles up, would fold its rows over and let the sky through)
   return [SW / 2 + (x - c.cx) * UNIT * s * k, SH / 2 + ((y - c.cy) * Math.cos(th) - (z - c.ch) * Math.sin(th)) * UNIT * s * k];
 }
 
@@ -313,14 +284,6 @@ function mtnLand(m) {
   const onLand = props.filter(p => !mtnGap(m, p.x, p.y, p.r + 0.3));                            // nothing stands in a ravine
   const deco = onLand.filter(p => !inside(p)).sort((a, b) => a.by - b.by);
   return (m.land = { xs, rows: null, solids: onLand.filter(inside), deco });
-}
-// the walls of the way: a line of stones along each side, smooth near the fields, rough as the ground rises
-function mtnWalls({ m, put, rnd }, northFrom) {
-  for (const sd of [-1, 1]) for (let x = sd < 0 ? northFrom : 0.4; x < 100; x += 1.25) { const wy = m.mid + sd * mtnHalf(m, x); if (x > m.foot(wy) + 1) break; const r = 0.55 + rnd() * 0.35; put(x > 40 ? 'crag' : 'boulder', x + rnd() * 0.4, wy + (rnd() - 0.5) * 0.5, r, true); }
-}
-// the mountain's foot: crags on the line you can't cross, but where the way goes on
-function mtnFootCrags({ m, put, rnd }) {
-  for (let y = m.Y0; y < m.Y1; y += 1.1) { const f = m.foot(y); if (Math.abs(y - m.pathY(f)) < 1.7 || mtnGap(m, f, y, 1.5)) continue; put('crag', f + 0.3 + rnd() * 0.4, y, 0.9 + rnd() * 0.6, true); }
 }
 // grass tufts over the low ground
 function mtnTufts({ m, put, rnd }, n) {
@@ -386,7 +349,7 @@ function addMtn(S, add, m) {
   return sc;
 }
 // the rise, where f2 was: the first field's south way leads in at the north-west corner, and the pass at the far end
-// leads south onto the wind shelf (build 207; the climb's first screen until then)
+// leads south onto the stepping path (213; the wind shelf, mt1, from 207 to 212)
 RISE.scene = { area: 'field', depth: 2, msg: 'The ground starts to climb. Rabbits, too.', music: 'field', amb: 'wind', floor: RISE.floor, speed: 0.45, accel: 8 };
 // the mountain holds you: east of its foot the stone rises and nothing walks on it, except along the way (the pass:
 // within 2.2 tiles of the path, east into the mountain and south out of it). Something that gets in is put back on
@@ -420,37 +383,8 @@ RISE.finish = function (sc, S) {
   for (const [x, y] of [[11, 18.8], [11.5, 8.4]]) sc.spawns.push({ type: 'rabbit', fx: x / len, fy: y / D });   // two rabbits in the first stretch: two tufts of fluff
   const f1s = S.f1.exits.find(e => e.to === 'rise');
   sc.exits.push({ side: 'n', a: 0.8 / len, b: (m.inX + 3) / len, to: 'f1', arrive: [(f1s.a + f1s.b) / 2, 0.91] });
-  sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'mt1', arrive: [M1.inX / M1.len, 1.2 / M1.D] });   // through the pass onto the wind shelf
-  f1s.arrive = [m.inX / len, 1.2 / D];
-};
-// the wind shelf's layout: the walls and the closed west end as on the rise, stones and the odd stunted tree on the
-// banks (never on the path, never over the drop), the foot, the pass, tufts
-M1.layout = function (lay) {
-  const m = this, { put, rnd, clearOf } = lay, { X0, Y0, Y1 } = m, nW = m.inX + 3.5;
-  mtnWalls(lay, nW);
-  for (let y = 0.3; y < m.mid - mtnHalf(m, nW) - 0.6; y += 1.2) put('boulder', nW + (rnd() - 0.5) * 0.3, y, 0.55 + rnd() * 0.3, true);
-  for (let y = 0.3; y < m.mid + mtnHalf(m, 0) - 0.6; y += 1.2) put('boulder', -0.1 + (rnd() - 0.5) * 0.3, y, 0.6 + rnd() * 0.3, true);
-  mtnFootCrags(lay);
-  mtnPass(lay);
-  for (let i = 0; i < 70; i++) { const x = X0 + rnd() * (m.foot(15) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (m.pathD(x, y) < 2.2 || mtnGap(m, x, y, r + 1.2) || !clearOf(x, y, r)) continue; put(x > 30 ? 'crag' : 'boulder', x, y, r, true); }
-  for (let i = 0; i < 7; i++) { const x = 8 + rnd() * 40, y = Y0 + rnd() * (Y1 - Y0); if (m.pathD(x, y) < 2.4 || mtnGap(m, x, y, 2.2) || !clearOf(x, y, 0.6)) continue; put('tree', x, y, 1.0, true); }
-  mtnTufts(lay, 300);
-};
-M1.scene = { area: 'field', depth: 3, msg: 'The wind shelf. A ravine splits the way: jump it where it narrows.', music: 'field', amb: 'wind', floor: M1.floor, speed: 0.45, accel: 8 };
-M1.finish = function (sc, S) {
-  const m = this, { len, D } = m, r = m.rav, oX = m.outX, oW = oX - 2.9, oE = oX + 3.2;
-  sc.gusts = S.f1.gusts.map(g => ({ ...g }));                                           // the same wind, blowing across the ravine
-  sc.feat.plants = [[9, -2.6], [19.5, 2.4], [30, -2.4], [44, 2.2]].map(([x, dy]) => [x / len, (m.pathY(x) + dy) / D]);   // the tall grass, by each ledge pair and on the way
-  // ledges: a pair facing each other across each wide stretch (a ride from one lands on the other), and at the widest,
-  // one on each bank with the island between them: the ride goes bank, island, bank
-  sc.rocks = [];
-  const ledge = (x, y, R = 0.8) => sc.rocks.push({ fx: x / len, fy: y / D, r: R, ledge: true });
-  for (const x of [19, 30.5, r.island[0]]) for (const sd of [-1, 1]) ledge(x, r.cy(x) + sd * (r.hw(x) + 1.1));
-  sc.rocks.push({ fx: r.island[0] / len, fy: r.cy(r.island[0]) / D, r: r.island[1], ledge: true, island: true });   // the island: a pillar out of the drop
-  for (const [x, dy] of [[-0.43, 0.25], [0.43, 0.25], [0, -0.5]]) sc.initItems.push({ type: dy < 0 ? 'acorn' : 'carrot', fx: (r.island[0] + x) / len, fy: (r.cy(r.island[0]) + dy) / D });   // the secret: what the wind left out there
-  for (const [x, dy] of [[10, -3.2], [21, 3.4], [32, -3]]) sc.spawns.push({ type: 'hare', fx: x / len, fy: (m.pathY(x) + dy) / D });   // three hares, one to a stretch
-  sc.exits.push({ side: 'n', a: 0.8 / len, b: (m.inX + 3) / len, to: 'rise', arrive: [RISE.outX / RISE.len, 1 - 1.2 / RISE.D] });
   sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'mt2', arrive: [M2.inX / M2.len, 1.2 / M2.D] });   // through the pass onto the stepping path
+  f1s.arrive = [m.inX / len, 1.2 / D];
 };
 // the stepping path's layout: the drop first (m2Ravine), then the islands laid across it (genIslands), then the pass
 // (open: the edges and the mountain hold, as on the rise), stones on the banks (none near the way, none at a lip), tufts
@@ -461,12 +395,12 @@ M2.layout = function (lay) {
   for (let i = 0; i < 40; i++) { const x = X0 + rnd() * (m.foot(12) - X0 - 4), y = Y0 + rnd() * (Y1 - Y0), r = 0.45 + rnd() * 0.5; if (m.pathD(x, y) < 2.2 || mtnGap(m, x, y, r + 1.2) || !clearOf(x, y, r)) continue; put('crag', x, y, r, true); }
   mtnTufts(lay, 200);
 };
-// the plates' test layout (212): on the south-west bank a stack of four (steps and hops) with a pit through its upper
-// three down to its foot, a short stack beside it with a face partway up, a perch of two, and a seam across the bank
+// the plates' test layout (212, the pit 215): on the south-west bank a staggered stack of four with a pitfall punched
+// through all of it to the base, each plate a ledge inside it a hop above the last (the way out), a short stack beside it with a face partway up, a perch of two, and a seam across the bank
 // from the west edge to the drop's lip; on the north bank's east end a step of two. Nothing on the way.
 M2.plates = function (pl) {
-  plateStack(pl, 4.2, 20.2, 6.5, 3.6, [0.55, -0.4], [0.3, 0.4, 0.35, 0.6], 60);
-  platePit(pl, 5.6, 19.3, 2.3, 1.6, 13.3, 0.3);
+  plateStack(pl, 3.8, 21.2, 6.6, 4.4, [0.75, -0.45], [0.4, 0.45, 0.35, 0.45], 60);   // staggered, a pitfall punched through it to the base, its ledges the way out
+  platePit(pl, 6.2, 19.9, 3.0, 2.6, 13.3, 0, 0.55);
   plateStack(pl, 2.4, 15.6, 4.2, 2.6, [0.6, -0.3], [0.4, 1.2, 0.5], 80, 136);
   plateStack(pl, 8.2, 16.3, 3.2, 2.2, [0.4, -0.3], [0.25, 0.3], 100, 138);
   plateStack(pl, 31.6, 4.4, 3, 2.2, [0.3, 0.3], [0.3, 0.3], 120, 140);
@@ -476,14 +410,14 @@ M2.plates = function (pl) {
 M2.scene = { area: 'field', depth: 4, msg: 'The stepping path. Islands out in the drop, each a jump from the last.', music: 'field', amb: 'wind', floor: M2.floor, speed: 0.45, accel: 8 };
 M2.finish = function (sc, S) {
   const m = this, { len, D } = m, oX = m.outX, oW = oX - 2.9, oE = oX + 3.2;
-  sc.mtnHold = a => mtnHold(m, a) || plateHold(m, a);                                   // the mountain holds, and every plate (212: until 214)
+  sc.mtnHold = a => mtnHold(m, a) || (a === state.hero ? plateStepHero(m, a) : plateHold(m, a));   // the mountain holds; the hero climbs the plates (213), the rest are held off them until 214
   sc.mtnIsle = (x, y, pad) => onIsl(m, x / UNIT, y / UNIT, pad / UNIT);                  // on an island: no drop, no shove, a safe spot
   sc.gusts = S.f1.gusts.map(g => ({ ...g }));                                           // the same wind, over the drop (no rides here: this screen is jumped)
   sc.feat.plants = [[7, -2.4], [33, 2.4]].map(([x, dy]) => [x / len, (m.pathY(x) + dy) / D]);
   const dare = m.isls.find(i => i.dare);
   if (dare) for (const [dx, dy] of [[-0.5, 0.2], [0.5, 0.2]]) sc.initItems.push({ type: 'carrot', fx: (dare.x + dx) / len, fy: (dare.y + dy) / D });   // the dare's carrots
   for (const [x, dy] of [[7, 3.2], [33, -3]]) sc.spawns.push({ type: 'hare', fx: x / len, fy: (m.pathY(x) + dy) / D });   // a hare on each bank
-  sc.exits.push({ side: 'n', a: 0.8 / len, b: (m.inX + 3) / len, to: 'mt1', arrive: [M1.outX / M1.len, 1 - 1.2 / M1.D] });
+  sc.exits.push({ side: 'n', a: 0.8 / len, b: (m.inX + 3) / len, to: 'rise', arrive: [RISE.outX / RISE.len, 1 - 1.2 / RISE.D] });
   sc.exits.push({ side: 's', a: (oW + 0.8) / len, b: (oE - 0.8) / len, to: 'climb3' });   // the climb lays its own start
 };
 // the scene's own size in pixels, while it is the current one (every other scene is the screen)
@@ -501,7 +435,7 @@ function mtnCamera(dt, c = state.mtn, snap) {
   c.p += (p - c.p) * e; c.cx += (x + mtnLead(m, p) - c.cx) * e; c.cy += (y + (m.mid - y) * p - m.lift * p - c.cy) * e; c.ch += (mtnH(m, x, y) - c.ch) * e;
 }
 // a point of the scene (in its pixels) on the screen: toScreen uses this on a mountain screen, so speech and hints sit right
-const mtnToScreen = (x, y) => { const m = state.mtn.m; return mtnProj(x / UNIT, y / UNIT, mtnH(m, x / UNIT, y / UNIT)); };
+const mtnToScreen = (x, y) => { const m = state.mtn.m, xt = x / UNIT, yt = y / UNIT; return mtnProj(xt, yt, mtnH(m, xt, yt) + (m.plates ? plateTopAt(platesLay(m), xt, yt) : 0)); };   // (on a plate, its top)
 
 function drawMtn() {
   const r = state.mtn; if (!r) return;
@@ -518,7 +452,8 @@ function drawMtn() {
   // after it is all in front of it), drawn with the game's own code
   // at its spot on the tipped ground, scaled with the view; the ground's rows are laid between them
   const [VW, VH] = sceneSize(state.scene), SWH = [W, H];
-  const at = (px, py, fn, mg = 4) => { const xt = px / UNIT, yt = py / UNIT, [X, Y] = gp(xt, yt); if (X < -us * mg || X > SWH[0] + us * mg || Y < -us * (mg + 1) || Y > SWH[1] + us * (mg + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
+  const lift = (xt, yt, o) => !pl ? 0 : o === state.hero && h.liftAt === state.scene ? h.lift || 0 : plateTopAt(pl, xt, yt);   // standing on a plate: drawn on its top
+  const at = (px, py, fn, mg = 4, o) => { const xt = px / UNIT, yt = py / UNIT, [X, Y] = pr(xt, yt, lift(xt, yt, o)); if (X < -us * mg || X > SWH[0] + us * mg || Y < -us * (mg + 1) || Y > SWH[1] + us * (mg + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
   const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
   const list = [];
   for (const p of land.deco) list.push([p.by, () => drawMtnProp(m, p, gp, us, s)]);
@@ -527,7 +462,6 @@ function drawMtn() {
     if (o.rise === 'tree' || o.kind === 'reeds') list.push([o.y / UNIT + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o))]);
     else if (o.rise) list.push([o.y / UNIT + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]);
   }
-  for (const o of sc.rocks || []) list.push([o.fy * m.D + 0.3, () => { if (o.island) drawMtnIsland(m, o, gp, us, st); at(o.fx * VW, o.fy * VH, () => drawLedge(o.fx * VW, o.fy * VH, o.r * UNIT)); }]);   // the ledges a gust ride lands on (an island stands on a pillar out of the drop)
   let hole = null;                                                                      // the ravine: a hole in the ground's rows, painted once right after the row its north lip first reaches
   if ((mtnRavs(m).length || pl) && typeof Path2D === 'function') { hole = new Path2D(); hole.rect(-W, -H, W * 3, H * 3); }
   // a ravine is painted only on the land: clipped to below the land's far edge (the first row's top), never into the sky
@@ -546,9 +480,8 @@ function drawMtn() {
   if (pl) { list.push([-Infinity, () => { ctx.save(); if (baseIn) { ctx.clip(baseIn); ctx.clip(hole, 'evenodd'); } fillRows(-UNIT * 2, H + UNIT * 2, -UNIT * 2, W + UNIT * 2, true); for (const sm of pl.seams) platePaintSeam(sm, 0, null, pl.pits.filter(q => q.floor <= 0), pr, us); ctx.restore(); }]);
     for (const p of pl.list) list.push([p.key, () => drawPlate(m, p, pr, s)]); }
   for (const r0 of mtnDrawRavs(m)) {
-    const rvs = mtnRavinePts(m, r0, gp, hole); if (!rvs.length) continue;
+    const rvs = mtnRavinePts(m, r0, gp); if (!rvs.length) continue;
     for (const rv of rvs) for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; }
-    if (!r0.spine) { for (const rv of rvs) list.push([rv.yTop + 0.26, onLand(() => drawMtnRavine(rv, s))]); continue; }
     // a spine ravine: the rows stop at its brink's outer edge, and the ravine paints the brink itself, ground first, at
     // its own turn (before anything standing south of its top: you, the reeds and the stones all stand on it)
     const proj = iso => ravRings(r0, iso).map(ring => ring.map(([x, y]) => gp(x, y))), band = hole ? new Path2D() : null, cutTo = hole;
@@ -559,16 +492,17 @@ function drawMtn() {
     // their brink is a band 0.5 inside their edge, their pillars are painted inside the drop before the brink
     const pr2 = ring => ring.map(([x, y]) => gp(x, y));
     const isls = (m.isls || []).map(i => ({ i, N: pr2(islRing(i)), S: [], yTop: i.y - i.r, r: r0 }));
-    for (const I of isls) { add(cutTo, pr2(islRing(I.i, 0.4))); add(band, pr2(islRing(I.i, 0.5))); add(band, I.N); }
+    for (const I of isls) { add(cutTo, pr2(islRing(I.i, 0.4))); if (!pl) add(band, pr2(islRing(I.i, 0.5))); add(band, I.N); }   // (on a plates screen the ground is painted before the ravine, so an island's whole top is the brink pass's: no hollow)
     list.push([Math.min(...rvs.map(rv => rv.yTop)) + 0.26, onLand(() => { for (const rv of rvs) drawMtnRavine(rv, s);
-      if (isls.length) { ctx.save(); ctx.beginPath(); for (const rv of rvs) rv.N.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip(); for (const I of isls) drawMtnPillar(m, I.i, rvs[0], s, gp); ctx.restore(); }
+      if (isls.length) { ctx.save(); ctx.beginPath(); for (const rv of rvs) rv.N.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip(); { const d = I => { const [X, Y] = gp(I.i.x, I.i.y); return Math.hypot(X - W / 2, Y - H / 2); }; for (const I of isls.slice().sort((a, b) => d(b) - d(a))) drawMtnPillar(m, I.i, rvs[0], s, gp); } ctx.restore(); }   // (pillars outermost first: a pillar's wall reaches in toward the middle of the view, under the ones nearer it)
       if (band) drawMtnBrink(rvs.concat(isls), s, band, fillRows, ravPal(m)); })]);
   }
   for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
   if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
-  list.push([h.y / UNIT + 0.6, () => at(h.x, h.y, drawHero)]);
+  { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, inPit = pl ? pl.pits.filter(q => q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)).map(q => q.last.key + 1e-3) : [];
+    list.push([Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity, ...inPit), () => at(h.x, h.y, drawHero, 4, h)]); }   // (on a plate: after it; down a pit: after the pit's last plate)
   for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
   if (h.ride && h.ride.wind) list.push([h.ride.y1 / UNIT + 0.2, () => at(h.ride.x1, h.ride.y1, drawLandingShadow)]);   // mid-ride: where you'll come down
   list.sort((a, b) => a[0] - b[0]);
@@ -583,7 +517,7 @@ function drawMtn() {
   function fillRows(y0, y1, X0, X1, every) {
     let j0 = 0, j1 = idx.length - 1; while (j0 < j1 && gp(land.xs[idx[j0 + 1]], m.mid)[0] < X0) j0++; while (j1 > j0 && gp(land.xs[idx[j1 - 1]], m.mid)[0] > X1) j1--;
     const rows = mtnRows(m, land).filter(row => { const G = rowGeo(row); return G.show && G.hi >= y0 - 2 && G.lo <= y1 + 2; });
-    if (every) for (const row of rows) fillRow(row, rowGeo(row), j0, j1);                                // (the base plate's ground: every row)
+    if (every || pl) for (const row of rows) fillRow(row, rowGeo(row), j0, j1);                          // (the base plate's ground, and a plates screen's brink: every row)
     else for (let k = 0; k < rows.length; k += 3) { const a = rowGeo(rows[k]), b = rowGeo(rows[Math.min(rows.length - 1, k + 2)]); fillRow(rows[Math.min(rows.length - 1, k + 1)], { tp: a.tp, bp: b.bp }, j0, j1); }   // (three rows at a time, the middle one's colours: under a narrow band nobody sees the difference)
     if (pl) platesBase(m, pr, X0, X1); }                                                                 // (on a plates screen the base plate's wash lies on the ground)
   let li = 0;
@@ -615,65 +549,18 @@ function drawMtnProp(m, p, gp, us, s) {
   }
   else if (p.k === 'tree') { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); drawTree({ x: 0, y: 0, vis: UNIT * p.r, v: p.v, kind: 'tree', pal: 'green', key: 'rise' + p.x.toFixed(1) }); ctx.restore(); }
 }
-// an island in the ravine: a pillar of earth and stone from the floor up to its grassy top (drawLedge, drawn after)
-function drawMtnIsland(m, o, gp, us, st) {
-  const x = o.fx * m.len, y = o.fy * m.D, [X, Y] = gp(x, y), drop = m.rav.depth * st * us, R = o.r * us, ry = R * 0.55;
-  if (drop < 1) return;
-  const gr = ctx.createLinearGradient(0, Y, 0, Y + drop + ry); gr.addColorStop(0, '#8a6a46'); gr.addColorStop(0.6, '#5e4630'); gr.addColorStop(1, '#2a2218');
-  ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(X - R, Y); ctx.lineTo(X - R * 0.92, Y + drop); ctx.ellipse(X, Y + drop, R * 0.92, ry * 0.9, 0, Math.PI, 0, true); ctx.lineTo(X + R, Y); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = 'rgba(40,28,16,.45)'; ctx.lineWidth = Math.max(1, 1.5 * us / UNIT);
-  for (const k of [0.35, 0.7]) { ctx.beginPath(); ctx.ellipse(X, Y + drop * k, R * (1 - 0.05 * k), ry * (0.9 + 0.1 * k), 0, 0.15, Math.PI - 0.15); ctx.stroke(); }
-}
-// the ravine on the screen: its two lips (on the ground) and, three tiles down, its floor, sampled every quarter tile
-// along it. hole is the opening the rows are clipped to (a Path2D: the whole screen with the opening cut out; null
-// where there is no Path2D, as in the tests), yTop the north lip's smallest y, the key the painting is drawn at
-function mtnRavinePts(m, r, gp, hole) {
-  const pt = (x, y, z) => mtnProj(x, y, z, state.mtn);
-  const N = [], S = [], NF = [], SF = []; let yTop = Infinity;
-  if (r.spine) {                                                                          // traced: each loop of the outline is its own ring (N), nothing in S
-    const out = [];
-    const c = state.mtn, k = 14 / (14 + (r.depth || 5)), drop = (r.depth || 5) * Math.sin(c.m.tilt * c.p) * UNIT * mtnZoom(c.p), CXt = W / 2, CYt = H / 2;
-    for (const ring of ravRings(r)) { const P = ring.map(([x, y]) => gp(x, y)), top = Math.min(...ring.map(q => q[1]));
-      // the bottom ring: the lip ring shrunk toward the middle of the view as a floor far below would be (a hole seen
-      // from above shows its walls on the sides away from you, and they slide as you walk), dropped with the tilt
-      const F = P.map(([X, Y]) => [CXt + (X - CXt) * k, CYt + (Y - CYt) * k + drop * k]);
-      out.push({ N: P, S: [], NF: P, SF: [], F, k, drop, hole, yTop: top, T: ring, seed: Math.round(ring[0][0] * 7), r }); }
-    return out;
-  }
-  if (r.axis === 'y') {                                                                   // along y: N is the west lip, S the east (the walls run with the view: no far wall to see, a drop in the dark)
-    for (let y = r.y0; y <= r.y1 + 1e-9; y += 0.25) {
-      const cx = r.cx(y), hw = r.hw(y), xw = cx - hw, xe = cx + hw, g = mtnH(m, cx, y);
-      N.push(pt(xw, y, g)); S.push(pt(xe, y, g)); NF.push(pt(xw, y, g)); SF.push(pt(xe, y, g)); yTop = Math.min(yTop, y);
-    }
-  } else {
-    for (let x = r.x0; x <= r.x1 + 1e-9; x += 0.25) {
-      const cy = r.cy(x), hw = r.hw(x), yn = cy - hw, ys = cy + hw, g = mtnH(m, x, cy);
-      N.push(pt(x, yn, g)); S.push(pt(x, ys, g)); NF.push(pt(x, yn, g - r.depth)); SF.push(pt(x, ys, g - r.depth)); yTop = Math.min(yTop, yn);
-    }
-  }
-  if (hole) { N.forEach(([X, Y], i) => i ? hole.lineTo(X, Y) : hole.moveTo(X, Y)); for (let i = S.length - 1; i >= 0; i--) hole.lineTo(S[i][0], S[i][1]); hole.closePath(); }
-  return [{ N, S, NF, SF, hole, yTop, seed: (r.x0 || r.y0 || 1) * 7, r }];
+// a ravine on the screen: each loop of its traced outline a ring of lip points (N), and under it the same ring far
+// below (F: shrunk toward the middle of the view as a floor far below would be, and dropped with the tilt: a hole
+// seen from above shows its walls on the sides away from you, and they slide as you walk); yTop its northmost tile
+function mtnRavinePts(m, r, gp) {
+  const out = [], c = state.mtn, k = 14 / (14 + (r.depth || 5)), drop = (r.depth || 5) * Math.sin(c.m.tilt * c.p) * UNIT * mtnZoom(c.p), CXt = W / 2, CYt = H / 2;
+  for (const ring of ravRings(r)) { const P = ring.map(([x, y]) => gp(x, y)), F = P.map(([X, Y]) => [CXt + (X - CXt) * k, CYt + (Y - CYt) * k + drop * k]);
+    out.push({ N: P, S: [], F, k, drop, yTop: Math.min(...ring.map(q => q[1])), seed: Math.round(ring[0][0] * 7), r }); }
+  return out;
 }
 function drawMtnRavine(rv, s) {
-  const { N, S, NF, SF } = rv, poly = (a, b) => { ctx.beginPath(); a.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); for (let i = b.length - 1; i >= 0; i--) ctx.lineTo(b[i][0], b[i][1]); ctx.closePath(); };
-  if (N.every(([X]) => X < -10) || N.every(([X]) => X > W + 10)) return;
-  if (rv.r.floor === false) { drawMtnDrop(rv, s, poly); return; }
-  ctx.fillStyle = '#17190f'; poly(NF, SF); ctx.fill();                                   // the floor, far below, dark
-  ctx.save(); poly(NF, SF); ctx.clip();                                                   // heaped with the same rough stones the woods' ravines hold: bigger and lighter toward the far wall, pebbles in the dark
-  for (let i = 0; i < NF.length; i += 3) { const [X0, Y0] = NF[i], [X1, Y1] = SF[i], L = Math.hypot(X1 - X0, Y1 - Y0); if (X0 < -40 || X0 > W + 40 || L < 6) continue;
-    for (let k = 0; k < 3; k++) { const t = 0.12 + ((i * 7 + k * 5 + rv.seed) % 11) / 14 * 0.78, u = (i * 3 + k * 11) % 7 / 7, X = X0 + (X1 - X0) * t + (u - 0.5) * 10 * s, Y = Y0 + (Y1 - Y0) * t, sh = Math.round(92 - t * 70);
-      drawJagged(X, Y, Math.max(2, (0.42 - t * 0.28) * (L / 4) * (0.7 + u * 0.5)), i * 0.37 + k * 1.3, ['#' + [sh, sh - 4, sh - 10].map(v => v.toString(16).padStart(2, '0')).join(''), '#' + [sh + 14, sh + 10, sh + 2].map(v => v.toString(16).padStart(2, '0')).join(''), '#' + [sh - 18, sh - 20, sh - 24].map(v => Math.max(6, v).toString(16).padStart(2, '0')).join('')]); } }
-  ctx.restore();
-  ctx.fillStyle = '#19160f'; poly(SF, S); ctx.fill();                                    // (the near wall: never seen, it faces away; painted so no sliver of ground shows at the lip)
-  const g = ctx.createLinearGradient(0, N[0][1], 0, NF[0][1] + 1); g.addColorStop(0, '#8a6a46'); g.addColorStop(0.55, '#6e5236'); g.addColorStop(1, '#2a2218');
-  ctx.fillStyle = g; poly(N, NF); ctx.fill();                                             // the far wall, facing you: earth, darker toward the bottom
-  ctx.strokeStyle = 'rgba(40,28,16,.45)'; ctx.lineWidth = Math.max(1, 1.5 * s);           // strata along it
-  for (const k of [0.3, 0.62]) { ctx.beginPath(); N.forEach(([X, Y], i) => { const Y2 = Y + (NF[i][1] - Y) * (k + 0.05 * Math.sin(i * 0.7 + rv.seed)); i ? ctx.lineTo(X, Y2) : ctx.moveTo(X, Y2); }); ctx.stroke(); }
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';                                          // the lips: a dark line where the bank breaks off, a lighter rim of grass above it
-  for (const L of [N, S]) {
-    ctx.strokeStyle = '#1c1208'; ctx.lineWidth = Math.max(1.5, 3 * s); ctx.beginPath(); L.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke();
-    ctx.strokeStyle = 'rgba(210,205,140,.5)'; ctx.lineWidth = Math.max(1, 1.5 * s); ctx.beginPath(); L.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y - 2 * s) : ctx.moveTo(X, Y - 2 * s)); ctx.stroke();
-  }
+  if (rv.N.every(([X]) => X < -10) || rv.N.every(([X]) => X > W + 10)) return;
+  drawMtnDrop(rv, s, (a, b) => { ctx.beginPath(); a.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); for (let i = b.length - 1; i >= 0; i--) ctx.lineTo(b[i][0], b[i][1]); ctx.closePath(); });
 }
 // a ravine with no floor to see: black, with the top of each wall showing just inside its lip (earth going over to
 // nothing within a tile), and the lips as the other ravines have them
@@ -698,7 +585,6 @@ function drawMtnDrop(rv, s, poly) {
 }
 // the water that cut a ravine, far down: a thread where the walls meet, in the dark, dark blue, a glint here and there
 function drawRavRiver(rv, c, us, st, k, drop, CX, CY, s) {
-  if (!rv.r.spine) return;
   const at = (x, y) => { const [X, Y] = mtnProj(x, y, mtnH(c.m, x, y), c); return [CX + (X - CX) * k, CY + (Y - CY) * k + drop * k]; };
   for (const br of genRavRiver(rv.r)) {
     const P = br.map(([x, y]) => at(x, y)), w = br.reduce((t, q) => t + q[2], 0) / br.length * us * k;
@@ -761,15 +647,29 @@ function drawRavWalls(ring, F, s, seed, depth, mid, pal = RAV_EARTH) {
       for (let b = 0; b < 7; b++) blob(1 - b * 0.08, 0.11); }                                 // seven, each a little smaller: one soft fade, no steps
   }
 }
-// an island: a pillar out of the drop, its walls from the same shape its edge is tested by (islRing), below the top
-// as a hole's far walls are (the ring shrunk toward the middle of the view and dropped: rv.k and rv.drop), facing out;
-// the top itself is the ground's rows (the hole leaves it in), its brink and lip drawn with the ravine's (drawMtnBrink)
+// an island: a pillar out of the drop, seen from above: its ring (islRing) on the ground and the same ring far below
+// (shrunk toward the middle of the view and dropped: rv.k and rv.drop). Solid stone, not a hole's wall (Ross, after
+// 213; docs/parked/mock-pillars.js): lit by facing, the light from the west (0.6 to 1, smoothed round the ring: it
+// turns, it doesn't step), ONE gradient along the pillar (a dark band under the lip, lit stone, into the drop's dark by
+// about halfway), its seen side filled as one shape (no bands, no seams), faint strata near the top. The earth palette
+// (no plates) keeps the old walls. The top is the brink pass's
 function drawMtnPillar(m, isl, rv, s, gp) {
   const CX = W / 2, CY = H / 2, k = rv.k, drop = rv.drop;
-  let T = islRing(isl).map(([x, y]) => gp(x, y));
-  { let a = 0; for (let i = 0; i < T.length; i++) { const [x0, y0] = T[i], [x1, y1] = T[(i + 1) % T.length]; a += x0 * y1 - x1 * y0; } if (a > 0) T = T.slice().reverse(); }   // anticlockwise on the screen: the walls face out
-  const F = T.map(([X, Y]) => [CX + (X - CX) * k, CY + (Y - CY) * k + drop * k]);
-  drawRavWalls(T, F, s, Math.round(isl.x * 13 + isl.y * 7), rv.r.depth || 5, null, ravPal(m));
+  if (!m.plates) { let T = islRing(isl).map(([x, y]) => gp(x, y)); { let a = 0; for (let i = 0; i < T.length; i++) { const [x0, y0] = T[i], [x1, y1] = T[(i + 1) % T.length]; a += x0 * y1 - x1 * y0; } if (a > 0) T = T.slice().reverse(); }
+    drawRavWalls(T, T.map(([X, Y]) => [CX + (X - CX) * k, CY + (Y - CY) * k + drop * k]), s, Math.round(isl.x * 13 + isl.y * 7), rv.r.depth || 5, null, RAV_EARTH); return; }
+  const tone = 134, T = islRing(isl, 0, 64).map(([x, y]) => gp(x, y)), F = T.map(([X, Y]) => [CX + (X - CX) * k, CY + (Y - CY) * k + drop * k]), n = T.length;
+  const cT = T.reduce((a, q) => [a[0] + q[0] / n, a[1] + q[1] / n], [0, 0]), cF = F.reduce((a, q) => [a[0] + q[0] / n, a[1] + q[1] / n], [0, 0]);
+  const seg = []; for (let i = 0; i < n; i++) { const j = (i + 1) % n, ex = T[j][0] - T[i][0], ey = T[j][1] - T[i][1], L = Math.hypot(ex, ey) || 1; let nx = ey / L, ny = -ex / L; const mx = (T[i][0] + T[j][0]) / 2, my = (T[i][1] + T[j][1]) / 2; if ((mx - cT[0]) * nx + (my - cT[1]) * ny < 0) { nx = -nx; ny = -ny; }
+    seg.push({ i, j, seen: ((F[i][0] + F[j][0]) / 2 - mx) * nx + ((F[i][1] + F[j][1]) / 2 - my) * ny > 0.2, lit: mtnClamp(0.8 + 0.25 * (-nx) - 0.05 * ny, 0.6, 1) }); }   // seen: its foot lies outward of its lip (it faces you)
+  const ax = cF[0] - cT[0], ay = cF[1] - cT[1], AL = Math.hypot(ax, ay) || 1, ux = ax / AL, uy = ay / AL, r = Math.max(...T.map(q => Math.hypot(q[0] - cT[0], q[1] - cT[1]))), col = v => plRgb(v);
+  const g = ctx.createLinearGradient(cT[0] - ux * r * 0.6, cT[1] - uy * r * 0.6, cF[0] + ux * r * 0.6, cF[1] + uy * r * 0.6);
+  g.addColorStop(0, col(tone * 0.55)); g.addColorStop(0.07, col(tone)); g.addColorStop(0.3, col(tone * 0.82)); g.addColorStop(0.55, col(tone * 0.42)); g.addColorStop(0.78, 'rgb(16,20,24)'); g.addColorStop(1, '#0c1014');
+  const quad = sg => { ctx.moveTo(T[sg.i][0], T[sg.i][1]); ctx.lineTo(T[sg.j][0], T[sg.j][1]); ctx.lineTo(F[sg.j][0], F[sg.j][1]); ctx.lineTo(F[sg.i][0], F[sg.i][1]); ctx.closePath(); };
+  ctx.beginPath(); for (const sg of seg) if (sg.seen) quad(sg); ctx.fillStyle = g; ctx.fill();
+  const lit = seg.map((sg, i) => { let t = 0, w = 0; for (let d = -3; d <= 3; d++) { const q = seg[(i + d + n) % n]; t += q.lit * (4 - Math.abs(d)); w += 4 - Math.abs(d); } return t / w; });
+  for (const sg of seg) { if (!sg.seen) continue; const a = 1 - lit[sg.i]; if (a < 0.01) continue; ctx.beginPath(); quad(sg); ctx.fillStyle = 'rgba(0,0,0,' + a.toFixed(3) + ')'; ctx.fill(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.6; ctx.stroke(); }
+  for (const [t, a] of [[0.12, 0.26], [0.24, 0.18], [0.4, 0.1]]) { ctx.strokeStyle = 'rgba(28,26,22,' + a + ')'; ctx.lineWidth = Math.max(1, 1.2 * s); ctx.beginPath(); let pen = false;
+    for (let i = 0; i <= n; i++) { const q = i % n; if (!seg[q].seen && !seg[(q - 1 + n) % n].seen) { pen = false; continue; } const w = t + 0.015 * Math.sin(q * 0.9 + isl.s * 5), x = T[q][0] + (F[q][0] - T[q][0]) * w, y = T[q][1] + (F[q][1] - T[q][1]) * w; pen ? ctx.lineTo(x, y) : ctx.moveTo(x, y); pen = true; } ctx.stroke(); }
 }
 // the brink: outside the hole, a band of broken ground along the lip, earth showing through the grass, darkest at
 // the edge and fading out over a third of a tile; then the lip itself, a dark line where the bank breaks off and a
@@ -781,7 +681,8 @@ function drawMtnBrink(rvs, s, band, fillRows, pal = RAV_EARTH) {
   const ring = (rv, dy = 0) => { const P = rv.N, n = P.length, on = i => { const [X, Y] = P[(i + n) % n]; return X > -mg && X < W + mg && Y > -mg && Y < H + mg; }; ctx.beginPath(); let pen = false;
     for (let i = 0; i <= n; i++) { const k = i % n; if (on(k) || on(k - 1) || on(k + 1)) { const [X, Y] = P[k]; pen ? ctx.lineTo(X, Y + dy) : ctx.moveTo(X, Y + dy); pen = true; } else pen = false; } };
   ctx.save(); ctx.clip(band, 'evenodd');
-  for (const rv of rvs) { let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity; for (const [X, Y] of rv.N) { if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; if (X < x0) x0 = X; if (X > x1) x1 = X; } if (x1 < -us || x0 > W + us || y1 < -us || y0 > H + us) continue; fillRows(Math.max(-us, y0 - us), Math.min(H + us, y1 + us), Math.max(-us, x0 - us), Math.min(W + us, x1 + us)); } ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  { let y0 = Infinity, y1 = -Infinity, x0 = Infinity, x1 = -Infinity; for (const rv of rvs) for (const [X, Y] of rv.N) { if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; if (X < x0) x0 = X; if (X > x1) x1 = X; }   // the ground under the band, once over all of them (a plates screen's wash is translucent: laid twice it darkens)
+    if (!(x1 < -us || x0 > W + us || y1 < -us || y0 > H + us)) fillRows(Math.max(-us, y0 - us), Math.min(H + us, y1 + us), Math.max(-us, x0 - us), Math.min(W + us, x1 + us)); } ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   for (const [wk, col] of pal.brink) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, wk * us); for (const rv of rvs) { ring(rv); ctx.stroke(); } }
   ctx.restore();
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';

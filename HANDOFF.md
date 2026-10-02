@@ -1,4 +1,4 @@
-# Quest: handoff (build 212, 2 Oct 2026)
+# Quest: handoff (build 213, 2 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -16,7 +16,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 69 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 68 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
@@ -46,7 +46,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   write to /mnt/user-data/outputs, a container path: repoint before use); B139/B150/B154 are the climb screens; B165 is
   the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
-  `?puzzle`, `?mountain` (climb1 to climb5; keys 1-5 jump between them, 0 to the first field, [ ] and - = tune the
+  `?puzzle`, `?mountain` (keys 1-4 jump between mt2 and climb3 to climb5, 0 to the first field, [ ] and - = tune the
   shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
@@ -57,7 +57,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 cellar; genField is the first field only (f1)
 - highlands.js  the High Reaches (hr1-hr3): enterHighlands (title card, vista birds), vistas, hawks, mantises,
                 crystal bugs, worms, the red beetle
-- climb.js      the climb screens (climb2-climb5; climb1 became mt1 in 207): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
+- climb.js      the climb screens (climb2-climb5; climb1 became mt1 in 207, retired 213): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - plates.js     the plate (212, docs/mountain-plan.md "Plates"): plateOutline (a seed's worn squarish ring), plateHas (the one
@@ -68,7 +68,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 drawPit, drawPlateTiles. mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
                 colour the ravines (grey on a plates screen).
 - mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE the rise's,
-                M1 the wind shelf's (scene mt1, 207): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
+                M2 the stepping path's (scene mt2): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
                 screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
                 seed, walk with keep) or M1's old cy/hw one with a floor; ravField (the drop, one shape for isChasm via
                 sc.mtnGap and the drawing), ravRings (the outline traced once, islands swallowed), mtnDrawRavs (all spines
@@ -122,9 +122,9 @@ before and after a world.js refactor, --total for the one line).
 - Riverbank row: farbank, rapids, ford, riverbank, camp (with the lean-to 'tentin' and Wick's shack and cellar).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
 - Down from f1: the rise (where f2 was: in from f1 at its north-west corner, one long slope east, out south through
-  a pass at the far end onto the wind shelf mt1, 207), mt1 (the same shape of screen: in at the north-west corner,
-  the ravine along the way, a pass south at the far end onto mt2), mt2 the stepping path (fixed view, the whole
-  screen at once: islands across a wall-to-wall drop, a pass south onto climb3, 211), the climb climb3 to climb5 (climb.js, its own
+  a pass at the far end onto mt2; the wind shelf mt1 between them, 207, retired in 213), mt2 the stepping path (a
+  fixed close view sliding with you: islands across a wall-to-wall drop, the plates' test layout on its banks, a
+  pass south onto climb3, 211), the climb climb3 to climb5 (climb.js, its own
   runtime until item 3 remakes each on the main game), then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the
   right. f3 to f7 (the windy fields' ravines and the mountain path) retired in build 204.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
@@ -149,28 +149,18 @@ acorn-skill arena book-tiles plates camp-patch camp-talk camp-tour climb combat-
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
 pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
-robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones rise-ravines reeds-hold windshelf
+robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones rise-ravines reeds-hold
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
 
 ## The climb, where it stands (tune with ?mountain)
-1 The wind trail: remade as the wind shelf, mt1 (207, below; it still has its own cy/hw ravine with a floor and its
+1 The wind trail: remade as the wind shelf, mt1 (207), retired in 213 (Ross: stale; the rise leads straight onto mt2). Was: its own cy/hw ravine with a floor and its
 walls of stone, untouched by 208 to 210). 2 Stepping stones: round islands in a wide ravine.
 3 The broken meadow: rifts across the way, chasms, a short ravine (gap field). 4 The windy crossing: rifts with bare
 islands, big rocks to shelter behind; gusts drive you back to screen 3. 5 The last ledges: a side view.
 Your shadow is the aim (it leads toward the landing, small at the top of a jump). Ross, 1 Oct: the islands are hard
 to read without the tiles turned on: on the remade screens islands are at least 2 tiles across; the perspective stays. Open green for now (CLIMB_TUNE.ledge 12, no
 crags); worn out restarts the screen. Open questions: final look, how the screens join the world, crags or not.
-
-## The wind shelf, mt1 (build 207)
-Out of the rise's pass, 64 x 30 tiles, the rise's kind of screen (in at the north-west corner, moving camera, a pass
-south at the far end, onto mt2). Not yet on 208's ravine generator (its own build). M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
-narrowing to 0.65 (a 1.3-tile jump) at x 13, 25, 36 so the path zigzags bank to bank (M1.side), widening to 3.5 at
-x 42 where an island (r 1.0, on a pillar) sits between a ledge on each bank: rides only (gaps 2.5). Ledge pairs at
-x 19 and 30.5 for strong-gust rides; sc.rocks hold them (ledge: true; island: true for the pillar). A jump carries
-2.2 tiles at vigor 8 (jumpReach), so a crossing wants the jump within 0.9 of the lip; isChasm is a point test.
-Three hares (MONSTERS.hare: r 0.58, hp 3, drawSnarl), two carrots and an acorn on the island (sc.initItems).
-Dials: rav.hw (wide 2.5, the 1.85 drop at crossings), cross, island, floor, earth, stoneAt, dx 0.5, fine 6.
 
 ## The stepping path, mt2 (build 211; the plates' test screen since 212)
 Since 212: grey throughout (M2.stone, stoneAt -9, no path tint; the ravine in RAV_GREY), the eye 14 tiles up (M2.eye,
@@ -180,7 +170,7 @@ ways, its ground eased under the view's middle), M2.plates: on the south-west ba
 two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. Every plate holds (plateHold
 on sc.mtnHold) until 214. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
 of this section is 211's.
-Out of the wind shelf's pass, 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
+Out of the rise's pass (since 213), 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
 SW / (41 UNIT), never under mtnZoomMin; a phone's view slides with you, never past the ends). The drop (m2Ravine):
 a neck 5 across along the middle from x 6 to 33, and between x 10 and 30 wall to wall as rows of spines 2.5 apart
 reaching past both edges (the field is the nearest spine's: rows make one flat hole; their ends scallop the lips); the
@@ -196,12 +186,12 @@ h.safe set there. Tiles overlay: green on an island. Dials: M2.drop (x0, x1, wid
 (7, in m2Ravine), genIslands (r 1.0 to 1.4, gap 1.15 to 1.35, the dare's 1.6 to 1.75, clearances 0.7 and 1.1),
 M2.islTop ('grass' or 'bare'), floor, earth, stoneAt. Open for Ross: the big flat black floor and the tall walls round
 it, island size, grassy or bare (shipped as shown in the still: depth 7, as laid, grassy).
-tests/windshelf.js plays it end to end. Test links: ?scene=mt1, ?mountain then key 1.
+tests/stepping-path.js plays the chain end to end; tests/plates.js the plates. Test links: ?scene=mt2, ?mountain then key 1.
 
 ## The rise, where it stands (build 210)
 The second screen of the fields, where f2 was: 86 tiles west to east and 30 deep, on the main game (sceneSize: W and H
 are its own size in px while it's current; the drawing, drawMtn, is its own). f1's south way leads in at the
-north-west corner; at the far end the pass leads south onto the wind shelf (mt1). The view: straight down at the west
+north-west corner; at the far end the pass leads south onto the stepping path (mt2; the wind shelf, mt1, retired in 213). The view: straight down at the west
 end, pulling back (zoom 1.00 to 0.50 on a laptop, never under 20 px of hero) and tipping (0 to 54 degrees) evenly to
 the foot. Wind as on f1 (the same gusts; tall grass leans ahead of each; cloud shadows).
 Since 208 there are no walls of stone: the screen's edges hold, and east of its foot the mountain itself holds
@@ -247,13 +237,24 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   jogs up every face and a plate nearer the eye hides it; a crack stops at a pit's rim. NOTHING of a hole or a crack is
   painted outside its lip; the brink belongs to the plate. Grey throughout: the mountain's ravines go grey too, with
   the hole lighting. Lights from the west. Ships with a test link (?scene=mt2 test layout) and tests/plates.js.
-- 213 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
+- ~~213 PLATES UNDERFOOT, mt1 RETIRED~~ (213, Ross 2 Oct, after looking at 212): the hero climbs the plates
+  (plateStepHero: a step of 0.25 or less walks up, higher is a wall unless he is in the air at or above its top and
+  lands on it; off an edge he drops to the ground below; h.lift is his ground, drawn on it and after the plate he
+  stands on), the rest are still held off (plateHold) until 214; mt2's pit floor at 1.05 so a held jump climbs out;
+  island tops whole (the plates' ground is painted before the ravine, so the brink pass fills their tops); the dark
+  band at the neck's lip gone (the brink's ground and wash laid once, not once per ring); the wind shelf mt1 deleted
+  (the rise's pass leads onto mt2; a save in mt1 loads in mt2; M1, its ledges, islands-on-pillars and the old cy/hw
+  ravine code, mtnWalls, mtnFootCrags, tests/windshelf.js gone). Then in the same build, from two stills: solid pillars
+  (lit by facing, one gradient fading into the drop, outermost first), the pitfall punched through a staggered stack to
+  the base with L-shaped ledges a hop apart as the way out (platePit's ledge; each cut plate has its own ring, q.ring),
+  the push-out capped at 3 tiles (no sky at mt2's east edge). A cave out of a pit is for m3, inside the mountain.
+- 214 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
   parked); click selects a plate, drag moves it, wheel on it sets thickness, [ ] size, R rotates, D duplicates (one
   plate up a stack is a duplicate shifted and thinned), Delete removes, N a new plate under the cursor, P a pit, C
   starts a crack and clicks lay its points, T drops the hero at the cursor to try it; thickness shown on each plate
   and coloured by kind (step, hop, face). S copies the layout as JSON to the clipboard; the save is pasting it into
   src/layouts/<scene>.js; a paste box loads one. The scene's spec reads layout at enterScene and lays it in tiles.
-- 214 LAYERED GROUND: ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
+- 215 LAYERED GROUND (the hero's part shipped in 213; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
   at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
   in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
   and he lands on whatever is below (a missed jump lands on the plate under; a pit is just a spot where that is several
@@ -263,15 +264,15 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   hop 0.25 to 0.5 (a tap clears it unless tired), high hop 0.5 to 1 (a held jump at the start, a tap by vigor 20),
   face > 1, m2's walls >= 2.5 (past any jump); drops under 1.5 a puff, 1.5 to 3 a stagger, over 3 a heart. Measured:
   tap 0.56 / held 0.95 at start, 0.94 / 1.5 at vigor 20, tired 0.2 / 0.34.
-- 215 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
+- 216 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
   by list; laid so stacks sit a tile and a half to two apart at a like height for the jumps between them.
-- 216 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
-  for m1); 217 m1 the climb laid in the editor with the generator's grain by leg, the arc camera with the 14 px floor
-  for real, the three ravines and islands, the wind shelf and its gust rides deleted, hawks circling only; 218+ m3.
+- 217 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
+  for m1); 218 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
+  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 219+ m3.
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
-Next: 213 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
+Next: 214 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
 of stacks, pits and seams the scene's spec reads instead). Then 214.
 Also waiting on Ross: his hand-adjusted stills of the climb screens (delivered as quest-b207-stills.zip).
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).

@@ -73,7 +73,8 @@ if (process.env.B165) {                            // the rise, walked east: top
   console.log('b165 written');
 }
 if (process.env.B212) {                            // build 212: the plates' test layout on mt2 (close view, the hero on the south-west bank among the stacks; TILES=1 for the heights)
-  state.started=true; state.intro=null; startTestScene('mt2', 3/40, 17.5/24); for (let k=0;k<10;k++) update(1/60); state.texts=[]; state.title=null; state.scrolls=[]; state.enemies=[];
+  state.started=true; state.intro=null; const at0=(process.env.AT||'3,17.5').split(',').map(Number); startTestScene('mt2', at0[0]/40, at0[1]/24); for (let k=0;k<10;k++) update(1/60); state.texts=[]; state.title=null; state.scrolls=[]; state.enemies=[];
+  if (process.env.LIFT) { const h=state.hero; h.lift=+process.env.LIFT; h.liftAt=state.scene; h.plPrev=[h.x,h.y]; }   // (LIFT=1.05: stood on a plate that high, as the game puts him there)
   if (process.env.TILES) state.settings.tiles=true;
   const t0=Date.now(); for (let k=0;k<10;k++) draw(); const ms=(Date.now()-t0)/10;
   fs.writeFileSync('/tmp/b212-mt2'+(process.env.TILES?'-tiles':'')+'.png', canvas.toBuffer('image/png')); console.log('b212 written; a frame', ms.toFixed(0), 'ms in napi canvas (software)');
@@ -86,10 +87,10 @@ if (process.env.B154) {                            // build 154: the windy cross
 if (process.env.B150) {                            // build 150: the tile grid on the climb, in perspective
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; state.settings.tiles=true;
-  for (const id of ['mt1','mt2']) { enterScene(id); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b150-'+id+'.png', canvas.toBuffer('image/png')); }
+  for (const id of ['mt2']) { enterScene(id); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b150-'+id+'.png', canvas.toBuffer('image/png')); }
   state.settings.tiles=false; console.log('b150 written');
 }
-if (process.env.B139) {                            // build 139: the climb screens (climb3 to climb5; mt1 and mt2 are mountain screens since 207 and 211: see B165)
+if (process.env.B139) {                            // build 139: the climb screens (climb3 to climb5; mt2 is a mountain screen since 211: see B212)
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow';
   for (const id of ['climb3','climb4','climb5']) { enterScene(id); state.cut=null; run(20); state.texts=[]; state.title=null; state.scrolls=[]; if (state.climb.kind==='side') { state.climb.px=0.9; state.climb.py=state.climb.ledges[4][2]; run(40); } draw(); fs.writeFileSync('/tmp/b139-'+id+'.png', canvas.toBuffer('image/png')); }

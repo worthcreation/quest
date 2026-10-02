@@ -43,7 +43,11 @@ function plateStack(pl, x0, y0, w0, h0, lean, kinds, seed, tone = PL_TONE) {
   let base = 0, x = x0, y = y0, w = w0, h = h0, under = null;
   kinds.forEach((thick, i) => { const p = { x, y, w, h, seed: seed + i * 1.3, base, thick, tone: tone + i * 2, under, P: plateOutline(x, y, w, h, seed + i * 1.3) }; pl.list.push(p); under = p; base += thick; x += lean[0]; y += lean[1]; w = Math.max(3, w - 0.45); h = Math.max(2.2, h - 0.28); });
 }
-const platePit = (pl, x, y, w, h, seed, floor) => pl.pits.push({ x, y, floor, P: plateOutline(x, y, w, h, seed, 9) });
+// a pit: a ring punched straight down through every plate it crosses to floor (215, Ross: like punching out a hole;
+// each plate shows its own cut face inside it). ledge (tiles): the way out, a staircase. Each plate down, the ring is
+// cut back on its north and west sides by about that much (shrunk toward its south-east), so every plate under the
+// top one keeps an L of its top inside the hole, a hop above the one below: from the floor you hop up them, north-west
+const platePit = (pl, x, y, w, h, seed, floor, ledge = 0) => pl.pits.push({ x, y, floor, ledge, P: plateOutline(x, y, w, h, seed, 9) });
 const plateSeam = (pl, spine) => pl.seams.push({ spine });                                // [[x, y, halfwidth]...] in tiles, hw under 0.25
 // what a screen laid, worked out once: every plate's draw key (its foot's south edge, never before the one it stands
 // on), each pit's cut plates (the ones containing its middle from its floor up), its floor and its top lip
@@ -51,14 +55,38 @@ function platesLay(m) {
   if (m.pl) return m.pl;
   const pl = { list: [], pits: [], seams: [], tone: m.plateTone || 143 }; m.plates(pl);
   for (const p of pl.list) { p.box = plateBox(p.P); p.key = Math.max(p.box[3], p.under ? p.under.key + 1e-3 : -Infinity); p.kind = plateKind(p.thick); }
-  for (const q of pl.pits) { q.cut = pl.list.filter(p => plateHas(p, q.x, q.y) && p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01); q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P); }
+  for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
+    q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P);
+    q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
+    for (const p of q.cut.slice().sort((a, b) => plateTop(b) - plateTop(a))) { q.ring.set(p, R); if (q.ledge > 0) { const ax = Math.max(...R.map(v => v[0])), ay = Math.max(...R.map(v => v[1])), ny = Math.min(...R.map(v => v[1])), f = Math.max(0.2, 1 - q.ledge / Math.max(0.01, ay - ny)); R = R.map(([x, y]) => [ax + (x - ax) * f, ay + (y - ay) * f]); } } }
   return (m.pl = pl);
 }
-const pitHas = (q, p, x, y) => q.cut.includes(p) && plateIn(q.P, x, y);
+const pitHas = (q, p, x, y) => q.ring.has(p) && plateIn(q.ring.get(p), x, y);
 // the ground's height in tiles above the base at a point: the top of the highest plate there, less the pits (0 off every plate)
-function plateTopAt(pl, x, y) { let h = 0; for (const p of pl.list) if (plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p)); for (const q of pl.pits) if (plateIn(q.P, x, y) && q.cut.length && h >= q.top - 1e-6) h = q.floor; return h; }
-// held off every plate (build 212, until 214 lays the ground in layers): inside a foot plate's outline you're put
-// back just outside its nearest edge, as the mountain holds
+function plateTopAt(pl, x, y) { let h = 0; for (const p of pl.list) if (plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p)); return h; }   // (in a pit: whatever is left under the cut, its floor or a ledge)
+// the hero on the plates (213): his ground is the top of the plate he stands on (h.lift, tiles above the base). A
+// plate no more than PL_STEP above it is walked up; a higher one is a wall unless he is in the air at or above its
+// top, and then he lands on it; walking or jumping off an edge drops him to the ground below (in the air at the
+// height he was). Build 214 adds the drop's numbers (a puff, a stagger, a heart), Pip and the camera's lift
+const PL_STEP = 0.25;
+function plateStepHero(m, h) {
+  const pl = platesLay(m), x = h.x / UNIT, y = h.y / UNIT;
+  if (h.liftAt !== state.scene) { h.liftAt = state.scene; h.lift = plateTopAt(pl, x, y); h.plPrev = [h.x, h.y]; }
+  const cur = h.lift, air = Math.max(0, h.z) / UNIT, up = T => T > cur + PL_STEP + 1e-6 && cur + air < T - 0.02;   // too high to walk up, and not above it in the air
+  let T = plateTopAt(pl, x, y), wall = false;
+  if (up(T)) { const [px, py] = h.plPrev || [h.x, h.y]; wall = true;                     // held: slide along the face if one axis is free
+    if (!up(plateTopAt(pl, px / UNIT, y))) { h.x = px; h.vx = 0; } else if (!up(plateTopAt(pl, x, py / UNIT))) { h.y = py; h.vy = 0; } else { h.x = px; h.y = py; h.vx = h.vy = 0; }
+    T = plateTopAt(pl, h.x / UNIT, h.y / UNIT); }
+  if (T > cur) { h.z = Math.max(0, h.z - (T - cur) * UNIT); if (h.z <= 0) { h.z = 0; h.vz = Math.max(0, h.vz); if (h.vz === 0 && air > 0) spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); } }   // up a step, or landing on a top
+  else if (T < cur) { h.z += (cur - T) * UNIT; if (h.vz === 0) h.airDist = 0; }                                    // off an edge: in the air, falling to the ground below
+  h.lift = T; h.plPrev = [h.x, h.y];
+  return wall;
+}
+// what stands on the plates is drawn after the plate it stands on: the key of the highest plate under a point at or
+// below a height (drawMtn's list)
+const plateKeyUnder = (pl, x, y, z) => pl.list.reduce((k, p) => plateTop(p) <= z + 1e-6 && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y)) ? Math.max(k, p.key + 1e-3) : k, -Infinity);
+// held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
+// you're put back just outside its nearest edge, as the mountain holds
 function plateHold(m, a) {
   const pl = platesLay(m), x = a.x / UNIT, y = a.y / UNIT;
   for (const p of pl.list) { if (p.base > 0 || !plateHas(p, x, y)) continue;
@@ -75,7 +103,6 @@ const platesAt = (pl, x, y, pad = 0) => pl.list.some(p => p.base === 0 && [[0, 0
 // ground's height added); s the view's zoom, us the tile in px at it
 const plPath = (R, dy = 0, g = ctx) => { g.beginPath(); R.forEach(([X, Y], i) => i ? g.lineTo(X, Y + dy) : g.moveTo(X, Y + dy)); g.closePath(); };
 const plRgb = (v, d = 0) => 'rgb(' + Math.round(v) + ',' + Math.round(v + 2 + d) + ',' + Math.round(v - 5 + d) + ')';
-function plCut(R, rings) { plPath(R); for (const Q of rings) Q.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip('evenodd'); }   // a top, less the pit rings through it
 // the brink and lip, as the rise's ravines have them at half weight, in grey: inside the edge three strokes darkest
 // at it, then the lip, a dark line where the stone breaks off and a lighter rim above it, all the way round
 function platePaintBrink(R, us) { ctx.save(); plPath(R); ctx.clip(); ctx.lineJoin = 'round';
@@ -156,31 +183,36 @@ function platesBase(m, pr, X0 = -Infinity, X1 = Infinity) {
   for (let y = by0; y < by1; y += 8) for (let x = bx0; x < bx1; x += 8) { const x1 = Math.min(bx1, x + 8), y1 = Math.min(by1, y + 8), [A, Ay] = pr(x, y, 0), [B, By] = pr(x1, y1, 0); if (B < X0 - 2 || A > X1 + 2 || By < -2 || Ay > H + 2) continue; plateLay(tex, p, x, y, x1, y1, pr, 0, true); }
 }
 const plateRing = m => { const R = [], [x0, y0, x1, y1] = [-PL_MARGIN, -PL_MARGIN, m.len + PL_MARGIN, m.D + PL_MARGIN]; for (let x = x0; x < x1; x++) R.push([x, y0]); for (let y = y0; y < y1; y++) R.push([x1, y]); for (let x = x1; x > x0; x--) R.push([x, y1]); for (let y = y1; y > y0; y--) R.push([x0, y]); return R; };   // the base's edge, a point a tile (the rows' columns)
-// one plate on the screen: its faces, its top (cut by any pit through it) with the seams across it, its brink and
-// lip; then, if it is the last plate a pit cuts, the pit itself
+// one plate on the screen, bottom up as the list has them: its faces and its top, less any pit through it (the ring
+// swept from its base to its top: none of its stone is left there), the seams on its top, its brink and lip; then the
+// hole through it, inside its own ring at its top and on its own outline: a shade (each plate looked down through a
+// little darker), its own cut face (a quad an edge from its ring at its base to its ring at its top, the far walls,
+// lit by the hole's own shade, 0.8 to 0.96), a line where it meets the plate under it, the hole's brink and lip.
+// Nothing of a hole is painted outside its lip (docs/parked/mock-pitfall.js)
 function drawPlate(m, p, pr, s) {
   const pl = platesLay(m), us = UNIT * s, top = plateTop(p), T = p.P.map(([x, y]) => pr(x, y, top)), F = p.P.map(([x, y]) => pr(x, y, p.base));
   if (!plOn(T, us * 2) && !plOn(F, us * 2)) return;
-  const cuts = pl.pits.filter(q => q.cut.includes(p)), rings = cuts.map(q => q.P.map(([x, y]) => pr(x, y, top)));
-  platePaintFaces(T, F, p.thick, p.tone, p.seed, s);
-  ctx.save(); plCut(T, rings);
+  const cuts = pl.pits.filter(q => q.ring.has(p)), ring = (q, z) => q.ring.get(p).map(([x, y]) => pr(x, y, z));
+  const outside = R => { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); R.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); ctx.clip('evenodd'); };
+  ctx.save(); for (const q of cuts) for (const z of [p.base, (p.base + top) / 2, top]) outside(ring(q, z));
+  platePaintFaces(T, F, p.thick, p.tone, p.seed, s); ctx.restore();
+  ctx.save(); plPath(T); ctx.clip(); for (const q of cuts) outside(ring(q, top));
   const tex = plateTex(p, m); if (tex) plateLay(tex, p, p.box[0], p.box[1], p.box[2], p.box[3], pr, top); else { ctx.fillStyle = plRgb(p.tone); ctx.fillRect(-W, -H, W * 3, H * 3); }
-  for (const sm of pl.seams) platePaintSeam(sm, top, null, cuts, pr, us);
-  platePaintBrink(T, us); platePaintLip(T, s);
-  ctx.restore();
-  for (const q of cuts) if (q.last === p) drawPit(q, pr, s);
-}
-// a pit, after the last plate it cuts: a shade over it, its floor darkest at the far foot, then one wall from the
-// floor to the top lip (the ring turned inward) with a line where each cut plate meets the next, lit by its own
-// shade whatever it faces; the brink and lip inside; nothing of it outside its lip
-function drawPit(q, pr, s) {
-  const us = UNIT * s, R = q.P.map(([x, y]) => pr(x, y, q.top)), Fp = q.P.map(([x, y]) => pr(x, y, q.floor)), cx0 = Fp.reduce((t, a) => t + a[0], 0) / Fp.length, cy0 = Fp.reduce((t, a) => t + a[1], 0) / Fp.length;
-  ctx.save(); plPath(R); ctx.clip();
-  ctx.fillStyle = 'rgba(20,22,20,.2)'; ctx.fillRect(-W, -H, W * 3, H * 3);
-  const g = ctx.createRadialGradient(cx0, cy0 + 7, 0, cx0, cy0, 2.2 * us); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.45)'); ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, H * 3);
-  platePaintFaces(R.slice().reverse(), Fp.slice().reverse(), q.top - q.floor, 122, q.x * 13 + q.y * 7, s, q.cut.map(p => plateTop(p) - q.floor), true);
-  ctx.restore();
-  platePaintBrink(R, us); platePaintLip(R, s);
+  for (const sm of pl.seams) platePaintSeam(sm, top, null, [], pr, us);
+  platePaintBrink(T, us); platePaintLip(T, s); ctx.restore();
+  for (const q of cuts) { const R = ring(q, top), B = ring(q, p.base), n = R.length;
+    ctx.save(); plPath(T); ctx.clip(); plPath(R); ctx.clip();
+    ctx.fillStyle = 'rgba(12,14,14,.16)'; ctx.fillRect(-W, -H, W * 3, H * 3);
+    let cx = 0, cy = 0; for (const [X, Y] of R) { cx += X / n; cy += Y / n; }
+    const yT = Math.min(...R.map(v => v[1])), yB = Math.max(...B.map(v => v[1]));
+    for (let i = 0; i < n; i++) { const j = (i + 1) % n, mx = (R[i][0] + R[j][0]) / 2, my = (R[i][1] + R[j][1]) / 2, bx = (B[i][0] + B[j][0]) / 2, by = (B[i][1] + B[j][1]) / 2;
+      if ((bx - mx) * (cx - mx) + (by - my) * (cy - my) <= 0.2) continue;                  // the far walls: their foot lies in toward the hole's middle
+      const ex = R[j][0] - R[i][0], ey = R[j][1] - R[i][1], L = Math.hypot(ex, ey) || 1; let nx = ey / L; if ((mx - cx) * nx + (my - cy) * (-ex / L) > 0) nx = -nx;
+      const lit = mtnClamp(0.86 + 0.1 * (-nx), 0.8, 0.96), g = ctx.createLinearGradient(0, yT, 0, yB + 1); g.addColorStop(0, plRgb(p.tone * 0.6 * lit)); g.addColorStop(0.12, plRgb(p.tone * 0.95 * lit)); g.addColorStop(1, plRgb(p.tone * 0.72 * lit));
+      ctx.beginPath(); ctx.moveTo(R[i][0], R[i][1]); ctx.lineTo(R[j][0], R[j][1]); ctx.lineTo(B[j][0], B[j][1]); ctx.lineTo(B[i][0], B[i][1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(28,26,22,.45)'; ctx.lineWidth = Math.max(1, 1.2 * s); plPath(B); ctx.stroke();
+    platePaintBrink(R, us); ctx.restore();
+    ctx.save(); plPath(T); ctx.clip(); platePaintLip(R, s); ctx.restore(); }
 }
 // System > Show tiles on a plates screen: the tiles lightened by the ground's height there (a pit is dark again)
 function drawPlateTiles(m, pr) {

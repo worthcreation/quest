@@ -1,8 +1,8 @@
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: the rise's pass > the wind shelf (mt1) and the stepping path (mt2, mountain.js) > climb3 > ... > climb5 > peak1 (the crags), joined in
-// build 203. Every number that shapes them is in CLIMB_TUNE and CLIMB_SPECS below. climb1 was remade as mt1 (207).
+// in a chain: the rise's pass > the stepping path (mt2, mountain.js) > climb3 > ... > climb5 > peak1 (the crags), joined in
+// build 203. Every number that shapes them is in CLIMB_TUNE and CLIMB_SPECS below. climb1 was remade as mt1 (207), retired in 213.
 
 // ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=peak1 (any screen id) starts there.
 var MOUNTAIN = typeof location !== 'undefined' && /(^|[?&])mountain(=|&|$)/.test(location.search);
@@ -96,8 +96,8 @@ function testHops() {
   const tap = k => { if (state.keys[k]) { state.keys[k] = false; return true; } return false; };
   if (tap('[')) SHADOW.lead = Math.max(0, SHADOW.lead - 0.05); if (tap(']')) SHADOW.lead = Math.min(1, SHADOW.lead + 0.05);
   if (tap('-')) SHADOW.follow = Math.max(1, SHADOW.follow - 1); if (tap('=')) SHADOW.follow = Math.min(30, SHADOW.follow + 1);
-  const ids = ['mt1', 'mt2', 'climb3', 'climb4', 'climb5'];
-  for (let i = 0; i <= 5; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
+  const ids = ['mt2', 'climb3', 'climb4', 'climb5'];
+  for (let i = 0; i <= ids.length; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
   return false;
 }
 function updateClimb(dt) {

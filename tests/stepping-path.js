@@ -1,5 +1,5 @@
 const src = require('./harness.js').src;
-// The stepping path (mt2, build 211): the wind shelf's pass leads onto it; the drop eats the middle wall to wall and a
+// The stepping path (mt2, build 211): the rise's pass leads onto it (213); the drop eats the middle wall to wall and a
 // chain of islands laid by genIslands (each at least 2 tiles across, each gap a sure running jump) is the only way on;
 // the dare, an island off the chain a long jump away, carries carrots; a jump short of an island drops you in and the
 // last island takes you back; the pass at the far end leads onto climb3. Played like a person: lined up, a short run, jump.
@@ -8,9 +8,9 @@ begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw()
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
 const tx=()=>state.hero.x/UNIT, ty=()=>state.hero.y/UNIT, h=state.hero, m=M2, sc=()=>sceneDef();
 run(5); state.intro=null; state.pip=null; state.texts=[];
-// 1. the wind shelf's pass leads onto the stepping path, a fixed mountain screen the width of the view
-startTestScene('mt1', M1.outX/M1.len, (M1.D-1)/M1.D); run(5); state.keys.arrowdown=true; run(90); off(); run(10); const inAt=[tx(),ty()];
-console.log('1 through the wind shelf\\'s pass ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), '| fixed view p', state.mtn && state.mtn.p, 'zoom', mtnZoom(state.mtn.p, m).toFixed(2), '| climb2 in the world:', !!WORLD.climb2, '| scene', m.len+'x'+m.D);
+// 1. the rise's pass leads onto the stepping path, a fixed mountain screen the width of the view
+startTestScene('rise', RISE.outX/RISE.len, (RISE.D-1)/RISE.D); run(5); state.keys.arrowdown=true; run(90); off(); run(10); const inAt=[tx(),ty()];
+console.log('1 through the rise\\'s pass ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), '| fixed view p', state.mtn && state.mtn.p, 'zoom', mtnZoom(state.mtn.p, m).toFixed(2), '| climb2 in the world:', !!WORLD.climb2, '| scene', m.len+'x'+m.D);
 state.enemies=[];
 // 2. the islands as laid: sizes, every gap along the chain, the first hop off the west lip, the last onto the south bank, the dare
 const ch=m.isls.filter(i=>i.chain), dare=m.isls.find(i=>i.dare), edge=(a,b)=>islGapTo(m,a,b);   // (the gap on the ground, lined up on the next one's middle)
@@ -42,10 +42,10 @@ console.log('6 the dare: landed', d1[0], '(fell', d1[1]+') | on it:', here, '| a
 // 7. the wind on an island: 25 s of gusts standing on the biggest, not shoved off
 const big=ch.reduce((a,b)=>b.r>a.r?b:a); h.x=big.x*UNIT; h.y=big.y*UNIT; h.vx=h.vy=0; h.safe=[h.x/W,h.y/H]; let shoved=false; for(let k=0;k<60*25;k++){ run(1); if(h.falling>0||isChasm(h.x,h.y)){shoved=true;break;} }
 console.log('7 25 s on the biggest island (' + (big.r*2).toFixed(1) + ' across): shoved off', shoved, '| still at', tx().toFixed(1)+','+ty().toFixed(1));
-// 8. back north from the way in to the wind shelf
+// 8. back north from the way in to the rise
 while(h.falling>0) run(1); enterScene('mt2', m.inX/m.len, 2/m.D); run(5); state.keys.arrowup=true; run(90); off(); run(10);
 console.log('8 north from the way in ->', state.scene);
-if (!(state.scene==='mt1' && !WORLD.climb2 && inAt[0]<8 && m.isls.length>=6 && ch.every(i=>i.r>=1) && gaps.every(g=>g>=1.1&&g<=1.4) && first<1.45 && lastGap<1.45 && dareGap>1.5 && dareGap<1.85)) errs++;
+if (!(state.scene==='rise' && !WORLD.climb2 && !WORLD.mt1 && inAt[0]<8 && m.isls.length>=6 && ch.every(i=>i.r>=1) && gaps.every(g=>g>=1.1&&g<=1.4) && first<1.45 && lastGap<1.45 && dareGap>1.5 && dareGap<1.85)) errs++;
 if (!(falls.length===0 && chainOk && onBank && out[0]==='climb3' && out[1])) errs++;
 if (!(d1[0] && /carrot/.test(here) && d2[1] && /bank|Ooof/.test(note) && backOn && !shoved)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);

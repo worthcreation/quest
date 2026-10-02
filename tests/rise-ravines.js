@@ -29,7 +29,7 @@ startTestScene('rise', 36/RISE.len, RISE.pathY(36)/RISE.D); run(5); state.enemie
 at(slitX(4)-3, 4); hold('arrowright', 120); const slitFall=state.hero.fallKind==='pit' || tx()<slitX(4);
 at(37.5, RISE.pathY(37.5)); state.keys.arrowright=true; let jumped=false; for (let k=0;k<240;k++){ if(!jumped && !isChasm(state.hero.x,state.hero.y) && isChasm(state.hero.x+UNIT*1.1, state.hero.y)) { state.keys[' ']=true; run(1); state.keys[' ']=false; jumped=true; } run(1); } off(); const jumpedTo=tx();
 console.log('4 the slit: walking in off the path, fell or held:', slitFall, '| at the path, jumped and reached x', jumpedTo.toFixed(1), '(the slit at 40)');
-// 5. the mountain holds: east of the foot you are put back, except along the way; walking the way reaches the wind shelf
+// 5. the mountain holds: east of the foot you are put back, except along the way; walking the way reaches the stepping path
 at(70, 5); hold('arrowright', 240); const stop1=[tx(), RISE.foot(ty())]; at(70, 24); hold('arrowright', 240); const stop2=[tx(), RISE.foot(ty())];
 at(RISE.foot(RISE.pathY(74))-1, RISE.pathY(74)); hold('arrowright', 300); const inPass=tx();
 const stray=[tx(), ty()]; state.keys.arrowup=true; run(120); off(); const north=ty(); const pd=RISE.pathD(tx(), ty());

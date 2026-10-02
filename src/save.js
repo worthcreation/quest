@@ -34,6 +34,7 @@ function loadSlot(i) {
   }
   migrateSeeds(state.inv);
   state.seen = d.seen || {}; state.tipsSeen = Object.assign(state.tipsSeen, d.tipsSeen || {}); state.playTime = d.playTime || 0; state.carry = d.carry || null;
+  if (d.scene === 'mt1') d.scene = 'mt2';                // (the wind shelf, retired in 213)
   if (d.scene === 'rapids' || !WORLD[d.scene]) enterScene(WORLD.gleampool && d.scene === 'cascade' ? 'gleampool' : 'riverbank'); else enterScene(d.scene, d.hero.fx, d.hero.fy);
   if (!d.inv.raw && (state.inv.sword || state.inv.pipTaken || state.inv.pipSaved || state.seen.w1)) { const rt = rtFor('camp'); for (const pc of ['fire', 'tent', 'bench']) rt.flags['built_' + pc] = true; refreshSceneGeometry(); }
   state.hero.vig = Math.min(maxVig(), d.hero.vig);

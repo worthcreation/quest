@@ -2,7 +2,7 @@ const src = require('./harness.js').src;
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\n').slice(1,3).join(' | '));} }};
 run(5); state.intro=null; state.texts=[]; state.pip=null; enterScene('meadow'); run(3); state.climbReturn='meadow';
-// (1. the wind trail, climb1, was remade as the wind shelf, mt1, in build 207: tests/windshelf.js)
+// (1. the wind trail, climb1, became the wind shelf mt1 in 207, retired in 213)
 // (2. the stepping stones, climb2, was remade as the stepping path, mt2, in build 211: tests/stepping-path.js)
 { enterScene('climb3'); run(5); const c3=state.climb, d3=climbDef(); c3.gust.t=999; c3.x=1.6; let t=0, falls=0; state.keys.arrowdown=true;
   while(state.scene==='climb3' && t<60*40){ if(!c3.air && d3.gap(c3.x, c3.z-0.5)){ state.keys[' ']=true; run(1); state.keys[' ']=false; } run(1); t++; if(c3.fall>0 && c3.fall<0.03) falls++; } state.keys.arrowdown=false;

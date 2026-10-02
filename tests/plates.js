@@ -3,7 +3,8 @@ const src = require('./harness.js').src;
 // worn and squarish from its seed; one shape (plateHas) for drawing and the hold; stacks add their thicknesses,
 // a pit through a stack drops to its floor; kinds by thickness; the one projection pushes what stands above the
 // camera's ground out from the screen's centre (and nothing on a screen without an eye); faces draw north only; a
-// seam stays under half a tile; every plate holds until 214. Played like a person: walked into a stack, drawn.
+// seam stays under half a tile. The hero (213) walks up a step, hops or high-hops onto a plate, is held by a face, drops
+// off an edge and out of a pit's floor with a held jump. Played like a person: steered, jumping where an edge stops him.
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\\\\\n').slice(1,3).join(' | '));} }};
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
@@ -19,8 +20,8 @@ const p={P}; const hasMid=plateHas(p,10,10), hasOut=plateHas(p,20,10), hasEdge=p
 console.log('2 plateHas: middle', hasMid, '| 9/10 of the way out', hasEdge, '| 11/10', hasPast, '| far', hasOut, '| kinds:', [0.2,0.4,0.8,1.2].map(t=>t+' '+plateKind(t)).join(', '));
 // 3. mt2's layout: plates, pits, seams; heights add up a stack; the pit's floor; off every plate the ground is 0
 startTestScene('mt2', 3/m.len, 17.5/m.D); run(5); state.enemies=[]; const pl=platesLay(m), st=pl.list.filter(p=>p.seed>=60&&p.seed<66), foot=st[0], topS=st[st.length-1];
-const hAtFoot=plateTopAt(pl, foot.x, foot.y), hTop=plateTopAt(pl, topS.x+1.4, topS.y), pit=pl.pits[0], hPit=plateTopAt(pl, pit.x, pit.y), hOff=plateTopAt(pl, 20, 3);
-console.log('3 laid: plates', pl.list.length, 'pits', pl.pits.length, 'seams', pl.seams.length, '| the first stack', st.length, 'high: top at its foot\\'s middle', hAtFoot.toFixed(2), 'on its crown', hTop.toFixed(2), '(sum', st.map(p=>p.thick).reduce((a,b)=>a+b).toFixed(2)+') | in the pit', hPit.toFixed(2), '(floor', pit.floor+', cuts', pit.cut.length, 'plates, lip at', pit.top.toFixed(2)+') | off every plate', hOff);
+const hAtFoot=plateTopAt(pl, foot.x-2, foot.y+0.8), hTop=plateTopAt(pl, topS.x-1.6, topS.y-1.2), pit=pl.pits[0], hPit=plateTopAt(pl, 7.25, 20.0), hOff=plateTopAt(pl, 20, 3), steps=[...pit.ring.keys()].map(p=>plateBox(pit.ring.get(p))[1]);   // (each plate's ring starts further south: its north edge a ledge)
+console.log('3 laid: plates', pl.list.length, 'pits', pl.pits.length, 'seams', pl.seams.length, '| the pitted stack', st.length, 'high: on its foot', hAtFoot.toFixed(2), 'on its crown', hTop.toFixed(2), '(sum', st.map(p=>p.thick).reduce((a,b)=>a+b).toFixed(2)+') | the pit cuts', pit.cut.length, 'plates down to', pit.floor, '| at its bottom', hPit.toFixed(2), '| each plate\\'s ring starts at y', steps.map(v=>v.toFixed(2)).join(', '), '| off every plate', hOff);
 // 4. the one projection: on mt2 (eye 14) a point 2 tiles up is pushed out from the centre by 1 + 2/14; on the rise (no eye) not at all
 const c=state.mtn; const g0=mtnProj(c.cx+5, c.cy, c.ch, c), g2=mtnProj(c.cx+5, c.cy, c.ch+2, c), push=(g2[0]-SW/2)/(g0[0]-SW/2);
 const cR={m:RISE,p:0.5,cx:40,cy:15,ch:0}; const r0=mtnProj(45,15,0,cR), r2=mtnProj(45,15,2,cR);
@@ -30,12 +31,37 @@ const pr=(x,y,z)=>mtnProj(x,y,mtnH(m,x,y)+z,c), T=foot.P.map(([x,y])=>pr(x,y,foo
 for(let i=0;i<T.length;i++){ const j=(i+1)%T.length, ex=T[j][0]-T[i][0], ey=T[j][1]-T[i][1], L=Math.hypot(ex,ey)||1, nx=ey/L, ny=-ex/L, mx=(T[i][0]+T[j][0])/2, my=(T[i][1]+T[j][1])/2, fx=(F[i][0]+F[j][0])/2, fy=(F[i][1]+F[j][1])/2; const out=(fx-mx)*nx+(fy-my)*ny>0.2; if(out&&fy>my+0.2) seen++; if(out&&fy<=my+0.2) north++; }
 const seamW=Math.max(...pl.seams[0].spine.map(q=>q[2]*2));
 console.log('5 the foot plate: edges with the foot outward', seen+north, '| drawn (foot south of the lip)', seen, '| skipped north faces', north, '| the seam at most', seamW.toFixed(2), 'tiles wide');
-// 6. the hold: walk east into the second stack from the west; stopped at its edge, never inside; then a drawn frame's cost
+// 6. walked into the face stack's 0.4 foot from the west (a hop, so it holds you); then a drawn frame's cost
 h.x=0.6*UNIT; h.y=15.6*UNIT; h.vx=h.vy=0; const stack2=pl.list.find(p=>p.seed===80); let inside=false; state.keys.arrowright=true; for(let k=0;k<180;k++){ run(1); if(plateHas(stack2,tx(),ty())) inside=true; } off(); const stopX=tx(); let edgeX=0; while(!plateHas(stack2,edgeX,ty())&&edgeX<5) edgeX+=0.01;
 const t0=Date.now(); for(let k=0;k<30;k++) draw(); const ms=(Date.now()-t0)/30;
-console.log('6 walked east into the face stack: stopped at x', stopX.toFixed(2), '(its west edge at that y', edgeX.toFixed(2)+') | ever inside', inside, '| a drawn frame', ms.toFixed(1), 'ms (fake canvas)');
+console.log('6 walked east at the face stack 0.4 foot (no jump): on it', inside, '| went round to x', stopX.toFixed(1), 'on the base:', (h.lift||0)===0, '| a drawn frame', ms.toFixed(1), 'ms (fake canvas)');
+// 7. on the plates, played: steer at a spot; when a plate's edge stops you, jump (a tap, or held for hold frames)
+const go=(X,Y,hold=0,secs=6,want=null)=>{ let t=0, last=[tx(),ty()], still=0, jumps=0; while(t<60*secs && (Math.hypot(X-tx(),Y-ty())>0.25 || want!=null && Math.abs((h.lift||0)-want)>1e-6)){ const dx=X-tx(), dy=Y-ty(); state.keys.arrowright=dx>0.1; state.keys.arrowleft=dx<-0.1; state.keys.arrowdown=dy>0.1; state.keys.arrowup=dy<-0.1;
+    run(1); t++; still=Math.hypot(tx()-last[0],ty()-last[1])<0.01?still+1:0; last=[tx(),ty()];
+    const L0=Math.hypot(dx,dy)||1, ahead=plateTopAt(pl,tx()+dx/L0*0.55,ty()+dy/L0*0.55); if(hold>=0 && h.z<=0 && ahead>(h.lift||0)+0.26) still=99;   // an edge just ahead, higher than a step: jump, as a person would
+    if(still>4 && h.z<=0 && hold>=0){ state.keys.btnjump=true; run(1); for(let k=0;k<hold;k++) run(1); state.keys.btnjump=false; t+=hold+1; still=0; jumps++; } } off(); for(let k=0;k<40 && (h.z>0||h.vz>0);k++) run(1); run(2); return jumps; };
+const lift=()=>+(h.lift||0).toFixed(2), byS=s=>pl.list.find(p=>Math.abs(p.seed-s)<1e-6);
+const spot=(p,ax=tx(),ay=ty())=>{ let b=null,bd=1e9; for(let y=p.box[1];y<p.box[3];y+=0.1) for(let x=p.box[0];x<p.box[2];x+=0.1){ if(Math.abs(plateTopAt(pl,x,y)-plateTop(p))>1e-6||[[0.45,0],[-0.45,0],[0,0.45],[0,-0.45]].some(([a,c])=>plateTopAt(pl,x+a,y+c)!==plateTop(p))) continue; const d=Math.hypot(x-ax,y-ay); if(d<bd){bd=d;b=[x,y];} } return b; };   // the nearest spot well inside what shows of a plate's top
+h.x=3*UNIT; h.y=17.4*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; run(2);
+h.x=1.2*UNIT; h.y=24*UNIT-UNIT*0.6; h.x=2.2*UNIT; h.y=23.3*UNIT; h.vx=h.vy=0; h.lift=0; h.plPrev=[h.x,h.y]; run(2);   // on the base, south-west of the stack
+const s60=spot(byS(60)), walkOn=go(s60[0],s60[1],-1,2), heldBack=lift();            // walking at the 0.4 foot plate: held (a hop, not a step)
+const j1=go(s60[0],s60[1],0,4), onFoot=lift();                                       // a tap: up onto it
+const s61=spot(byS(61.3)), j2=go(s61[0],s61[1],0,4), on2=lift(), keyOK=plateKeyUnder(pl,tx(),ty(),h.lift)>byS(61.3).key;
+const s62=spot(byS(62.6)), j3=go(s62[0],s62[1],0,4), on3=lift();
+const s63=spot(byS(63.9),4.5,18.9), j4=go(s63[0],s63[1],0,5), on4=lift();             // up the stagger to its crown
+const intoPit=go(7.25,20.0,-1,4), inPit=lift();                                       // walk east into the pit: down to the base, inside the ring
+const ledge=p=>{ let b=null,bd=1e9; for(let y=17;y<23;y+=0.05) for(let x=3;x<10;x+=0.05){ if(!plateIn(pit.P,x,y)||plateTopAt(pl,x,y)!==plateTop(p)||[[0.2,0],[-0.2,0],[0,0.2],[0,-0.2]].some(([a,c])=>plateTopAt(pl,x+a,y+c)!==plateTop(p))) continue; const d=Math.hypot(x-tx(),y-ty()); if(d<bd){bd=d;b=[x,y];} } return b; };   // the nearest spot on that plate's ledge, inside the hole
+const way=[]; for (const p of [byS(60),byS(61.3),byS(62.6)]) { const L=ledge(p); go(L[0],L[1],0,4,plateTop(p)); way.push(lift()); } { const o=spot(byS(63.9),4.3,18.4); go(o[0],o[1],0,4); way.push(lift()); }   // out up its ledges, north-west, a tap at each
+console.log('7 the stack: walked at its foot plate, held at', heldBack, '| tapped up', onFoot, on2, '(drawn after it', keyOK+')', on3, on4, '| walked into the pit:', inPit, '| out up the ledges, a tap each:', way.join(' > '));
+h.x=31.9*UNIT; h.y=4.7*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.lift=plateTopAt(pl,31.9,4.7); h.plPrev=[h.x,h.y]; run(2);
+const before=lift(); go(31.9,2.2,-1,3); const off1=lift(), landed=h.z<=0;                       // walk off the south edge: down to the base
+h.x=6.2*UNIT; h.y=16.2*UNIT; h.vx=h.vy=0; h.lift=0; h.plPrev=[h.x,h.y]; run(2); const stepJ=go(8.2,16.3,-1,3), onStep=lift();   // the perch's 0.25 foot: walked up, no jump
+h.x=2.4*UNIT; h.y=17.3*UNIT; h.vx=h.vy=0; h.lift=0; h.plPrev=[h.x,h.y]; run(2); go(2.0,16.4,0,4); const onShelf=lift(); go(3.0,15.3,20,4); const atFace=lift();   // the face stack: up its 0.4 foot, then the 1.2 face stops even a held jump
+console.log('8 off the north edge of the north bank two-step from', before, 'to', off1, '(landed', landed+') | the 0.25 step walked up to', onStep, '| the face stack: up to', onShelf, 'and the 1.2 face holds at', atFace);
 if (!(P.length===48 && Math.abs(bw-8)<1.6 && Math.abs(bh-4.5)<1.2 && same && diff && hasMid && hasEdge && !hasPast && !hasOut)) errs++;
-if (!(pl.list.length>=10 && pl.pits.length===1 && pl.seams.length===1 && hAtFoot>=foot.thick && Math.abs(hTop-1.65)<1e-6 && Math.abs(hPit-pit.floor)<1e-6 && pit.cut.length===3 && hOff===0)) errs++;
-if (!(Math.abs(push-(1+2/14))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && north>0 && seamW<0.5 && !inside && stopX<edgeX+0.02)) errs++;
+if (!(pl.list.length>=9 && pl.pits.length===1 && pl.seams.length===1 && hAtFoot===0.4 && Math.abs(hTop-1.65)<1e-6 && hPit===0 && pit.cut.length===4 && steps.every((v,i)=>!i||v>steps[i-1]+0.4) && hOff===0)) errs++;
+if (!(Math.abs(push-(1+2/14))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && north>0 && seamW<0.5 && !inside)) errs++;
+if (!(heldBack===0 && onFoot===0.4 && on2===0.85 && keyOK && on3===1.2 && on4===1.65 && inPit===0 && way.join()==='0.4,0.85,1.2,1.65')) errs++;
+if (!(before>0 && off1===0 && landed && onStep===0.25 && onShelf===0.4 && atFace===0.4)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);

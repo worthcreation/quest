@@ -44,7 +44,7 @@ climb.js shrinks a screen at a time and is deleted when the last puzzle has move
   then the ledges.
 
 ## The chain (directions are the seed's)
-rise > m1 the wind shelf (moving) > m2 the stepping path (fixed, zoomed out) > m3 inside the mountain (moving)
+rise > (m1 the climb, 218; the wind shelf retired in 213) > m2 the stepping path (fixed, zoomed out) > m3 inside the mountain (moving)
 > m4 the windy crossing (fixed, wide) > m5 the last ledges (side view) > the tortoise's hollow > peak1.
 
 ## Side content

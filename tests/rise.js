@@ -35,12 +35,12 @@ console.log('3 cover before the reeds:', cover, 'stones and trees | tree at x', 
 const afterFire=reeds(); state.keys.arrowright=true; run(120); off();
 console.log('4 after fire: reeds', afterFire, '| still stops at x', tx().toFixed(1));
 // 5. the ?mountain start: on the rise just east of the reeds; on up the rise the view pulls back evenly and tips; the walls
-// open out; the pass at the east end leads onto the wind shelf (build 207; the climb's first screen before)
+// open out; the pass at the east end leads onto the stepping path (213; the wind shelf before)
 startTestScene('rise', (RISE.barX+2)/RISE.len, RISE.pathY(RISE.barX+2)/RISE.D); run(5); const startAt=[tx(), ty()];
 const [secs, seen]=walkEast(30); const zs=seen.map(s=>s[1]), mono=zs.every((v,i)=>!i||v<=zs[i-1]+1e-6), most=Math.max(0,...zs.slice(1).map((v,i)=>zs[i]-v));
-for (let k=0;k<60 && state.busy;k++) run(1); run(5); const onShelf=state.scene==='mt1' && !!state.mtn;
+for (let k=0;k<60 && state.busy;k++) run(1); run(5); const onShelf=state.scene==='mt2' && !!state.mtn;
 console.log('5 ?mountain start at x', startAt[0].toFixed(1), 'y', startAt[1].toFixed(1), '(reeds at', RISE.barX+') | east and down the pass to', state.scene, '(a mountain screen:', onShelf+') in', secs.toFixed(1), 's | zoom by second:', zs.map(v=>v.toFixed(2)).join(' '), '| only pulls back:', mono, '| biggest step', most.toFixed(3));
-// 6. in at the rise's east end (back up from the wind shelf), pulled back; then west, the view comes back in
+// 6. in at the rise's east end (back up from the stepping path), pulled back; then west, the view comes back in
 state.climb=null; enterScene('rise', RISE.outX/RISE.len, 1-1.2/RISE.D); run(10);
 const inAt=[tx(), ty(), z()]; state.enemies=[]; state.keys.arrowup=true; run(60*2); off(); state.keys.arrowleft=true; run(60*3); off(); run(120);
 console.log('6 in at the pass ->', state.scene, 'at x', inAt[0].toFixed(1), 'y', inAt[1].toFixed(1), 'zoom', inAt[2].toFixed(2), '| up the pass 2 s, then 3 s west: x', tx().toFixed(1), 'y', ty().toFixed(1), 'zoom', z().toFixed(2));

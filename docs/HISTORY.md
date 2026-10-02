@@ -1,6 +1,30 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 213: plates underfoot; the wind shelf retired; solid pillars; a pitfall with a way out (chat)
+Ross, after 212: plates you can jump onto, island tops not hollow, the dark band at the neck's lip gone, the screen
+after the rise (mt1, stale) gone. The hero climbs the plates (plateStepHero on mt2's sc.mtnHold): his ground is the top
+of the plate he stands on (h.lift); up to 0.25 above it walks, higher is a wall unless he is in the air at or above its
+top, and then he lands on it; off an edge he drops in the air to the ground below. Drawn on that top and after the
+plate under him (plateKeyUnder); items and speech sit on a plate's top too (mtnToScreen). Pip and the rest are still
+held off (plateHold) until the layered-ground build. mt2's pit floor moved to 1.05 (0.6 down: a held jump out).
+Islands were hollow because on a plates screen the ground is painted before the ravine: their whole tops are now the
+brink pass's. The dark band was that pass laying the base's translucent wash once per ring (nine rings: the ravine's and
+eight islands'): laid once now. mt1 deleted: the rise's pass leads onto mt2 and back; a save in mt1 loads in mt2; M1,
+its ledges and islands on pillars, the old cy/hw ravine paths, mtnWalls, mtnFootCrags, tests/windshelf.js gone; the
+?mountain keys run 1 to 4 (mt2, climb3 to climb5). tests/plates.js plays the stack: held at a 0.3 hop walking, tapped
+up 0.3, 0.7, 1.05, a held jump to 1.65, walked into the pit (1.05), a held jump out, off the south edge to 0, a 0.25
+step walked, a 1.2 face holds. B212 in tools/shot.js takes AT=x,y and LIFT.
+Then, from two stills (docs/parked/mock-pillars.js, mock-pitfall.js): the islands' pillars are solid stone, not a
+hole's walls (lit by facing from the west 0.6 to 1, smoothed round the ring; one gradient along each pillar into the
+drop's dark by halfway; the seen side filled as one shape; faint strata; outermost first). A pit is a ring punched
+straight down through every plate it crosses (not only those over its middle), each plate painted with its own cut
+face inside it, a shade deeper per plate looked down through, nothing outside the lip; with a ledge, each plate down
+cuts the ring back on its north and west by that much, so the hole's walls are a staircase of L-shaped ledges a hop
+apart: mt2's staggered stack of four (0.4, 0.45, 0.35, 0.45) has one punched to the base, ledges 0.55, and you tap
+out north-west (tests/plates.js: 0 > 0.4 > 0.85 > 1.2 > 1.65). The push-out is capped at 3 tiles above the camera's
+ground (the mountain past mt2's foot folded its rows over and let the sky through at the east edge). drawPit gone.
+
 ## Build 212: the plate (chat)
 The mountain's stone kind, src/plates.js (docs/mountain-plan.md "Plates"; the look from docs/parked/mock-sheet-field.js):
 a worn squarish outline from a seed (plateOutline: twelve superellipse points, two rounds of corner-cutting, a wobble),
