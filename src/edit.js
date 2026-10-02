@@ -5,26 +5,29 @@
 // - arrows pan, the wheel zooms about the cursor (Ross: a scroll never edits by accident); drag on open ground pans
 // - click selects (a pit inside a plate before the plate, a seam by its line), drag moves it (a plate takes the ones
 //   stacked on it along); click on open ground clears the selection
-// - [ ] set the selected plate's thickness (a pit's ledge, a seam's width), - = its width, , . its depth, ; ' a plate's
-//   base (it then stands on nothing) or a pit's floor, R turns it; D duplicates (one plate up a stack: shifted along the
-//   stack's lean, a little smaller, a little thinner; a pit a tile over), Delete removes (the plates on a removed one
-//   stand on what it stood on)
+// - L W D A B E pick what [ ] change on the selected thing: length (x), width (y), depth (a plate's thickness), all
+//   three together (the whole plate scaled, Ross's lwd), base (a plate then stands on nothing; a pit: its floor), ledge
+//   (a pit's); [ ] smaller and bigger; a seam only has its width. R turns it; U copies it up the stack (shifted along
+//   the stack's lean, a little smaller, a little thinner; a pit a tile over); Delete removes (the plates on a removed
+//   one stand on what it stood on)
 // - N a new plate under the cursor (on the plate there, if any), P a pit there, C starts a crack and clicks lay its
 //   points (C again ends it), T drops the hero at the cursor to try it (the game runs: T again parks him there)
-// - S copies the layout as the file src/layouts/<scene>.js (the save is pasting it over that file); L loads one pasted
+// - S saves: copies the layout as the file src/layouts/<scene>.js (the save is pasting it over that file); O opens one
+//   pasted. The help panel at the bottom shows the selected thing's numbers and which dimension [ ] change.
 // Every plate shows its thickness, coloured by kind (step green, hop yellow, high hop orange, face red); the selected
 // one its base too, with a dashed outline. tests/edit.js drives it through editDown/editMove/editUp/editWheel.
 var EDIT_SCENE = typeof location !== 'undefined' ? ((/[?&]edit=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
 const ED_KIND = { step: '#8fd18f', hop: '#f0d060', high: '#f0a040', face: '#f06060' }, ED_LEAN = [0.5, -0.3];
+const ED_DIMS = { l: 'length', w: 'width', d: 'depth', a: 'all three', b: 'base', e: 'ledge' };                     // what [ ] change, by its key
 const editM = () => state.edit && MTN[state.edit.id];
 const editCopy = L => JSON.parse(JSON.stringify(L));
 function startEdit(id) {
   const m = MTN[id]; startTestScene(id, m && m.inX != null ? m.inX / m.len : undefined, m && m.inX != null ? m.pathY(m.inX) / m.D : undefined);   // parked at the way in
   const h = state.hero;
   if (!m || !m.plates) { showScroll('Not a plates screen', `${id} has no layout to edit.`); return; }
-  state.edit = { id, layout: editCopy(LAYOUTS[id] || { plates: [], pits: [], seams: [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
+  state.edit = { id, layout: editCopy(LAYOUTS[id] || { plates: [], pits: [], seams: [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
   editRelay(); mtnCamera(0, state.mtn, true);
-  showScroll('The editor', 'Arrows pan, wheel zooms. Click selects, drag moves. N plate, P pit, C crack, D duplicate, Delete. [ ] thickness, - = width, , . depth, ; \' base. T tries it. S copies the layout.');
+  showScroll('The editor', 'Arrows pan, the wheel zooms. Click selects, drag moves. The keys are on the panel at the bottom.');
 }
 // relay the plates from the editor's copy: collision, drawing and the labels all read the one lay
 function editRelay() { const m = editM(); if (!m) return; m.pl = null; platesLay(m); const h = state.hero; h.liftAt = null; }
@@ -122,17 +125,18 @@ function updateEdit(dt) {
   else if (tap('n')) { const pl = platesLay(m); let under = -1, top = -1; pl.list.forEach((p, i) => { if (plateHas(p, cx, cy) && plateTop(p) > top) { top = plateTop(p); under = i; } }); L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: under >= 0 ? top : 0, thick: 0.4, tone: PL_TONE, rot: 0, under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
   else if (tap('p')) { L.pits.push({ x: cx, y: cy, w: 3.4, h: 3, seed: editSeed(), floor: 0, ledge: 0.55 }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; }
   else if (tap('s')) editCopyOut();
-  else if (tap('l')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
+  else if (tap('o')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
+  else if (Object.keys(ED_DIMS).some(k => tap(k) && (E.dim = k))) E.msg = '[ ] change ' + ED_DIMS[E.dim];
   else if (o && (tap('delete') || tap('backspace'))) editRemove(sel);
-  else if (o && tap('d')) { if (sel.kind === 'plate') { L.plates.push({ ...plateNext(o, ED_LEAN, Math.max(0.2, +(o.thick * 0.9).toFixed(2))), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } }
+  else if (o && tap('u')) { if (sel.kind === 'plate') { L.plates.push({ ...plateNext(o, ED_LEAN, Math.max(0.2, +(o.thick * 0.9).toFixed(2))), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } }
   else if (o && tap('r') && sel.kind !== 'seam') o.rot = +((o.rot || 0) + Math.PI / 12).toFixed(3);
   else if (o) {
-    const d1 = step(']', 0.05) - step('[', 0.05), d2 = step('=', 0.2) - step('-', 0.2), d3 = step('.', 0.2) - step(',', 0.2), d4 = step("'", 0.05) - step(';', 0.05);
-    if (!(d1 || d2 || d3 || d4)) return true;
-    if (sel.kind === 'seam') { for (const q of o.spine) q[2] = +mtnClamp(q[2] + d1 / 2.5, 0.02, 0.24).toFixed(3); }
-    else { o.w = +Math.max(1, o.w + d2).toFixed(2); o.h = +Math.max(1, o.h + d3).toFixed(2);
-      if (sel.kind === 'plate') { o.thick = +Math.max(0.05, o.thick + d1).toFixed(2); if (d4) { o.base = +Math.max(0, o.base + d4).toFixed(2); o.under = -1; } }
-      else { o.ledge = +Math.max(0, o.ledge + d1).toFixed(2); o.floor = +Math.max(0, o.floor + d4).toFixed(2); } }
+    const dir = (tap(']') ? 1 : 0) - (tap('[') ? 1 : 0); if (!dir) return true; const k = E.dim, f = dir > 0 ? 1.1 : 1 / 1.1;   // [ ] on the picked dimension: a fifth of a tile across, a twentieth up, all three by a tenth
+    if (sel.kind === 'seam') { for (const q of o.spine) q[2] = +mtnClamp(q[2] + dir * 0.02, 0.02, 0.24).toFixed(3); }
+    else if (k === 'l') o.w = +Math.max(1, o.w + dir * 0.2).toFixed(2); else if (k === 'w') o.h = +Math.max(1, o.h + dir * 0.2).toFixed(2);
+    else if (k === 'a') { o.w = +Math.max(1, o.w * f).toFixed(2); o.h = +Math.max(1, o.h * f).toFixed(2); if (sel.kind === 'plate') o.thick = +Math.max(0.05, o.thick * f).toFixed(2); }
+    else if (sel.kind === 'plate') { if (k === 'd') o.thick = +Math.max(0.05, o.thick + dir * 0.05).toFixed(2); else if (k === 'b') { o.base = +Math.max(0, o.base + dir * 0.05).toFixed(2); o.under = -1; } else return true; }
+    else { if (k === 'b') o.floor = +Math.max(0, o.floor + dir * 0.05).toFixed(2); else if (k === 'e') o.ledge = +Math.max(0, o.ledge + dir * 0.05).toFixed(2); else return true; }
   }
   else return true;
   editBases(); editRelay(); return true;
@@ -152,10 +156,18 @@ function drawEdit() {
     if (E.crack) { const C = E.crack.spine.map(([x, y]) => pr(x, y, 0)).concat([pr(E.cur[0], E.cur[1], 0)]); ctx.save(); ctx.strokeStyle = '#ffe080'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); }
     const [CX, CY] = pr(E.cur[0], E.cur[1], 0); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(CX - us * 0.3, CY); ctx.lineTo(CX + us * 0.3, CY); ctx.moveTo(CX, CY - us * 0.3); ctx.lineTo(CX, CY + us * 0.3); ctx.stroke();
   }
-  ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(8, H - 46, Math.min(W - 16, 900), 38); ctx.fillStyle = '#fdf6e3'; ctx.font = '12px "Courier New", monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  const what = sel ? `${sel.kind} ${sel.i}` : E.crack ? `crack: ${E.crack.spine.length} points` : 'nothing selected';
-  ctx.fillText(E.trying ? `trying it (T parks you and edits again)  ${E.msg}` : `edit ${E.id}  cursor ${E.cur[0].toFixed(1)}, ${E.cur[1].toFixed(1)}  zoom ${E.zoom.toFixed(2)}  ${what}  ${E.msg}`, 14, H - 30);
-  ctx.fillText('arrows pan  wheel zoom  click/drag  N plate  P pit  C crack  D dup  Del  [ ] thick/ledge/width  - = w  , . h  ; \' base/floor  R turn  T try  S copy  L load', 14, H - 14);
+  // the panel: what is selected and its numbers, which dimension [ ] change, the keys
+  const o = editObj(sel), n2 = v => (+v).toFixed(2), onS = sel && sel.kind === 'plate' && o.under >= 0 ? ` (on ${o.under})` : '';
+  const line1 = !sel ? (E.crack ? `crack: ${E.crack.spine.length} points laid, C ends it` : 'nothing selected: click a plate, a pit or a seam') : sel.kind === 'plate' ? `plate ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'pit' ? `pit ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  floor ${n2(o.floor)}  ledge ${n2(o.ledge)}` : `seam ${sel.i}: ${o.spine.length} points, width ${n2(Math.max(...o.spine.map(q => q[2])) * 2)}`;
+  const dims = Object.keys(ED_DIMS).map(k => (k === E.dim ? '>' : ' ') + k.toUpperCase() + ' ' + ED_DIMS[k]).join('   ');
+  const lines = E.trying ? [`trying it: walk about; T parks you where you stand and edits again   ${E.msg}`] : [
+    `editing ${E.id}   cursor ${E.cur[0].toFixed(1)}, ${E.cur[1].toFixed(1)}   zoom ${E.zoom.toFixed(2)}   ${E.msg}`, line1,
+    `[ ] make it smaller / bigger in:  ${dims}`,
+    'N new plate   P pit   C crack   U copy it up the stack   Delete   R turn   T try it   S save (copies the file)   O open a pasted one',
+    'arrows pan   wheel zoom   click select   drag move   drag the ground to pan'];
+  const fs = 14, bh = lines.length * (fs + 6) + 10; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - bh - 8, Math.min(W - 16, 1040), bh);
+  ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  lines.forEach((t, i) => { ctx.fillStyle = i === 2 && !E.trying ? '#ffe080' : '#fdf6e3'; ctx.fillText(t, 16, H - bh - 8 + 5 + (i + 1) * (fs + 6) - 4); });
 }
 if (typeof canvas !== 'undefined' && canvas && canvas.addEventListener && EDIT_SCENE) {
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) editDown(e.clientX, e.clientY); });

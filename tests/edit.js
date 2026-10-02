@@ -26,25 +26,28 @@ const foot=byS(80); const [FX,FY]=southOf(foot); click(FX,FY); const sel1=E.sel&
 console.log('2 laid: plates', n0[0], 'pits', n0[1], 'seams', n0[2], '(the file lists', shipped+') | clicked the face stack foot: selected it', sel1, '| the hero parked at', tx().toFixed(1), ty().toFixed(1));
 // 3. ] thickens it by 0.05: the ground on it rises as much, the plate above it (1.2 face) stands higher; [ puts it back
 const sp=p=>{ const [sx,sy]=p.P.reduce((a,b)=>b[1]>a[1]?b:a); return [sx,sy-0.35]; }, at=p=>plateTopAt(pl(),...sp(p));   // the ground on that showing part of its top
-const t0=at(foot), b0=LY().plates.find(p=>p.seed===81.3).base; tap(']'); const t1=at(foot), b1=LY().plates.find(p=>p.seed===81.3).base; tap('['); const t2=at(foot);
+const t0=at(foot), b0=LY().plates.find(p=>p.seed===81.3).base; tap('d'); tap(']'); const t1=at(foot), b1=LY().plates.find(p=>p.seed===81.3).base; tap('['); const t2=at(foot);
 console.log('3 ] thickness: ground on it', t0.toFixed(2), '>', t1.toFixed(2), '| the plate above re-based', b0.toFixed(2), '>', b1.toFixed(2), '| [ back to', t2.toFixed(2));
+// 3b. L, W, A pick what [ ] change: length, width, all three scaled together (Ross's lwd)
+const fo=LY().plates.find(p=>p.seed===80), dim0=[fo.w,fo.h,fo.thick]; tap('l'); tap(']'); const dimL=[fo.w,fo.h,fo.thick]; tap('w'); tap(']'); const dimW=[fo.w,fo.h,fo.thick]; tap('a'); tap(']'); const dimA=[fo.w,fo.h,fo.thick]; tap('['); tap('w'); tap('['); tap('l'); tap('['); tap('d');
+console.log('3b [ ] by dimension: lwd', dim0.join('/'), '> L ]', dimL.join('/'), '> W ]', dimW.join('/'), '> A ] (all x1.1)', dimA.join('/'), '> back', [fo.w,fo.h,fo.thick].join('/'));
 // 4. drag it 2 tiles east: it and the two on it move; the ground at the old spot drops to 0, at the new spot is its top
 const k=mtnPush(mtnH(m,foot.x,foot.y)+foot.thick,c)*UNIT*mtnZoom(c.p,m), [DX,DY]=southOf(byS(80)); const [ox,oy]=sp(foot), o2=LY().plates.find(p=>p.seed===82.6).x;
 editDown(DX,DY); run(1); editMove(DX+k*2,DY); run(1); editUp(DX+k*2,DY); run(1);
 const nf=byS(80), movedBy=nf.x-foot.x, aboveBy=LY().plates.find(p=>p.seed===82.6).x-o2, gOld=plateTopAt(pl(),ox,oy), gNew=at(nf);
 console.log('4 dragged the foot 2 tiles east: it moved', movedBy.toFixed(2), '| the crown on it moved', aboveBy.toFixed(2), '| ground at the old spot', gOld, 'at the new', gNew.toFixed(2));
 // 5. D duplicates up the stack (on the selected, shifted, smaller, thinner); Delete removes it
-click(...topMid(byS(82.6))); const nBefore=LY().plates.length; tap('d'); const dup=LY().plates[LY().plates.length-1], crown=byS(82.6);
+click(...topMid(byS(82.6))); const nBefore=LY().plates.length; tap('u'); const dup=LY().plates[LY().plates.length-1], crown=byS(82.6);
 const dupOK=dup.under===LY().plates.indexOf(LY().plates.find(p=>p.seed===82.6))&&Math.abs(dup.base-plateTop(crown))<1e-6&&dup.w<crown.w&&dup.thick<crown.thick;
 tap('delete'); const nAfter=LY().plates.length;
-console.log('5 D on the crown: plates', nBefore, '>', nBefore+1, '| the new one stands on it, thinner and smaller', dupOK, '(thick', dup.thick, 'base', dup.base+') | Delete:', nAfter);
+console.log('5 U on the crown: plates', nBefore, '>', nBefore+1, '| the new one stands on it, thinner and smaller', dupOK, '(thick', dup.thick, 'base', dup.base+') | Delete:', nAfter);
 // 6. N lays a plate at the cursor on open ground (base 0), P a pit on it: inside the pit the ground is the floor, outside it the plate's top
 const [NX,NY]=pr(14,20,0); editMove(NX,NY); run(1); tap('n'); const np=LY().plates[LY().plates.length-1]; tap('p'); const q=pl().pits[pl().pits.length-1];
 const inPit=plateTopAt(pl(),14,20), onPlate=plateTopAt(pl(),14+1.6,20);
 console.log('6 N at 14,20: a plate at', np.x, np.y, 'base', np.base, 'thick', np.thick, '| P: pits', pl().pits.length, 'cutting', q.cut.length, 'plate | ground in the pit', inPit, 'beside it', onPlate);
 // 7. C, three clicks, C: a seam of three points; its width [ ]; then Delete it, the pit and the plate (the layout back to 214's)
 tap('c'); for (const [x,y] of [[16,18],[17,19],[18,21]]) { const [CX,CY]=pr(x,y,0); click(CX,CY); } const laid=E.crack.spine.length; tap('c');
-const sm=LY().seams[LY().seams.length-1], w0=sm.spine[0][2]; tap(']'); const w1=sm.spine[0][2]; tap('delete');
+const sm=LY().seams[LY().seams.length-1], w0=sm.spine[0][2]; tap('w'); tap(']'); const w1=sm.spine[0][2]; tap('delete');
 click(...pl().pits[pl().pits.length-1].P.slice(0,1).map(([x,y])=>pr(x,y,0.4)).map(v=>v)); if(!(E.sel&&E.sel.kind==='pit')) { const Q=pl().pits[pl().pits.length-1]; click(...mid(Q.P.map(([x,y])=>pr(x,y,Q.top)))); } const pitSel=E.sel&&E.sel.kind==='pit'; tap('delete');
 click(...topMid(byS(np.seed))); tap('delete');
 const n1=[pl().list.length, pl().pits.length, pl().seams.length];
@@ -56,5 +59,9 @@ console.log('8 S then L: loaded', okLoad, 'the same', back, '| the text is the f
 // 9. T at the cursor: the hero there, the game runs (he walks); T parks him, the view on him
 const [TX,TY]=pr(10,4,0); editMove(TX,TY); run(1); tap('t'); const dropped=[tx(),ty()].map(v=>v.toFixed(1)), trying=E.trying; state.keys.arrowright=true; run(40); state.keys.arrowright=false; run(1); const walked=tx()-10; tap('t');
 console.log('9 T: hero at', dropped.join(','), 'trying', trying, '| walked', walked.toFixed(2), 'tiles east | T again: editing', !E.trying, 'view on him', Math.abs(E.cx-tx())<1e-6, '| the hero stays at', tx().toFixed(1), 'while', (state.keys.arrowleft=true, run(30), state.keys.arrowleft=false, run(1), tx().toFixed(1)));
+// 11. the flat board: ?edit=flat is open stone with nothing on it; N lays a plate, T walks on it
+startEdit('flat'); run(3); const F=state.edit, fm=MTN.flat; const flat0=platesLay(fm).list.length, solids=state.solids.length, ravs=mtnRavs(fm).length; const [GX,GY]=mtnProj(20,12,mtnH(fm,20,12),state.mtn); editMove(GX,GY); run(1); tap('n'); const flat1=platesLay(fm).list.length;
+const [HX,HY]=mtnProj(22,12,0,state.mtn); editMove(HX,HY); run(1); tap('t'); state.keys.arrowleft=true; run(90); state.keys.arrowleft=false; run(5); const onIt=+(h.lift||0).toFixed(2); tap('t');
+console.log('11 flat board: scene', state.scene, 'editing', !!F&&F.id, '| plates', flat0, 'solids', solids, 'ravines', ravs, '| N: plates', flat1, '| T beside it, walked west: ground', onIt, '(the hop holds at 0, as a person would jump)');
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);

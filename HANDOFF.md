@@ -47,7 +47,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (keys 1-4 jump between mt2 and climb3 to climb5, 0 to the first field, [ ] and - = tune the
-  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?edit=mt2` (the layout editor, 215), `?overview=N` (the same world as
+  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?edit=mt2` and `?edit=flat` (the layout editor, 215; flat is the empty board), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
@@ -68,9 +68,9 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 drawPlateTiles (no drawPit: the pit is drawn in drawPlate). mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
                 colour the ravines (grey on a plates screen).
 - layouts/      a plates screen's layout by scene id (LAYOUTS[id]: plates, pits, seams in tiles), laid in the editor and
-                read by plateLayout at enterScene; mt2.js now. S in the editor copies the file; the save is pasting it over.
+                read by plateLayout at enterScene; mt2.js and flat.js (the board, empty). S in the editor copies the file; the save is pasting it over.
 - mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE the rise's,
-                M2 the stepping path's (scene mt2): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
+                M2 the stepping path's (scene mt2), FLAT the editor's flat board (scene flat, 216: no mountain, ravine or exits, off the map): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
                 screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
                 seed, walk with keep) or M1's old cy/hw one with a floor; ravField (the drop, one shape for isChasm via
                 sc.mtnGap and the drawing), ravRings (the outline traced once, islands swallowed), mtnDrawRavs (all spines
@@ -216,19 +216,21 @@ Open: what opens the reeds, a line when you bump them, the seam with f1 (the ris
 south opening wherever the seed put it), and if it still stutters on Ross's machine, flat wall colours plus one dark
 wash (a still first).
 
-## The editor (215, ?edit=<scene>, src/edit.js)
-On a plates screen (one with LAYOUTS[id]). The world stands still, the hero parked at the way in, drawn faint. Arrows
-pan, the wheel zooms about the cursor, a drag on open ground pans. Click selects (a pit inside a plate before the
-plate, a seam by its line), drag moves (a plate takes its stack along), click on open ground clears. [ ] thickness
-(pit: ledge; seam: width), - = width, , . depth, ; ' base (the plate then stands on nothing) or floor, R turns, D
-duplicates up the stack (plateNext), Delete, N a plate under the cursor (on the plate there), P a pit, C a crack (clicks
-lay its points, C ends), T try it (the game runs; T parks you where you are). S copies src/layouts/<scene>.js to the
-clipboard (the save: paste it over that file, rebuild); L loads a pasted one. Labels: thickness in the kind's colour
-(step green, hop yellow, high orange, face red), the selected plate's base too. tests/edit.js drives editDown/editMove/
-editUp/editWheel and the keys. Not in it yet: undo (use L with the last S), snapping, multi-select.
+## The editor (215, keys remade in 216; ?edit=<scene>, src/edit.js)
+On a plates screen (one with LAYOUTS[id]: mt2, and flat, the empty board). The world stands still, the hero parked
+at the way in, drawn faint. Arrows pan, the wheel zooms about the cursor, a drag on open ground pans. Click selects (a
+pit inside a plate before the plate, a seam by its line), drag moves (a plate takes its stack along), click on open
+ground clears. L W D A B E pick what [ ] change: length (x, 0.2), width (y, 0.2), depth (thickness, 0.05), all three
+scaled by a tenth (Ross's lwd), base (0.05; the plate then stands on nothing; a pit: its floor), ledge (a pit's); a
+seam only has its width. R turns, U copies it up the stack (plateNext), Delete, N a plate under the cursor (on the
+plate there), P a pit, C a crack (clicks lay its points, C ends), T try it (the game runs; T parks you where you
+stand). S copies src/layouts/<scene>.js to the clipboard (the save: paste it over that file, rebuild); O opens a
+pasted one. The panel at the bottom: the selected thing's numbers, the picked dimension, the keys. Labels: thickness in
+the kind's colour (step green, hop yellow, high orange, face red). tests/edit.js drives editDown/editMove/editUp/
+editWheel and the keys on mt2 and flat. Not in it yet: undo (O with the last S), snapping, multi-select.
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 216 LAYERED GROUND (below). 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
+FABLE: 217 LAYERED GROUND (below, numbered 216 when planned; 216 went to the editor's keys and the flat board). 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
 mt2 is the plates' test screen, grey, its close view following you (the eye over you), a staggered stack of four with
 a pitfall punched to the base (floor on its far side, L-shaped ledges a hop apart up the south-west), a stack with a
 1.2 face, a perch, a north-bank two-step, a seam; the islands' pillars solid; you hop and jump onto plates, drop off

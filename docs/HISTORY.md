@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 216: the editor's keys read, lwd, the flat board (chat)
+Ross, after 215: the size keys only changed the length, he wants w and a scale of all three (lwd), the key line was
+hard to read, and a flat open space to work in. Keys remade: L W D A B E pick what [ ] change (length, width, depth,
+all three scaled by a tenth, base or a pit's floor, a pit's ledge); U copies up the stack (was D), O opens a pasted
+layout (was L), S saves, T tries. The panel at the bottom is five lines: the selected thing's numbers, the dimension
+[ ] change (highlighted), the keys. A flat board, scene flat (?edit=flat): open stone, no mountain, no ravine, no way
+in or out, off the map, its layout src/layouts/flat.js (empty). tests/edit.js covers the dimension keys and the board.
+
 ## Build 215: the editor (chat)
 ?edit=<scene> (src/edit.js) on a plates screen, on the main game's code: the scene opens as a test link, the hero
 parked at the way in and drawn faint, the world standing still while you lay plates, pits and seams. Arrows pan, the

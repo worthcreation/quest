@@ -245,6 +245,7 @@ function genWorld() {
   for (const id of ['climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
   addMtn(S, add, RISE);                             // the second field is the rise (mountain.js): one long slope to the mountain
   addMtn(S, add, M2);                               // and through its pass, the stepping path (211; the wind shelf, mt1, retired in 213)
+  addMtn(S, add, FLAT);                             // the editor's flat board (215): off the map, no way in or out
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }

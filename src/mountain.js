@@ -67,7 +67,18 @@ const M2 = {
     return d;
   },
 };
-const MTN = { rise: RISE, mt2: M2 };                                           // every screen of the family, by scene id
+// A flat board (scene flat, 215): open stone with nothing on it, the editor's scratch space (?edit=flat, Ross: a flat
+// space to work in). No mountain (the foot far off east), no ravine, no way in or out: the edges hold. Grey, the eye
+// over you, the close view, like mt2. Its layout is src/layouts/flat.js (empty as shipped).
+const FLAT = {
+  id: 'flat', len: 40, D: 24, flat: 0, grade: 0, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 14,
+  X0: -16, X1: 80, Y0: -6, Y1: 60, seed: 29, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true }, ravs: null, isls: null,
+  foot: () => 200, pathY() { return this.mid; }, pathD: () => 99,
+  layout() {}, plates: pl => plateLayout(pl, 'flat'),
+  scene: { area: 'field', depth: 4, msg: 'The flat board.', music: 'field', amb: 'wind', floor: '#8f9188', speed: 0.45, accel: 8 },
+  finish(sc) { const m = this; sc.mtnHold = a => mtnHold(m, a) || (a === state.hero ? plateStepHero(m, a) : plateHold(m, a)); },
+};
+const MTN = { rise: RISE, mt2: M2, flat: FLAT };                                // every screen of the family, by scene id
 // the lowest a moving view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const mtnZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the way on)
