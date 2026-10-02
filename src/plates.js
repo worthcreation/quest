@@ -20,7 +20,7 @@
 // - seams: a crack under half a tile wide, its tones inside its own width (mid-dark, the east half near black),
 //   painted on the base, then on each top after that top, clipped to it: it jogs up every face and a plate nearer the
 //   eye hides it; it stops at a pit's rim.
-// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until build 216 lays the
+// Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until layered ground lays the
 // ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
 // What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
 // plates each { x, y, w, h, seed, base, thick, tone, rot, under }, pits { x, y, w, h, seed, floor, ledge }, seams
@@ -70,6 +70,21 @@ function platesLay(m) {
   for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); }
   const keyOf = (p, d = 0) => p.key !== undefined ? p.key : (p.key = Math.max(p.box[3], p.under && d < 64 ? keyOf(p.under, d + 1) + 1e-3 : -Infinity));   // (its foot's south edge, never before the one it stands on, whatever order the list has them)
   for (const p of pl.list) keyOf(p);
+  // the painter's order where plates overlap on the ground (217, Ross: a plate laid partly inside another showed the
+  // other's wall over it): what stands on a plate comes after it, a plate wholly above another's top comes after it,
+  // and two that share height are ordered by whose foot lies further south where they overlap, not by their whole
+  // outline; the keys are then nudged so the list's order holds (a key never moves north)
+  const unders = p => { const S = new Set(); for (let u = p.under, d = 0; u && d < 64; u = u.under, d++) S.add(u); return S; }, UN = new Map(pl.list.map(p => [p, unders(p)]));
+  const localS = (p, x0, x1) => { let m = -Infinity; for (const [x, y] of p.P) if (x >= x0 && x <= x1 && y > m) m = y; return m === -Infinity ? p.box[3] : m; };
+  const before = (a, b) => { if (UN.get(b).has(a)) return true; if (UN.get(a).has(b)) return false;                  // a is painted before b (only asked of two that overlap on the ground)
+    if (a.base >= plateTop(b) - 1e-6) return false; if (b.base >= plateTop(a) - 1e-6) return true;
+    const x0 = Math.max(a.box[0], b.box[0]), x1 = Math.min(a.box[2], b.box[2]), d = localS(a, x0, x1) - localS(b, x0, x1); return Math.abs(d) > 0.05 ? d < 0 : a.key < b.key; };
+  const after = new Map(pl.list.map(p => [p, new Set()])), L = pl.list;                       // what must come after each plate
+  for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) { const a = L[i], b = L[j]; if (!(a.box[0] < b.box[2] && b.box[0] < a.box[2] && a.box[1] < b.box[3] && b.box[1] < a.box[3])) continue; if (before(a, b)) after.get(a).add(b); else after.get(b).add(a); }
+  const out = [], left = new Set(L);                                                           // then from the north: the plate nothing left must precede, the northmost of those (a cycle, if a layout makes one, just takes the northmost)
+  while (left.size) { let pick = null; for (const p of left) if (![...left].some(q => q !== p && after.get(q).has(p)) && (!pick || p.key < pick.key)) pick = p; if (!pick) for (const p of left) if (!pick || p.key < pick.key) pick = p; out.push(pick); left.delete(pick); }
+  pl.list = out;
+  let prev = -Infinity; for (const p of pl.list) { p.key = Math.max(p.key, prev + 1e-3); prev = p.key; }
   for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
@@ -78,21 +93,22 @@ function platesLay(m) {
 }
 const pitHas = (q, p, x, y) => q.ring.has(p) && plateIn(q.ring.get(p), x, y);
 // the ground's height in tiles above the base at a point: the top of the highest plate there, less the pits (0 off every plate)
-function plateTopAt(pl, x, y) { let h = 0; for (const p of pl.list) if (plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p)); return h; }   // (in a pit: whatever is left under the cut, its floor or a ledge)
+function plateTopAt(pl, x, y, ok = null) { let h = 0; for (const p of pl.list) if ((!ok || ok(p)) && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p)); return h; }   // (in a pit: whatever is left under the cut, its floor or a ledge; ok: only the plates it passes)
 // the hero on the plates (213): his ground is the top of the plate he stands on (h.lift, tiles above the base). A
 // plate no more than PL_STEP above it is walked up; a higher one is a wall unless he is in the air at or above its
 // top, and then he lands on it; walking or jumping off an edge drops him to the ground below (in the air at the
 // height he was). Build 214 adds the drop's numbers (a puff, a stagger, a heart), Pip and the camera's lift
-const PL_STEP = 0.25, PL_BODY = 0.35;                                                    // a step you walk up; how far round your middle your body reaches (a wall stops it, not just your middle)
+const PL_STEP = 0.25, PL_BODY = 0.35, PL_HEAD = 1.1;                                     // a step you walk up; how far round your middle your body reaches (a wall stops it, not just your middle); your height: a plate whose underside is that far above your ground you walk under (217)
 function plateStepHero(m, h) {
   const pl = platesLay(m), x = h.x / UNIT, y = h.y / UNIT;
-  if (h.liftAt !== state.scene) { h.liftAt = state.scene; h.lift = plateTopAt(pl, x, y); h.plPrev = [h.x, h.y]; }
+  if (h.liftAt !== state.scene) { h.liftAt = state.scene; let c = 0; for (let k = 0; k < 4; k++) c = plateTopAt(pl, x, y, p => p.base < c + PL_HEAD); h.lift = c; h.plPrev = [h.x, h.y]; }   // put down here: on the ground, then up whatever stands within head room of it (never on an overhang)
   const cur = h.lift, air = Math.max(0, h.z) / UNIT, up = T => T > cur + PL_STEP + 1e-6 && cur + air < T - 0.02;   // too high to walk up, and not above it in the air
-  const body = (x, y) => { let t = plateTopAt(pl, x, y); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; t = Math.max(t, plateTopAt(pl, x + Math.cos(a) * PL_BODY, y + Math.sin(a) * PL_BODY)); } return t; };   // the highest ground under your body, not just your middle: no standing half inside a wall
-  let T = plateTopAt(pl, x, y), wall = false; const was = h.plPrev ? body(h.plPrev[0] / UNIT, h.plPrev[1] / UNIT) : 0, into = (b) => up(b) && b > was + 1e-6;   // (a wall only stops you moving into it: stepping off a plate with your back against a higher one is fine)
+  const under = p => p.base >= cur + PL_HEAD - 1e-6 && cur + air < plateTop(p) - 0.02, topAt = (x, y) => plateTopAt(pl, x, y, p => !under(p));   // an overhang clear of your head is passed under (unless you are in the air at or above its top: then you land on it)
+  const body = (x, y) => { let t = topAt(x, y); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; t = Math.max(t, topAt(x + Math.cos(a) * PL_BODY, y + Math.sin(a) * PL_BODY)); } return t; };   // the highest ground under your body, not just your middle: no standing half inside a wall
+  let T = topAt(x, y), wall = false; const was = h.plPrev ? body(h.plPrev[0] / UNIT, h.plPrev[1] / UNIT) : 0, into = (b) => up(b) && b > was + 1e-6;   // (a wall only stops you moving into it: stepping off a plate with your back against a higher one is fine)
   if (up(T) || into(body(x, y))) { const [px, py] = h.plPrev || [h.x, h.y]; wall = true;            // held: slide along the face if one axis is free
-    if (!up(plateTopAt(pl, px / UNIT, y)) && !into(body(px / UNIT, y))) { h.x = px; h.vx = 0; } else if (!up(plateTopAt(pl, x, py / UNIT)) && !into(body(x, py / UNIT))) { h.y = py; h.vy = 0; } else { h.x = px; h.y = py; h.vx = h.vy = 0; }
-    T = plateTopAt(pl, h.x / UNIT, h.y / UNIT); }
+    if (!up(topAt(px / UNIT, y)) && !into(body(px / UNIT, y))) { h.x = px; h.vx = 0; } else if (!up(topAt(x, py / UNIT)) && !into(body(x, py / UNIT))) { h.y = py; h.vy = 0; } else { h.x = px; h.y = py; h.vx = h.vy = 0; }
+    T = topAt(h.x / UNIT, h.y / UNIT); }
   if (T > cur) { h.z = Math.max(0, h.z - (T - cur) * UNIT); if (h.z <= 0) { h.z = 0; h.vz = Math.max(0, h.vz); if (h.vz === 0 && air > 0) spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); } }   // up a step, or landing on a top
   else if (T < cur) { h.z += (cur - T) * UNIT; if (h.vz === 0) h.airDist = 0; }                                    // off an edge: in the air, falling to the ground below
   h.lift = T; h.plPrev = [h.x, h.y];
@@ -101,6 +117,9 @@ function plateStepHero(m, h) {
 // what stands on the plates is drawn after the plate it stands on: the key of the highest plate under a point at or
 // below a height (drawMtn's list)
 const plateKeyUnder = (pl, x, y, z) => pl.list.reduce((k, p) => plateTop(p) <= z + 1e-6 && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y)) ? Math.max(k, p.key + 1e-3) : k, -Infinity);
+// the plates over you (their underside clear of your head, over your middle): you are drawn before the first of them, so
+// they cover you and the x-ray shows you through (the key of the first such plate, or Infinity)
+const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
 // you're put back just outside its nearest edge, as the mountain holds
 function plateHold(m, a) {

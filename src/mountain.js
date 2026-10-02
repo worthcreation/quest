@@ -512,7 +512,7 @@ function drawMtn() {
     // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
-    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity);
+    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
     list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
     PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
     const rims = over;

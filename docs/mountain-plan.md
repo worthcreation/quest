@@ -22,7 +22,8 @@ you look into) and jog up every face. The look rules, all from the stills (docs/
   plate; with a ledge width each plate down is cut back on the near sides so L-shaped ledges a hop apart lead out and
   the floor sits on the far side; down a pit you're drawn among its layers, smaller the deeper; only the nearest layer
   shows, the x-ray only on the part of you it covers; mt2's view follows you so the eye is over you; island pillars
-  are solid stone lit by facing.
+  are solid stone lit by facing. An overhang clear of your head (1.1 tiles) is walked under, the x-ray showing you
+  (217); plates laid overlapping paint by whose foot lies south where they overlap.
 
 ## One generator
 The rise is the first screen of the family, and rise.js became the family's builder, mountain.js (206): one function that lays out a

@@ -62,7 +62,8 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
 - plates.js     the plate (212, docs/mountain-plan.md "Plates"): plateOutline (a seed's worn squarish ring), plateHas (the one
                 shape), plateKind, plateAdd/plateNext/platePit/plateSeam, plateLayout (a screen's m.plates reads LAYOUTS[id],
-                or the editor's copy; platesLay works out keys, pit cuts, floors), plateTopAt, plateHold (every plate holds until 214), platesAt; the drawing: plateTex
+                or the editor's copy; platesLay works out keys, pit cuts, floors), plateTopAt (with a predicate: the hero's skips overhangs), plateOverHero, plateHold, platesAt; platesLay's painter's order
+                (chain, wholly-above, then whose foot is south where two overlap: a dependency order from the north); the drawing: plateTex
                 (a top's texture once, tile space, cached by seed and size in PL_TEX), plateLay (laid through the projection), platePaintFaces (faces north
                 only), platePaintBrink/Lip, platePaintSeam, platesBase (the base's wash in 8-tile chunks), drawPlate,
                 drawPlateTiles (no drawPit: the pit is drawn in drawPlate). mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
@@ -174,7 +175,7 @@ mtnProj's push-out), close throughout (M2.fixed { p: 0.35, zoom: 0.825, follow: 
 the editor ?edit=mt2): on the south-west bank a staggered stack of four (0.4, 0.45, 0.35, 0.45) with a pitfall punched
 to the base (ledge 0.55, floor on its far side; 214), a stack of three with a 1.2 face partway up, a perch of
 two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. You climb the plates (plateStepHero,
-213); Pip and the hares are held off them (plateHold) until layered ground. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
+213; since 217 an overhang clear of your head, PL_HEAD 1.1, is walked under, the x-ray showing); Pip and the hares are held off them (plateHold) until layered ground. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
 of this section is 211's.
 Out of the rise's pass (since 213), 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
 SW / (41 UNIT), never under mtnZoomMin; a phone's view slides with you, never past the ends). The drop (m2Ravine):
@@ -230,7 +231,7 @@ the kind's colour (step green, hop yellow, high orange, face red). tests/edit.js
 editWheel and the keys on mt2 and flat. Not in it yet: undo (O with the last S), snapping, multi-select.
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 217 LAYERED GROUND (below, numbered 216 when planned; 216 went to the editor's keys and the flat board). 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
+FABLE: 218 LAYERED GROUND (below, numbered 216 when planned; 216 went to the editor's keys and the flat board, 217 to overhangs and the overlap order: HISTORY). 215 shipped the editor (section above). Where things stand after the plates chat (212 to 214, 2 Oct):
 mt2 is the plates' test screen, grey, its close view following you (the eye over you), a staggered stack of four with
 a pitfall punched to the base (floor on its far side, L-shaped ledges a hop apart up the south-west), a stack with a
 1.2 face, a perch, a north-bank two-step, a seam; the islands' pillars solid; you hop and jump onto plates, drop off
@@ -287,7 +288,7 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
 - ~~215 THE EDITOR~~ (215: as planned, with Ross's calls: the wheel zooms, [ ] thickness; the keys in "The editor"
   above; the layout is src/layouts/<scene>.js, LAYOUTS[id], read by plateLayout; plateStack gone, plateNext in its
   place; plate tops cached by seed and size).
-- 216 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
+- 218 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214, overhangs and the draw order where plates overlap in 217; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
   at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
   in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
   and he lands on whatever is below (a missed jump lands on the plate under; a pit is just a spot where that is several
@@ -297,11 +298,11 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   hop 0.25 to 0.5 (a tap clears it unless tired), high hop 0.5 to 1 (a held jump at the start, a tap by vigor 20),
   face > 1, m2's walls >= 2.5 (past any jump); drops under 1.5 a puff, 1.5 to 3 a stagger, over 3 a heart. Measured:
   tap 0.56 / held 0.95 at start, 0.94 / 1.5 at vigor 20, tired 0.2 / 0.34.
-- 217 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
+- 219 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
   by list; laid so stacks sit a tile and a half to two apart at a like height for the jumps between them.
-- 218 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
-  for m1); 219 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
-  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 220+ m3 (a pit into it as one way in).
+- 220 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
+  for m1); 221 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
+  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 222+ m3 (a pit into it as one way in).
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.

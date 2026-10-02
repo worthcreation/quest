@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 217: under an overhang; plates laid inside plates paint in front (chat)
+Ross, from a screenshot of the editor: a stack leaning out over the ground should be walked under where it clears
+your head, the x-ray showing you; a plate laid partly inside another showed the other's wall over it. A plate whose
+underside is PL_HEAD (1.1 tiles) or more above your ground is passed under (plateStepHero: not ground, not a wall)
+unless you are in the air at or above its top, when you land on it; put down on a screen you start on the ground and
+up whatever stands within head room, never on an overhang; you are drawn before the first plate over you
+(plateOverHero), so it covers you and the x-ray shows you through. The painter's order where plates overlap on the
+ground (platesLay): what stands on a plate after it, a plate wholly above another's top after it, two that share
+height by whose foot lies further south where they overlap (not by the whole outline), as a dependency order from the
+north; keys nudged so the list's order holds. tests/overhang.js.
+
 ## Build 216: the editor's keys read, lwd, the flat board (chat)
 Ross, after 215: the size keys only changed the length, he wants w and a scale of all three (lwd), the key line was
 hard to read, and a flat open space to work in. Keys remade: L W D A B E pick what [ ] change (length, width, depth,
