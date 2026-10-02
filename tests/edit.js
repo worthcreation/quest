@@ -67,5 +67,13 @@ startEdit('flat'); run(3); const F=state.edit, fm=MTN.flat; const flat0=platesLa
 const [HX,HY]=mtnProj(22,12,0,state.mtn); editMove(HX,HY); run(1); tap('t'); state.keys.arrowleft=true; run(90); state.keys.arrowleft=false; run(5); const onIt=+(h.lift||0).toFixed(2); tap('t');
 console.log('11 flat board: scene', state.scene, 'editing', !!F&&F.id, '| plates', flat0, 'solids', solids, 'ravines', ravs, '| N: plates', flat1, '| T beside it, walked west: ground', onIt, '(the hop holds at 0, as a person would jump)');
 tap('h'); const helpOn=state.edit.help; run(4); tap('h'); console.log('12 H: the key sheet opened', helpOn, 'and closed', !state.edit.help);
+// 13. R turns a slab without changing its size (223: the turn stretched it); Q and Z tilt the view, shift and the wheel too, V resets it
+startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[{x:20,y:12,w:6,h:3,seed:4,base:0,thick:1,tone:134,rot:0,under:-1}],pits:[],seams:[]}));
+const F2=state.edit, a0=Math.abs(polyArea(platesLay(MTN.flat).list[0].P)), bx0=plateBox(platesLay(MTN.flat).list[0].P); F2.sel={kind:'plate',i:0}; for(let k=0;k<6;k++) tap('r');
+const p90=platesLay(MTN.flat).list[0], a90=Math.abs(polyArea(p90.P)), bx90=plateBox(p90.P);
+const faceH=()=>{ const q=platesLay(MTN.flat).list[0], cc=state.mtn, top=mtnProj(20,12,1,cc)[1], foot=mtnProj(20,12,0,cc)[1]; return foot-top; };
+const p0=state.mtn.p, h0=faceH(); state.keys.z=true; run(30); state.keys.z=false; run(1); const p1=state.mtn.p, h1=faceH(); state.keys.q=true; run(200); state.keys.q=false; run(1); const p2=state.mtn.p, h2=faceH();
+editWheel(100,SW/2,SH/2,true); run(1); const p3=state.mtn.p; tap('v'); const p4=state.mtn.p;
+console.log('13 R six times (90 deg): area', a0.toFixed(2), '>', a90.toFixed(2), '| span', (bx0[2]-bx0[0]).toFixed(2)+'x'+(bx0[3]-bx0[1]).toFixed(2), '>', (bx90[2]-bx90[0]).toFixed(2)+'x'+(bx90[3]-bx90[1]).toFixed(2), '| tilt p', p0, '> Z', p1.toFixed(2), '> Q to', p2.toFixed(2), '| a 1-tile face on screen', h0.toFixed(1), '>', h1.toFixed(1), '>', h2.toFixed(1), 'px | shift+wheel', p3.toFixed(2), '| V', p4);
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);

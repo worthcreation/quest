@@ -21,7 +21,7 @@ W=1280; H=800; computeUnit(); canvas.width=W; canvas.height=H; lightCv.width=W/2
 state.started=true; startEdit('flat'); for(let k=0;k<5;k++){update(1/60);draw();} state.texts=[]; state.title=null;
 editLoad(JSON.stringify(LAY)); const E=state.edit; E.sel=null; state.hero.x=(process.env.TUNNEL ? 15.7 : 18)*UNIT; state.hero.y=(process.env.TUNNEL ? 13.2 : 19)*UNIT; state.hero.liftAt=null;
 for (const eye of (process.env.EYES || '14,40,0').split(',').map(Number)) { MTN.flat.eye = eye || undefined;
-  for (const [tag, z] of [['close', 1.0], ['wide', 0.6]]) { E.cx=process.env.TUNNEL ? 16 : 18; E.cy=process.env.TUNNEL ? 12.5 : 13; E.zoom=z; mtnCamera(0,state.mtn,true); for(let k=0;k<2;k++){update(1/60);draw();}
+  for (const [tag, z] of [['close', 1.0], ['wide', 0.6]]) { E.cx=process.env.TUNNEL ? 16 : 18; E.cy=process.env.TUNNEL ? 12.5 : 13; E.zoom=z; if (process.env.P) E.p=+process.env.P; mtnCamera(0,state.mtn,true); for(let k=0;k<2;k++){update(1/60);draw();}
     ctx.fillStyle='rgba(0,0,0,.6)'; ctx.fillRect(0,0,420,26); ctx.fillStyle='#fff'; ctx.font='16px sans-serif'; ctx.textAlign='left'; ctx.fillText('eye ' + (eye || 'none (no push-out)') + ' tiles up (' + tag + ')', 10, 19);
-    fs.writeFileSync('/mnt/user-data/outputs/' + (process.env.TUNNEL ? 'tunnel-' : 'eye-' + eye + '-') + tag + '.png', canvas.toBuffer('image/png')); } }
+    fs.writeFileSync('/mnt/user-data/outputs/' + (process.env.TUNNEL ? 'tunnel-' : 'eye-' + eye + '-') + (process.env.P ? 'tilt' + process.env.P + '-' : '') + tag + '.png', canvas.toBuffer('image/png')); } }
 `);

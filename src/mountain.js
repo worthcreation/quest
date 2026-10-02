@@ -432,7 +432,7 @@ function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamer
 function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
   const m = c.m, h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = mtnView(m, x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
-  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = mtnView(m, E.cx); c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); return; }   // the editor's free view (edit.js)
+  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = E.p; c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); return; }   // the editor's free view (edit.js)
   if (m.fixed) {                                                                        // a still view at one tilt and zoom (the whole screen, or close: fixed.zoom); on a screen too narrow for it, it slides along with you, never past the ends
     const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = m.fixed.follow ? x : half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = m.fixed.follow ? y : halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);   // (follow: the view centres on you, past the scene's edges too, so the eye is always over you and you see down into whatever you're in)
     c.p = p; c.cx += (cx - c.cx) * e; c.cy += (cy - c.cy) * e; c.ch += (mtnH(m, c.cx, c.cy) - c.ch) * e; return;

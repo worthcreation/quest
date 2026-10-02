@@ -1,6 +1,14 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 223: the editor's camera tilts; R only turns (chat)
+Ross, after 222: tilt the camera; R should rotate, not scale. The editor's view now has its own tilt (state.edit.p):
+Q flatter toward straight down, Z tipped further (to about 79 degrees), shift and the wheel the same, V resets zoom
+and tilt; the bottom line shows the tilt in degrees. Trying it (T) uses the game's camera. R's turn was folded into
+the outline's squashed skew (the seed's small tilt, its sine halved), so turning a slab stretched it; plateOutline now
+turns the finished outline rigidly about its middle (a quarter turn: the same area, the spans swapped). Slabs never
+turned are unchanged.
+
 ## Build 222: edges meet; tunnels (chat)
 Ross, from a screenshot: where a pit crossed a slab's edge its walls stopped short of the slab's (the pit was drawn as
 a hole clipped to the top, the slab's wall cut away under it). Now a ring that crosses a slab's outline cuts a notch out
