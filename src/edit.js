@@ -13,7 +13,7 @@
 // - N a new plate under the cursor (on the plate there, if any), P a pit there, C starts a crack and clicks lay its
 //   points (C again ends it), T drops the hero at the cursor to try it (the game runs: T again parks him there)
 // - S saves: copies the layout as the file src/layouts/<scene>.js (the save is pasting it over that file); O opens one
-//   pasted. The help panel at the bottom shows the selected thing's numbers and which dimension [ ] change.
+//   pasted. One line at the bottom shows the selected thing's numbers and what [ ] change; H opens the key sheet.
 // Every plate shows its thickness, coloured by kind (step green, hop yellow, high hop orange, face red); the selected
 // one its base too, with a dashed outline. tests/edit.js drives it through editDown/editMove/editUp/editWheel.
 var EDIT_SCENE = typeof location !== 'undefined' ? ((/[?&]edit=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
@@ -25,9 +25,9 @@ function startEdit(id) {
   const m = MTN[id]; startTestScene(id, m && m.inX != null ? m.inX / m.len : undefined, m && m.inX != null ? m.pathY(m.inX) / m.D : undefined);   // parked at the way in
   const h = state.hero;
   if (!m || !m.plates) { showScroll('Not a plates screen', `${id} has no layout to edit.`); return; }
-  state.edit = { id, layout: editCopy(LAYOUTS[id] || { plates: [], pits: [], seams: [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
+  state.edit = { id, layout: editCopy(LAYOUTS[id] || { plates: [], pits: [], seams: [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', help: false, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
   editRelay(); mtnCamera(0, state.mtn, true);
-  showScroll('The editor', 'Arrows pan, the wheel zooms. Click selects, drag moves. The keys are on the panel at the bottom.');
+  showScroll('The editor', 'Arrows pan, the wheel zooms. Click selects, drag moves. H shows the keys.');
 }
 // relay the plates from the editor's copy: collision, drawing and the labels all read the one lay
 function editRelay() { const m = editM(); if (!m) return; m.pl = null; platesLay(m); const h = state.hero; h.liftAt = null; }
@@ -124,6 +124,7 @@ function updateEdit(dt) {
   if (tap('c')) { if (E.crack) { if (E.crack.spine.length >= 2) { L.seams.push({ spine: E.crack.spine }); E.sel = { kind: 'seam', i: L.seams.length - 1 }; } E.crack = null; editRelay(); } else { E.crack = { spine: [], hw: 0.08 }; E.sel = null; E.msg = 'click to lay the crack; C ends it'; } }
   else if (tap('n')) { const pl = platesLay(m); let under = -1, top = -1; for (const p of pl.list) if (plateHas(p, cx, cy) && plateTop(p) > top) { top = plateTop(p); under = p.li; } L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: under >= 0 ? top : 0, thick: 0.4, tone: PL_TONE, rot: 0, under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
   else if (tap('p')) { L.pits.push({ x: cx, y: cy, w: 3.4, h: 3, seed: editSeed(), floor: 0, ledge: 0.55 }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; }
+  else if (tap('h')) E.help = !E.help;
   else if (tap('s')) editCopyOut();
   else if (tap('o')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
   else if (Object.keys(ED_DIMS).some(k => tap(k) && (E.dim = k))) E.msg = '[ ] change ' + ED_DIMS[E.dim];
@@ -159,15 +160,20 @@ function drawEdit() {
   // the panel: what is selected and its numbers, which dimension [ ] change, the keys
   const o = editObj(sel), n2 = v => (+v).toFixed(2), onS = sel && sel.kind === 'plate' && o.under >= 0 ? ` (on ${o.under})` : '';
   const line1 = !sel ? (E.crack ? `crack: ${E.crack.spine.length} points laid, C ends it` : 'nothing selected: click a plate, a pit or a seam') : sel.kind === 'plate' ? `plate ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'pit' ? `pit ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  floor ${n2(o.floor)}  ledge ${n2(o.ledge)}` : `seam ${sel.i}: ${o.spine.length} points, width ${n2(Math.max(...o.spine.map(q => q[2])) * 2)}`;
-  const dims = Object.keys(ED_DIMS).map(k => (k === E.dim ? '>' : ' ') + k.toUpperCase() + ' ' + ED_DIMS[k]).join('   ');
-  const lines = E.trying ? [`trying it: walk about; T parks you where you stand and edits again   ${E.msg}`] : [
-    `editing ${E.id}   cursor ${E.cur[0].toFixed(1)}, ${E.cur[1].toFixed(1)}   zoom ${E.zoom.toFixed(2)}   ${E.msg}`, line1,
-    `[ ] make it smaller / bigger in:  ${dims}`,
-    'N new plate   P pit   C crack   U copy it up the stack   Delete   R turn   T try it   S save (copies the file)   O open a pasted one',
-    'arrows pan   wheel zoom   click select   drag move   drag the ground to pan'];
-  const fs = 14, bh = lines.length * (fs + 6) + 10; ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - bh - 8, Math.min(W - 16, 1040), bh);
-  ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  lines.forEach((t, i) => { ctx.fillStyle = i === 2 && !E.trying ? '#ffe080' : '#fdf6e3'; ctx.fillText(t, 16, H - bh - 8 + 5 + (i + 1) * (fs + 6) - 4); });
+  // one line at the bottom: what is selected and its numbers, what [ ] change; H opens the key sheet (Ross, 218: the
+  // five-line panel was a mash)
+  const fs = 14; ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  const bottom = E.trying ? `trying it   T parks you where you stand   ${E.msg}` : `${line1}   [ ] change ${ED_DIMS[E.dim]}   H keys   ${E.msg}`;
+  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - fs - 18, Math.min(W - 16, 12 + ctx.measureText(bottom).width + 12), fs + 10); ctx.fillStyle = '#fdf6e3'; ctx.fillText(bottom, 16, H - 14);
+  if (E.help && !E.trying) {                                                             // the key sheet: three columns, grouped
+    const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
+      ['LAY', 'N   new plate here', 'P   pit here', 'C   crack: clicks lay it,', '    C again ends it', 'U   copy it on top', 'Delete  remove it', '', 'TRY AND SAVE', 'T   try it (walk; T parks you)', 'S   save (copies the file)', 'O   open a pasted layout'],
+      ['CHANGE THE SELECTED', '[   smaller   ]   bigger', 'in: L length (east-west)', '    W width (north-south)', '    D depth (how thick)', '    A all three (scale)', '    B base, or a pit floor', '    E ledge (pit)', 'R   turn it', '', `now: ${ED_DIMS[E.dim]}`]];
+    const lh = fs + 5, bw = Math.min(W - 40, 3 * 300 + 40), bh = (Math.max(...cols.map(c => c.length)) + 2) * lh + 30, bx = (W - bw) / 2, by = Math.max(10, (H - bh) / 2 - 40);
+    ctx.fillStyle = 'rgba(0,0,0,.82)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+    ctx.fillStyle = '#ffe080'; ctx.fillText(`THE EDITOR'S KEYS   (H closes this)`, bx + 20, by + 24);
+    cols.forEach((col, ci) => col.forEach((t, i) => { const head = t === t.toUpperCase() && /[A-Z]/.test(t) && !/^[A-Z] {2,}/.test(t) && t.length >= 3 && !t.startsWith('now'); ctx.fillStyle = head ? '#ffe080' : t.startsWith('now') ? '#9fd8ff' : '#fdf6e3'; ctx.fillText(t, bx + 20 + ci * (bw - 40) / 3, by + 24 + (i + 2) * lh); }));
+  }
 }
 if (typeof canvas !== 'undefined' && canvas && canvas.addEventListener && EDIT_SCENE) {
   canvas.addEventListener('pointerdown', e => { if (e.button === 0) editDown(e.clientX, e.clientY); });

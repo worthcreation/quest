@@ -1,6 +1,12 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 219: the editor's keys on a sheet (chat)
+Ross, after 218: the key panel was mashed. One line at the bottom now: the selected thing's numbers, what [ ] change,
+"H keys". H opens a sheet in the middle, three columns (look, pick; lay, try and save; change the selected), H closes
+it. Noted for Ross: a pit on open ground does nothing yet (a pit cuts plates standing on the base; the base itself is
+not cut), so a pit needs a plate over it; a pit into the ground is a build of its own (HANDOFF).
+
 ## Build 218: the editor edits what it highlights; U is an exact copy (chat)
 Ross, after 217: the highlight sat on one slab while another moved, and N put a plate on the wrong slab. Since 217
 platesLay orders the list for the painter, so a plate's place in the list no longer matched its line in the layout,

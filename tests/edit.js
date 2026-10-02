@@ -66,5 +66,6 @@ console.log('9 T: hero at', dropped.join(','), 'trying', trying, '| walked', wal
 startEdit('flat'); run(3); const F=state.edit, fm=MTN.flat; const flat0=platesLay(fm).list.length, solids=state.solids.length, ravs=mtnRavs(fm).length; const [GX,GY]=mtnProj(20,12,mtnH(fm,20,12),state.mtn); editMove(GX,GY); run(1); tap('n'); const flat1=platesLay(fm).list.length;
 const [HX,HY]=mtnProj(22,12,0,state.mtn); editMove(HX,HY); run(1); tap('t'); state.keys.arrowleft=true; run(90); state.keys.arrowleft=false; run(5); const onIt=+(h.lift||0).toFixed(2); tap('t');
 console.log('11 flat board: scene', state.scene, 'editing', !!F&&F.id, '| plates', flat0, 'solids', solids, 'ravines', ravs, '| N: plates', flat1, '| T beside it, walked west: ground', onIt, '(the hop holds at 0, as a person would jump)');
+tap('h'); const helpOn=state.edit.help; run(4); tap('h'); console.log('12 H: the key sheet opened', helpOn, 'and closed', !state.edit.help);
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);
