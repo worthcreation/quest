@@ -1,21 +1,21 @@
 # The mountain: the rise and the climb as one family (roadmap, 1 Oct, rewritten in build 205)
 
-## Reimagined (Ross, 2 Oct, after build 211; HANDOFF's Next task has the detail)
-The mood is the rise's far end carried on: the grey mountain standing up, the view pulled back and tipped. The stone
-is a sheet: squarish outline, a thickness, a break or two; stacked sheets are the rock and the walkable surface is the
-stack (the ground is the highest sheet's top; a step under a quarter tile, a hop under half, a face over that). Thin
-sheets are the slope's grain, thick ones the ledges. m1 the climb (mt1): the way zigzags up, ravines at narrows,
-islands, the camera an arc (close, a crest two thirds up that glimpses shelves and a cave mouth, close again), birds
-only. m2 the ledges (mt2): close zoom, built of sheet masses, the platformer on the main game, the cave mouth into m3;
-the side-view screen is dropped. The shipped mt1 (207) and mt2 (211) are replaced as these land. Stills in
-docs/parked/mock-*.js. Up close every stepping edge needs its face; judge the asset at both distances.
-
-Ross, 1 Oct: the rise through the climb is one reimagined family, not the rise plus five puzzle screens. One look
-that changes with height (palette, ground, stones, plants), one set of assets, one progression of enemies and
-obstacles, secrets and hidden areas on every screen, side quests along the way. The climb's puzzles come back as
-features of that family. Some screens are fixed and zoomed out, the rest move like the rise. Each seed decides
-which way the mountain runs (left or right), and the layout follows it. Until the reeds open, all real play stays
-west of them; only test links (?mountain) start past them.
+## Plates (Ross, 2 Oct, the second design chat; HANDOFF's Next task has the build order)
+The mountain's stone is a PLATE: a worn squarish outline with a base and a thickness, in tiles. The ground is plates:
+one base plate under a whole scene (a slight incline, bumps and irregularities), stacks of plates on it here and there,
+close enough that you climb one and jump to the next; a jump not made lands you on the plate below, a pit drops you
+several plates down and you climb back. Under a quarter tile a step you walk, under half a hop you jump, over a tile a
+face you go round. Cracks run through the plates as seams (under half a tile wide; wider is a pit or a ravine with walls
+you look into) and jog up every face. The look rules, all from the stills (docs/parked/mock-sheet-field.js):
+- One projection for everything: the rise's tilt and zoom at the view's p, then the eye's push-out from the screen's
+  centre (1 + z/14). You see the faces north of you and the lips south of you, as the ravines show their far walls.
+- A face is one wall: one gradient down the screen, facing only nudges its brightness; strata are continuous rings;
+  stones (jagged, clipped to their wall, feathered into it) only on faces over a tile and a half.
+- Edges get the ravine's treatment at half weight: a brink inside the edge, a dark lip line, a light rim above.
+- A hole (pit, ravine) is lit by its own shade, one wall from floor to lip, and paints NOTHING outside its lip; the
+  brink is the plate's. A seam's tones are all inside its own width. Grey throughout, light from the west.
+- Texture is the same on every top, the base's denser, with loose stones; no ovals, no outlines on the tops.
+- Scenes are laid by Ross in the editor (?edit=<scene>), the generator filling grain and grit round what he laid.
 
 ## One generator
 The rise is the first screen of the family, and rise.js became the family's builder, mountain.js (206): one function that lays out a

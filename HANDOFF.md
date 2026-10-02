@@ -32,7 +32,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after 211): audit: 11605 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 1.34 ms (5 slow, 0 errors); the slow ones are the climb screens' draws, the rise's and mt2's (its wall-to-wall drop and pillars: it is being replaced, so not worth tuning).
+  handoff updates docs/audit-baseline.json. Last run (handoff after the plates design chat, 2 Oct, still at build 211): audit: 11605 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.81 ms (3 slow, 0 errors); the slow ones are the climb screens' draws and mt2's (being replaced).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -207,49 +207,58 @@ south opening wherever the seed put it), and if it still stutters on Ross's mach
 wash (a still first).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: the mountain reimagined (Ross, 2 Oct, a design chat after 211; read this section and docs/mountain-plan.md's
-"Reimagined" part before anything). No build was agreed yet; the next chat starts with one still and then writes the
-plan. The direction, in Ross's order:
-- The mood is the rise's own far end: the grey mountain standing up, the view pulled back and tipped, stones set in
-  the slope. Nothing of the mood piece's tiers; the grey slope carried on.
-- The mountain's stone is a SHEET: a squarish outline with a thickness and a break or two; stacked, the sheets are the
-  rock (Ross's pink rock, docs/parked/mock-sheet-rock.js rebuilds it from 39 sheets with the hero on it). The
-  walkable surface IS the stack: the ground at any spot is the top of the highest sheet there; between neighbouring
-  heights, under a quarter tile is a step you walk up, under half a hop, over that a face (climb elsewhere; a drop
-  the other way). Two kinds in play: the sheet GRAIN (thin, shapes the slope, shows as fine stepped texture) and the
-  LEDGES (thick enough to matter: the platforming). Up close (Ross's zoom, 2 Oct) the thin sheets failed: an edge with no
-  face is a line; every stepping edge needs its face, lit or shadowed by which way it faces, the tops want grit and
-  small cracks not big soft ovals, rims toned down, the hero's shadow on his sheet. Judge the asset at both distances.
-- m1 THE CLIMB (scene mt1, replacing the wind shelf): the rise's generator, 96 x 36 or so, grey by height (dry grass
-  and moss only at the start), the way zigzagging up in legs each a little higher, ravines (208's generator) crossed at
-  their narrows, islands (211's) in the wide one, little or no water, the valley behind and below. Camera: an ARC, close
-  at the way in, pulled out to a crest about two thirds up (m.arc 0.62; hero floor 14 px, m.floorPx, enforced on his
-  size), close again by the top; at the crest you glimpse shelves and a cave mouth on the face above (laid in tiles,
-  reachable later or never), not the peak. The sheet grain thickens leg by leg. Birds only (hawks circling until 215).
-  No rows of stones, no heaped crags: the sheets are the stone. Skyline of peaks against the sky where the land's edge
-  shows (fewer, taller, broken, far ones lost in haze), conifers on the low legs thinning out. docs/parked/mock-m1-climb.js
-  renders four spots (in, leg 2, crest, top) with DRESS=1 N=170 for the stacked look (SCALE a dial).
-- m2 THE LEDGES (scene mt2, replacing the stepping path): the close zoom the whole way (open: one pull-back glimpse or
-  none; Ross hadn't answered), the screen built of sheet masses grown together, the way found layer by layer (steps,
-  hops, faces, drops, running jumps), a thick face with the cave mouth into m3. The platformer, on the main game: the
-  side-view screen is dropped (m3's caves may keep a piece of it).
-- Generator work, in order: (1) the sheet as a stone kind (outline, thickness, breaks; drawn with faces on every
-  stepping edge, grain on top; collision from the same outline); (2) layered ground (height = highest sheet's top;
-  step/hop/face between neighbours; the camera's height follows); (3) masses (sheets laid from a foot up with an
-  offset so they lean and climb; masses grown together); (4) m2 from masses; (5) m1 with the grain, the arc, the
-  ravines and islands. Then m3 the caves.
-- Start of the next chat: `npm install --no-save @napi-rs/canvas`, build, render docs/parked/mock-sheet-rock.js and
-  mock-m1-climb.js (DRESS=1 N=170) so the stills are in front of you, then the close-up still Ross asked for (the rock at
-  the game's zoom with faces on every stepping edge, grit on the tops, rims toned down, the hero's shadow on his sheet),
-  present it as a file (every still goes through present_files; Ross could not see the first ones), then the written
-  plan for m1 and m2 together, then builds one at a time.
-Open calls from Ross: m2 close throughout or one glimpse; m1 density of grain by height; the step/hop/face numbers.
-Also waiting on Ross: his hand-adjusted stills of the climb screens (he asked for stills of the rise and every climb
-screen at the start of the 208 chat; those were delivered as quest-b207-stills.zip). When they come, they set the look
-for m2 onward; read them before the m2 still.
-Parked from 208 (Ross's call later): spider ravines and round pits (genRavine has 'spider'; 'round' was deleted), very
-large wall stones, the brink band over a prop standing at a lip (props keep a third of a tile clear; widen if it shows).
-
+FABLE: the mountain as PLATES (Ross, 2 Oct, a second design chat after 211; fifteen stills, no build). The look is
+settled in docs/parked/mock-sheet-field.js (render it first: it writes quest-sheet-field.png at the game's zoom; present
+every still with present_files). docs/mountain-plan.md's "Plates" section holds the rules. The plan, one build each:
+- 212 THE PLATE as a stone kind (src/plates.js, before mountain in ORDER): outline from a seed (squarish superellipse,
+  12 points, two rounds of corner-cutting, a small wobble: worn, not cut), a base and a thickness in tiles, breaks
+  later. One shape for drawing and collision (plateHas). Drawn with the mountain's one projection (the tilt and zoom
+  the rise has, then the eye's push-out from the screen's centre, 1 + z/14, linear so a tall stack never blows up; the
+  ravines keep 14/(14+d), the same to first order). Faces: quads from the foot ring to the top ring on the edges that
+  face the centre, ONE gradient per face straight down the screen (dark overhang band under the lip, lit stone,
+  darker to the foot), the quad's facing only nudging brightness 0.5 to 1; strata as continuous rings with the
+  ravine's wobble on anything over 0.3 thick; stones (drawJagged, clipped to their wall quad, a feathered wash of the
+  wall's colour over the join) only on faces over 1.5. Tops: grit specks, short cracks and the odd long seam, lichen
+  flakes, tone drift; then the ravine's brink (three strokes inside the edge, half the ravine's weight) and lip (a
+  1.8 px dark line at 0.6 and a 1.2 px light rim at 0.3 above it) round the whole ring, so a step is never invisible.
+  The base of a scene is one plate covering it, its surface the slope plus the generator's own bumps (shown by lean
+  shading), the same top texture denser, loose stones lying on it. Pits: a hole through every plate above its floor,
+  the tops cut at their own heights, ONE wall from the floor to the top lip with a line where each plate meets the
+  next, lit by its own shade (0.8 to 0.96 whatever it faces), floor shaded darkest at the far foot, brink inside the
+  lip. Cracks: a seam under half a tile wide (walls only over that), its tones all inside its own width (mid-dark,
+  east half near black), painted on the base first and then on each plate's top after that top, clipped to it, so it
+  jogs up every face and a plate nearer the eye hides it; a crack stops at a pit's rim. NOTHING of a hole or a crack is
+  painted outside its lip; the brink belongs to the plate. Grey throughout: the mountain's ravines go grey too, with
+  the hole lighting. Lights from the west. Ships with a test link (?scene=mt2 test layout) and tests/plates.js.
+- 213 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
+  parked); click selects a plate, drag moves it, wheel on it sets thickness, [ ] size, R rotates, D duplicates (one
+  plate up a stack is a duplicate shifted and thinned), Delete removes, N a new plate under the cursor, P a pit, C
+  starts a crack and clicks lay its points, T drops the hero at the cursor to try it; thickness shown on each plate
+  and coloured by kind (step, hop, face). S copies the layout as JSON to the clipboard; the save is pasting it into
+  src/layouts/<scene>.js; a paste box loads one. The scene's spec reads layout at enterScene and lays it in tiles.
+- 214 LAYERED GROUND: ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
+  at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
+  in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
+  and he lands on whatever is below (a missed jump lands on the plate under; a pit is just a spot where that is several
+  plates down); the camera's height follows his lifted ground. Draw order: plates by top height, standing things by
+  y, and the cliff-in-front rule (a plate higher than your ground whose near edge is south of you is painted again
+  over you). Enemies keep to one level; hawks fly over everything. Numbers proposed, Ross to confirm: step <= 0.25,
+  hop 0.25 to 0.5 (a tap clears it unless tired), high hop 0.5 to 1 (a held jump at the start, a tap by vigor 20),
+  face > 1, m2's walls >= 2.5 (past any jump); drops under 1.5 a puff, 1.5 to 3 a stagger, over 3 a heart. Measured:
+  tap 0.56 / held 0.95 at start, 0.94 / 1.5 at vigor 20, tired 0.2 / 0.34.
+- 215 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
+  by list; laid so stacks sit a tile and a half to two apart at a like height for the jumps between them.
+- 216 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
+  for m1); 217 m1 the climb laid in the editor with the generator's grain by leg, the arc camera with the 14 px floor
+  for real, the three ravines and islands, the wind shelf and its gust rides deleted, hawks circling only; 218+ m3.
+Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
+ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
+a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
+Start of the next chat: `npm install --no-save @napi-rs/canvas`, build, `node docs/parked/mock-sheet-field.js` and
+present it, then build 212 from it: the mock's functions move into src/plates.js nearly as they are (outlineOf,
+paintTop, paintBrink, paintLip, paintFaces, paintSeam, the pit block, BASE_TEX), the game's own drawJagged and
+drawHero already in use. docs/parked/mock-sheet-rock.js and mock-m1-climb.js are superseded (delete with 212).
+Also waiting on Ross: his hand-adjusted stills of the climb screens (delivered as quest-b207-stills.zip).
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).
 
 Ross's roadmap (1 Oct). Measured before writing: Pip's river lesson comes at +26 s (boulder) and +38 s (loosen) after
