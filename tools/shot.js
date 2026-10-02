@@ -72,6 +72,12 @@ if (process.env.B165) {                            // the rise, walked east: top
   state.settings.tiles=true; h.x=12*UNIT; h.y=RISE.pathY(12)*UNIT; mtnCamera(0, state.mtn, true); update(1/60); draw(); fs.writeFileSync('/tmp/b165-'+tag+'-tiles.png', canvas.toBuffer('image/png')); state.settings.tiles=false;
   console.log('b165 written');
 }
+if (process.env.B212) {                            // build 212: the plates' test layout on mt2 (close view, the hero on the south-west bank among the stacks; TILES=1 for the heights)
+  state.started=true; state.intro=null; startTestScene('mt2', 3/40, 17.5/24); for (let k=0;k<10;k++) update(1/60); state.texts=[]; state.title=null; state.scrolls=[]; state.enemies=[];
+  if (process.env.TILES) state.settings.tiles=true;
+  const t0=Date.now(); for (let k=0;k<10;k++) draw(); const ms=(Date.now()-t0)/10;
+  fs.writeFileSync('/tmp/b212-mt2'+(process.env.TILES?'-tiles':'')+'.png', canvas.toBuffer('image/png')); console.log('b212 written; a frame', ms.toFixed(0), 'ms in napi canvas (software)');
+}
 if (process.env.B154) {                            // build 154: the windy crossing, mid-gust, sheltered behind a rock
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb4'); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[];

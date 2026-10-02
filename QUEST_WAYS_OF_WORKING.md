@@ -67,6 +67,9 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   current (update and enterScene), and L() walks at the screen's pace. Every mountain screen is one: a spec in MTN
   (mountain.js), built by mtnLand, addMtn, mtnHalf, mtnView, mtnCamera, drawMtn (draws the game's own things at their
   spot on its ground), mtnCragSprite [mountain]. Its solids are the collision; nothing else tests an edge there.
+- Plates (the mountain's stone, 212): plateOutline, plateHas (the one shape for drawing and the hold), plateStack/
+  platePit/plateSeam in a screen's m.plates, platesLay, plateTopAt, plateHold, drawPlate/drawPit; mtnProj is the one
+  projection (m.eye); ravPal for a ravine's colours [plates, mountain].
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, TEST_MODE (tests only), and only where section 1 says.
 
 ## 5. Audit

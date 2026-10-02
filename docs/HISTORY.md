@@ -1,6 +1,25 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 212: the plate (chat)
+The mountain's stone kind, src/plates.js (docs/mountain-plan.md "Plates"; the look from docs/parked/mock-sheet-field.js):
+a worn squarish outline from a seed (plateOutline: twelve superellipse points, two rounds of corner-cutting, a wobble),
+a base and a thickness in tiles; one shape for drawing and the hold (plateHas); kinds by thickness (step to 0.25,
+hop to 0.5, high hop to 1, face over 1). One projection for everything: mtnProj now takes the eye's push-out from the
+screen's centre (1 + z / m.eye; screens without an eye are unchanged) and every helper in drawMtn goes through it
+(the rows a point a column, props, ravine rings and floors, the river, pillars, tiles). Faces north only (Ross): a
+face draws only where its foot lies outward of the lip and south of it; one gradient per plate, the facing nudges it
+0.5 to 1 (black at 1 - lit), strata over 0.3 thick, set-in stones over 1.5. Tops are a texture each, painted once in
+tile space (40 px a tile) and laid through the projection; the base plate is the ground's own rows with that texture
+denser as a wash over them, loose stones, a margin of 8 tiles past the scene (platesBase, 8-tile chunks each cut to
+its quad); brink and lip round every ring at half the ravine's weight. Pits cut every plate above their floor, one
+wall from the floor to the top lip with a line at each cut plate's top, lit 0.8 to 0.96; seams painted on the base
+and on each top after it, inside their width, stopped at pit rims. The ravines have a palette (RAV_EARTH, RAV_GREY):
+grey on a plates screen. mt2 is the test screen: grey throughout (m.stone, stoneAt -9, no path tint), eye 14, close
+throughout (fixed { p: 0.35, zoom: 0.825 }, the still's view, sliding with you both ways, its ground eased), M2.plates
+lays four stacks, a pit and a seam on the banks; every plate holds (plateHold) until 214. tests/plates.js; B212 in
+tools/shot.js. mock-sheet-rock.js and mock-m1-climb.js deleted.
+
 ## Build 211: m2 the stepping path (chat)
 Scene mt2, out of the wind shelf's pass, on the mountain generator: a fixed screen (M2.fixed, the whole 40 x 24 in
 view at zoom 0.55 on a 1280 screen; a phone's view slides along with you). The drop is laid by hand, not walked

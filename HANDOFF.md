@@ -1,4 +1,4 @@
-# Quest: handoff (build 206, 1 Oct 2026)
+# Quest: handoff (build 212, 2 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -16,7 +16,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 67 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 69 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
@@ -42,7 +42,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   the model the next chat starts on and why, then the exact first message for the next chat in a code block, opening
   with that model (Ross picks it in the model menu before sending); and any files to delete by hand in ~\quest.
 - Render (only when asked): `B<NN>=1 node tools/shot.js` runs the render block for that build and writes PNGs to /tmp
-  (on Windows node that's C:\tmp, which must exist). MOCK4=1 is the mountainside still (it and tools/render.js still
+  (on Windows node that's C:\tmp, which must exist). B212 is mt2 with the plates (TILES=1 for the heights). MOCK4=1 is the mountainside still (it and tools/render.js still
   write to /mnt/user-data/outputs, a container path: repoint before use); B139/B150/B154 are the climb screens; B165 is
   the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
@@ -60,6 +60,13 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
 - climb.js      the climb screens (climb2-climb5; climb1 became mt1 in 207): CLIMB_TUNE and CLIMB_SPECS (every number, to dial in), climbScreen
                 (spec to CLIMBS[id]), trail and gap-field painters, side view, wind,
                 shadow aim (SHADOW), tile overlay, test links (MOUNTAIN, START_SCENE, testHops)
+- plates.js     the plate (212, docs/mountain-plan.md "Plates"): plateOutline (a seed's worn squarish ring), plateHas (the one
+                shape), plateKind, plateStack/platePit/plateSeam (a screen's m.plates lays them; platesLay works out keys,
+                pit cuts, floors), plateTopAt, plateHold (every plate holds until 214), platesAt; the drawing: plateTex
+                (a top's texture once, tile space), plateLay (laid through the projection), platePaintFaces (faces north
+                only), platePaintBrink/Lip, platePaintSeam, platesBase (the base's wash in 8-tile chunks), drawPlate,
+                drawPit, drawPlateTiles. mtnProj is the one projection (m.eye: the push-out); ravPal/RAV_EARTH/RAV_GREY
+                colour the ravines (grey on a plates screen).
 - mountain.js   the mountain family's generator (build 206, docs/mountain-plan.md). MTN (specs by scene id; RISE the rise's,
                 M1 the wind shelf's (scene mt1, 207): size, foot, pathY, pathD, layout, scene, finish). Ravines (208): a
                 screen's m.ravs, each a spine (polylines in tiles, [x, y, halfwidth]; genRavine kinds long, thin, spider by
@@ -138,7 +145,7 @@ before and after a world.js refactor, --total for the one line).
 - Rounded boxes: rounded(x, y, w, h, r). Exits: exitToward(sc, goal), exitPoint(ex).
 
 ## Tests (tests/, by topic)
-acorn-skill arena book-tiles camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
+acorn-skill arena book-tiles plates camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
 pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
@@ -165,7 +172,14 @@ x 19 and 30.5 for strong-gust rides; sc.rocks hold them (ledge: true; island: tr
 Three hares (MONSTERS.hare: r 0.58, hp 3, drawSnarl), two carrots and an acorn on the island (sc.initItems).
 Dials: rav.hw (wide 2.5, the 1.85 drop at crossings), cross, island, floor, earth, stoneAt, dx 0.5, fine 6.
 
-## The stepping path, mt2 (build 211)
+## The stepping path, mt2 (build 211; the plates' test screen since 212)
+Since 212: grey throughout (M2.stone, stoneAt -9, no path tint; the ravine in RAV_GREY), the eye 14 tiles up (M2.eye,
+mtnProj's push-out), close throughout (M2.fixed { p: 0.35, zoom: 0.825 }: the still's view, sliding with you both
+ways, its ground eased under the view's middle), M2.plates: on the south-west bank a stack of four (0.3, 0.4, 0.35,
+0.6) with a pit through its upper three down to its foot, a stack of three with a 1.2 face partway up, a perch of
+two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. Every plate holds (plateHold
+on sc.mtnHold) until 214. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
+of this section is 211's.
 Out of the wind shelf's pass, 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
 SW / (41 UNIT), never under mtnZoomMin; a phone's view slides with you, never past the ends). The drop (m2Ravine):
 a neck 5 across along the middle from x 6 to 33, and between x 10 and 30 wall to wall as rows of spines 2.5 apart
@@ -210,7 +224,10 @@ wash (a still first).
 FABLE: the mountain as PLATES (Ross, 2 Oct, a second design chat after 211; fifteen stills, no build). The look is
 settled in docs/parked/mock-sheet-field.js (render it first: it writes quest-sheet-field.png at the game's zoom; present
 every still with present_files). docs/mountain-plan.md's "Plates" section holds the rules. The plan, one build each:
-- 212 THE PLATE as a stone kind (src/plates.js, before mountain in ORDER): outline from a seed (squarish superellipse,
+- ~~212 THE PLATE~~ (212: as below, with these calls: the base plate is the ground's rows with the texture as a wash
+  over them, run 8 tiles past the scene, in 8-tile chunks each cut to its own quad (a chunk from a source sub-rect
+  showed a light seam); tops at 40 px a tile; mt2 close throughout at the still's view; the push-out only on screens
+  with an eye, so the rise and mt1 are unchanged; every plate holds until 214). Was: as a stone kind (src/plates.js, before mountain in ORDER): outline from a seed (squarish superellipse,
   12 points, two rounds of corner-cutting, a small wobble: worn, not cut), a base and a thickness in tiles, breaks
   later. One shape for drawing and collision (plateHas). Drawn with the mountain's one projection (the tilt and zoom
   the rise has, then the eye's push-out from the screen's centre, 1 + z/14, linear so a tall stack never blows up; the
@@ -254,10 +271,8 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
-Start of the next chat: `npm install --no-save @napi-rs/canvas`, build, `node docs/parked/mock-sheet-field.js` and
-present it, then build 212 from it: the mock's functions move into src/plates.js nearly as they are (outlineOf,
-paintTop, paintBrink, paintLip, paintFaces, paintSeam, the pit block, BASE_TEX), the game's own drawJagged and
-drawHero already in use. docs/parked/mock-sheet-rock.js and mock-m1-climb.js are superseded (delete with 212).
+Next: 213 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
+of stacks, pits and seams the scene's spec reads instead). Then 214.
 Also waiting on Ross: his hand-adjusted stills of the climb screens (delivered as quest-b207-stills.zip).
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).
 
