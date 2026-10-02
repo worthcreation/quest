@@ -1,13 +1,14 @@
 {
  "unused": 0,
- "lines": 11605,
- "longLines": 635,
+ "lines": 11826,
+ "longLines": 680,
  "stateFields": 160,
  "files": {
-  "world.js": 863,
+  "world.js": 862,
   "highlands.js": 247,
   "climb.js": 314,
-  "mountain.js": 782,
+  "plates.js": 244,
+  "mountain.js": 759,
   "input.js": 422,
   "text.js": 112,
   "engine.js": 722,
@@ -20,7 +21,7 @@
   "tutorial.js": 234,
   "cutscenes.js": 243,
   "menu.js": 473,
-  "save.js": 51,
+  "save.js": 52,
   "craft.js": 273,
   "quests.js": 128,
   "gear.js": 381,
@@ -35,9 +36,9 @@
  },
  "bigFns": 0,
  "repeats": 0,
- "frameAvg": 0.81,
- "slowScreens": 3,
+ "frameAvg": 1.04,
+ "slowScreens": 4,
  "frameErrors": 0,
  "date": "2026-10-02",
- "build": 211
+ "build": 214
 }

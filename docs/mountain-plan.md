@@ -16,6 +16,12 @@ you look into) and jog up every face. The look rules, all from the stills (docs/
   brink is the plate's. A seam's tones are all inside its own width. Grey throughout, light from the west.
 - Texture is the same on every top, the base's denser, with loose stones; no ovals, no outlines on the tops.
 - Scenes are laid by Ross in the editor (?edit=<scene>), the generator filling grain and grit round what he laid.
+- Built (212 to 214): you climb plates (a step <= 0.25 walks, higher you jump onto, faces hold, your body against
+  walls); a pit is a ring punched through every plate it crosses, each plate's cut face showing, a shade deeper per
+  plate; with a ledge width each plate down is cut back on the near sides so L-shaped ledges a hop apart lead out and
+  the floor sits on the far side; down a pit you're drawn among its layers, smaller the deeper; only the nearest layer
+  shows, the x-ray only on the part of you it covers; mt2's view follows you so the eye is over you; island pillars
+  are solid stone lit by facing.
 
 ## One generator
 The rise is the first screen of the family, and rise.js became the family's builder, mountain.js (206): one function that lays out a

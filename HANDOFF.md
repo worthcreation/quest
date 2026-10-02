@@ -32,7 +32,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after the plates design chat, 2 Oct, still at build 211): audit: 11605 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.81 ms (3 slow, 0 errors); the slow ones are the climb screens' draws and mt2's (being replaced).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 214, 2 Oct): audit: 11826 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 1.07 ms (4 slow, 0 errors); mt2's draw is 15 ms in the harness (the plates' per-frame work: on the cleanup list), the rise 7.7, climb3 and climb4 just over 2. drawMtn is 131 lines (split it when next in there).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -164,11 +164,11 @@ crags); worn out restarts the screen. Open questions: final look, how the screen
 
 ## The stepping path, mt2 (build 211; the plates' test screen since 212)
 Since 212: grey throughout (M2.stone, stoneAt -9, no path tint; the ravine in RAV_GREY), the eye 14 tiles up (M2.eye,
-mtnProj's push-out), close throughout (M2.fixed { p: 0.35, zoom: 0.825 }: the still's view, sliding with you both
-ways, its ground eased under the view's middle), M2.plates: on the south-west bank a stack of four (0.3, 0.4, 0.35,
-0.6) with a pit through its upper three down to its foot, a stack of three with a 1.2 face partway up, a perch of
-two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. Every plate holds (plateHold
-on sc.mtnHold) until 214. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
+mtnProj's push-out), close throughout (M2.fixed { p: 0.35, zoom: 0.825, follow: true }: the still's view, centred on you since
+214, past the edges too, its ground eased under the view's middle), M2.plates: on the south-west bank a staggered stack of four (0.4, 0.45, 0.35, 0.45) with a pitfall punched
+to the base (ledge 0.55, floor on its far side; 214), a stack of three with a 1.2 face partway up, a perch of
+two steps, and a seam from the west edge to the lip; on the north bank's east end a two-step. You climb the plates (plateStepHero,
+213); Pip and the hares are held off them (plateHold) until layered ground. The islands and the chain are untouched; tests/stepping-path.js still plays it. The rest
 of this section is 211's.
 Out of the rise's pass (since 213), 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
 SW / (41 UNIT), never under mtnZoomMin; a phone's view slides with you, never past the ends). The drop (m2Ravine):
@@ -211,6 +211,19 @@ south opening wherever the seed put it), and if it still stutters on Ross's mach
 wash (a still first).
 
 ## Next task (on Opus unless marked: WAYS 7a)
+FABLE: 215 THE EDITOR (below), on mt2 as 214 left it. Where things stand after the plates chat (212 to 214, 2 Oct):
+mt2 is the plates' test screen, grey, its close view following you (the eye over you), a staggered stack of four with
+a pitfall punched to the base (floor on its far side, L-shaped ledges a hop apart up the south-west), a stack with a
+1.2 face, a perch, a north-bank two-step, a seam; the islands' pillars solid; you hop and jump onto plates, drop off
+edges, are drawn among a pit's layers (smaller the deeper), and the x-ray shows the covered part of you only. mt1 is
+gone: the rise's pass leads onto mt2. Before the editor, Ross answers two calls: where the hero is parked while you
+edit, and whether the wheel zooms or sets a plate's thickness (my suggestions: parked where he stood, drawn faint; the
+wheel zooms, [ ] set thickness on the selected plate, so a scroll never edits by accident).
+Cleanup list (one build each, when it suits): (1) mt2's draw cost, 15 ms in the harness: cache plateScreenBox and each
+pit's projected rings per frame, skip heroHid's shapes unless a box meets yours first, plateTopAt for items and
+creatures from a grid at a fifth of a tile (as the ravines' ravGrid). Opus. (2) drawMtn at 131 lines: split the
+plates' part (base, plates, the hero among a pit's layers, the x-ray) into plates.js. Opus.
+
 FABLE: the mountain as PLATES (Ross, 2 Oct, a second design chat after 211; fifteen stills, no build). The look is
 settled in docs/parked/mock-sheet-field.js (render it first: it writes quest-sheet-field.png at the game's zoom; present
 every still with present_files). docs/mountain-plan.md's "Plates" section holds the rules. The plan, one build each:
