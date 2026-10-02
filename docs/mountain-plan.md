@@ -1,4 +1,15 @@
 # The mountain: the rise and the climb as one family (roadmap, 1 Oct, rewritten in build 205)
+
+## Reimagined (Ross, 2 Oct, after build 211; HANDOFF's Next task has the detail)
+The mood is the rise's far end carried on: the grey mountain standing up, the view pulled back and tipped. The stone
+is a sheet: squarish outline, a thickness, a break or two; stacked sheets are the rock and the walkable surface is the
+stack (the ground is the highest sheet's top; a step under a quarter tile, a hop under half, a face over that). Thin
+sheets are the slope's grain, thick ones the ledges. m1 the climb (mt1): the way zigzags up, ravines at narrows,
+islands, the camera an arc (close, a crest two thirds up that glimpses shelves and a cave mouth, close again), birds
+only. m2 the ledges (mt2): close zoom, built of sheet masses, the platformer on the main game, the cave mouth into m3;
+the side-view screen is dropped. The shipped mt1 (207) and mt2 (211) are replaced as these land. Stills in
+docs/parked/mock-*.js. Up close every stepping edge needs its face; judge the asset at both distances.
+
 Ross, 1 Oct: the rise through the climb is one reimagined family, not the rise plus five puzzle screens. One look
 that changes with height (palette, ground, stones, plants), one set of assets, one progression of enemies and
 obstacles, secrets and hidden areas on every screen, side quests along the way. The climb's puzzles come back as

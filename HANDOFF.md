@@ -25,14 +25,14 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   (older ones removed; what goes in is PACK in ship-local.js) and prints the commit line and links (tools/links.js).
   Without --zip it prints the line for a working tree already at ~\quest (tools/links.js --local); not used now.
 - On the Mac (Ross uses it now and then; he says which machine), give the zsh line above the printed one:
-  `cd ~/quest && unzip -o ~/Downloads/quest-bNN.zip -d . && rm ~/Downloads/quest-bNN.zip && git add -A && git commit
-  -m "..." && git push` (the Mac clone pushes as worthcreation@; if Safari unzipped it, rsync the folder instead).
+  `cd ~/quest && git fetch origin && git reset --hard origin/main && unzip -o ~/Downloads/quest-bNN.zip -d . && rm
+  ~/Downloads/quest-bNN.zip && git add -A && git commit -m "..." && git push` (the fetch and reset first: the Mac clone
+  is usually behind main, and at 211 a push from it was rejected and brought a deleted file back) (the Mac clone pushes as worthcreation@; if Safari unzipped it, rsync the folder instead).
 - The reply that ships ends with the printed line (Windows PowerShell, in a ```powershell block): `cd ~\quest
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (build 210): audit: 11461 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 0.69 ms (2 slow, 0 errors); the slow ones are a climb screen's draw and the rise's (the ravines).
-- Model: the first line of every reply says FABLE or Opus (WAYS 7a); a Fable task on Opus stops until Ross switches
+  handoff updates docs/audit-baseline.json. Last run (handoff after 211): audit: 11605 lines, 0 unused, 0 functions over 150, 0 repeats, 160 state fields, frames avg 1.34 ms (5 slow, 0 errors); the slow ones are the climb screens' draws, the rise's and mt2's (its wall-to-wall drop and pillars: it is being replaced, so not worth tuning).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -207,14 +207,43 @@ south opening wherever the seed put it), and if it still stutters on Ross's mach
 wash (a still first).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 212 m3 inside the mountain (scene mt3), moving camera: rifts that crack open ahead of you (the climb's climb3
-pieces: rifts, holes, slants, a narrow place), a hidden area; on the generator (mountain.js: a spec in MTN, ravines
-from genRavine or laid by hand as m2Ravine does, nothing walled with stones, the edges and mtnHold hold); in from
-mt2's pass (M2.finish's south exit, now to climb3), out south onto climb4; remove climb3 from CLIMB_SPECS, world.js's
-climb list, MAP_LAYOUT (mt3: [4, 7]), MAP_NAMES, tests/climb.js's 3, HISTORY, mountain-plan, design-rules story; a
-still first, then a test played like a person (tests/stepping-path.js is the pattern). m1 (mt1) is still on the old
-cy/hw ravine with walls of stone; its move to the 208 generator is its own build. Ross's three open calls on m2 (the
-big flat floor and the walls' height, island size, grassy or bare) still stand: dials listed under The stepping path.
+FABLE: the mountain reimagined (Ross, 2 Oct, a design chat after 211; read this section and docs/mountain-plan.md's
+"Reimagined" part before anything). No build was agreed yet; the next chat starts with one still and then writes the
+plan. The direction, in Ross's order:
+- The mood is the rise's own far end: the grey mountain standing up, the view pulled back and tipped, stones set in
+  the slope. Nothing of the mood piece's tiers; the grey slope carried on.
+- The mountain's stone is a SHEET: a squarish outline with a thickness and a break or two; stacked, the sheets are the
+  rock (Ross's pink rock, docs/parked/mock-sheet-rock.js rebuilds it from 39 sheets with the hero on it). The
+  walkable surface IS the stack: the ground at any spot is the top of the highest sheet there; between neighbouring
+  heights, under a quarter tile is a step you walk up, under half a hop, over that a face (climb elsewhere; a drop
+  the other way). Two kinds in play: the sheet GRAIN (thin, shapes the slope, shows as fine stepped texture) and the
+  LEDGES (thick enough to matter: the platforming). Up close (Ross's zoom, 2 Oct) the thin sheets failed: an edge with no
+  face is a line; every stepping edge needs its face, lit or shadowed by which way it faces, the tops want grit and
+  small cracks not big soft ovals, rims toned down, the hero's shadow on his sheet. Judge the asset at both distances.
+- m1 THE CLIMB (scene mt1, replacing the wind shelf): the rise's generator, 96 x 36 or so, grey by height (dry grass
+  and moss only at the start), the way zigzagging up in legs each a little higher, ravines (208's generator) crossed at
+  their narrows, islands (211's) in the wide one, little or no water, the valley behind and below. Camera: an ARC, close
+  at the way in, pulled out to a crest about two thirds up (m.arc 0.62; hero floor 14 px, m.floorPx, enforced on his
+  size), close again by the top; at the crest you glimpse shelves and a cave mouth on the face above (laid in tiles,
+  reachable later or never), not the peak. The sheet grain thickens leg by leg. Birds only (hawks circling until 215).
+  No rows of stones, no heaped crags: the sheets are the stone. Skyline of peaks against the sky where the land's edge
+  shows (fewer, taller, broken, far ones lost in haze), conifers on the low legs thinning out. docs/parked/mock-m1-climb.js
+  renders four spots (in, leg 2, crest, top) with DRESS=1 N=170 for the stacked look (SCALE a dial).
+- m2 THE LEDGES (scene mt2, replacing the stepping path): the close zoom the whole way (open: one pull-back glimpse or
+  none; Ross hadn't answered), the screen built of sheet masses grown together, the way found layer by layer (steps,
+  hops, faces, drops, running jumps), a thick face with the cave mouth into m3. The platformer, on the main game: the
+  side-view screen is dropped (m3's caves may keep a piece of it).
+- Generator work, in order: (1) the sheet as a stone kind (outline, thickness, breaks; drawn with faces on every
+  stepping edge, grain on top; collision from the same outline); (2) layered ground (height = highest sheet's top;
+  step/hop/face between neighbours; the camera's height follows); (3) masses (sheets laid from a foot up with an
+  offset so they lean and climb; masses grown together); (4) m2 from masses; (5) m1 with the grain, the arc, the
+  ravines and islands. Then m3 the caves.
+- Start of the next chat: `npm install --no-save @napi-rs/canvas`, build, render docs/parked/mock-sheet-rock.js and
+  mock-m1-climb.js (DRESS=1 N=170) so the stills are in front of you, then the close-up still Ross asked for (the rock at
+  the game's zoom with faces on every stepping edge, grit on the tops, rims toned down, the hero's shadow on his sheet),
+  present it as a file (every still goes through present_files; Ross could not see the first ones), then the written
+  plan for m1 and m2 together, then builds one at a time.
+Open calls from Ross: m2 close throughout or one glimpse; m1 density of grain by height; the step/hop/face numbers.
 Also waiting on Ross: his hand-adjusted stills of the climb screens (he asked for stills of the rise and every climb
 screen at the start of the 208 chat; those were delivered as quest-b207-stills.zip). When they come, they set the look
 for m2 onward; read them before the m2 still.
@@ -238,7 +267,8 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    generator~~ (206: rise.js became mountain.js, no change in play), ~~207 m1 the wind shelf~~ (207, scene mt1).
    ~~208 the rise reworked~~ (208: bottomless ravines from a generator, the
    big one plus the reeds as the boundary, no walls of stone), ~~209 the rise runs smooth~~ (209), ~~210 the brink on the ground~~
-   (210), ~~211 m2 the stepping path~~ (211). NEXT: 212 m3 inside, 213 m4, 214 m5 and
+   (210), ~~211 m2 the stepping path~~ (211). Reimagined 2 Oct (see Next task): sheets, m1 the climb, m2 the ledges,
+   then m3 inside, m4, m5 and
    carrot juice (climb.js deleted), 215 hawks hunt rabbits and the ornithologist's eggs, 216 the tortoise's hollow and
    peach stones, 217 trees, 218 the windmill (Opus), 219 direction by seed; all FABLE but 218. The wind by height ships whenever Ross
    OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.
