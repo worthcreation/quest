@@ -36,11 +36,14 @@ const k=mtnPush(mtnH(m,foot.x,foot.y)+foot.thick,c)*UNIT*mtnZoom(c.p,m), [DX,DY]
 editDown(DX,DY); run(1); editMove(DX+k*2,DY); run(1); editUp(DX+k*2,DY); run(1);
 const nf=byS(80), movedBy=nf.x-foot.x, aboveBy=LY().plates.find(p=>p.seed===82.6).x-o2, gOld=plateTopAt(pl(),ox,oy), gNew=at(nf);
 console.log('4 dragged the foot 2 tiles east: it moved', movedBy.toFixed(2), '| the crown on it moved', aboveBy.toFixed(2), '| ground at the old spot', gOld, 'at the new', gNew.toFixed(2));
-// 5. D duplicates up the stack (on the selected, shifted, smaller, thinner); Delete removes it
+// 4b. the list is painted in its own order (217): the selected plate is the one that moves and gets the label, by its layout line, not its place in the list
+const orderDiffers=pl().list.some((p,i)=>p.li!==i); click(...southOf(byS(60))); const selSeed=LY().plates[E.sel.i].seed, before60=byS(60).x, snap=LY().plates.map(p=>[p.seed,p.x]); const [SX,SY]=southOf(byS(60)); editDown(SX,SY); run(1); editMove(SX+k,SY); run(1); editUp(SX+k,SY); run(1); const moved60=byS(60).x-before60, others=snap.every(([sd,x])=>[60,61.3,62.6,63.9].includes(sd)||LY().plates.find(p=>p.seed===sd).x===x);
+console.log('4b painter order differs from the layout', orderDiffers, '| clicked the pitted foot: selected seed', selSeed, '| dragged it a tile: it moved', moved60.toFixed(2), '| every plate off that stack stayed', others);
+// 5. U copies the selected plate: the same size and spot, stacked straight on it; Delete removes it
 click(...topMid(byS(82.6))); const nBefore=LY().plates.length; tap('u'); const dup=LY().plates[LY().plates.length-1], crown=byS(82.6);
-const dupOK=dup.under===LY().plates.indexOf(LY().plates.find(p=>p.seed===82.6))&&Math.abs(dup.base-plateTop(crown))<1e-6&&dup.w<crown.w&&dup.thick<crown.thick;
+const dupOK=dup.under===LY().plates.indexOf(LY().plates.find(p=>p.seed===82.6))&&Math.abs(dup.base-plateTop(crown))<1e-6&&dup.w===crown.w&&dup.h===crown.h&&dup.thick===crown.thick&&dup.x===crown.x&&dup.y===crown.y;
 tap('delete'); const nAfter=LY().plates.length;
-console.log('5 U on the crown: plates', nBefore, '>', nBefore+1, '| the new one stands on it, thinner and smaller', dupOK, '(thick', dup.thick, 'base', dup.base+') | Delete:', nAfter);
+console.log('5 U on the crown: plates', nBefore, '>', nBefore+1, '| the new one stands straight on it, the same size and spot', dupOK, '(thick', dup.thick, 'base', dup.base+') | Delete:', nAfter);
 // 6. N lays a plate at the cursor on open ground (base 0), P a pit on it: inside the pit the ground is the floor, outside it the plate's top
 const [NX,NY]=pr(14,20,0); editMove(NX,NY); run(1); tap('n'); const np=LY().plates[LY().plates.length-1]; tap('p'); const q=pl().pits[pl().pits.length-1];
 const inPit=plateTopAt(pl(),14,20), onPlate=plateTopAt(pl(),14+1.6,20);

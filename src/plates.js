@@ -44,13 +44,10 @@ const plateTop = p => p.base + p.thick;
 const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
 // one plate from its spec (a layout's line): its outline from its seed and turn; under is set by plateLayout
 const plateAdd = (pl, s) => { const p = { x: s.x, y: s.y, w: s.w, h: s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, P: plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0) }; pl.list.push(p); return p; };
-// the spec of the plate that would stand on p up a stack: shifted along the lean, a little smaller, as thick as given
-// (the editor's D; build 217's stacks are rows of these)
-const plateNext = (p, lean, thick = p.thick) => ({ x: p.x + lean[0], y: p.y + lean[1], w: Math.max(3, p.w - 0.45), h: Math.max(2.2, p.h - 0.28), seed: +(p.seed + 1.3).toFixed(2), base: plateTop(p), thick, tone: p.tone + 2, rot: p.rot });
 // a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
 function plateLayout(pl, id) {
   const L = state.edit && state.edit.id === id ? state.edit.layout : LAYOUTS[id]; if (!L) return;
-  const ps = (L.plates || []).map(s => plateAdd(pl, s)); ps.forEach((p, i) => { const u = L.plates[i].under; p.under = u >= 0 && ps[u] && ps[u] !== p ? ps[u] : null; });
+  const ps = (L.plates || []).map(s => plateAdd(pl, s)); ps.forEach((p, i) => { p.li = i; const u = L.plates[i].under; p.under = u >= 0 && ps[u] && ps[u] !== p ? ps[u] : null; });   // (li: its line in the layout; the list's own order is the painter's, platesLay)
   for (const q of L.pits || []) platePit(pl, q.x, q.y, q.w, q.h, q.seed, q.floor, q.ledge);
   for (const sm of L.seams || []) plateSeam(pl, sm.spine);
 }

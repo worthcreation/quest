@@ -1,6 +1,13 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 218: the editor edits what it highlights; U is an exact copy (chat)
+Ross, after 217: the highlight sat on one slab while another moved, and N put a plate on the wrong slab. Since 217
+platesLay orders the list for the painter, so a plate's place in the list no longer matched its line in the layout,
+which the editor used as one index: every laid plate now carries its layout line (li), and picks, N's "on the plate
+here" and the labels go by it. U now copies the selected plate the same size at the same spot, stacked straight on
+it (Ross: duplicate both size and position); a pit a tile over, as before. plateNext deleted with it.
+
 ## Build 217: under an overhang; plates laid inside plates paint in front (chat)
 Ross, from a screenshot of the editor: a stack leaning out over the ground should be walked under where it clears
 your head, the x-ray showing you; a plate laid partly inside another showed the other's wall over it. A plate whose

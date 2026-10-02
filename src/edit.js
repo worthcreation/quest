@@ -7,8 +7,8 @@
 //   stacked on it along); click on open ground clears the selection
 // - L W D A B E pick what [ ] change on the selected thing: length (x), width (y), depth (a plate's thickness), all
 //   three together (the whole plate scaled, Ross's lwd), base (a plate then stands on nothing; a pit: its floor), ledge
-//   (a pit's); [ ] smaller and bigger; a seam only has its width. R turns it; U copies it up the stack (shifted along
-//   the stack's lean, a little smaller, a little thinner; a pit a tile over); Delete removes (the plates on a removed
+//   (a pit's); [ ] smaller and bigger; a seam only has its width. R turns it; U copies it (the same size, the same
+//   spot: a plate stacked straight on the selected one, a pit a tile over); Delete removes (the plates on a removed
 //   one stand on what it stood on)
 // - N a new plate under the cursor (on the plate there, if any), P a pit there, C starts a crack and clicks lay its
 //   points (C again ends it), T drops the hero at the cursor to try it (the game runs: T again parks him there)
@@ -17,7 +17,7 @@
 // Every plate shows its thickness, coloured by kind (step green, hop yellow, high hop orange, face red); the selected
 // one its base too, with a dashed outline. tests/edit.js drives it through editDown/editMove/editUp/editWheel.
 var EDIT_SCENE = typeof location !== 'undefined' ? ((/[?&]edit=([a-z0-9]+)/.exec(location.search) || [])[1] || null) : null;
-const ED_KIND = { step: '#8fd18f', hop: '#f0d060', high: '#f0a040', face: '#f06060' }, ED_LEAN = [0.5, -0.3];
+const ED_KIND = { step: '#8fd18f', hop: '#f0d060', high: '#f0a040', face: '#f06060' };
 const ED_DIMS = { l: 'length', w: 'width', d: 'depth', a: 'all three', b: 'base', e: 'ledge' };                     // what [ ] change, by its key
 const editM = () => state.edit && MTN[state.edit.id];
 const editCopy = L => JSON.parse(JSON.stringify(L));
@@ -44,8 +44,8 @@ const editPr = () => { const c = state.mtn, m = c.m; return (x, y, z) => mtnProj
 function editPick(X, Y) {
   const E = state.edit, m = editM(), pl = platesLay(m), pr = editPr(), L = E.layout;
   for (let i = 0; i < pl.pits.length; i++) { const q = pl.pits[i]; if (plateIn(q.P.map(([x, y]) => pr(x, y, q.top)), X, Y)) return { kind: 'pit', i }; }
-  let best = null; pl.list.forEach((p, i) => { if (plateIn(p.P.map(([x, y]) => pr(x, y, plateTop(p))), X, Y) && (!best || plateTop(p) > plateTop(pl.list[best.i]))) best = { kind: 'plate', i }; });
-  if (best) return best;
+  let best = null; for (const p of pl.list) if (plateIn(p.P.map(([x, y]) => pr(x, y, plateTop(p))), X, Y) && (!best || plateTop(p) > plateTop(best))) best = p;   // (the list is in the painter's order, not the layout's: li is its line)
+  if (best) return { kind: 'plate', i: best.li };
   const us = UNIT * mtnZoom(state.mtn.p, m);
   for (let i = 0; i < L.seams.length; i++) { const C = L.seams[i].spine.map(([x, y]) => pr(x, y, 0)); for (let k = 1; k < C.length; k++) { const [ax, ay] = C[k - 1], [bx, by] = C[k], dx = bx - ax, dy = by - ay, t = mtnClamp(((X - ax) * dx + (Y - ay) * dy) / (dx * dx + dy * dy || 1e-9)); if (Math.hypot(X - ax - dx * t, Y - ay - dy * t) < us * 0.3) return { kind: 'seam', i }; } }
   return null;
@@ -122,13 +122,13 @@ function updateEdit(dt) {
   const pan = 14 * dt / E.zoom; if (state.keys.arrowleft) E.cx -= pan; if (state.keys.arrowright) E.cx += pan; if (state.keys.arrowup) E.cy -= pan; if (state.keys.arrowdown) E.cy += pan;
   const [cx, cy] = E.cur.map(v => +v.toFixed(2));
   if (tap('c')) { if (E.crack) { if (E.crack.spine.length >= 2) { L.seams.push({ spine: E.crack.spine }); E.sel = { kind: 'seam', i: L.seams.length - 1 }; } E.crack = null; editRelay(); } else { E.crack = { spine: [], hw: 0.08 }; E.sel = null; E.msg = 'click to lay the crack; C ends it'; } }
-  else if (tap('n')) { const pl = platesLay(m); let under = -1, top = -1; pl.list.forEach((p, i) => { if (plateHas(p, cx, cy) && plateTop(p) > top) { top = plateTop(p); under = i; } }); L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: under >= 0 ? top : 0, thick: 0.4, tone: PL_TONE, rot: 0, under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
+  else if (tap('n')) { const pl = platesLay(m); let under = -1, top = -1; for (const p of pl.list) if (plateHas(p, cx, cy) && plateTop(p) > top) { top = plateTop(p); under = p.li; } L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: under >= 0 ? top : 0, thick: 0.4, tone: PL_TONE, rot: 0, under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
   else if (tap('p')) { L.pits.push({ x: cx, y: cy, w: 3.4, h: 3, seed: editSeed(), floor: 0, ledge: 0.55 }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; }
   else if (tap('s')) editCopyOut();
   else if (tap('o')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
   else if (Object.keys(ED_DIMS).some(k => tap(k) && (E.dim = k))) E.msg = '[ ] change ' + ED_DIMS[E.dim];
   else if (o && (tap('delete') || tap('backspace'))) editRemove(sel);
-  else if (o && tap('u')) { if (sel.kind === 'plate') { L.plates.push({ ...plateNext(o, ED_LEAN, Math.max(0.2, +(o.thick * 0.9).toFixed(2))), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } }
+  else if (o && tap('u')) { if (sel.kind === 'plate') { L.plates.push({ ...o, seed: editSeed(), base: +(o.base + o.thick).toFixed(3), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } }
   else if (o && tap('r') && sel.kind !== 'seam') o.rot = +((o.rot || 0) + Math.PI / 12).toFixed(3);
   else if (o) {
     const dir = (tap(']') ? 1 : 0) - (tap('[') ? 1 : 0); if (!dir) return true; const k = E.dim, f = dir > 0 ? 1.1 : 1 / 1.1;   // [ ] on the picked dimension: a fifth of a tile across, a twentieth up, all three by a tenth
@@ -150,7 +150,7 @@ function drawEdit() {
   const label = (X, Y, text, col) => { ctx.font = `${Math.max(10, Math.min(16, 12 * s)).toFixed(0)}px "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const w = ctx.measureText(text).width + 8; ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(X - w / 2, Y - 8, w, 16); ctx.fillStyle = col; ctx.fillText(text, X, Y); };
   const dashed = R => { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); plPath(R); ctx.stroke(); ctx.restore(); };
   if (!E.trying) {
-    pl.list.forEach((p, i) => { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), [X, Y] = mid(T), on = sel && sel.kind === 'plate' && sel.i === i; if (on) dashed(T); label(X, Y, on ? `${p.thick.toFixed(2)} on ${p.base.toFixed(2)}` : p.thick.toFixed(2), ED_KIND[p.kind]); });
+    pl.list.forEach(p => { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), [X, Y] = mid(T), on = sel && sel.kind === 'plate' && sel.i === p.li; if (on) dashed(T); label(X, Y, on ? `${p.thick.toFixed(2)} on ${p.base.toFixed(2)}` : p.thick.toFixed(2), ED_KIND[p.kind]); });
     pl.pits.forEach((q, i) => { const R = q.P.map(([x, y]) => pr(x, y, q.top)), [X, Y] = mid(R), on = sel && sel.kind === 'pit' && sel.i === i; if (on) dashed(R); label(X, Y, `pit floor ${q.floor.toFixed(2)} ledge ${q.ledge.toFixed(2)}`, '#9fd8ff'); });
     pl.seams.forEach((sm, i) => { const C = sm.spine.map(([x, y]) => pr(x, y, 0)), on = sel && sel.kind === 'seam' && sel.i === i; if (on) { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); } const [X, Y] = C[Math.floor(C.length / 2)]; label(X, Y, `seam ${(Math.max(...sm.spine.map(q => q[2])) * 2).toFixed(2)}`, '#d0c8ff'); });
     if (E.crack) { const C = E.crack.spine.map(([x, y]) => pr(x, y, 0)).concat([pr(E.cur[0], E.cur[1], 0)]); ctx.save(); ctx.strokeStyle = '#ffe080'; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); }
