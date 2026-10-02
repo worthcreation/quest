@@ -1,6 +1,26 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 214: down in the pit; the x-ray; smaller further away (chat)
+Ross, after 213: in the pit you looked like you stood on the top layer; you should look further away the deeper you
+are, and be covered by the layers above you. Things drawn at a spot (at() in drawMtn: you, items, creatures) now scale
+with the eye's push-out at their height (mtnPush), so down a pit you're drawn smaller. Down a pit you're drawn among
+its plates, right after the ones at or under your ground and before the ones above you. Only the layer nearest the
+camera shows (Ross): the camera looks down, so a layer above you covers you wherever its top or lip overlaps you and
+the x-ray shows you through it; its shade darkens you; only the hole's far walls and the brink inside its lip stay
+behind you (plateBehindHero leaves your box out of them, PL_HERO). The x-ray: where something drawn after you covers you (a
+pit's layer above you, a plate in front that stands higher, a stone, tree or reeds south of you), you're drawn again
+at 0.38 with a dashed outline, clipped to the covering shapes only (heroHid gives them as one nonzero path), so the
+part of you in view stays solid (state.mtn.xray). Two causes of "down the pit but can't see you": the pit's floor was
+on its side nearest the camera, and the eye sat over the middle of a view held against the scene's west edge, eight
+tiles off, so you looked into the pit at a slant and saw its far wall, not its floor. Now mt2's close view follows you
+(M2.fixed.follow: centred on you, past the edges too; the base runs 8 tiles beyond them), so the eye is over you; a
+pit's floor lies on its far (north-east) side and its ledges step up south-west; mt2's pitted stack is broader (7.4 x 5)
+and the pit sits over the part all four plates share, so every ledge is whole. Your body, not just your middle, stops
+at a wall higher than a step (PL_BODY 0.35, only moving into it), so you no longer stand half inside a rim. drawPlate's top is plateTopPaint now;
+plateScreenBox. tests/plates.js step 9: down the pit true, on its 0.85 ledge false, north of the face stack true, in
+the open false.
+
 ## Build 213: plates underfoot; the wind shelf retired; solid pillars; a pitfall with a way out (chat)
 Ross, after 212: plates you can jump onto, island tops not hollow, the dark band at the neck's lip gone, the screen
 after the rise (mt1, stale) gone. The hero climbs the plates (plateStepHero on mt2's sc.mtnHold): his ground is the top

@@ -1,4 +1,4 @@
-# Quest: handoff (build 213, 2 Oct 2026)
+# Quest: handoff (build 214, 2 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -248,13 +248,18 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   (lit by facing, one gradient fading into the drop, outermost first), the pitfall punched through a staggered stack to
   the base with L-shaped ledges a hop apart as the way out (platePit's ledge; each cut plate has its own ring, q.ring),
   the push-out capped at 3 tiles (no sky at mt2's east edge). A cave out of a pit is for m3, inside the mountain.
-- 214 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
+- ~~214 DOWN IN THE PIT, THE X-RAY~~ (214): smaller the further down (mtnPush in at()); down a pit you're drawn
+  among its plates (before the ones above you: their tops and lips cover you, the x-ray shows you; only the hole's
+  far walls leave your box out: PL_HERO, plateBehindHero); a faint copy of you and a dashed outline only where something drawn after you covers you (heroHid's shapes as
+  a clip; state.mtn.xray); mt2's view follows you (fixed.follow), the eye over you; a pit's floor on its far side;
+  your body (PL_BODY 0.35) against walls.
+- 215 THE EDITOR, ?edit=<scene>, on the main game's code (src/edit.js): camera free (arrows pan, wheel zooms, the hero
   parked); click selects a plate, drag moves it, wheel on it sets thickness, [ ] size, R rotates, D duplicates (one
   plate up a stack is a duplicate shifted and thinned), Delete removes, N a new plate under the cursor, P a pit, C
   starts a crack and clicks lay its points, T drops the hero at the cursor to try it; thickness shown on each plate
   and coloured by kind (step, hop, face). S copies the layout as JSON to the clipboard; the save is pasting it into
   src/layouts/<scene>.js; a paste box loads one. The scene's spec reads layout at enterScene and lays it in tiles.
-- 215 LAYERED GROUND (the hero's part shipped in 213; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
+- 216 LAYERED GROUND (the hero's part shipped in 213, the pit's near rim in 214; left: the drop numbers, Pip and enemies on levels, the camera's lift, the cliff-in-front rule): ground height = the top of the highest plate at (x, y), from a grid at a fifth of a tile cached
   at enterScene; in the hero's move (one place, engine.js by mtnHold): rising more than a step is a wall unless he is
   in the air at or above the new top, a step is a walk, a drop more than a step puts him in the air at that height
   and he lands on whatever is below (a missed jump lands on the plate under; a pit is just a spot where that is several
@@ -264,15 +269,15 @@ every still with present_files). docs/mountain-plan.md's "Plates" section holds 
   hop 0.25 to 0.5 (a tap clears it unless tired), high hop 0.5 to 1 (a held jump at the start, a tap by vigor 20),
   face > 1, m2's walls >= 2.5 (past any jump); drops under 1.5 a puff, 1.5 to 3 a stagger, over 3 a heart. Measured:
   tap 0.56 / held 0.95 at start, 0.94 / 1.5 at vigor 20, tired 0.2 / 0.34.
-- 216 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
+- 217 STACKS: a stack from a foot plate up, each shifted along a lean and a little smaller (the mock's stack()), kinds
   by list; laid so stacks sit a tile and a half to two apart at a like height for the jumps between them.
-- 217 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
-  for m1); 218 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
-  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 219+ m3.
+- 218 m2 the ledges laid in the editor by Ross (the stepping path's drop, islands and dare deleted; genIslands stays
+  for m1); 219 m1 the climb laid in the editor with the generator's grain by leg (a new scene between the rise and mt2),
+  the arc camera with the 14 px floor for real, the three ravines and islands, hawks circling only; 220+ m3 (a pit into it as one way in).
 Open calls (Ross): faces north only or both sides (the eye over the hero shows faces north of him, lips south, as the
 ravines show far walls); m2 close throughout (my call: close; m1's crest is the glimpse); grain by leg (my call: leg 1
 a sheet every 20 tiles to leg 5 every 3, all steps); the numbers above; gust rides leaving m1; the editor's keys.
-Next: 214 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
+Next: 215 the editor (above), on the plates as 212 laid them (platesLay reads m.plates; the editor's layout is a JSON
 of stacks, pits and seams the scene's spec reads instead). Then 214.
 Also waiting on Ross: his hand-adjusted stills of the climb screens (delivered as quest-b207-stills.zip).
 Ross's answers to the six questions are in docs/mountain-plan.md (Ross's answers, 1 Oct).

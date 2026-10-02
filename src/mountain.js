@@ -47,7 +47,7 @@ const RISE = {
 // throughout (Ross, 2 Oct): the view at p 0.35 and zoom 0.825, the still's, sliding with you.
 const M2 = {
   id: 'mt2', len: 40, D: 24, flat: 0, grade: 0.002, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 36.2, tilt: 0.95, lead: 0, lift: 2.5, eye: 14,
-  X0: -16, X1: 80, Y0: -6, Y1: 60, seed: 23, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825 },
+  X0: -16, X1: 80, Y0: -6, Y1: 60, seed: 23, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true },
   ravs: null, isls: null, islTop: 'grass',                                               // islTop: 'grass' (the screen's dry turf) or 'bare' (stone and grit)
   foot: y => 33 + Math.sin(y * 0.4 + 2) * 2 + Math.sin(y * 0.9) * 0.7,
   // the drop: from x 6 to 33 (clear of the way in at x 4), 5 across at the ends, wall to wall (hw 12.5) from x 10 to 30, opening over a tile
@@ -264,8 +264,9 @@ const mtnLead = (m, p) => Math.min(m.lead, 0.3 * SW / 2 / (UNIT * mtnZoom(p, m))
 // screen with an eye (m.eye, tiles up: the plates' screens), the eye's push-out from the screen's centre of anything
 // above the camera's ground, 1 + z / eye (linear, so a tall stack never blows up; the ravines' floors keep their
 // 14 / (14 + depth), the same to first order)
+const mtnPush = (z, c = state.mtn) => c.m.eye ? 1 + mtnClamp(z - c.ch, -c.m.eye / 2, c.m.eyeMax || 3) / c.m.eye : 1;   // the eye's push-out at a height (capped: the mountain past the foot, tens of tiles up, would fold its rows over and let the sky through)
 function mtnProj(x, y, z, c = state.mtn) {
-  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = c.m.eye ? 1 + mtnClamp(z - c.ch, -c.m.eye / 2, c.m.eyeMax || 3) / c.m.eye : 1;   // (capped: the mountain past the foot, tens of tiles up, would fold its rows over and let the sky through)
+  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = mtnPush(z, c);
   return [SW / 2 + (x - c.cx) * UNIT * s * k, SH / 2 + ((y - c.cy) * Math.cos(th) - (z - c.ch) * Math.sin(th)) * UNIT * s * k];
 }
 
@@ -399,8 +400,8 @@ M2.layout = function (lay) {
 // through all of it to the base, each plate a ledge inside it a hop above the last (the way out), a short stack beside it with a face partway up, a perch of two, and a seam across the bank
 // from the west edge to the drop's lip; on the north bank's east end a step of two. Nothing on the way.
 M2.plates = function (pl) {
-  plateStack(pl, 3.8, 21.2, 6.6, 4.4, [0.75, -0.45], [0.4, 0.45, 0.35, 0.45], 60);   // staggered, a pitfall punched through it to the base, its ledges the way out
-  platePit(pl, 6.2, 19.9, 3.0, 2.6, 13.3, 0, 0.55);
+  plateStack(pl, 4.4, 21.0, 7.4, 5.0, [0.5, -0.3], [0.4, 0.45, 0.35, 0.45], 60);   // staggered, a pitfall punched through it to the base, its ledges the way out
+  platePit(pl, 5.5, 20.35, 3.4, 3.0, 13.3, 0, 0.55);                                   // (over the part all four share, so every ledge is whole)
   plateStack(pl, 2.4, 15.6, 4.2, 2.6, [0.6, -0.3], [0.4, 1.2, 0.5], 80, 136);
   plateStack(pl, 8.2, 16.3, 3.2, 2.2, [0.4, -0.3], [0.25, 0.3], 100, 138);
   plateStack(pl, 31.6, 4.4, 3, 2.2, [0.3, 0.3], [0.3, 0.3], 120, 140);
@@ -429,7 +430,7 @@ function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
   const m = c.m, h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = mtnView(m, x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
   if (m.fixed) {                                                                        // a still view at one tilt and zoom (the whole screen, or close: fixed.zoom); on a screen too narrow for it, it slides along with you, never past the ends
-    const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);
+    const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = m.fixed.follow ? x : half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = m.fixed.follow ? y : halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);   // (follow: the view centres on you, past the scene's edges too, so the eye is always over you and you see down into whatever you're in)
     c.p = p; c.cx += (cx - c.cx) * e; c.cy += (cy - c.cy) * e; c.ch += (mtnH(m, c.cx, c.cy) - c.ch) * e; return;
   }
   c.p += (p - c.p) * e; c.cx += (x + mtnLead(m, p) - c.cx) * e; c.cy += (y + (m.mid - y) * p - m.lift * p - c.cy) * e; c.ch += (mtnH(m, x, y) - c.ch) * e;
@@ -453,11 +454,11 @@ function drawMtn() {
   // at its spot on the tipped ground, scaled with the view; the ground's rows are laid between them
   const [VW, VH] = sceneSize(state.scene), SWH = [W, H];
   const lift = (xt, yt, o) => !pl ? 0 : o === state.hero && h.liftAt === state.scene ? h.lift || 0 : plateTopAt(pl, xt, yt);   // standing on a plate: drawn on its top
-  const at = (px, py, fn, mg = 4, o) => { const xt = px / UNIT, yt = py / UNIT, [X, Y] = pr(xt, yt, lift(xt, yt, o)); if (X < -us * mg || X > SWH[0] + us * mg || Y < -us * (mg + 1) || Y > SWH[1] + us * (mg + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(s, s); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };
+  const at = (px, py, fn, mg = 4, o) => { const xt = px / UNIT, yt = py / UNIT, z = lift(xt, yt, o), [X, Y] = pr(xt, yt, z), k = s * mtnPush(mtnH(m, xt, yt) + z, r); if (X < -us * mg || X > SWH[0] + us * mg || Y < -us * (mg + 1) || Y > SWH[1] + us * (mg + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(k, k); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };   // (scaled with the eye's push-out: lower is further away and smaller)
   const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
   const list = [];
   for (const p of land.deco) list.push([p.by, () => drawMtnProp(m, p, gp, us, s)]);
-  const sc = sceneDef(), h = state.hero;
+  const sc = sceneDef(), h = state.hero; let heroHid = () => null;
   for (const o of state.solids) {
     if (o.rise === 'tree' || o.kind === 'reeds') list.push([o.y / UNIT + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o))]);
     else if (o.rise) list.push([o.y / UNIT + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]);
@@ -501,8 +502,34 @@ function drawMtn() {
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
   if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
-  { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, inPit = pl ? pl.pits.filter(q => q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)).map(q => q.last.key + 1e-3) : [];
-    list.push([Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity, ...inPit), () => at(h.x, h.y, drawHero, 4, h)]); }   // (on a plate: after it; down a pit: after the pit's last plate)
+  { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, pit = pl ? pl.pits.find(q => q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)) : null;
+    // down a pit (on its floor or a ledge in it): drawn among its plates, right after the ones at or under your
+    // ground and before the ones above you. The camera looks down, so only the layer nearest it shows: a layer above
+    // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
+    // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
+    const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
+    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity);
+    list.push([hk, () => at(h.x, h.y, drawHero, 4, h)]);   // (on a plate: after it; down a pit: among its plates)
+    PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
+    const rims = over;
+    // the x-ray: what is drawn after you and over you (a plate above you, a stone or tree south of you, a pit's near
+    // rim) leaves an outline of you showing through
+    // the x-ray: what is drawn after you and over you leaves you showing through, faint, but only where it covers you.
+    // heroHid gives the covering shapes as one path (each shape wound the same way: nonzero fills their union): the
+    // tops of a pit's layers above you (less their holes, wound the other way), a plate drawn after you that stands
+    // higher (its top, its foot, the walls between), a stone, tree or reeds south of you (an outline round each)
+    heroHid = () => { if (state.hammock || h.falling > 0) return null; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], meets = (a) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+      const shapes = [], area = P => { let a = 0; for (let i = 0; i < P.length; i++) { const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % P.length]; a += x0 * y1 - x1 * y0; } return a; }, wind = (P, cw) => (area(P) > 0) === cw ? P : P.slice().reverse();
+      const pts = [[X, b[3]], [b[0] + us * 0.15, b[3]], [b[2] - us * 0.15, b[3]], [X, (b[1] + b[3]) / 2], [b[0] + us * 0.15, b[1] + us * 0.1], [b[2] - us * 0.15, b[1] + us * 0.1]];
+      for (const p of rims) { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), R = pit.ring.get(p).map(([x, y]) => pr(x, y, plateTop(p)));
+        if (pts.some(([px, py]) => plateIn(T, px, py) && !plateIn(R, px, py))) shapes.push(wind(T, true), wind(R, false)); }   // a layer above you, down its pit: its top, less its hole
+      if (pl) for (const p of pl.list) { if (!(p.key > hk && plateTop(p) > hz + 0.05 && !(pit && pit.ring.has(p)) && meets(plateScreenBox(p, pr)))) continue;
+        const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); shapes.push(wind(T, true), wind(F, true)); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; shapes.push(wind([T[i], T[j], F[j], F[i]], true)); } }   // a plate in front: its top, foot and the walls between
+      for (const o of state.solids) { if (!(o.rise || o.kind === 'reeds')) continue; const oy = o.y / UNIT, ok = o.rise === 'tree' ? oy + 0.3 : o.kind === 'reeds' ? oy + o.r / UNIT + 0.2 : oy + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;
+        const [OX, OY] = gp(o.x / UNIT, oy), r = (o.rise === 'tree' ? 0.95 : o.kind === 'reeds' ? 0.75 : (o.rr || 0.5)) * us, cy = OY - (o.rise === 'tree' ? 1.25 : o.kind === 'reeds' ? 0.7 : 0.4) * r * (o.rise === 'tree' ? us / r : 1);
+        if (!meets([OX - r, cy - r, OX + r, cy + r])) continue; const E = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; E.push([OX + Math.cos(a) * r, cy + Math.sin(a) * r * 0.95]); } shapes.push(wind(E, true));
+        if (o.rise === 'tree') shapes.push(wind([[OX - us * 0.12, cy], [OX + us * 0.12, cy], [OX + us * 0.12, OY], [OX - us * 0.12, OY]], true)); }   // (a tree: its crown and its trunk)
+      return shapes.length ? shapes : null; }; }
   for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
   if (h.ride && h.ride.wind) list.push([h.ride.y1 / UNIT + 0.2, () => at(h.ride.x1, h.ride.y1, drawLandingShadow)]);   // mid-ride: where you'll come down
   list.sort((a, b) => a[0] - b[0]);
@@ -531,6 +558,11 @@ function drawMtn() {
     while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
   while (li < list.length) list[li++][1]();
+  { const shapes = heroHid(); r.xray = !!shapes;
+    if (shapes) { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, [X, Y] = pr(h.x / UNIT, h.y / UNIT, hz), w = us * mtnPush(mtnH(m, h.x / UNIT, h.y / UNIT) + hz, r);
+      ctx.save(); if (typeof Path2D === 'function') { const M = new Path2D(); for (const P of shapes) { P.forEach(([x, y], i) => i ? M.lineTo(x, y) : M.moveTo(x, y)); M.closePath(); } ctx.clip(M); }   // only where you're covered
+      ctx.save(); ctx.globalAlpha = 0.38; at(h.x, h.y, drawHero, 4, h); ctx.restore();                                          // the x-ray: you, faint, over what covers you
+      ctx.strokeStyle = 'rgba(255,248,220,.85)'; ctx.lineWidth = Math.max(1, 1.5 * s); ctx.setLineDash([4 * s, 3 * s]); ctx.strokeRect(X - w / 2, Y - h.z * s - w / 2, w, w); ctx.restore(); } }   // and your outline, there
   // things in the air and on top: cloud shadows on the ground, gas, sparks and dust, each where it is
   for (const c of state.clouds) at(c.x, c.y, () => { const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r); g.addColorStop(0, `rgba(20,25,35,${0.12 + (sc.depth || 0) * 0.02})`); g.addColorStop(1, 'rgba(20,25,35,0)'); ctx.fillStyle = g; ctx.fillRect(c.x - c.r, c.y - c.r, c.r * 2, c.r * 2); }, c.r / UNIT + 1);
   for (const gp2 of state.gas) at(gp2.x, gp2.y, () => one('gas', gp2, () => { drawGas(false); drawGas(true); }));
