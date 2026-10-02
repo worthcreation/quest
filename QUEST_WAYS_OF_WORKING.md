@@ -68,7 +68,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
   (mountain.js), built by mtnLand, addMtn, mtnHalf, mtnView, mtnCamera, drawMtn (draws the game's own things at their
   spot on its ground), mtnCragSprite [mountain]. Its solids are the collision; nothing else tests an edge there.
 - Plates (the mountain's stone, 212): plateOutline, plateHas (the one shape for drawing and the hold), plateAdd/
-  platePit/plateSeam, plateLayout (a screen's m.plates reads LAYOUTS[id], src/layouts/<id>.js), platesLay,
+  platePit/plateSeam, plateLayout (a screen's m.plates reads LAYOUTS[id], src/layouts/<id>.js), platesLay (p.O a plate's pieces, p.holes its holes: polyDiff), tunnelRing,
   plateTopAt, plateHold, drawPlate; mtnProj is the one projection (m.eye); ravPal for a ravine's colours [plates,
   mountain]. The editor (215): ?edit=<scene>, startEdit, editTile, editPick, editDown/Move/Up/Wheel, updateEdit,
   editText/editLoad, drawEdit [edit]; a new layout key goes in plateAdd, editText and the file's header comment.

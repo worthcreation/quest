@@ -46,7 +46,7 @@ const RISE = {
 // stacks, a pit and a seam laid on its banks (M2.plates), held off until 214 lays the ground in layers. Close
 // throughout (Ross, 2 Oct): the view at p 0.35 and zoom 0.825, the still's, sliding with you.
 const M2 = {
-  id: 'mt2', len: 40, D: 24, flat: 0, grade: 0.002, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 36.2, tilt: 0.95, lead: 0, lift: 2.5, eye: 14,
+  id: 'mt2', len: 40, D: 24, flat: 0, grade: 0.002, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 36.2, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
   X0: -16, X1: 80, Y0: -6, Y1: 60, seed: 23, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true },
   ravs: null, isls: null, islTop: 'grass',                                               // islTop: 'grass' (the screen's dry turf) or 'bare' (stone and grit)
   foot: y => 33 + Math.sin(y * 0.4 + 2) * 2 + Math.sin(y * 0.9) * 0.7,
@@ -71,7 +71,7 @@ const M2 = {
 // space to work in). No mountain (the foot far off east), no ravine, no way in or out: the edges hold. Grey, the eye
 // over you, the close view, like mt2. Its layout is src/layouts/flat.js (empty as shipped).
 const FLAT = {
-  id: 'flat', len: 40, D: 24, flat: 0, grade: 0, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 14,
+  id: 'flat', len: 40, D: 24, flat: 0, grade: 0, mid: 12, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 4, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
   X0: -16, X1: 80, Y0: -6, Y1: 60, seed: 29, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true }, ravs: null, isls: null,
   foot: () => 200, pathY() { return this.mid; }, pathD: () => 99,
   layout() {}, plates: pl => plateLayout(pl, 'flat'),
@@ -507,7 +507,7 @@ function drawMtn() {
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
   if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
-  { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, pit = pl ? pl.pits.find(q => q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)) : null;
+  { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, pit = pl ? pl.pits.find(q => !q.tunnel && q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)) : null;
     // down a pit (on its floor or a ledge in it): drawn among its plates, right after the ones at or under your
     // ground and before the ones above you. The camera looks down, so only the layer nearest it shows: a layer above
     // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the

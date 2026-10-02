@@ -1,6 +1,27 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 222: edges meet; tunnels (chat)
+Ross, from a screenshot: where a pit crossed a slab's edge its walls stopped short of the slab's (the pit was drawn as
+a hole clipped to the top, the slab's wall cut away under it). Now a ring that crosses a slab's outline cuts a notch out
+of the outline itself (polyDiff, Weiler-Atherton: the slab less the ring, in pieces if it runs right through), and the
+notch's walls are the slab's own faces, so every edge meets; a ring wholly inside is still drawn as a hole. Tunnels: a
+pit with a roof along a strip (tunnelRing: a spine and a width), cutting the plates between its floor and roof; the ones
+over it stay and are walked under (217), the x-ray showing you; the passage under a roof plate is shaded dark, seen
+through its mouths. A mouth shows where a tunnel leaves a south-facing wall (the camera sees no others). Laid with G and
+clicks in the editor (1.4 wide, roof 1.2; W width, B floor, E roof), saved in the layout's tunnels block.
+tests/tunnel.js: polyDiff's cases, the notched slab's drawn shape against the ground at 1120 points, a tunnel laid with
+the keys and walked through, its wall holding you.
+
+## Build 221: plain faces, the eye further off (chat)
+Ross, after 220: still E is the fit (faces plain, no pit shade); light smears on a tall face (the set-in stones'
+feathered wash); faces should read the same on every slab. platePaintFaces paints one flat shade per face by its
+facing, nothing on it (no band under the lip, no strata, no stones); a pit's walls the same, no shade over the hole.
+The eye goes from 14 tiles up to 40 on mt2 and the flat board (docs/parked/mock-eye.js: at 14 a slab left of the
+middle showed its east wall and one right of it its west, so the same height read differently by where it sat; at 40
+every slab shows its south wall at about the same depth). The editor rounds the slabs carried along on a dragged
+stack too (a save and reload moved them a thousandth). docs/parked/mock-faces.js deleted (its stills are settled).
+
 ## Build 220: a taller slab's edge over a shorter one; faces and tops in two passes (chat)
 Ross, from a screenshot: a shorter platform occluded a taller one. A plate is now painted in two passes: its faces at
 its foot's turn in the painter's order on the ground (217's: a slab in front covers the wall behind it), and its top,

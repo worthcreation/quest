@@ -9,8 +9,9 @@ face you go round. Cracks run through the plates as seams (under half a tile wid
 you look into) and jog up every face. The look rules, all from the stills (docs/parked/mock-sheet-field.js):
 - One projection for everything: the rise's tilt and zoom at the view's p, then the eye's push-out from the screen's
   centre (1 + z/14). You see the faces north of you and the lips south of you, as the ravines show their far walls.
-- A face is one wall: one gradient down the screen, facing only nudges its brightness; strata are continuous rings;
-  stones (jagged, clipped to their wall, feathered into it) only on faces over a tile and a half.
+- A face is one wall, plain since 221 (Ross): one flat shade by its facing, nothing painted on it (the gradient,
+  strata and set-in stones of 212 are gone); a pit's walls the same, no shade over the hole. The eye is 40 tiles up
+  (14 until 221), so every slab shows its south wall at about the same depth wherever it sits on the screen.
 - Edges get the ravine's treatment at half weight: a brink inside the edge, a dark lip line, a light rim above.
 - A hole (pit, ravine) is lit by its own shade, one wall from floor to lip, and paints NOTHING outside its lip; the
   brink is the plate's. A seam's tones are all inside its own width. Grey throughout, light from the west.
@@ -24,6 +25,15 @@ you look into) and jog up every face. The look rules, all from the stills (docs/
   shows, the x-ray only on the part of you it covers; mt2's view follows you so the eye is over you; island pillars
   are solid stone lit by facing. An overhang clear of your head (1.1 tiles) is walked under, the x-ray showing you
   (217); plates laid overlapping paint by whose foot lies south where they overlap.
+
+## Tunnels (built in 222)
+A tunnel is a pit turned on its side: a strip (a spine in tiles and a width) with a floor and a roof. It cuts every plate
+between its floor and roof along the strip; the plates over the roof stay whole and span it, and a roof at least 1.1
+over the floor is walked under (217), the x-ray showing you inside. The cut plates' sides are its walls (a ring across
+a slab's edge notches its outline: the notch's walls are the slab's own faces, so edges meet). The passage under a roof
+plate is shaded dark and seen through its mouths; the camera looks from the south, so a mouth shows where a tunnel
+leaves a south-facing wall. Laid in the editor with G and clicks. Chosen without stills (Ross: "go for tunnels"): the
+inside dark, a straight cut along the strip; a tunnel can run into a pit's wall (the cuts are the same kind).
 
 ## One generator
 The rise is the first screen of the family, and rise.js became the family's builder, mountain.js (206): one function that lays out a

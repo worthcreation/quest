@@ -22,10 +22,10 @@ console.log('2 plateHas: middle', hasMid, '| 9/10 of the way out', hasEdge, '| 1
 startTestScene('mt2', 3/m.len, 17.5/m.D); run(5); state.enemies=[]; const pl=platesLay(m), st=pl.list.filter(p=>p.seed>=60&&p.seed<66), foot=st[0], topS=st[st.length-1];
 const hAtFoot=plateTopAt(pl, 2.6, 23.0), hTop=plateTopAt(pl, topS.x-1.6, topS.y-1.2), pit=pl.pits[0], hPit=plateTopAt(pl, 6.6, 19.7), hOff=plateTopAt(pl, 20, 3), steps=[...pit.ring.keys()].map(p=>plateBox(pit.ring.get(p))[3]);   // (each plate's ring ends further north: its south edge a ledge)
 console.log('3 laid: plates', pl.list.length, 'pits', pl.pits.length, 'seams', pl.seams.length, '| the pitted stack', st.length, 'high: on its foot', hAtFoot.toFixed(2), 'on its crown', hTop.toFixed(2), '(sum', st.map(p=>p.thick).reduce((a,b)=>a+b).toFixed(2)+') | the pit cuts', pit.cut.length, 'plates down to', pit.floor, '| at its bottom', hPit.toFixed(2), '| each plate\\'s ring ends at y', steps.map(v=>v.toFixed(2)).join(', '), '| off every plate', hOff);
-// 4. the one projection: on mt2 (eye 14) a point 2 tiles up is pushed out from the centre by 1 + 2/14; on the rise (no eye) not at all
+// 4. the one projection: on mt2 (eye m.eye, 40 since 221) a point 2 tiles up is pushed out from the centre by 1 + 2/eye; on the rise (no eye) not at all
 const c=state.mtn; const g0=mtnProj(c.cx+5, c.cy, c.ch, c), g2=mtnProj(c.cx+5, c.cy, c.ch+2, c), push=(g2[0]-SW/2)/(g0[0]-SW/2);
 const cR={m:RISE,p:0.5,cx:40,cy:15,ch:0}; const r0=mtnProj(45,15,0,cR), r2=mtnProj(45,15,2,cR);
-console.log('4 push-out on mt2: x', push.toFixed(3), '(want', (1+2/14).toFixed(3)+') | on the rise', ((r2[0]-SW/2)/(r0[0]-SW/2)).toFixed(3), '(want 1.000) | mt2 close: zoom', mtnZoom(c.p,m), 'p', c.p);
+console.log('4 push-out on mt2: x', push.toFixed(3), '(want', (1+2/m.eye).toFixed(3)+') | on the rise', ((r2[0]-SW/2)/(r0[0]-SW/2)).toFixed(3), '(want 1.000) | mt2 close: zoom', mtnZoom(c.p,m), 'p', c.p);
 // 5. faces north only: of a far plate's foot ring on the screen, every face drawn has its foot south of its lip
 const far=pl.list.find(p=>p.seed===120), pr=(x,y,z)=>mtnProj(x,y,mtnH(m,x,y)+z,c), T=far.P.map(([x,y])=>pr(x,y,far.thick)), F=far.P.map(([x,y])=>pr(x,y,0)); let seen=0, north=0;   // (a plate well away from the eye, which is over you: the north bank's two-step)
 for(let i=0;i<T.length;i++){ const j=(i+1)%T.length, ex=T[j][0]-T[i][0], ey=T[j][1]-T[i][1], L=Math.hypot(ex,ey)||1, nx=ey/L, ny=-ex/L, mx=(T[i][0]+T[j][0])/2, my=(T[i][1]+T[j][1])/2, fx=(F[i][0]+F[j][0])/2, fy=(F[i][1]+F[j][1])/2; const out=(fx-mx)*nx+(fy-my)*ny>0.2; if(out&&fy>my+0.2) seen++; if(out&&fy<=my+0.2) north++; }
@@ -64,7 +64,7 @@ const xPit=xr(6.6,19.7,0), xLedge=xr(4.1,20.6,1.2), xBehind=xr(2.6,13.7,0), xOpe
 console.log('9 x-ray: down the pit', xPit, '| on its 1.2 ledge', xLedge, '| north of the face stack', xBehind, '| out in the open', xOpen);
 if (!(P.length===48 && Math.abs(bw-8)<1.6 && Math.abs(bh-4.5)<1.2 && same && diff && hasMid && hasEdge && !hasPast && !hasOut)) errs++;
 if (!(pl.list.length>=9 && pl.pits.length===1 && pl.seams.length===1 && hAtFoot===0.4 && Math.abs(hTop-1.65)<1e-6 && hPit===0 && pit.cut.length===4 && steps.every((v,i)=>!i||v<steps[i-1]-0.4) && hOff===0)) errs++;
-if (!(Math.abs(push-(1+2/14))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && seen<T.length && seamW<0.5 && !inside)) errs++;
+if (!(Math.abs(push-(1+2/m.eye))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && seen<T.length && seamW<0.5 && !inside)) errs++;
 if (!(heldBack===0 && onFoot===0.4 && on2===0.85 && keyOK && on3===1.2 && on4===1.65 && inPit===0 && way.join()==='0.4,0.85,1.2,1.65')) errs++;
 if (!(before>0 && off1===0 && landed && onStep===0.25 && onShelf===0.4 && atFace===0.4)) errs++;
 if (!(xBehind && !xOpen)) errs++;   // (in the pit the x-ray covers only the strip of you under a rim, so either is fine there)
