@@ -44,12 +44,12 @@ function saveScene() {
 }
 
 function enterScene(id, fx, fy) {
+  if (WORLD[state.scene] && RT[state.scene]) saveScene();                              // (at the old scene's own size: a mountain screen's items were being saved at the next screen's, build 211)
   const sv = [W, H]; [W, H] = sceneSize(id);
   try { enterSceneIn(id, fx, fy); } finally { [W, H] = sv; }
   if (state.mtn) mtnCamera(0, state.mtn, true);
 }
 function enterSceneIn(id, fx, fy) {
-  if (WORLD[state.scene] && RT[state.scene]) saveScene();
   const sc = WORLD[id], rt = rtFor(id);
   state.scene = id;
   enterHighlands(id);
@@ -468,7 +468,7 @@ function collideSolids(a, r) {
   return hit;
 }
 const inPool = (x, y) => state.pools.some(p => Math.hypot(x - p.x, y - p.y) < p.r * 0.85);
-const onRock = (sc, x, y, pad = 0) => (sc.rocks || []).some(r => Math.hypot(x - r.fx * W, y - r.fy * H) < r.r * UNIT - pad);
+const onRock = (sc, x, y, pad = 0) => (sc.rocks || []).some(r => Math.hypot(x - r.fx * W, y - r.fy * H) < r.r * UNIT - pad) || !!(sc.mtnIsle && sc.mtnIsle(x, y, pad));   // (a mountain screen's islands count: mountain.js)
 // can you actually see this from where you stand? Close enough, and nothing you couldn't walk through in between:
 // no river, chasm or deep water, no tree or big rock. Notices about a place wait for this.
 function inView(x, y, tiles = 6) {
@@ -484,7 +484,7 @@ function inView(x, y, tiles = 6) {
 }
 function isChasm(x, y, pad = 0) {
   const sc = sceneDef();
-  if (sc.rocks && onRock(sc, x, y, pad)) return false;
+  if ((sc.rocks || sc.mtnIsle) && onRock(sc, x, y, pad)) return false;
   if (sc.mtnGap) return sc.mtnGap(x, y, pad);        // a mountain screen's ravine: the generator's shape (mountain.js)
   if (sc.river && riverHit(sc, x, y, pad, pad === 0)) return true;
   if (sc.deep) { const d = sc.deep, dx = (x / W - d.fx) / d.rx, dy = (y / H - d.fy) / d.ry, k = 1 + pad / (Math.min(d.rx * W, d.ry * H)); if (dx * dx + dy * dy < k * k) return true; }

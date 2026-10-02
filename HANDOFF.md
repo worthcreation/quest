@@ -116,7 +116,8 @@ before and after a world.js refactor, --total for the one line).
 - Home row: gleampool, meadow2, meadow (garden), start (glade), then the woods w1, w2, w3 east to the cave mouth.
 - Down from f1: the rise (where f2 was: in from f1 at its north-west corner, one long slope east, out south through
   a pass at the far end onto the wind shelf mt1, 207), mt1 (the same shape of screen: in at the north-west corner,
-  the ravine along the way, a pass south at the far end onto climb2), the climb climb2 to climb5 (climb.js, its own
+  the ravine along the way, a pass south at the far end onto mt2), mt2 the stepping path (fixed view, the whole
+  screen at once: islands across a wall-to-wall drop, a pass south onto climb3, 211), the climb climb3 to climb5 (climb.js, its own
   runtime until item 3 remakes each on the main game), then east to the crags peak1-peak3 and the High Reaches hr1-hr3, stepping up and to the
   right. f3 to f7 (the windy fields' ravines and the mountain path) retired in build 204.
 - Caves c1-c7 in a column to the east, out to fallsbank, the marsh m1-m3, the hollow h1-h3, the swamp sw1-sw3.
@@ -156,13 +157,31 @@ crags); worn out restarts the screen. Open questions: final look, how the screen
 
 ## The wind shelf, mt1 (build 207)
 Out of the rise's pass, 64 x 30 tiles, the rise's kind of screen (in at the north-west corner, moving camera, a pass
-south at the far end, onto climb2 until m2 is remade). Not yet on 208's ravine generator. M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
+south at the far end, onto mt2). Not yet on 208's ravine generator (its own build). M1.rav is the ravine: x 5 to 48, cy wanders, hw 2.5 (5 across)
 narrowing to 0.65 (a 1.3-tile jump) at x 13, 25, 36 so the path zigzags bank to bank (M1.side), widening to 3.5 at
 x 42 where an island (r 1.0, on a pillar) sits between a ledge on each bank: rides only (gaps 2.5). Ledge pairs at
 x 19 and 30.5 for strong-gust rides; sc.rocks hold them (ledge: true; island: true for the pillar). A jump carries
 2.2 tiles at vigor 8 (jumpReach), so a crossing wants the jump within 0.9 of the lip; isChasm is a point test.
 Three hares (MONSTERS.hare: r 0.58, hp 3, drawSnarl), two carrots and an acorn on the island (sc.initItems).
 Dials: rav.hw (wide 2.5, the 1.85 drop at crossings), cross, island, floor, earth, stoneAt, dx 0.5, fine 6.
+
+## The stepping path, mt2 (build 211)
+Out of the wind shelf's pass, 40 x 24, a fixed screen (M2.fixed { p: 0.55 }: the whole screen in view at zoom
+SW / (41 UNIT), never under mtnZoomMin; a phone's view slides with you, never past the ends). The drop (m2Ravine):
+a neck 5 across along the middle from x 6 to 33, and between x 10 and 30 wall to wall as rows of spines 2.5 apart
+reaching past both edges (the field is the nearest spine's: rows make one flat hole; their ends scallop the lips); the
+river runs the neck only. Islands (genIslands, from the seed after the ravine; m.isls, each { x, y, r, s, chain, dare }):
+a chain of seven, r 1.06 to 1.38, every gap on the ground 1.19 to 1.32 (islGapTo: along the line between middles, where
+one's ground ends to where the next begins), first hop 1.25 off the west lip, the last nudged until the hop south onto
+the bank is 1.30 (ravGapOut) without widening the gap behind it, the dare 1.69 off island 3 (two carrots, sc.initItems).
+islField is the one shape (bumpy ring: r (1 + 0.1 sin 3θ + 0.06 sin 5θ)); islRing draws it: the top stays in the
+ground's rows (its 0.4-inset ring is in the hole path, evenodd), brink band 0 to 0.5 inset and the lip line from
+drawMtnBrink with the ravine's, the pillar's walls from drawRavWalls (the ring anticlockwise so they face out), inside
+the ravine's clip, before the brink. isChasm is false on an island through sc.mtnIsle on onRock (engine.js): no shove,
+h.safe set there. Tiles overlay: green on an island. Dials: M2.drop (x0, x1, wide, hwEnd, hwMid), the ravine's depth
+(7, in m2Ravine), genIslands (r 1.0 to 1.4, gap 1.15 to 1.35, the dare's 1.6 to 1.75, clearances 0.7 and 1.1),
+M2.islTop ('grass' or 'bare'), floor, earth, stoneAt. Open for Ross: the big flat black floor and the tall walls round
+it, island size, grassy or bare (shipped as shown in the still: depth 7, as laid, grassy).
 tests/windshelf.js plays it end to end. Test links: ?scene=mt1, ?mountain then key 1.
 
 ## The rise, where it stands (build 210)
@@ -188,19 +207,14 @@ south opening wherever the seed put it), and if it still stutters on Ross's mach
 wash (a still first).
 
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 211 m2 the stepping path (scene mt2). A draft is parked in docs/parked/m2-stepping-path.patch, written on 207
-(mountain.js and world.js: a fixed camera for the generator (m.fixed { p }), walls that skip the drop, M2 40 x 24 with a
-ravine 5 across at the ends and wall to wall from x 10 to 30, a chain of seven islands r 1.05 with gaps 1.18 to 1.37 and
-an eighth off it 1.69 away with two carrots, in from mt1's pass, out south onto climb3, M1's exit moved to mt2, floor
-stones capped at half a tile, the tiles overlay green on an island). It will not apply clean on 208 or later: the ravine is now
-m.ravs (spines, ravField, ravRings, drawMtnDrop) and the walls of stone are gone from the rise (M1 still has its
-mtnWalls, mtnFootCrags and the old cy/hw ravine with a floor; leave M1 as it is until its own build). Re-base the patch
-by hand, then: islands are their own generator (Ross, 1 Oct: ravines first, then islands laid on purpose, then rivers),
-at least 2 tiles across, every gap a sure running jump; show a still first (mockups quest-b208-mt2-entry.png and -mid.png
-were shown before 208; the look of 208's ravines applies). Then tests/stepping-path.js (hop the chain lined up like a
-player, the dare, in and out, a fall), remove climb2 from CLIMB_SPECS, world.js's climb list and MAP_LAYOUT (mt2: [4, 6]),
-MAP_NAMES, tests/climb.js's 2b, HISTORY, mountain-plan, design-rules story; ship. Ross's open calls on the look (the big
-flat floor, island size, bare or grassy) still stand; ask in one short message after the still.
+FABLE: 212 m3 inside the mountain (scene mt3), moving camera: rifts that crack open ahead of you (the climb's climb3
+pieces: rifts, holes, slants, a narrow place), a hidden area; on the generator (mountain.js: a spec in MTN, ravines
+from genRavine or laid by hand as m2Ravine does, nothing walled with stones, the edges and mtnHold hold); in from
+mt2's pass (M2.finish's south exit, now to climb3), out south onto climb4; remove climb3 from CLIMB_SPECS, world.js's
+climb list, MAP_LAYOUT (mt3: [4, 7]), MAP_NAMES, tests/climb.js's 3, HISTORY, mountain-plan, design-rules story; a
+still first, then a test played like a person (tests/stepping-path.js is the pattern). m1 (mt1) is still on the old
+cy/hw ravine with walls of stone; its move to the 208 generator is its own build. Ross's three open calls on m2 (the
+big flat floor and the walls' height, island size, grassy or bare) still stand: dials listed under The stepping path.
 Also waiting on Ross: his hand-adjusted stills of the climb screens (he asked for stills of the rise and every climb
 screen at the start of the 208 chat; those were delivered as quest-b207-stills.zip). When they come, they set the look
 for m2 onward; read them before the m2 still.
@@ -224,7 +238,7 @@ second after 1.2 s rest (empty to full in about 17 s at 8). Fainting keeps every
    generator~~ (206: rise.js became mountain.js, no change in play), ~~207 m1 the wind shelf~~ (207, scene mt1).
    ~~208 the rise reworked~~ (208: bottomless ravines from a generator, the
    big one plus the reeds as the boundary, no walls of stone), ~~209 the rise runs smooth~~ (209), ~~210 the brink on the ground~~
-   (210). NEXT: 211 m2 (islands at least 2 tiles across; draft parked on 207, re-base), 212 m3 inside, 213 m4, 214 m5 and
+   (210), ~~211 m2 the stepping path~~ (211). NEXT: 212 m3 inside, 213 m4, 214 m5 and
    carrot juice (climb.js deleted), 215 hawks hunt rabbits and the ornithologist's eggs, 216 the tortoise's hollow and
    peach stones, 217 trees, 218 the windmill (Opus), 219 direction by seed; all FABLE but 218. The wind by height ships whenever Ross
    OKs the mockup (patch in docs/parked, Opus). Until the reeds open, all real play stays west of them.

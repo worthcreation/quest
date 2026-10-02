@@ -1,7 +1,7 @@
 // ===== climb.js: the mountain climb, a new kind of screen, in several takes. Most are "trail" screens: a still camera
 // looks down a winding chasm, you climb the green slopes from far (small) to near (big), jumping the chasm where it's
 // narrow enough (or hopping islands), while the wind shoves you back and toward the edge. One is a side view. They run
-// in a chain: the rise's pass > the wind shelf (mt1, mountain.js) > climb2 > ... > climb5 > peak1 (the crags), joined in
+// in a chain: the rise's pass > the wind shelf (mt1) and the stepping path (mt2, mountain.js) > climb3 > ... > climb5 > peak1 (the crags), joined in
 // build 203. Every number that shapes them is in CLIMB_TUNE and CLIMB_SPECS below. climb1 was remade as mt1 (207).
 
 // ?mountain in the link starts on the rise just east of the reeds, the pass ahead (no creator, no opening). ?scene=peak1 (any screen id) starts there.
@@ -30,9 +30,6 @@ const CLIMB_TUNE = {
 const CLIMB_SPECS = {
   // path: the way winds (amp tiles either side, over period tiles, shifted); ravine: wide everywhere; islands [x from the
   // path, z, radius]
-  climb2: { name: 'Stepping stones', kind: 'trail', cam: { f: 0.62, horizon: 0.24, camH: 3.6 }, mirror: true, path: { amp: 1.4, period: 30, shift: 4 },
-            ravine: { wide: 2.6 }, start: [3.6, 20], goalZ: 4.6, next: 'climb3',
-            islands: [[1.3, 17.5, 1.0], [-0.2, 15.2, 1.0], [1.0, 12.8, 0.95], [-0.8, 10.3, 0.95], [0.6, 8.0, 0.95], [-0.9, 6.3, 0.95]] },   // a stepping path across and down
   // field: open ground with holes. rifts [z near edge, z far edge, phase, x where it narrows] run across, their edges
   // wobbling (wobble: [tiles, near edge's waviness, far edge's]); narrow [how much, how wide a stretch]; holes
   // [x, z, half-width, half-depth]; slants [z from, z to, x at the far end, lean per tile, half-width]; edge: past it is a
@@ -70,7 +67,7 @@ function climbScreen(s) {
   return Object.assign({}, s, { cx, hw }, s.field ? { gap: fieldGap(s.field) } : {});
 }
 const CLIMBS = Object.fromEntries(Object.entries(CLIMB_SPECS).map(([id, s]) => [id, climbScreen(s)]));
-const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb2;
+const climbDef = () => CLIMBS[state.scene] || CLIMBS.climb3;
 const climbCx = (z, d = climbDef()) => d.cx(z);
 const climbHw = (z, d = climbDef()) => d.hw(z);
 const climbSlopeY = dx => 1.5;                                                   // the ledges are level ground
@@ -83,7 +80,7 @@ const onClimbIsland = (x, z, d = climbDef()) => (d.islands || []).some(([ix, iz,
 const overChasm = (x, z) => { if (onClimbIsland(x, z)) return false; const dd = climbDef(); if (dd.gap) return dd.gap(x, z) || Math.abs(x) > 11; const s = climbSide(x, z), a = Math.abs(s); return a < climbHw(z) || a > climbHw(z) + CLIMB_TUNE.ledge; };   // the ravine, or off a ledge's outer edge
 
 function newClimb(id) {
-  const d = CLIMBS[id] || CLIMBS.climb2;
+  const d = CLIMBS[id] || CLIMBS.climb3;
   if (d.kind === 'side') return newSideClimb();
   setTimeout(climbTip, 400);
   return { kind: 'trail', x: d.cx(d.start[1]) + d.start[0], z: d.start[1], vx: 0, vz: 0, h: 0, vh: 0, air: false, fall: 0, safe: null,
@@ -99,7 +96,7 @@ function testHops() {
   const tap = k => { if (state.keys[k]) { state.keys[k] = false; return true; } return false; };
   if (tap('[')) SHADOW.lead = Math.max(0, SHADOW.lead - 0.05); if (tap(']')) SHADOW.lead = Math.min(1, SHADOW.lead + 0.05);
   if (tap('-')) SHADOW.follow = Math.max(1, SHADOW.follow - 1); if (tap('=')) SHADOW.follow = Math.min(30, SHADOW.follow + 1);
-  const ids = ['mt1', 'climb2', 'climb3', 'climb4', 'climb5'];
+  const ids = ['mt1', 'mt2', 'climb3', 'climb4', 'climb5'];
   for (let i = 0; i <= 5; i++) { const k = String(i); if (state.keys[k]) { state.keys[k] = false; state.climb = null; enterScene(i ? ids[i - 1] : 'f1'); state.climbReturn = i ? ids[i - 1] : 'f1'; return true; } }   // (the key is used up on the spot)
   return false;
 }

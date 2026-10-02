@@ -55,7 +55,9 @@ ravines, before the rivers); spiders and pits parked. Full rules in docs/design-
 
 ## Islands (Ross, 1 Oct: the islands are hard to read without the tiles on)
 Keep each screen's perspective as it is (no special camera over jumps). For now every island is at least 2 tiles
-across, and every gap a sure running jump. Smaller platforms may come later, by Ross's call.
+across, and every gap a sure running jump. Smaller platforms may come later, by Ross's call. Since 211 islands come
+from genIslands (mountain.js): laid after the ravine, a pillar out of the drop each, one shape (islField) for the test and
+the drawing, gaps measured on the ground along the line a player lines up on (islGapTo).
 
 ## Builds (main's BUILD plus one each, one at a time)
 205 the reeds hold (dash and lunge stepped in pieces). Done.
@@ -63,7 +65,7 @@ across, and every gap a sure running jump. Smaller platforms may come later, by 
     (test output, renders, world and draw hashes identical). Done.
 New scenes first (Ross, 1 Oct):
 207 m1 the wind shelf on the generator (scene mt1: m1 to m3 are the marsh's ids), out of the rise's pass, leading on
-    to climb2 until m2 exists: the ravine (M1.rav) crossed at three 1.3-tile narrows, ledge-to-ledge gust rides
+    to mt2 since 211: the ravine (M1.rav) crossed at three 1.3-tile narrows, ledge-to-ledge gust rides
     where it's wide, an island on a pillar at the widest (the secret: carrots), hares, the dry palette. Done; dials
     in M1 (rav.hw's wide 2.5 and narrow, cross, island, floor, earth, stoneAt).
 208 the rise reworked (Ross, 1 Oct): bottomless ravines from a generator (spines, traced outlines, far walls leaning
@@ -73,8 +75,9 @@ New scenes first (Ross, 1 Oct):
 209 the rise runs smooth: the ravines' per-frame costs cut (no canvas read-back, a field grid for the game's test,
     the outline worked out on the way in, walls culled to the screen). Done.
 210 the brink lies on the ground: painted with its ravine before anything standing (you, the reeds). Done.
-211 m2 the stepping path, fixed and zoomed out: islands at least 2 tiles across (draft in docs/parked/m2-stepping-path.patch,
-    written on 207: re-base it). FABLE.
+211 m2 the stepping path, fixed and zoomed out: a chain of islands across a wall-to-wall drop, each at least 2 tiles
+    across, every gap a sure running jump, the dare a long jump off the chain. Done; dials in M2 (drop, fixed, islTop),
+    m2Ravine, genIslands (r, gap, the dare's gap), the ravine's depth. The parked patch is retired.
 212 m3 inside the mountain, moving camera: rifts that crack open ahead of you; a hidden area. FABLE.
 213 m4 the windy crossing, fixed and wide: bare islands, big rocks to shelter behind. FABLE.
 214 m5 the last ledges, side view on the main game: the buff rabbits, carrot juice; climb.js deleted. FABLE.

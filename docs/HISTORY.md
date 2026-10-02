@@ -1,6 +1,28 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 211: m2 the stepping path (chat)
+Scene mt2, out of the wind shelf's pass, on the mountain generator: a fixed screen (M2.fixed, the whole 40 x 24 in
+view at zoom 0.55 on a 1280 screen; a phone's view slides along with you). The drop is laid by hand, not walked
+(m2Ravine): a neck 5 across along the middle, and between x 10 and 30 wall to wall as rows of spines two and a half
+tiles apart (one spine with a huge half-width made a stadium: the field is a union of discs), their ends scalloping
+the lips; the river runs the neck only (mtnDrawRavs carries each ravine's own river). Islands are their own generator
+(genIslands, after the ravine, from the screen's seed): a chain of seven across the drop, 2.1 to 2.8 tiles across,
+every gap on the ground 1.19 to 1.32 (islGapTo measures it along the line a player lines up on; the bumpy edge made a
+circle's number off by a sixth), the first 1.25 off the west lip, the last nudged until the hop onto the south bank
+is 1.30 without widening the gap behind it, and the dare 1.69 off island 3 with two carrots. One shape, islField, for
+the test (mtnGap; isChasm by a sc.mtnIsle hook on onRock, so the wind doesn't shove you off and a fall puts you back
+on the island) and for drawing (islRing: the top stays in the ground's rows, its brink and lip from drawMtnBrink,
+the pillar's walls from drawRavWalls, split out of drawMtnDrop so holes and pillars share the quads, strata and set-in
+stones; the walls face out). Tops are the screen's turf (M2.islTop 'bare' for grit). Two hares, one a bank. climb2
+is gone (CLIMB_SPECS, the climb list, MAP_LAYOUT mt2: [4, 6], MAP_NAMES, tools/shot.js's B138 and B145 blocks,
+tests/climb.js 2b); mt1's pass leads to mt2, mt2's to climb3. Fixed on the way: leaving a mountain screen saved its
+items at the next screen's size (saveScene ran after W and H changed), so anything left on the rise or the wind shelf
+came back in the wrong place; it now saves at the old scene's own size. tests/stepping-path.js: in from mt1, the
+islands' numbers, the north bank, the chain hopped lined up from each island's middle, the bank, the pass to climb3,
+the dare and its carrots, a fall off its far side and back on it, 25 s of wind on the biggest island, north to mt1.
+Open for Ross (dials): the walls' depth (7), island size (genIslands' r 1.0 to 1.4), tops (islTop).
+
 ## Build 210: the brink lies on the ground (chat)
 Ross: you must stand over the ravine's edge, and the reeds over it too. The brink (the broken ground and the lip
 line) was painted once every row it crossed was down, so it went over you and over the reeds. A first try painted it a

@@ -242,9 +242,10 @@ function genWorld() {
   }
   // the crags and the High Reaches: every boulder is rough, craggy stone
   for (const sc of Object.values(S)) if (sc.area === 'peak') sc.solids.forEach(s => { if (s.kind === 'boulder' && rng() < 1) s.craggy = true; });
-  for (const id of ['climb2', 'climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
+  for (const id of ['climb3', 'climb4', 'climb5']) add(newScene({ id, area: 'peak', msg: '', music: 'field', amb: 'wind', floor: '#7d8a5c' })).exits = [];   // drawn and run by climb.js
   addMtn(S, add, RISE);                             // the second field is the rise (mountain.js): one long slope to the mountain
   addMtn(S, add, M1);                               // and through its pass, the wind shelf (the climb's first screen remade, 207)
+  addMtn(S, add, M2);                               // and the stepping path (climb2 remade, 211)
   genHighlands(S, add);                             // above the old summit: the High Reaches (highlands.js)
   return S;
 }
@@ -765,12 +766,12 @@ const MAP_LAYOUT = {
   farbank: [2, 0],
   rapids: [0, 1], ford: [2, 1], riverbank: [3, 1], camp: [4, 1],
   gleampool: [0, 2], meadow2: [2, 2], meadow: [3, 2], start: [4, 2], w1: [5, 2], w2: [6, 2], w3: [7, 2],
-  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], mt1: [4, 5], climb2: [4, 6], climb3: [4, 7], climb4: [4, 8], climb5: [4, 9],
+  foot: [3, 3], f1: [4, 3], peak1: [5, 9], peak2: [6, 8], peak3: [6, 7], hr1: [7, 6], hr2: [7, 5], hr3: [7, 4],   /* the climb steps up and to the right */ rise: [4, 4], mt1: [4, 5], mt2: [4, 6], climb3: [4, 7], climb4: [4, 8], climb5: [4, 9],
   c1: [8, 3], c2: [8, 4], c3: [8, 5], c4: [8, 6], c5: [8, 7], c6: [8, 8], c7: [8, 9],
   fallsbank: [9, 9], m1: [10, 9], m2: [11, 9], m3: [12, 9], h1: [13, 9], h2: [14, 9], h3: [15, 9],
   sw1: [11, 10], sw2: [11, 11], sw3: [11, 12],
 };
-const MAP_NAMES = { mt1: 'The wind shelf', cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
+const MAP_NAMES = { mt1: 'The wind shelf', mt2: 'The stepping path', cellar: 'Wick\'s cellar', hr1: 'Windy Ledge', hr2: 'The Crossing', hr3: 'Above the Clouds', peak3: 'Old summit', rapids: 'The rapids', gleampool: 'Gleaming pool', fallsbank: 'Falls bank', camp: 'Home camp', start: 'The glade', meadow: 'Meadow', meadow2: 'Rocky meadow', riverbank: 'Riverbank', ford: 'The ford', farbank: 'Far bank', foot: 'Foothill farm' };
 const REGION_COLOR = { peak: '#a8a29a', river: '#5ab0c8', forest: '#7fc47a', woods: '#3f9a52', field: '#c9c06a', cave: '#8a7aa8', marsh: '#7aa88a', swamp: '#5a8a6a', hollow: '#a86a6a' };
 
 function renderOverview(seed) {

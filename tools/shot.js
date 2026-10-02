@@ -80,27 +80,14 @@ if (process.env.B154) {                            // build 154: the windy cross
 if (process.env.B150) {                            // build 150: the tile grid on the climb, in perspective
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow'; state.settings.tiles=true;
-  for (const id of ['mt1','climb2']) { enterScene(id); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b150-'+id+'.png', canvas.toBuffer('image/png')); }
+  for (const id of ['mt1','mt2']) { enterScene(id); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[]; draw(); fs.writeFileSync('/tmp/b150-'+id+'.png', canvas.toBuffer('image/png')); }
   state.settings.tiles=false; console.log('b150 written');
 }
-if (process.env.B145) {                            // build 145: mid-jump, the shadow ahead at the landing
-  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
-  state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb2'); state.cut=null; run(10); state.texts=[]; state.title=null; state.scrolls=[];
-  const c=state.climb, d=climbDef(); c.gust.t=999; c.x=d.cx(17.5)+d.hw(17.5)+0.5; c.z=17.5; state.keys.arrowright=true; run(3); state.keys[' ']=true; run(2); state.keys[' ']=false; run(12); state.keys.arrowright=false;
-  draw(); fs.writeFileSync('/tmp/b145.png', canvas.toBuffer('image/png')); console.log('b145 written', c.air);
-}
-if (process.env.B139) {                            // build 139: the climb screens (climb2 to climb5; mt1 is a mountain screen since 207: see B165)
+if (process.env.B139) {                            // build 139: the climb screens (climb3 to climb5; mt1 and mt2 are mountain screens since 207 and 211: see B165)
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
   state.started=true; state.intro=null; state.climbReturn='meadow';
-  for (const id of ['climb2','climb3','climb4','climb5']) { enterScene(id); state.cut=null; run(20); state.texts=[]; state.title=null; state.scrolls=[]; if (state.climb.kind==='side') { state.climb.px=0.9; state.climb.py=state.climb.ledges[4][2]; run(40); } draw(); fs.writeFileSync('/tmp/b139-'+id+'.png', canvas.toBuffer('image/png')); }
+  for (const id of ['climb3','climb4','climb5']) { enterScene(id); state.cut=null; run(20); state.texts=[]; state.title=null; state.scrolls=[]; if (state.climb.kind==='side') { state.climb.px=0.9; state.climb.py=state.climb.ledges[4][2]; run(40); } draw(); fs.writeFileSync('/tmp/b139-'+id+'.png', canvas.toBuffer('image/png')); }
   console.log('b139 written');
-}
-if (process.env.B138) {                            // build 138: the climb prototype, in the game
-  const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };
-  state.started=true; state.intro=null; state.climbReturn='meadow'; enterScene('climb2'); state.cut=null; run(5); state.texts=[]; state.title=null;
-  const c=state.climb; c.gust.phase='blow'; c.gust.t=9; c.x=climbCx(14)+climbHw(14)+1.2; c.z=14; run(2); draw(); fs.writeFileSync('/tmp/b138-a.png', canvas.toBuffer('image/png'));
-  c.z=6.5; c.x=climbCx(6.5)-climbHw(6.5)-1.4; c.h=0.8; c.air=true; c.gust.phase='calm'; draw(); fs.writeFileSync('/tmp/b138-b.png', canvas.toBuffer('image/png'));
-  console.log('b138 written');
 }
 if (process.env.MOCK4) {                           // a still: a mountainside built from the game's own assets, scaled and turned
   const run=n=>{ for (let k=0;k<n;k++){ update(1/60); draw(); } };

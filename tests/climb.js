@@ -3,15 +3,7 @@ eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\n').slice(1,3).join(' | '));} }};
 run(5); state.intro=null; state.texts=[]; state.pip=null; enterScene('meadow'); run(3); state.climbReturn='meadow';
 // (1. the wind trail, climb1, was remade as the wind shelf, mt1, in build 207: tests/windshelf.js)
-enterScene('climb2'); run(5);
-// 2b. the whole stepping path, hopped like a player would (aim, a short run, jump, steer)
-{ enterScene('climb2'); run(5); const c2=state.climb, d2=climbDef(); c2.gust.t=999; const path=[]; const targets=d2.islands.map(([ix,iz])=>[d2.cx(iz)+ix, iz]).concat([[d2.cx(5)-d2.hw(5)-1.2, 5.2]]);
-  c2.x=d2.cx(17.5)+d2.hw(17.5)+0.5; c2.z=17.5; run(2);
-  for (const [tx,tz] of targets) { const dx=tx-c2.x, dz=tz-c2.z, scr=(d2.mirror?-1:1)*Math.sign(dx); state.keys[scr<0?'arrowleft':'arrowright']=Math.abs(dx)>0.2; state.keys[dz<0?'arrowdown':'arrowup']=Math.abs(dz)>0.2; run(3); state.keys[' ']=true; run(2); state.keys[' ']=false;
-    for(let k=0;k<60 && c2.air;k++){ const ddx=tx-c2.x, ddz=tz-c2.z, s2=(d2.mirror?-1:1)*Math.sign(ddx); state.keys.arrowleft=s2<0&&Math.abs(ddx)>0.15; state.keys.arrowright=s2>0&&Math.abs(ddx)>0.15; state.keys.arrowdown=ddz<-0.15; state.keys.arrowup=ddz>0.15; run(1); }
-    for(const k of ['arrowleft','arrowright','arrowup','arrowdown']) state.keys[k]=false; run(12); path.push(c2.fall>0?'fell':'ok'); if(c2.fall>0) run(70); }
-  console.log('2b stepping stones, the whole path:', path.join(' '), '| across:', climbSide(c2.x,c2.z)<-climbHw(c2.z)); }
-enterScene('climb2'); run(5);
+// (2. the stepping stones, climb2, was remade as the stepping path, mt2, in build 211: tests/stepping-path.js)
 { enterScene('climb3'); run(5); const c3=state.climb, d3=climbDef(); c3.gust.t=999; c3.x=1.6; let t=0, falls=0; state.keys.arrowdown=true;
   while(state.scene==='climb3' && t<60*40){ if(!c3.air && d3.gap(c3.x, c3.z-0.5)){ state.keys[' ']=true; run(1); state.keys[' ']=false; } run(1); t++; if(c3.fall>0 && c3.fall<0.03) falls++; } state.keys.arrowdown=false;
   console.log('3 the broken meadow: straight down through the narrow place, jumping each rift: falls', falls, '->', state.scene); }

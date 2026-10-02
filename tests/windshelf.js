@@ -1,7 +1,7 @@
 const src = require('./harness.js').src;
 // The wind shelf (mt1, build 207): the rise's pass leads onto it; a ravine splits the way, jumped at three narrow
 // crossings, ridden across on the strong gust from ledge to ledge where it's wide, with an island out in the widest
-// stretch (the secret) reached only by riding; hares; the pass at the far end leads onto climb2. Played like a person.
+// stretch (the secret) reached only by riding; hares; the pass at the far end leads onto the stepping path (mt2). Played like a person.
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
@@ -45,12 +45,12 @@ console.log('6 standing 2.5 tiles from the lip for 25 s: blown in', blownIn); wh
 // 7. the hares: bigger than the rise's rabbits, a hit tougher; they rage, dart and flee
 state.enemies=sc().spawns.map((s,i)=>makeEnemy(s.type,s.fx*W,s.fy*H,i)); const e=state.enemies[0]; h.x=e.x-UNIT*3; h.y=e.y; h.vx=h.vy=0; const modes=new Set(); for(let k=0;k<240;k++){ run(1); modes.add(e.mode); }
 console.log('7 hares:', sc().spawns.filter(s=>s.type==='hare').length, '| r', (e.r/UNIT).toFixed(2), 'tiles (rabbit', (MONSTERS.rabbit.stats(UNIT).r/UNIT).toFixed(2)+'), hp', e.hp, '(rabbit 2) | modes seen:', [...modes].sort().join(','));
-// 8. east along the south bank, through the pass at the far end, onto climb2; and back north from the way in to the rise
+// 8. east along the south bank, through the pass at the far end, onto mt2; and back north from the way in to the rise
 state.enemies=[]; h.x=49*UNIT; h.y=m.pathY(49)*UNIT; h.vx=h.vy=0; falls.length=0; walk(12, ()=>tx()>m.outX-0.3); state.keys.arrowdown=true; run(60*4); off(); run(5); const out=[state.scene, !!state.climb];
 state.climb=null; enterScene('mt1', m.inX/m.len, 2/m.D); run(5); state.keys.arrowup=true; run(90); off(); run(10);
 console.log('8 the south bank east to the pass and south ->', out[0], '(climb running:', out[1]+') | falls on the way', falls.length, '| north from the way in ->', state.scene, 'at x', tx().toFixed(1), 'y', ty().toFixed(1));
 if (!(inAt[0]<8 && !!WORLD.mt1 && !WORLD.climb1 && gaps.every(g=>g<=1.4) && falls.length===0)) errs++;
 if (!(allOk && wide[1] && /bank/.test(note) && rode1 && on1 && rode2 && onIsland && /carrot/.test(here) && rode3 && onS && !blownIn)) errs++;
-if (!(e.r>MONSTERS.rabbit.stats(UNIT).r && modes.has('dart') && out[0]==='climb2' && out[1] && state.scene==='rise')) errs++;
+if (!(e.r>MONSTERS.rabbit.stats(UNIT).r && modes.has('dart') && out[0]==='mt2' && !out[1] && state.scene==='rise')) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);
