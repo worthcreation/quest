@@ -1,6 +1,15 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 220: a taller slab's edge over a shorter one; faces and tops in two passes (chat)
+Ross, from a screenshot: a shorter platform occluded a taller one. A plate is now painted in two passes: its faces at
+its foot's turn in the painter's order on the ground (217's: a slab in front covers the wall behind it), and its top,
+lip and the hole through it at its top's turn, tops by height, the taller after the shorter and all tops after
+everything on the ground (the eye is over you, so what is higher is nearer it: a taller slab's edge covers a shorter
+one wherever they overlap on the screen, and a pit's inside, seen through its rim, covers a slab in front). Items on a
+plate draw after its top (onK). Stills in docs/parked/mock-faces.js: D (this), E (D with plain faces and no pit shade),
+for Ross's other call, faces without the lip band, strata and pit shade, which is not built.
+
 ## Build 219: the editor's keys on a sheet (chat)
 Ross, after 218: the key panel was mashed. One line at the bottom now: the selected thing's numbers, what [ ] change,
 "H keys". H opens a sheet in the middle, three columns (look, pick; lay, try and save; change the selected), H closes

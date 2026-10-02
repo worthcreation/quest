@@ -28,7 +28,7 @@
 
 const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
 let PL_HERO = null;                                                                     // down a pit: { pit, lift, box } (drawMtn sets it each frame: the far walls above you leave your box out)
-const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map();                                            // texture px per tile; outline points before the cutting; the first plate's grey
+const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map(), PL_TOPKEY = 1000;   // (PL_TOPKEY: the tops' draw keys start past any tile y)                                            // texture px per tile; outline points before the cutting; the first plate's grey
 function plateRng(seed) { const R = mulberry32((Math.floor(seed * 7919) * 2654435761) >>> 0); return (a = 0, b = 1) => a + R() * (b - a); }
 // a plate's outline in tiles: squarish (a superellipse), corners knocked, a jog or two; worn, not cut
 function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                        // turn: the editor's R, radians on top of the seed's own tilt
@@ -81,7 +81,8 @@ function platesLay(m) {
   const out = [], left = new Set(L);                                                           // then from the north: the plate nothing left must precede, the northmost of those (a cycle, if a layout makes one, just takes the northmost)
   while (left.size) { let pick = null; for (const p of left) if (![...left].some(q => q !== p && after.get(q).has(p)) && (!pick || p.key < pick.key)) pick = p; if (!pick) for (const p of left) if (!pick || p.key < pick.key) pick = p; out.push(pick); left.delete(pick); }
   pl.list = out;
-  let prev = -Infinity; for (const p of pl.list) { p.key = Math.max(p.key, prev + 1e-3); prev = p.key; }
+  let prev = -Infinity; for (const p of pl.list) { p.fkey = Math.max(p.key, prev + 1e-3); prev = p.fkey; }   // the faces' turn
+  const byTop = pl.list.slice().sort((a, b) => (plateTop(a) - plateTop(b)) || (a.fkey - b.fkey)); byTop.forEach((p, i) => { p.key = PL_TOPKEY + i; });   // the tops' turn: by height (equal tops by the ground order), all after everything on the ground
   for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null); q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
@@ -244,13 +245,22 @@ function plateTopPaint(m, p, pr, s) {
 }
 // the screen box of what a plate paints (its top ring and its foot ring)
 const plateScreenBox = (p, pr) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const [x, y] of p.P) for (const z of [p.base, plateTop(p)]) { const [X, Y] = pr(x, y, z); if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; } return [x0, y0, x1, y1]; };
-function drawPlate(m, p, pr, s) {
+// a plate is painted in two passes (220): its faces at its foot's turn (fkey: the painter's order on the ground, so a
+// slab in front covers the wall behind it), its top, lip and the hole through it at its top's turn (key: by the top's
+// height, the taller after the shorter, so a taller slab's edge covers a shorter one wherever they overlap on the
+// screen: the eye is over you, and what is higher is nearer it)
+function drawPlateFaces(m, p, pr, s) {
   const pl = platesLay(m), us = UNIT * s, top = plateTop(p), T = p.P.map(([x, y]) => pr(x, y, top)), F = p.P.map(([x, y]) => pr(x, y, p.base));
   if (!plOn(T, us * 2) && !plOn(F, us * 2)) return;
   const cuts = pl.pits.filter(q => q.ring.has(p)), ring = (q, z) => q.ring.get(p).map(([x, y]) => pr(x, y, z));
   const outside = R => { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); R.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); ctx.clip('evenodd'); };
   ctx.save(); for (const q of cuts) for (const z of [p.base, (p.base + top) / 2, top]) outside(ring(q, z));
   platePaintFaces(T, F, p.thick, p.tone, p.seed, s); ctx.restore();
+}
+function drawPlate(m, p, pr, s) {
+  const pl = platesLay(m), us = UNIT * s, top = plateTop(p), T = p.P.map(([x, y]) => pr(x, y, top));
+  if (!plOn(T, us * 2)) return;
+  const cuts = pl.pits.filter(q => q.ring.has(p)), ring = (q, z) => q.ring.get(p).map(([x, y]) => pr(x, y, z));
   plateTopPaint(m, p, pr, s);
   for (const q of cuts) { const R = ring(q, top), B = ring(q, p.base), n = R.length;
     ctx.save(); plPath(T); ctx.clip(); plPath(R); ctx.clip();

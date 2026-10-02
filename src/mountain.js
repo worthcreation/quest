@@ -483,7 +483,7 @@ function drawMtn() {
   let baseIn = null;
   if (pl && hole) { const ring = plateRing(m).map(([x, y]) => gp(x, y)); baseIn = new Path2D(); add(baseIn, ring); for (const [X, Y] of ring) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; } }
   if (pl) { list.push([-Infinity, () => { ctx.save(); if (baseIn) { ctx.clip(baseIn); ctx.clip(hole, 'evenodd'); } fillRows(-UNIT * 2, H + UNIT * 2, -UNIT * 2, W + UNIT * 2, true); for (const sm of pl.seams) platePaintSeam(sm, 0, null, pl.pits.filter(q => q.floor <= 0), pr, us); ctx.restore(); }]);
-    for (const p of pl.list) list.push([p.key, () => drawPlate(m, p, pr, s)]); }
+    for (const p of pl.list) { list.push([p.fkey, () => drawPlateFaces(m, p, pr, s)]); list.push([p.key, () => drawPlate(m, p, pr, s)]); } }   // (faces at the foot's turn, tops by height: plates.js)
   for (const r0 of mtnDrawRavs(m)) {
     const rvs = mtnRavinePts(m, r0, gp); if (!rvs.length) continue;
     for (const rv of rvs) for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; }
@@ -502,7 +502,8 @@ function drawMtn() {
       if (isls.length) { ctx.save(); ctx.beginPath(); for (const rv of rvs) rv.N.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip(); { const d = I => { const [X, Y] = gp(I.i.x, I.i.y); return Math.hypot(X - W / 2, Y - H / 2); }; for (const I of isls.slice().sort((a, b) => d(b) - d(a))) drawMtnPillar(m, I.i, rvs[0], s, gp); } ctx.restore(); }   // (pillars outermost first: a pillar's wall reaches in toward the middle of the view, under the ones nearer it)
       if (band) drawMtnBrink(rvs.concat(isls), s, band, fillRows, ravPal(m)); })]);
   }
-  for (const it of state.items) list.push([it.y / UNIT + 0.4, () => at(it.x, it.y, () => one('items', it, drawItems))]);
+  const onK = (x, y, k) => { const xt = x / UNIT, yt = y / UNIT, z = pl ? plateTopAt(pl, xt, yt) : 0; return z > 0 ? Math.max(k, plateKeyUnder(pl, xt, yt, z)) : k; };   // on a plate: after its top
+  for (const it of state.items) list.push([onK(it.x, it.y, it.y / UNIT + 0.4), () => at(it.x, it.y, () => one('items', it, drawItems))]);
   for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
   for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
   if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
