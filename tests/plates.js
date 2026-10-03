@@ -22,6 +22,11 @@ console.log('2 plateHas: middle', hasMid, '| 9/10 of the way out', hasEdge, '| 1
 startTestScene('mt2', 3/m.len, 17.5/m.D); run(5); state.enemies=[]; const pl=platesLay(m), st=pl.list.filter(p=>p.seed>=60&&p.seed<66), foot=st[0], topS=st[st.length-1];
 const hAtFoot=plateTopAt(pl, 2.6, 23.0), hTop=plateTopAt(pl, topS.x-1.6, topS.y-1.2), pit=pl.pits[0], hPit=plateTopAt(pl, 6.6, 19.7), hOff=plateTopAt(pl, 20, 3), steps=[...pit.ring.keys()].map(p=>plateBox(pit.ring.get(p))[3]);   // (each plate's ring ends further north: its south edge a ledge)
 console.log('3 laid: plates', pl.list.length, 'pits', pl.pits.length, 'seams', pl.seams.length, '| the pitted stack', st.length, 'high: on its foot', hAtFoot.toFixed(2), 'on its crown', hTop.toFixed(2), '(sum', st.map(p=>p.thick).reduce((a,b)=>a+b).toFixed(2)+') | the pit cuts', pit.cut.length, 'plates down to', pit.floor, '| at its bottom', hPit.toFixed(2), '| each plate\\'s ring ends at y', steps.map(v=>v.toFixed(2)).join(', '), '| off every plate', hOff);
+// 3b. the cutout clean (225): drawn, a lower layer of the pit paints no lip (its ledge is bare texture under the wash) and the top layer two, its own edge and the rim's; no brink inside the hole
+{ let lips=0, brinks=0; const lip0=platePaintLip, brink0=platePaintBrink; platePaintLip=(R,s2)=>{ lips++; lip0(R,s2); }; platePaintBrink=(R,us)=>{ brinks++; brink0(R,us); };
+  const c2={...state.mtn, cx:5.5, cy:20}, pr2=(x,y,z)=>mtnProj(x,y,mtnH(m,x,y)+z,c2), low=pit.cut.find(p=>p.base<=pit.floor+0.01), topP=pit.cut.find(p=>plateTop(p)>=pit.top-1e-6);
+  drawPlate(m,low,pr2,1); const lipsLow=lips, brinksLow=brinks; lips=brinks=0; drawPlate(m,topP,pr2,1); const lipsTop=lips, brinksTop=brinks; platePaintLip=lip0; platePaintBrink=brink0;
+  console.log('3b the cutout: the lowest layer drawn with lips', lipsLow, 'brinks', brinksLow, '(its outer edge only) | the rim layer lips', lipsTop, 'brinks', brinksTop, '(its edge and the rim; no brink inside)'); }
 // 4. the one projection: on mt2 (eye m.eye, 40 since 221) a point 2 tiles up is pushed out from the centre by 1 + 2/eye; on the rise (no eye) not at all
 const c=state.mtn; const g0=mtnProj(c.cx+5, c.cy, c.ch, c), g2=mtnProj(c.cx+5, c.cy, c.ch+2, c), push=(g2[0]-SW/2)/(g0[0]-SW/2);
 const cR={m:RISE,p:0.5,cx:40,cy:15,ch:0}; const r0=mtnProj(45,15,0,cR), r2=mtnProj(45,15,2,cR);
@@ -58,15 +63,15 @@ const before=lift(); go(31.9,2.2,-1,3); const off1=lift(), landed=h.z<=0;       
 h.x=6.2*UNIT; h.y=16.2*UNIT; h.vx=h.vy=0; h.lift=0; h.plPrev=[h.x,h.y]; run(2); const stepJ=go(8.2,16.3,-1,3), onStep=lift();   // the perch's 0.25 foot: walked up, no jump
 h.x=2.4*UNIT; h.y=17.3*UNIT; h.vx=h.vy=0; h.lift=0; h.plPrev=[h.x,h.y]; run(2); go(2.0,16.4,0,4); const onShelf=lift(); go(3.0,15.3,20,4); const atFace=lift();   // the face stack: up its 0.4 foot, then the 1.2 face stops even a held jump
 console.log('8 off the north edge of the north bank two-step from', before, 'to', off1, '(landed', landed+') | the 0.25 step walked up to', onStep, '| the face stack: up to', onShelf, 'and the 1.2 face holds at', atFace);
-// 9. seen from above: on the pit's floor and on a ledge in it you're in view, an edge of you x-rayed where a rim covers it; north of the face stack it hides you; out on the open base nothing does (state.mtn.xray, set by the frame)
-const xr=(x,y,l)=>{ h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.lift=l; h.liftAt=state.scene; h.plPrev=[h.x,h.y]; mtnCamera(0,state.mtn,true); DRAW_SCENE_STRIDE=1; draw(); return !!state.mtn.xray; };
+// 9. seen from above: down the pit a rim covers only an edge of you, under the x-ray's line (226: it needs 70 percent of you hidden); north of the face stack it hides you and the x-ray shows you; out on the open base nothing does (state.mtn.xray and .cover, set by the frame)
+const xr=(x,y,l)=>{ h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.lift=l; h.liftAt=state.scene; h.plPrev=[h.x,h.y]; mtnCamera(0,state.mtn,true); DRAW_SCENE_STRIDE=1; draw(); return [!!state.mtn.xray, Math.round(state.mtn.cover*100)]; };
 const xPit=xr(6.6,19.7,0), xLedge=xr(4.1,20.6,1.2), xBehind=xr(2.6,13.7,0), xOpen=xr(14,3,0);
-console.log('9 x-ray: down the pit', xPit, '| on its 1.2 ledge', xLedge, '| north of the face stack', xBehind, '| out in the open', xOpen);
+console.log('9 x-ray (shown, % of you hidden): down the pit', xPit.join(' '), '| on its 1.2 ledge', xLedge.join(' '), '| north of the face stack', xBehind.join(' '), '| out in the open', xOpen.join(' '));
 if (!(P.length===48 && Math.abs(bw-8)<1.6 && Math.abs(bh-4.5)<1.2 && same && diff && hasMid && hasEdge && !hasPast && !hasOut)) errs++;
 if (!(pl.list.length>=9 && pl.pits.length===1 && pl.seams.length===1 && hAtFoot===0.4 && Math.abs(hTop-1.65)<1e-6 && hPit===0 && pit.cut.length===4 && steps.every((v,i)=>!i||v<steps[i-1]-0.4) && hOff===0)) errs++;
 if (!(Math.abs(push-(1+2/m.eye))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && seen<T.length && seamW<0.5 && !inside)) errs++;
 if (!(heldBack===0 && onFoot===0.4 && on2===0.85 && keyOK && on3===1.2 && on4===1.65 && inPit===0 && way.join()==='0.4,0.85,1.2,1.65')) errs++;
 if (!(before>0 && off1===0 && landed && onStep===0.25 && onShelf===0.4 && atFace===0.4)) errs++;
-if (!(xBehind && !xOpen)) errs++;   // (in the pit the x-ray covers only the strip of you under a rim, so either is fine there)
+if (!(xBehind[0] && !xOpen[0] && !xPit[0] && !xLedge[0])) errs++;   // (down the pit a rim hides only an edge of you: under the line)
 console.log('BUILD', BUILD, '| errs', errs);
 `);

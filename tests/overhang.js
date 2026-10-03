@@ -12,8 +12,9 @@ editLoad(JSON.stringify({plates:[pt(10,12,4,3,1,0,0.2), pt(13.5,12,4,3,2,1.3,0.3
 const put=(x,y)=>{ h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.liftAt=null; h.plPrev=[h.x,h.y]; };
 // 1. walk west under the overhang (base 1.3, head room 1.1): you pass, the ground stays 0, you are drawn before it and the x-ray shows you
 const [OX,OY]=mtnProj(14.5,12,0,state.mtn); editMove(OX,OY); run(1); state.keys.t=true; run(1); state.keys.t=false; run(1);
-put(16.2,12); run(2); const start=lift(); state.keys.arrowleft=true; let xray=false, under=false, rose=0; for(let k=0;k<70;k++){ run(1); if(plateHas(pl().list.find(p=>p.seed===2),tx(),12)){ under=true; if(state.mtn.xray) xray=true; rose=Math.max(rose,h.lift||0); } } off(); run(2);
-console.log('1 under the overhang: passed to x', tx().toFixed(1), '(from 16.2, the overhang spans about 11.5 to 15.5) | put down on ground', start, '| was under it', under, 'ground under it at most', rose, '| the x-ray showed', xray);
+put(16.2,12); run(2); const start=lift(); state.keys.arrowleft=true; let xray=false, win=false, under=false, rose=0; for(let k=0;k<70;k++){ run(1); if(plateHas(pl().list.find(p=>p.seed===2),tx(),12)){ under=true; if(state.mtn.xray) xray=true; if(state.mtn.win) win=true; rose=Math.max(rose,h.lift||0); } } off(); run(2);
+console.log('1 under the overhang: passed to x', tx().toFixed(1), '(from 16.2, the overhang spans about 11.5 to 15.5) | put down on ground', start, '| was under it', under, 'ground under it at most', rose, '| the window opened', win, 'the x-ray', xray);
+if(!win||xray) errs++;   // (226: under a slab the window opens, never the x-ray)
 // 2. a tap under it does not land on it (0.56 jump, its top 1.6); the 0.9 plate is lower than your head: a wall
 put(13.5,12); state.keys.btnjump=true; run(1); state.keys.btnjump=false; let peak=0; for(let k=0;k<50;k++){ run(1); peak=Math.max(peak,h.z/UNIT); } const landed=lift();
 put(10,20.2); state.keys.arrowup=true; run(60); off(); const stopped=h.y/UNIT, heldAt=lift();

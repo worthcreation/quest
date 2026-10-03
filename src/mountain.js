@@ -276,10 +276,31 @@ const mtnLead = (m, p) => Math.min(m.lead, 0.3 * SW / 2 / (UNIT * mtnZoom(p, m))
 // above the camera's ground, 1 + z / eye (linear, so a tall stack never blows up; the ravines' floors keep their
 // 14 / (14 + depth), the same to first order)
 const mtnPush = (z, c = state.mtn) => c.m.eye ? 1 + mtnClamp(z - c.ch, -c.m.eye / 2, c.m.eyeMax || 3) / c.m.eye : 1;   // the eye's push-out at a height (capped: the mountain past the foot, tens of tiles up, would fold its rows over and let the sky through)
+// Turned (224, the editor's camera: c.yaw, radians; 0 in play): the ground is turned about the view's middle before
+// the tilt, so the view's south is the turned y. mtnDepth gives that turned y for any point: every draw key that was
+// a tile y (what stands where, the ravines' top edge, the plates' order in platesLay) is a depth along it instead
 function mtnProj(x, y, z, c = state.mtn) {
-  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = mtnPush(z, c);
-  return [SW / 2 + (x - c.cx) * UNIT * s * k, SH / 2 + ((y - c.cy) * Math.cos(th) - (z - c.ch) * Math.sin(th)) * UNIT * s * k];
+  const s = mtnZoom(c.p, c.m), th = c.m.tilt * c.p, k = mtnPush(z, c), ps = c.yaw || 0, dx = x - c.cx, dy = y - c.cy, cs = Math.cos(ps), sn = Math.sin(ps), xr = dx * cs - dy * sn, yr = dx * sn + dy * cs;
+  return [SW / 2 + xr * UNIT * s * k, SH / 2 + (yr * Math.cos(th) - (z - c.ch) * Math.sin(th)) * UNIT * s * k];
 }
+// the window (226): what was drawn before fn, round you, laid back over fn through a soft disc (full to 0.55 of its
+// radius, gone at its edge; k its strength, opening). A copy of the screen's pixels there, before and after
+const MTN_WIN = 2.2, MTN_XRAY = 0.7;                                                        // the window's radius in tiles; how much of you must be hidden for the x-ray
+let MTN_WINCV = null;
+function mtnWindow(w, k, fn) {
+  const T = ctx.getTransform ? ctx.getTransform() : null, cv = ctx.canvas;
+  if (!T || !cv || typeof document === 'undefined' || k <= 0) return fn();
+  const x0 = T.a * (w.X - w.R) + T.e, y0 = T.d * (w.Y - w.R) + T.f, sz = Math.ceil(2 * w.R * T.a);
+  if (!(sz > 0)) return fn();
+  if (!MTN_WINCV) MTN_WINCV = document.createElement('canvas'); const c = MTN_WINCV; if (c.width !== sz || c.height !== sz) { c.width = sz; c.height = sz; } const g = c.getContext && c.getContext('2d'); if (!g || !g.drawImage) return fn();
+  g.globalCompositeOperation = 'copy'; g.drawImage(cv, x0, y0, sz, sz, 0, 0, sz, sz);
+  fn();
+  g.globalCompositeOperation = 'destination-in'; const gr = g.createRadialGradient(sz / 2, sz / 2, sz * 0.275, sz / 2, sz / 2, sz / 2); gr.addColorStop(0, `rgba(0,0,0,${k})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, sz, sz); g.globalCompositeOperation = 'source-over';
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(c, x0, y0); ctx.restore();
+}
+const windAt = (shapes, x, y) => { let n = 0; for (const P of shapes) for (let i = 0; i < P.length; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length]; if (ay <= y) { if (by > y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) > 0) n++; } else if (by <= y && (bx - ax) * (y - ay) - (x - ax) * (by - ay) < 0) n--; } return n !== 0; };   // inside their union (nonzero: a hole wound the other way is out)
+function mtnDepth(x, y, c = state.mtn) { const ps = c && c.yaw || 0; return ps ? x * Math.sin(ps) + y * Math.cos(ps) : y; }   // how far along the view's south a tile is (its y, until the view turns)
+const mtnAcross = (x, y, c = state.mtn) => { const ps = c && c.yaw || 0; return ps ? x * Math.cos(ps) - y * Math.sin(ps) : x; };   // and how far along its east
 
 // the land, laid out once in tiles: rows of heights and colours, and everything standing on it. A screen's layout
 // puts its props in order from its own stream (m.seed), with the pieces below
@@ -432,7 +453,8 @@ function newMtnCam(m) { const c = { m, p: 0, cx: 0, cy: m.mid, ch: 0 }; mtnCamer
 function mtnCamera(dt, c = state.mtn, snap) {
   if (!c) return;
   const m = c.m, h = state.hero, x = h.x / UNIT, y = h.y / UNIT, p = mtnView(m, x), e = snap ? 1 : 1 - Math.exp(-2.5 * dt);
-  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = E.p; c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); return; }   // the editor's free view (edit.js)
+  if (state.edit && !state.edit.trying && state.scene === state.edit.id) { const E = state.edit; c.p = E.p; c.cx = E.cx; c.cy = E.cy; c.ch = mtnH(m, E.cx, E.cy); c.yaw = E.yaw || 0; return; }   // the editor's free view (edit.js)
+  c.yaw = 0;                                                                            // (the game's own camera never turns: T tries the layout at it)
   if (m.fixed) {                                                                        // a still view at one tilt and zoom (the whole screen, or close: fixed.zoom); on a screen too narrow for it, it slides along with you, never past the ends
     const z = mtnZoom(p, m), half = SW / 2 / (UNIT * z), halfY = SH / 2 / (UNIT * z * Math.cos(m.tilt * p)), cx = m.fixed.follow ? x : half * 2 >= m.len ? m.len / 2 : mtnClamp(x, half, m.len - half), cy = m.fixed.follow ? y : halfY * 2 >= m.D ? m.mid - m.lift * p : mtnClamp(y, halfY, m.D - halfY);   // (follow: the view centres on you, past the scene's edges too, so the eye is always over you and you see down into whatever you're in)
     c.p = p; c.cx += (cx - c.cx) * e; c.cy += (cy - c.cy) * e; c.ch += (mtnH(m, c.cx, c.cy) - c.ch) * e; return;
@@ -446,7 +468,9 @@ function drawMtn() {
   const r = state.mtn; if (!r) return;
   const m = r.m, land = mtnLand(m), s = mtnZoom(r.p, m), th = m.tilt * r.p, st = Math.sin(th), us = UNIT * s;
   const pt = (x, y, z) => mtnProj(x, y, z, r), gp = (x, y) => pt(x, y, mtnH(m, x, y));   // the one projection: a point in tiles at a height, and a point on the ground
-  const pl = m.plates ? platesLay(m) : null, pr = (x, y, z) => pt(x, y, mtnH(m, x, y) + z);   // a plates screen: heights above the base plate's surface
+  const pl = m.plates ? platesLay(m) : null, pr = (x, y, z) => pt(x, y, mtnH(m, x, y) + z);
+  let win = null; const winOf = (o, fn) => () => win && (win.plates.has(o) || win.trees.has(o)) ? mtnWindow(win, r.winK, fn) : fn();   // (set once you're placed, below)   // a plates screen: heights above the base plate's surface
+  const dep = (xt, yt) => mtnDepth(xt, yt, r), turned = !!r.yaw;                         // a thing's draw key: how far along the view's south it stands (its tile y, until the editor turns the view)
   // the sky and a far range, seen only once the view tips up past the land's far edge
   const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#9cc6e4'); g.addColorStop(1, '#e8e2c8'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   const hz = pt(r.cx, m.Y0, 0)[1];
@@ -461,18 +485,14 @@ function drawMtn() {
   const at = (px, py, fn, mg = 4, o) => { const xt = px / UNIT, yt = py / UNIT, z = lift(xt, yt, o), [X, Y] = pr(xt, yt, z), k = s * mtnPush(mtnH(m, xt, yt) + z, r); if (X < -us * mg || X > SWH[0] + us * mg || Y < -us * (mg + 1) || Y > SWH[1] + us * (mg + 1)) return; ctx.save(); ctx.translate(X, Y); ctx.scale(k, k); ctx.translate(-px, -py); [W, H] = [VW, VH]; try { fn(); } finally { [W, H] = SWH; ctx.restore(); } };   // (scaled with the eye's push-out: lower is further away and smaller)
   const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
   const list = [];
-  for (const p of land.deco) list.push([p.by, () => drawMtnProp(m, p, gp, us, s)]);
+  for (const p of land.deco) list.push([dep(p.x, p.y) + (p.by - p.y), () => drawMtnProp(m, p, gp, us, s)]);
   const sc = sceneDef(), h = state.hero; let heroHid = () => null;
   for (const o of state.solids) {
-    if (o.rise === 'tree' || o.kind === 'reeds') list.push([o.y / UNIT + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o))]);
-    else if (o.rise) list.push([o.y / UNIT + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]);
+    if (o.rise === 'tree' || o.kind === 'reeds') list.push([dep(o.x / UNIT, o.y / UNIT) + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), winOf(o, () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o)))]);
+    else if (o.rise) list.push([dep(o.x / UNIT, o.y / UNIT) + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]);
   }
   let hole = null;                                                                      // the ravine: a hole in the ground's rows, painted once right after the row its north lip first reaches
   if ((mtnRavs(m).length || pl) && typeof Path2D === 'function') { hole = new Path2D(); hole.rect(-W, -H, W * 3, H * 3); }
-  // a ravine is painted only on the land: clipped to below the land's far edge (the first row's top), never into the sky
-  let landClip = null;
-  if (mtnDrawRavs(m).length && typeof Path2D === 'function') { const row0 = mtnRows(m, land)[0]; landClip = new Path2D(); landClip.moveTo(-W, H * 3); idx.forEach(i => { const [X, Y] = pt(land.xs[i], row0.y, row0.top[i]); landClip.lineTo(X, Y); }); landClip.lineTo(W * 2, H * 3); landClip.closePath(); }
-  const onLand = fn => () => { ctx.save(); if (landClip) ctx.clip(landClip); fn(); ctx.restore(); };
   let holeY0 = Infinity, holeY1 = -Infinity, holeX0 = Infinity, holeX1 = -Infinity;                // the holes' extent on the screen: a row that misses it needs no clip
   const add = (P, pts) => { if (!P) return; pts.forEach(([X, Y], k) => k ? P.lineTo(X, Y) : P.moveTo(X, Y)); P.closePath(); };
   // a plates screen: the base plate covers the scene (the rows stop at its edge and it is painted first, in chunks,
@@ -482,8 +502,13 @@ function drawMtn() {
   // plate is drawn in its turn
   let baseIn = null;
   if (pl && hole) { const ring = plateRing(m).map(([x, y]) => gp(x, y)); baseIn = new Path2D(); add(baseIn, ring); for (const [X, Y] of ring) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; } }
+  // a ravine is painted only on the land: clipped to below the land's far edge (the first row's top), never into the
+  // sky; with the view turned (the editor) the base plate's ring is the land's edge
+  let landClip = null;
+  if (mtnDrawRavs(m).length && typeof Path2D === 'function') { if (turned && baseIn) landClip = baseIn; else { const row0 = mtnRows(m, land)[0]; landClip = new Path2D(); landClip.moveTo(-W, H * 3); idx.forEach(i => { const [X, Y] = pt(land.xs[i], row0.y, row0.top[i]); landClip.lineTo(X, Y); }); landClip.lineTo(W * 2, H * 3); landClip.closePath(); } }
+  const onLand = fn => () => { ctx.save(); if (landClip) ctx.clip(landClip); fn(); ctx.restore(); };
   if (pl) { list.push([-Infinity, () => { ctx.save(); if (baseIn) { ctx.clip(baseIn); ctx.clip(hole, 'evenodd'); } fillRows(-UNIT * 2, H + UNIT * 2, -UNIT * 2, W + UNIT * 2, true); for (const sm of pl.seams) platePaintSeam(sm, 0, null, pl.pits.filter(q => q.floor <= 0), pr, us); ctx.restore(); }]);
-    for (const p of pl.list) { list.push([p.fkey, () => drawPlateFaces(m, p, pr, s)]); list.push([p.key, () => drawPlate(m, p, pr, s)]); } }   // (faces at the foot's turn, tops by height: plates.js)
+    for (const p of pl.list) { list.push([p.fkey, winOf(p, () => drawPlateFaces(m, p, pr, s))]); list.push([p.key, winOf(p, () => drawPlate(m, p, pr, s))]); } }   // (faces at the foot's turn, tops by height: plates.js)
   for (const r0 of mtnDrawRavs(m)) {
     const rvs = mtnRavinePts(m, r0, gp); if (!rvs.length) continue;
     for (const rv of rvs) for (const [X, Y] of rv.N) { if (Y < holeY0) holeY0 = Y; if (Y > holeY1) holeY1 = Y; if (X < holeX0) holeX0 = X; if (X > holeX1) holeX1 = X; }
@@ -496,25 +521,35 @@ function drawMtn() {
     // the islands: their tops are left in the rows (a ring inside the hole's, cut back 0.4 as the rows are at a lip),
     // their brink is a band 0.5 inside their edge, their pillars are painted inside the drop before the brink
     const pr2 = ring => ring.map(([x, y]) => gp(x, y));
-    const isls = (m.isls || []).map(i => ({ i, N: pr2(islRing(i)), S: [], yTop: i.y - i.r, r: r0 }));
+    const isls = (m.isls || []).map(i => ({ i, N: pr2(islRing(i)), S: [], yTop: mtnDepth(i.x, i.y, r) - i.r, r: r0 }));
     for (const I of isls) { add(cutTo, pr2(islRing(I.i, 0.4))); if (!pl) add(band, pr2(islRing(I.i, 0.5))); add(band, I.N); }   // (on a plates screen the ground is painted before the ravine, so an island's whole top is the brink pass's: no hollow)
     list.push([Math.min(...rvs.map(rv => rv.yTop)) + 0.26, onLand(() => { for (const rv of rvs) drawMtnRavine(rv, s);
       if (isls.length) { ctx.save(); ctx.beginPath(); for (const rv of rvs) rv.N.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip(); { const d = I => { const [X, Y] = gp(I.i.x, I.i.y); return Math.hypot(X - W / 2, Y - H / 2); }; for (const I of isls.slice().sort((a, b) => d(b) - d(a))) drawMtnPillar(m, I.i, rvs[0], s, gp); } ctx.restore(); }   // (pillars outermost first: a pillar's wall reaches in toward the middle of the view, under the ones nearer it)
       if (band) drawMtnBrink(rvs.concat(isls), s, band, fillRows, ravPal(m)); })]);
   }
   const onK = (x, y, k) => { const xt = x / UNIT, yt = y / UNIT, z = pl ? plateTopAt(pl, xt, yt) : 0; return z > 0 ? Math.max(k, plateKeyUnder(pl, xt, yt, z)) : k; };   // on a plate: after its top
-  for (const it of state.items) list.push([onK(it.x, it.y, it.y / UNIT + 0.4), () => at(it.x, it.y, () => one('items', it, drawItems))]);
-  for (const e of state.enemies) list.push([e.y / UNIT + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
-  for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([fy * m.D + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
-  if (pipDrawn(sc)) list.push([state.pip.y / UNIT + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
+  for (const it of state.items) list.push([onK(it.x, it.y, dep(it.x / UNIT, it.y / UNIT) + 0.4), () => at(it.x, it.y, () => one('items', it, drawItems))]);
+  for (const e of state.enemies) list.push([dep(e.x / UNIT, e.y / UNIT) + e.r / UNIT + 0.1, () => at(e.x, e.y, () => drawEnemy(e))]);
+  for (const [fx, fy] of sc.feat.plants || []) { const px = fx * VW, py = fy * VH; list.push([dep(px / UNIT, py / UNIT) + 0.1, () => at(px, py, () => drawGustGrass(px, py, sc))]); }   // the tall grass, the wind's gauge
+  if (pipDrawn(sc)) list.push([dep(state.pip.x / UNIT, state.pip.y / UNIT) + 0.55, () => at(state.pip.x, state.pip.y, drawPipNow)]);
   { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, pit = pl ? pl.pits.find(q => !q.tunnel && q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)) : null;
     // down a pit (on its floor or a ledge in it): drawn among its plates, right after the ones at or under your
     // ground and before the ones above you. The camera looks down, so only the layer nearest it shows: a layer above
     // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
-    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(h.y / UNIT + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
-    list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
+    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+    list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);
+    // what you are under (226, Ross: a window when you walk under a slab or a tree's crown; the x-ray only behind big
+    // things, and never in a tunnel the G tool made, which is unshown): a plate whose underside clears your head where
+    // you stand, a crown drawn after you that covers you. Each is drawn as usual, then what was under it is laid back
+    // over it through a soft window round you (mtnWindow)
+    const inTun = pl && pl.pits.some(q => q.tunnel && plateIn(q.P, hx, hy) && hz >= q.floor - 1e-6 && hz < (q.roof == null ? Infinity : q.roof));
+    const [WX, WY] = pr(hx, hy, hz), crown = o => { const [OX, OY] = gp(o.x / UNIT, o.y / UNIT); return [OX, OY - 1.25 * us, 0.95 * us]; };
+    const roofs = inTun || !pl ? [] : pl.list.filter(p => p.base >= hz + PL_HEAD - 1e-6 && plateHas(p, hx, hy));
+    const crowns = inTun ? [] : state.solids.filter(o => o.rise === 'tree' && dep(o.x / UNIT, o.y / UNIT) + 0.3 > hk && (([X, Y, R]) => Math.hypot(WX - X, (WY - h.z * s - us * 0.3 - Y) / 0.95) < R)(crown(o)));
+    win = roofs.length || crowns.length ? { X: WX, Y: WY - h.z * s - us * 0.4, R: MTN_WIN * us, plates: new Set(roofs), trees: new Set(crowns) } : null;
+    const dtw = Math.min(0.1, Math.max(0, state.time - (r.winT || 0))); r.winT = state.time; r.winK = win ? Math.min(1, (r.winK || 0) + dtw / 0.25) : 0; r.win = !!win;   // (it opens over a quarter second)   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
     PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
     const rims = over;
     // the x-ray: what is drawn after you and over you (a plate above you, a stone or tree south of you, a pit's near
@@ -523,20 +558,22 @@ function drawMtn() {
     // heroHid gives the covering shapes as one path (each shape wound the same way: nonzero fills their union): the
     // tops of a pit's layers above you (less their holes, wound the other way), a plate drawn after you that stands
     // higher (its top, its foot, the walls between), a stone, tree or reeds south of you (an outline round each)
-    heroHid = () => { if (state.hammock || h.falling > 0) return null; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], meets = (a) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+    heroHid = () => { if (state.hammock || h.falling > 0 || inTun) return null; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], meets = (a) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
       const shapes = [], area = P => { let a = 0; for (let i = 0; i < P.length; i++) { const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % P.length]; a += x0 * y1 - x1 * y0; } return a; }, wind = (P, cw) => (area(P) > 0) === cw ? P : P.slice().reverse();
       const pts = [[X, b[3]], [b[0] + us * 0.15, b[3]], [b[2] - us * 0.15, b[3]], [X, (b[1] + b[3]) / 2], [b[0] + us * 0.15, b[1] + us * 0.1], [b[2] - us * 0.15, b[1] + us * 0.1]];
       for (const p of rims) { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), R = pit.ring.get(p).map(([x, y]) => pr(x, y, plateTop(p)));
         if (pts.some(([px, py]) => plateIn(T, px, py) && !plateIn(R, px, py))) shapes.push(wind(T, true), wind(R, false)); }   // a layer above you, down its pit: its top, less its hole
-      if (pl) for (const p of pl.list) { if (!(p.key > hk && plateTop(p) > hz + 0.05 && !(pit && pit.ring.has(p)) && meets(plateScreenBox(p, pr)))) continue;
+      if (pl) for (const p of pl.list) { if (!(p.key > hk && plateTop(p) > hz + 0.05 && !(pit && pit.ring.has(p)) && !(win && win.plates.has(p)) && meets(plateScreenBox(p, pr)))) continue;
         const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); shapes.push(wind(T, true), wind(F, true)); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; shapes.push(wind([T[i], T[j], F[j], F[i]], true)); } }   // a plate in front: its top, foot and the walls between
-      for (const o of state.solids) { if (!(o.rise || o.kind === 'reeds')) continue; const oy = o.y / UNIT, ok = o.rise === 'tree' ? oy + 0.3 : o.kind === 'reeds' ? oy + o.r / UNIT + 0.2 : oy + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;
-        const [OX, OY] = gp(o.x / UNIT, oy), r = (o.rise === 'tree' ? 0.95 : o.kind === 'reeds' ? 0.75 : (o.rr || 0.5)) * us, cy = OY - (o.rise === 'tree' ? 1.25 : o.kind === 'reeds' ? 0.7 : 0.4) * r * (o.rise === 'tree' ? us / r : 1);
-        if (!meets([OX - r, cy - r, OX + r, cy + r])) continue; const E = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; E.push([OX + Math.cos(a) * r, cy + Math.sin(a) * r * 0.95]); } shapes.push(wind(E, true));
-        if (o.rise === 'tree') shapes.push(wind([[OX - us * 0.12, cy], [OX + us * 0.12, cy], [OX + us * 0.12, OY], [OX - us * 0.12, OY]], true)); }   // (a tree: its crown and its trunk)
+      for (const o of state.solids) { if (!o.rise || o.rise === 'tree') continue; const oy = o.y / UNIT, od = dep(o.x / UNIT, oy), ok = od + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;   // a boulder or crag south of you (trees have the window, reeds and grass nothing)
+        const [OX, OY] = gp(o.x / UNIT, oy), [ex, ey, rx, ry] = boulderShape(OX, OY, (o.rr || 0.5) * us);   // (its body as drawMtnProp draws it)
+        if (!meets([ex - rx, ey - ry, ex + rx, ey + ry])) continue; const E = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; E.push([ex + Math.cos(a) * rx, ey + Math.sin(a) * ry]); } shapes.push(wind(E, true)); }
+      // only when they hide most of you (MTN_XRAY of your box): partly behind a thing, the rest of you shows
+      let n = 0, hid = 0; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { const x = b[0] + (b[2] - b[0]) * (i + 0.5) / 8, y = b[1] + (b[3] - b[1]) * (j + 0.5) / 8; n++; if (shapes.some(P => plateIn(P, x, y)) && windAt(shapes, x, y)) hid++; }
+      r.cover = hid / n; if (r.cover < MTN_XRAY) return null;
       return shapes.length ? shapes : null; }; }
-  for (const sh of state.shots) list.push([sh.y / UNIT + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
-  if (h.ride && h.ride.wind) list.push([h.ride.y1 / UNIT + 0.2, () => at(h.ride.x1, h.ride.y1, drawLandingShadow)]);   // mid-ride: where you'll come down
+  for (const sh of state.shots) list.push([dep(sh.x / UNIT, sh.y / UNIT) + 0.4, () => at(sh.x, sh.y, () => one('shots', sh, drawShots))]);
+  if (h.ride && h.ride.wind) list.push([dep(h.ride.x1 / UNIT, h.ride.y1 / UNIT) + 0.2, () => at(h.ride.x1, h.ride.y1, drawLandingShadow)]);   // mid-ride: where you'll come down
   list.sort((a, b) => a[0] - b[0]);
   let baseOut = null; if (baseIn) { baseOut = new Path2D(); baseOut.rect(-W, -H, W * 3, H * 3); baseOut.addPath(baseIn); }   // everything but the base: the rows outside it
   // a row of ground on the screen: its top and bottom edges (a point a column, through the one projection), a pixel of overlap so no seams show
@@ -549,6 +586,7 @@ function drawMtn() {
   function fillRows(y0, y1, X0, X1, every) {
     let j0 = 0, j1 = idx.length - 1; while (j0 < j1 && gp(land.xs[idx[j0 + 1]], m.mid)[0] < X0) j0++; while (j1 > j0 && gp(land.xs[idx[j1 - 1]], m.mid)[0] > X1) j1--;
     const rows = mtnRows(m, land).filter(row => { const G = rowGeo(row); return G.show && G.hi >= y0 - 2 && G.lo <= y1 + 2; });
+    if (turned && Math.cos(r.yaw) < 0) rows.reverse();                                                   // (turned more than a quarter: the far rows are the high-numbered ones)
     if (every || pl) for (const row of rows) fillRow(row, rowGeo(row), j0, j1);                          // (the base plate's ground, and a plates screen's brink: every row)
     else for (let k = 0; k < rows.length; k += 3) { const a = rowGeo(rows[k]), b = rowGeo(rows[Math.min(rows.length - 1, k + 2)]); fillRow(rows[Math.min(rows.length - 1, k + 1)], { tp: a.tp, bp: b.bp }, j0, j1); }   // (three rows at a time, the middle one's colours: under a narrow band nobody sees the difference)
     if (pl) platesBase(m, pr, X0, X1); }                                                                 // (on a plates screen the base plate's wash lies on the ground)
@@ -563,7 +601,7 @@ function drawMtn() {
     while (li < list.length && list[li][0] < yB) list[li++][1]();
   }
   while (li < list.length) list[li++][1]();
-  { const shapes = heroHid(); r.xray = !!shapes;
+  { r.cover = 0; const shapes = heroHid(); r.xray = !!shapes;
     if (shapes) { const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, [X, Y] = pr(h.x / UNIT, h.y / UNIT, hz), w = us * mtnPush(mtnH(m, h.x / UNIT, h.y / UNIT) + hz, r);
       ctx.save(); if (typeof Path2D === 'function') { const M = new Path2D(); for (const P of shapes) { P.forEach(([x, y], i) => i ? M.lineTo(x, y) : M.moveTo(x, y)); M.closePath(); } ctx.clip(M); }   // only where you're covered
       ctx.save(); ctx.globalAlpha = 0.38; at(h.x, h.y, drawHero, 4, h); ctx.restore();                                          // the x-ray: you, faint, over what covers you
@@ -592,7 +630,7 @@ function drawMtnProp(m, p, gp, us, s) {
 function mtnRavinePts(m, r, gp) {
   const out = [], c = state.mtn, k = 14 / (14 + (r.depth || 5)), drop = (r.depth || 5) * Math.sin(c.m.tilt * c.p) * UNIT * mtnZoom(c.p), CXt = W / 2, CYt = H / 2;
   for (const ring of ravRings(r)) { const P = ring.map(([x, y]) => gp(x, y)), F = P.map(([X, Y]) => [CXt + (X - CXt) * k, CYt + (Y - CYt) * k + drop * k]);
-    out.push({ N: P, S: [], F, k, drop, yTop: Math.min(...ring.map(q => q[1])), seed: Math.round(ring[0][0] * 7), r }); }
+    out.push({ N: P, S: [], F, k, drop, yTop: Math.min(...ring.map(q => mtnDepth(q[0], q[1], c))), seed: Math.round(ring[0][0] * 7), r }); }
   return out;
 }
 function drawMtnRavine(rv, s) {

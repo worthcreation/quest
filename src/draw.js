@@ -614,7 +614,7 @@ const SOLID_DRAW = {
     const cave = s.kind !== 'boulder', moss = s.pal === 'moss';
     groundShadow(x, y, r, r * 0.8, 0, { a: 0.25, dx: r * 0.15, dy: r * 0.2 });
     ctx.fillStyle = moss ? '#262e22' : cave ? '#2e2a33' : '#8a8a80';
-    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.85, 0, 0, 6.28); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(...boulderShape(x, y, r), 0, 0, 6.28); ctx.fill();
     ctx.fillStyle = moss ? '#33402a' : cave ? '#3b3640' : '#a3a397';
     ctx.beginPath(); ctx.ellipse(x - r * 0.25 * (s.flip ? -1 : 1), y - r * 0.25, r * 0.5, r * 0.35, -0.3, 0, 6.28); ctx.fill();
     if (!cave) { ctx.fillStyle = '#6f7a58'; ctx.beginPath(); ctx.ellipse(x + r * 0.3, y + r * 0.4, r * 0.35, r * 0.18, 0, 0, 6.28); ctx.fill(); }
@@ -805,6 +805,7 @@ const SOLID_DRAW = {
 };
 SOLID_DRAW.cavewall = SOLID_DRAW.boulder;
 SOLID_DRAW.pillar = SOLID_DRAW.boulder;
+const boulderShape = (x, y, r) => [x, y, r, r * 0.85];                                   // a boulder's body, drawn and (on the mountain) what hides you behind it (the x-ray, 226)
 function drawSolid(s) { const d = SOLID_DRAW[s.kind]; if (d) d(s, s.x, s.y, s.vis, UNIT); }
 
 // ---------------- characters ----------------
@@ -1244,7 +1245,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 223';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 226';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

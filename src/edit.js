@@ -3,7 +3,10 @@
 // hero parked where he stood, drawn faint) while you lay plates, pits and seams; what you lay is relaid at once
 // (plateLayout reads the editor's copy), so collision and the drawing are the one shape as in play. Keys:
 // - arrows pan, the wheel zooms about the cursor (Ross: a scroll never edits by accident); drag on open ground pans;
-//   Q and Z (or shift and the wheel) tilt the view, from straight down to nearly level (223); V resets the view
+//   Q and Z (or shift and the wheel) tilt the view, from straight down to nearly level (223); a drag with the middle
+//   button (the wheel pressed) turns the view left or right (224: state.edit.yaw, the camera's c.yaw; mtnProj turns
+//   the ground about the view's middle and every draw key is a depth along the turned south, platesOrder); V resets
+//   the view, T tries the layout at the game's own camera (never turned)
 // - click selects (a pit inside a plate before the plate, a seam by its line), drag moves it (a plate takes the ones
 //   stacked on it along); click on open ground clears the selection
 // - L W D A B E pick what [ ] change on the selected thing: length (x), width (y), depth (a plate's thickness), all
@@ -26,7 +29,7 @@ function startEdit(id) {
   const m = MTN[id]; startTestScene(id, m && m.inX != null ? m.inX / m.len : undefined, m && m.inX != null ? m.pathY(m.inX) / m.D : undefined);   // parked at the way in
   const h = state.hero;
   if (!m || !m.plates) { showScroll('Not a plates screen', `${id} has no layout to edit.`); return; }
-  state.edit = { p: mtnView(m, h.x / UNIT), id, layout: editCopy({ plates: [], pits: [], seams: [], ...(LAYOUTS[id] || {}), tunnels: (LAYOUTS[id] || {}).tunnels || [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', help: false, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
+  state.edit = { p: mtnView(m, h.x / UNIT), yaw: 0, id, layout: editCopy({ plates: [], pits: [], seams: [], ...(LAYOUTS[id] || {}), tunnels: (LAYOUTS[id] || {}).tunnels || [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', help: false, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, trying: false, msg: '' };
   editRelay(); mtnCamera(0, state.mtn, true);
   showScroll('The editor', 'Arrows pan, the wheel zooms. Click selects, drag moves. H shows the keys.');
 }
@@ -36,9 +39,11 @@ const editSel = () => { const E = state.edit; return E && E.sel ? E.sel : null; 
 // the screen to the base plate's ground, in tiles (the projection run backwards; the ground's height found by iteration)
 function editTile(X, Y) {
   const c = state.mtn, m = c.m, s = mtnZoom(c.p, m), th = m.tilt * c.p; let z = c.ch, x = c.cx, y = c.cy;
-  for (let i = 0; i < 4; i++) { const k = mtnPush(z, c) * UNIT * s; x = c.cx + (X - SW / 2) / k; y = c.cy + ((Y - SH / 2) / k + (z - c.ch) * Math.sin(th)) / Math.cos(th); z = mtnH(m, x, y); }
+  for (let i = 0; i < 4; i++) { const k = mtnPush(z, c) * UNIT * s, [dx, dy] = editUnturn((X - SW / 2) / k, ((Y - SH / 2) / k + (z - c.ch) * Math.sin(th)) / Math.cos(th)); x = c.cx + dx; y = c.cy + dy; z = mtnH(m, x, y); }
   return [x, y];
 }
+// a step across and along the turned view (in tiles) back to a step in x and y (the turn run backwards)
+const editUnturn = (a, d) => { const ps = state.mtn && state.mtn.yaw || 0; if (!ps) return [a, d]; const cs = Math.cos(ps), sn = Math.sin(ps); return [a * cs + d * sn, -a * sn + d * cs]; };
 const editPr = () => { const c = state.mtn, m = c.m; return (x, y, z) => mtnProj(x, y, mtnH(m, x, y) + z, c); };
 // what is under a point on the screen: a pit (inside its ring at its top), else the highest plate whose top holds it,
 // else a seam within half a tile of its line. Returns { kind, i } into the layout, or null
@@ -51,7 +56,7 @@ function editPick(X, Y) {
   for (let i = 0; i < L.seams.length; i++) { const C = L.seams[i].spine.map(([x, y]) => pr(x, y, 0)); for (let k = 1; k < C.length; k++) { const [ax, ay] = C[k - 1], [bx, by] = C[k], dx = bx - ax, dy = by - ay, t = mtnClamp(((X - ax) * dx + (Y - ay) * dy) / (dx * dx + dy * dy || 1e-9)); if (Math.hypot(X - ax - dx * t, Y - ay - dy * t) < us * 0.3) return { kind: 'seam', i }; } }
   return null;
 }
-const ED_PMAX = 1.45;                                                                     // the editor's tilt reaches p 1.45: about 79 degrees from straight down
+const ED_PMAX = 1.45, ED_TURN = Math.PI / 2 / 360;                                        // the editor's tilt reaches p 1.45: about 79 degrees from straight down; a middle drag of 360 px is a quarter turn
 const ED_LIST = { plate: 'plates', pit: 'pits', seam: 'seams', tunnel: 'tunnels' }, ED_SPINE = { seam: 1, tunnel: 1 };   // a selection's list in the layout; the ones laid as a spine
 const editObj = sel => sel ? state.edit.layout[ED_LIST[sel.kind]][sel.i] : null;
 const editOn = i => state.edit.layout.plates.map((p, k) => p.under === i ? k : -1).filter(k => k >= 0);   // the plates standing straight on plate i
@@ -71,18 +76,20 @@ function editRemove(sel) {
 }
 const editSeed = () => +(Math.max(0, ...state.edit.layout.plates.map(p => p.seed), ...state.edit.layout.pits.map(q => q.seed)) + 7).toFixed(2);
 // the mouse (edit.js listens on the canvas; the test calls these): a press, a move with it held, its release, the wheel
-function editDown(X, Y) { const E = state.edit; if (!E || E.trying || state.menu) return; E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) }; }
+function editDown(X, Y, button = 0) { const E = state.edit; if (!E || E.trying || state.menu) return; if (button === 1) { E.turn = { x: X }; return; } E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) }; }   // (the middle button: a turn starts)
 function editMove(X, Y) {
-  const E = state.edit; if (!E) return; E.cur = editTile(X, Y); const d = E.down; if (!d || E.trying) return;
+  const E = state.edit; if (!E) return; E.cur = editTile(X, Y);
+  if (E.turn && !E.trying) { E.yaw = ((E.yaw + (X - E.turn.x) * ED_TURN + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; E.turn.x = X; mtnCamera(0, state.mtn, true); E.cur = editTile(X, Y); return; }   // a drag with the wheel pressed turns the view (right turns the view right: the ground slides left)
+  const d = E.down; if (!d || E.trying) return;
   if (!d.moved && Math.hypot(X - d.X, Y - d.Y) < 3) return; d.moved = true;
   const c = state.mtn, m = c.m, s = mtnZoom(c.p, m), th = m.tilt * c.p;
   if (d.pick) { const o = editObj(d.pick), z = d.pick.kind === 'plate' ? o.base + o.thick : d.pick.kind === 'pit' ? platesLay(m).pits[d.pick.i].top : d.pick.kind === 'tunnel' ? o.floor : 0, [ox, oy] = ED_SPINE[d.pick.kind] ? o.spine[0] : [o.x, o.y], k = mtnPush(mtnH(m, ox, oy) + z, c) * UNIT * s;   // dragged at its own height on the screen
-    editShift(d.pick, (X - d.x) / k, (Y - d.y) / (k * Math.cos(th))); E.sel = d.pick; editRelay(); }
-  else { const k = UNIT * s; E.cx -= (X - d.x) / k; E.cy -= (Y - d.y) / (k * Math.cos(th)); mtnCamera(0, c, true); }   // open ground: pan
+    editShift(d.pick, ...editUnturn((X - d.x) / k, (Y - d.y) / (k * Math.cos(th)))); E.sel = d.pick; editRelay(); }
+  else { const k = UNIT * s, [dx, dy] = editUnturn((X - d.x) / k, (Y - d.y) / (k * Math.cos(th))); E.cx -= dx; E.cy -= dy; mtnCamera(0, c, true); }   // open ground: pan
   d.x = X; d.y = Y;
 }
 function editUp(X, Y) {
-  const E = state.edit; if (!E || E.trying) return; const d = E.down; E.down = null; if (!d) return;
+  const E = state.edit; if (!E || E.trying) return; if (E.turn) { E.turn = null; return; } const d = E.down; E.down = null; if (!d) return;
   if (d.moved) { if (d.pick) editRound(d.pick); return; }                                                 // a drag done: what moved settles on a hundredth of a tile
   const [x, y] = editTile(X, Y);
   if (E.crack) { E.crack.spine.push([+x.toFixed(3), +y.toFixed(3), E.crack.hw]); return; }
@@ -126,8 +133,9 @@ function updateEdit(dt) {
   if (E.trying) return false;
   const L = E.layout, sel = editSel(), o = editObj(sel), step = (k, v) => tap(k) ? v : 0;
   const tl = (state.keys.z ? 1 : 0) - (state.keys.q ? 1 : 0); if (tl) { E.p = mtnClamp(E.p + tl * 0.8 * dt, 0, ED_PMAX); mtnCamera(0, state.mtn, true); }   // Q flatter (toward straight down), Z tipped further
-  if (tap('v')) { E.p = mtnView(m, E.cx); E.zoom = 1; mtnCamera(0, state.mtn, true); E.msg = 'view reset'; }
-  const pan = 14 * dt / E.zoom; if (state.keys.arrowleft) E.cx -= pan; if (state.keys.arrowright) E.cx += pan; if (state.keys.arrowup) E.cy -= pan; if (state.keys.arrowdown) E.cy += pan;
+  if (tap('v')) { E.p = mtnView(m, E.cx); E.zoom = 1; E.yaw = 0; mtnCamera(0, state.mtn, true); E.msg = 'view reset'; }
+  const pan = 14 * dt / E.zoom, pa = (state.keys.arrowright ? pan : 0) - (state.keys.arrowleft ? pan : 0), pd = (state.keys.arrowdown ? pan : 0) - (state.keys.arrowup ? pan : 0);   // (across and along the view as it is turned)
+  if (pa || pd) { const [dx, dy] = editUnturn(pa, pd); E.cx += dx; E.cy += dy; }
   const [cx, cy] = E.cur.map(v => +v.toFixed(2));
   if (tap('c')) { if (E.crack) { if (E.crack.spine.length >= 2) { L.seams.push({ spine: E.crack.spine }); E.sel = { kind: 'seam', i: L.seams.length - 1 }; } E.crack = null; editRelay(); } else { E.crack = { spine: [], hw: 0.08 }; E.sel = null; E.msg = 'click to lay the crack; C ends it'; } }
   else if (tap('g')) { if (E.tun) { if (E.tun.spine.length >= 2) { L.tunnels.push({ spine: E.tun.spine, w: 1.4, floor: 0, roof: 1.2 }); E.sel = { kind: 'tunnel', i: L.tunnels.length - 1 }; } E.tun = null; editRelay(); } else { E.tun = { spine: [] }; E.crack = null; E.sel = null; E.msg = 'click to lay the tunnel; G ends it'; } }   // a tunnel: 1.4 wide, its roof 1.2 up (walked under: PL_HEAD)
@@ -175,10 +183,10 @@ function drawEdit() {
   // one line at the bottom: what is selected and its numbers, what [ ] change; H opens the key sheet (Ross, 218: the
   // five-line panel was a mash)
   const fs = 14; ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-  const bottom = E.trying ? `trying it   T parks you where you stand   ${E.msg}` : `${line1}   [ ] change ${ED_DIMS[E.dim]}   tilt ${Math.round(state.mtn.m.tilt * E.p * 180 / Math.PI)} deg   H keys   ${E.msg}`;
+  const bottom = E.trying ? `trying it   T parks you where you stand   ${E.msg}` : `${line1}   [ ] change ${ED_DIMS[E.dim]}   tilt ${Math.round(state.mtn.m.tilt * E.p * 180 / Math.PI)} deg   turn ${Math.round(E.yaw * 180 / Math.PI)} deg   H keys   ${E.msg}`;
   ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - fs - 18, Math.min(W - 16, 12 + ctx.measureText(bottom).width + 12), fs + 10); ctx.fillStyle = '#fdf6e3'; ctx.fillText(bottom, 16, H - 14);
   if (E.help && !E.trying) {                                                             // the key sheet: three columns, grouped
-    const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', 'Q Z  tilt (or shift+wheel)', 'V    reset the view', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
+    const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', 'Q Z  tilt (or shift+wheel)', 'middle drag  turn', 'V    reset the view', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
       ['LAY', 'N   new plate here', 'P   pit here', 'C   crack: clicks lay it,', '    C again ends it', 'G   tunnel: the same, G ends', 'U   copy it on top', 'Delete  remove it', '', 'TRY AND SAVE', 'T   try it (walk; T parks you)', 'S   save (copies the file)', 'O   open a pasted layout'],
       ['CHANGE THE SELECTED', '[   smaller   ]   bigger', 'in: L length (east-west)', '    W width (north-south)', '    D depth (how thick)', '    A all three (scale)', '    B base, or a pit floor', '    E ledge (pit), roof (tunnel)', 'R   turn it', '', `now: ${ED_DIMS[E.dim]}`]];
     const lh = fs + 5, bw = Math.min(W - 40, 3 * 300 + 40), bh = (Math.max(...cols.map(c => c.length)) + 2) * lh + 30, bx = (W - bw) / 2, by = Math.max(10, (H - bh) / 2 - 40);
@@ -188,7 +196,9 @@ function drawEdit() {
   }
 }
 if (typeof canvas !== 'undefined' && canvas && canvas.addEventListener && EDIT_SCENE) {
-  canvas.addEventListener('pointerdown', e => { if (e.button === 0) editDown(e.clientX, e.clientY); });
+  canvas.addEventListener('pointerdown', e => { if (e.button === 0 || e.button === 1) editDown(e.clientX, e.clientY, e.button); });
+  canvas.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });                       // (the middle button's autoscroll stays off)
+  canvas.addEventListener('auxclick', e => e.preventDefault());
   canvas.addEventListener('pointermove', e => editMove(e.clientX, e.clientY));
   canvas.addEventListener('pointerup', e => editUp(e.clientX, e.clientY));
   canvas.addEventListener('wheel', e => { e.preventDefault(); editWheel(e.deltaY, e.clientX, e.clientY, e.shiftKey); }, { passive: false });

@@ -29,6 +29,7 @@ console.log('3 G, two clicks, G: tunnels', E.layout.tunnels.length, 'width', t.w
 const [TX,TY]=pr(11.5,12,0); editMove(TX,TY); run(1); tap('t'); const start=+(h.lift||0).toFixed(2); state.keys.arrowright=true; let xray=false, maxG=0; for(let k=0;k<200&&tx()<20.5;k++){ run(1); maxG=Math.max(maxG,h.lift||0); if(tx()>14&&tx()<18&&state.mtn.xray) xray=true; } off(); run(2);
 const endX=tx(); h.x=16*UNIT; h.y=12*UNIT; h.vx=h.vy=0; h.plPrev=[h.x,h.y]; run(2); state.keys.arrowup=true; run(60); off(); run(2); const heldY=ty();
 console.log('4 walked through: from x 11.5 to', endX.toFixed(1), '| ground at most', maxG, '(started', start+') | the x-ray inside', xray, '| at x 16 walked north from y 12: held at', heldY.toFixed(2), '(the wall at about', (12-0.7).toFixed(1)+')');
+if(xray) errs++;   // (226: a G tunnel is unshown: no x-ray inside)
 tap('t');
 // 5. the editor: click its strip to select it, E then ] raises the roof, Delete; S and O give it back
 const [GX,GY]=pr(12,12,0); editDown(GX,GY); run(1); editUp(GX,GY); run(1); const selT=E.sel&&E.sel.kind; tap('e'); tap(']'); const roof2=E.layout.tunnels[0].roof;

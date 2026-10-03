@@ -1,6 +1,38 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 226: the window and the x-ray's line (chat)
+Ross, from the stills (docs/parked/mock-xray.js, mock-occlusion.js): walking under a slab or a tree's crown opens a
+soft window round you (2.2 tiles, MTN_WIN, over a quarter second) showing what is under it; the x-ray (you faint, a
+dashed box) only when a boulder, crag or plate in front hides 70 percent of you or more (MTN_XRAY, sampled 8 by 8 over
+your box); trees, reeds and grass never x-ray; a G tunnel is unshown (neither). mtnWindow copies the screen round you
+before the covering thing draws and lays it back through a radial mask after. boulderShape is the boulder's body for
+drawing and for the x-ray (one shape). Down a pit a rim hides only an edge of you (11 and 31 percent), so the x-ray
+no longer shows there. tests/occlusion.js: the six cases of the still plus the open; overhang, tunnel, plates 9
+updated.
+
+## Build 225: the cutout clean (chat)
+Ross, from his screenshot of the pit through mt2's stack of four: the slabs' remnants showed inside the cutout. They
+were the L ledges, each painted as a full slab (texture, brink, lip, base line, the seam over it). Stills first
+(docs/parked/mock-pit-clean.js: a straight punch, a bare staircase, textured stairs under a depth wash, a cast shadow
+from the rim); Ross took the depth wash with the floor less dark but darkest. Now inside a pit's rim a cut layer's
+ledge keeps its texture under a wash from 0.08 at the rim to 0.53 at the floor's depth (PL_WASH), the walls darken
+with depth too, the floor (the base's ground inside the lowest ring) gets 0.5, and the only lip is the rim's: no brink
+inside the hole, no line where a layer meets the next, no seam on a ledge. plateRims and pitDepth in plates.js.
+tests/plates.js 3b counts the lips and brinks a lower layer and the rim layer paint.
+
+## Build 224: the editor's camera turns (chat)
+Ross, after 223: holding the middle button and dragging left or right turns the camera that way. state.edit.yaw, the
+camera's c.yaw (0 in play and while trying: T tries at the game's own view); mtnProj turns the ground about the
+view's middle before the tilt, editTile turns it back, and the arrows, a drag pan and a dragged slab move across and
+along the turned view. Every draw key that was a tile y is now a depth along the turned south (mtnDepth: the deco,
+solids, items, enemies, grass, Pip, you, shots, the ravines' top edge, the islands); the plates' painter's order is
+worked out again per turn (platesOrder, cached by m.pl.yaw: the far edge and the overlap rule read the turned
+outline, mtnAcross); the base's rows run far to near when turned past a quarter; a ravine's land clip is the base
+plate's ring when turned. The faces' rule (foot below lip on the screen) and a pit's far walls hold as they were. A
+drag of 360 px is a quarter turn; the bottom line shows it; V resets it. tests/edit.js step 14: a quarter turn right
+shows the east faces, the screen maps back to the same tile, picking, the ground and S unchanged, T untouched.
+
 ## Build 223: the editor's camera tilts; R only turns (chat; handoff after the editor chat, 212 to 223)
 Ross, after 222: tilt the camera; R should rotate, not scale. The editor's view now has its own tilt (state.edit.p):
 Q flatter toward straight down, Z tipped further (to about 79 degrees), shift and the wheel the same, V resets zoom

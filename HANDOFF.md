@@ -1,4 +1,4 @@
-# Quest: handoff (build 214, 2 Oct 2026)
+# Quest: handoff (build 226, 3 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -32,7 +32,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after build 223, 2 Oct): audit: 12131 lines, 0 unused, 0 functions over 150, 0 repeats, 161 state fields, frames avg 1.04 ms (5 slow, 0 errors); mt2's draw 13.6 ms in the harness, the rise 6.9, flat 3.9, climb3 and climb4 just over 2 (the plates' per-frame work: cleanup item 1). drawMtn still long (cleanup item 2).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 226, 3 Oct): audit: 12201 lines, 0 unused, 0 functions over 150, 0 repeats, 161 state fields, frames avg 1.24 ms (5 slow, 0 errors); mt2's draw 14.5 ms in the harness, the rise 9.6, flat 6.3 (up from 6.9 and 3.9: platesOrder per view and the 8 by 8 cover sample; cleanup item 1). drawMtn still long (cleanup item 2).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -222,7 +222,9 @@ wash (a still first).
 ## The editor (215, keys remade in 216; ?edit=<scene>, src/edit.js)
 On a plates screen (one with LAYOUTS[id]: mt2, and flat, the empty board). The world stands still, the hero parked
 at the way in, drawn faint. Arrows pan, the wheel zooms about the cursor, a drag on open ground pans; Q and Z (or
-shift and the wheel) tilt the view (223, state.edit.p, to p 1.45), V resets it; T tries it at the game's own view. Click selects (a
+shift and the wheel) tilt the view (223, state.edit.p, to p 1.45); a drag with the middle button turns it (224,
+state.edit.yaw, the camera's c.yaw: mtnProj turns the ground, mtnDepth is every draw key, platesOrder the plates'
+order per turn); V resets tilt and turn; T tries it at the game's own view (never turned). Click selects (a
 pit inside a plate before the plate, a seam by its line), drag moves (a plate takes its stack along), click on open
 ground clears. L W D A B E pick what [ ] change: length (x, 0.2), width (y, 0.2), depth (thickness, 0.05), all three
 scaled by a tenth (Ross's lwd), base (0.05; the plate then stands on nothing; a pit: its floor), ledge (a pit's); a
@@ -235,19 +237,34 @@ pasted one. One line at the bottom: the selected thing's numbers and the picked 
 the kind's colour (step green, hop yellow, high orange, face red). tests/edit.js drives editDown/editMove/editUp/
 editWheel and the keys on mt2 and flat. Not in it yet: undo (O with the last S), snapping, multi-select.
 
+What covers you (226, mountain.js): under a slab whose underside clears your head, or a tree's crown drawn after you,
+a soft window (MTN_WIN 2.2 tiles, mtnWindow: the screen round you copied before the cover draws, laid back through a
+radial mask); the x-ray only when boulders, crags or plates in front hide MTN_XRAY (0.7) of your box (state.mtn.cover);
+trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape is the boulder's body for both.
+tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
+
 ## Next task (on Opus unless marked: WAYS 7a)
-FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw). Ross, after 223: shift and the wheel keep tilting; holding the mouse wheel
-(the middle button) and dragging left or right turns the camera that way. Editor only at first (state.edit.yaw, V
-resets it, T tries at the game's camera). What it touches, why it is FABLE: mtnProj turns (x - c.cx, y - c.cy) by the
-yaw before the tilt and editTile turns back; every draw key that is a tile y (the ground order, items, the hero, the
-plates' fkey and localS in platesLay, plateKeyUnder, plateOverHero) becomes depth along the turned view's south, so
-platesLay's order is worked out per view (cache it by the yaw); the base ground's rows are tile rows, so under a turn
-they must be drawn as projected quads in depth order (check fillRows and the wash's chunks); the faces' rule is in
-screen space already (foot below the lip) and should hold. Tests: a quarter turn shows the east walls; collision and
-picking unchanged; S and O unchanged. Mouse: pointerdown with button 1 starts a turn, pointermove turns by dx.
+~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
+base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
+and sky line (hz) still read the north edge.
+
+~~(e) the cutout clean~~ (225: a pit's ledges textured under a depth wash, the floor darkest, one lip at the rim;
+the stills in docs/parked/mock-pit-clean.js, with a cast-shadow look D Ross did not take).
+
+~~(g) the occlusion split~~ (226: the window under slabs and crowns, the x-ray at 70 percent behind boulders, crags
+and plates; tests/occlusion.js). Watch (g2): a 1.2 wall with you at its edge hides 73 percent, near the line; if it
+flickers in play, MTN_XRAY 0.65 (Opus, one line).
+(f) NEXT, FABLE, fresh chat: a slab brush in the editor. B: coverage set with [ ] before the stroke (a circle at the
+cursor), the swept strip previewed while dragging, release makes a 0.5 slab in that shape, selected, thickness then
+adjustable as any slab. Layout kind 'brush' {pts, r, thick, base, tone, seed} rebuilt the same way each load; stroke to
+outline by rasterizing the swept discs on a quarter-tile grid, marching the boundary, simplifying, plateOutline's wear.
+Under link by stacking at the centroid. Tunnels and caves come from how slabs are stacked, nothing generated (217's
+PL_HEAD already walks you under a slab). The G tunnel tool stays for unshown passages. Tests: a stroke's area, the
+slab plays as a plate, S round-trips it.
 
 Then, from Ross's screenshot after 223 (his question "what looks off", answered in the chat; one build each):
-(a) A tunnel's roof between layers: a 1.2 roof through 0.74 slabs cuts the second slab (0.74 to 1.48) whole, so it is
+(a) MOOT once (f) lands (Ross, 3 Oct: tunnels and caves come from stacking brush slabs; the G tool stays for unshown
+passages). Kept for the record: A tunnel's roof between layers: a 1.2 roof through 0.74 slabs cuts the second slab (0.74 to 1.48) whole, so it is
 a trench open to the sky up to 1.48, not a tunnel under a roof at 1.2. Fix: E steps the roof between the layer
 boundaries the strip crosses (the label shows the roof that will hold), or a slab straddling the roof is notched only
 below it. Opus once Ross picks.

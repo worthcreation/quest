@@ -75,5 +75,24 @@ const faceH=()=>{ const q=platesLay(MTN.flat).list[0], cc=state.mtn, top=mtnProj
 const p0=state.mtn.p, h0=faceH(); state.keys.z=true; run(30); state.keys.z=false; run(1); const p1=state.mtn.p, h1=faceH(); state.keys.q=true; run(200); state.keys.q=false; run(1); const p2=state.mtn.p, h2=faceH();
 editWheel(100,SW/2,SH/2,true); run(1); const p3=state.mtn.p; tap('v'); const p4=state.mtn.p;
 console.log('13 R six times (90 deg): area', a0.toFixed(2), '>', a90.toFixed(2), '| span', (bx0[2]-bx0[0]).toFixed(2)+'x'+(bx0[3]-bx0[1]).toFixed(2), '>', (bx90[2]-bx90[0]).toFixed(2)+'x'+(bx90[3]-bx90[1]).toFixed(2), '| tilt p', p0, '> Z', p1.toFixed(2), '> Q to', p2.toFixed(2), '| a 1-tile face on screen', h0.toFixed(1), '>', h1.toFixed(1), '>', h2.toFixed(1), 'px | shift+wheel', p3.toFixed(2), '| V', p4);
+// 14. the camera turns (224): a middle drag of 360 px right is a quarter turn to the right; the screen still maps back
+// to the same tile (editTile is the projection run backwards); the east walls show (the faces drawn are the ones whose
+// outward normal points east in tiles; at no turn, south); two slabs side by side are painted west first (the west one
+// is further along the turned south); picking, the ground and S are what they were; T tries at the game's own camera
+// (no turn); V resets the turn
+startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[{x:20,y:12,w:6,h:3,seed:4,base:0,thick:1,tone:134,rot:0,under:-1},{x:28,y:12,w:6,h:3,seed:5,base:0,thick:1,tone:134,rot:0,under:-1}],pits:[],seams:[]}));
+const F3=state.edit, cc=state.mtn, fpl=()=>platesLay(MTN.flat), A=()=>fpl().list.find(p=>p.seed===4), Bp=()=>fpl().list.find(p=>p.seed===5);
+const facing=(p,yaw)=>{ const P=p.P, n=P.length, T=P.map(([x,y])=>mtnProj(x,y,1,cc)), Fo=P.map(([x,y])=>mtnProj(x,y,0,cc)), drawn=platePaintFaces(T,Fo,134); let mx=0,my=0; const cx=P.reduce((a,q)=>a+q[0]/n,0), cy=P.reduce((a,q)=>a+q[1]/n,0);
+  for(const i of drawn){ const j=(i+1)%n, ex=P[j][0]-P[i][0], ey=P[j][1]-P[i][1], L=Math.hypot(ex,ey)||1; let nx=ey/L, ny=-ex/L; const qx=(P[i][0]+P[j][0])/2-cx, qy=(P[i][1]+P[j][1])/2-cy; if(nx*qx+ny*qy<0){nx=-nx;ny=-ny;} mx+=nx/drawn.length; my+=ny/drawn.length; } return [drawn.length, +mx.toFixed(2), +my.toFixed(2)]; };
+F3.cx=24; F3.cy=12; mtnCamera(0,cc,true); run(1); const face0=facing(A()), order0=A().fkey<Bp().fkey, text0=editText(F3.layout,'flat');
+editDown(SW/2,SH/2,1); run(1); editMove(SW/2+360,SH/2); run(1); editUp(SW/2+360,SH/2); run(1);
+const yaw=F3.yaw, [RX,RY]=mtnProj(20,12,mtnH(MTN.flat,20,12),cc), [rx,ry]=editTile(RX,RY), [QX,QY]=mtnProj(27,9,mtnH(MTN.flat,27,9),cc), [qx,qy]=editTile(QX,QY);
+const face90=facing(A()), order90=A().fkey<Bp().fkey, text90=editText(F3.layout,'flat'), ground90=[plateTopAt(fpl(),20,12),plateTopAt(fpl(),24,12)];
+click(...mid(A().P.map(([x,y])=>mtnProj(x,y,mtnH(MTN.flat,x,y)+1,cc)))); const pick90=F3.sel&&F3.sel.kind==='plate'&&F3.layout.plates[F3.sel.i].seed===4;
+const westNearer=mtnProj(20,12,0,cc)[1]<mtnProj(28,12,0,cc)[1];
+run(5); const [TX2,TY2]=mtnProj(24,12,0,cc); editMove(TX2,TY2); run(1); tap('t'); const tryYaw=cc.yaw; state.keys.arrowleft=true; run(60); state.keys.arrowleft=false; run(2); const held14=tx(); tap('t'); const backYaw=cc.yaw;
+editDown(SW/2,SH/2,1); run(1); editMove(SW/2-720,SH/2); run(1); editUp(SW/2-720,SH/2); run(1); const yawM=F3.yaw, orderM=A().fkey<Bp().fkey, faceM=facing(A());
+tap('v'); const yawV=F3.yaw;
+console.log('14 middle drag 360 px right: turn', (yaw*180/Math.PI).toFixed(0), 'deg | the screen back to the tile', rx.toFixed(2), ry.toFixed(2), 'and', qx.toFixed(2), qy.toFixed(2), '| faces drawn (n, mean normal x y): no turn', face0.join(' '), '> turned', face90.join(' '), '| the west slab painted first: before', order0, 'turned', order90, '(it is the further one', westNearer+')', '| ground on it', ground90.join(' '), '| picked it', pick90, '| S the same', text0===text90, '| T: turn', tryYaw, 'walked into it, held at', held14.toFixed(2), 'back', backYaw.toFixed(2), '| a half turn the other way:', (yawM*180/Math.PI).toFixed(0), 'deg, west first', orderM, 'faces', faceM.join(' '), '| V', yawV);
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);
