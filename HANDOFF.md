@@ -1,4 +1,4 @@
-# Quest: handoff (build 226, 3 Oct 2026)
+# Quest: handoff (build 227, 3 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -229,7 +229,10 @@ pit inside a plate before the plate, a seam by its line), drag moves (a plate ta
 ground clears. L W D A B E pick what [ ] change: length (x, 0.2), width (y, 0.2), depth (thickness, 0.05), all three
 scaled by a tenth (Ross's lwd), base (0.05; the plate then stands on nothing; a pit: its floor), ledge (a pit's); a
 seam only has its width. R turns (rigidly since 223), U copies it (the same size and spot, stacked straight on it; a pit a tile over), Delete, N a plate under the cursor (on the
-plate there), P a pit, C a crack (clicks lay its points, C ends), G a tunnel the same way (1.4 wide, roof 1.2: W, B, E), T try it (the game runs; T parks you where you
+plate there), P a pit, C a crack (clicks lay its points, C ends), G a tunnel the same way (1.4 wide, roof 1.2: W, B, E), B the slab brush (227: [ ] set its reach, a circle at the cursor; a drag sweeps a strip,
+previewed; release lays a 0.5 slab in that shape, kind 'brush' { pts, r } rebuilt from its stroke at every load by
+brushOutline, stacked where its middle lands, selected with [ ] on its depth; L W scale its points, A everything, E its
+reach, R turns its points), T try it (the game runs; T parks you where you
 stand). S copies src/layouts/<scene>.js to the clipboard (the save: paste it over that file, rebuild); O opens a
 pasted one. One line at the bottom: the selected thing's numbers and the picked dimension; H opens the key sheet
 (three columns), H closes it. A pit or tunnel crossing a slab's edge notches its outline (222: polyDiff; the notch's walls are faces). A pit cuts the plates standing on the base only: on open ground it does nothing yet
@@ -244,6 +247,8 @@ trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape 
 tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
 
 ## Next task (on Opus unless marked: WAYS 7a)
+NEXT: Ross lays with the brush (?edit=flat or ?edit=mt2, B) and says what is off; then (b), (c), (d) below as he
+picks, or cleanup item 1.
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.
@@ -254,17 +259,14 @@ the stills in docs/parked/mock-pit-clean.js, with a cast-shadow look D Ross did 
 ~~(g) the occlusion split~~ (226: the window under slabs and crowns, the x-ray at 70 percent behind boulders, crags
 and plates; tests/occlusion.js). Watch (g2): a 1.2 wall with you at its edge hides 73 percent, near the line; if it
 flickers in play, MTN_XRAY 0.65 (Opus, one line).
-(f) NEXT, FABLE, fresh chat: a slab brush in the editor. B: coverage set with [ ] before the stroke (a circle at the
-cursor), the swept strip previewed while dragging, release makes a 0.5 slab in that shape, selected, thickness then
-adjustable as any slab. Layout kind 'brush' {pts, r, thick, base, tone, seed} rebuilt the same way each load; stroke to
-outline by rasterizing the swept discs on a quarter-tile grid, marching the boundary, simplifying, plateOutline's wear.
-Under link by stacking at the centroid. Tunnels and caves come from how slabs are stacked, nothing generated (217's
-PL_HEAD already walks you under a slab). The G tunnel tool stays for unshown passages. Tests: a stroke's area, the
-slab plays as a plate, S round-trips it.
+~~(f) the slab brush~~ (227: B in the editor; kind 'brush' rebuilt from its points and radius; stacked where it lands;
+tests/edit.js 15, plates.js 1b; HISTORY). Open from it: a stroke that closes on itself fills its hole (one outline;
+a ring would need the hole as a hole); the raster is a quarter tile, so a reach under 0.3 is refused (PL_BRUSH.min);
+undo is still O with the last S.
 
 Then, from Ross's screenshot after 223 (his question "what looks off", answered in the chat; one build each):
-(a) MOOT once (f) lands (Ross, 3 Oct: tunnels and caves come from stacking brush slabs; the G tool stays for unshown
-passages). Kept for the record: A tunnel's roof between layers: a 1.2 roof through 0.74 slabs cuts the second slab (0.74 to 1.48) whole, so it is
+~~(a) MOOT~~ (227 landed: tunnels and caves come from stacking brush slabs; the G tool stays for unshown passages).
+Kept for the record: A tunnel's roof between layers: a 1.2 roof through 0.74 slabs cuts the second slab (0.74 to 1.48) whole, so it is
 a trench open to the sky up to 1.48, not a tunnel under a roof at 1.2. Fix: E steps the roof between the layer
 boundaries the strip crosses (the label shows the roof that will hold), or a slab straddling the roof is notched only
 below it. Opus once Ross picks.

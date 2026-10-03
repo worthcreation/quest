@@ -24,7 +24,8 @@
 // Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until layered ground lays the
 // ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
 // What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
-// plates each { x, y, w, h, seed, base, thick, tone, rot, under }, pits { x, y, w, h, seed, floor, ledge }, tunnels
+// plates each { x, y, w, h, seed, base, thick, tone, rot, under } or a brush slab { kind: 'brush', pts, r, seed,
+// base, thick, tone, under } (227, brushOutline), pits { x, y, w, h, seed, floor, ledge }, tunnels
 // { spine, w, floor, roof } (222), seams { spine }. plateLayout reads it (the editor's working copy while that screen is being edited).
 
 const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
@@ -38,6 +39,40 @@ function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                 
   let Q = P; for (let r = 0; r < 2; r++) { const R = []; for (let k = 0; k < Q.length; k++) { const [ax, ay] = Q[k], [bx, by] = Q[(k + 1) % Q.length]; R.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } Q = R; }
   const ct = Math.cos(turn), st = Math.sin(turn);
   return Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]).map(([x, y]) => [cx + (x - cx) * ct - (y - cy) * st, cy + (x - cx) * st + (y - cy) * ct]);
+}
+// a brush slab's outline (227): the strip a round brush of radius r sweeps along a stroke's points, as one outline.
+// The swept discs are rasterized on a quarter-tile grid (the field: r less the distance to the stroke), the boundary
+// marched with each crossing interpolated along its cell edge, the loops joined, the biggest kept (a stroke that closes
+// on itself leaves its hole), the run simplified (Douglas-Peucker, PL_BRUSH.simp tiles) and then worn as plateOutline
+// wears its points, from the seed. Rebuilt the same way from the same points, radius and seed at every load
+const PL_BRUSH = { g: 0.25, simp: 0.05, min: 0.3, max: 4 };                             // the grid step; the simplifying tolerance; the brush's smallest and largest radius
+function brushOutline(pts, r, seed) {
+  const g = PL_BRUSH.g, n = pts.length; if (!n) return [];
+  const dist = (x, y) => { let d = Infinity; for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[Math.min(n - 1, i + 1)], dx = bx - ax, dy = by - ay, t = mtnClamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1e-9)), e = Math.hypot(x - ax - dx * t, y - ay - dy * t); if (e < d) d = e; } return d; };
+  const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]), x0 = Math.floor((Math.min(...xs) - r) / g) - 1, y0 = Math.floor((Math.min(...ys) - r) / g) - 1, nx = Math.ceil((Math.max(...xs) + r) / g) + 2 - x0, ny = Math.ceil((Math.max(...ys) + r) / g) + 2 - y0;
+  const f = new Float32Array((nx + 1) * (ny + 1)); for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) f[j * (nx + 1) + i] = r - dist((x0 + i) * g, (y0 + j) * g);   // (positive inside the strip)
+  const F = (i, j) => f[j * (nx + 1) + i], key = (x, y) => (Math.round(x * 1e4) + ',' + Math.round(y * 1e4)), segs = [];
+  const lerp = (i0, j0, i1, j1) => { const a = F(i0, j0), b = F(i1, j1), t = a / (a - b || 1e-9); return [(x0 + i0 + (i1 - i0) * t) * g, (y0 + j0 + (j1 - j0) * t) * g]; };   // where the field crosses 0 along a cell edge
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {                                // marching squares: the cell's corners (clockwise from the north-west), its edge crossings paired by case
+    const c = (F(i, j) > 0 ? 8 : 0) | (F(i + 1, j) > 0 ? 4 : 0) | (F(i + 1, j + 1) > 0 ? 2 : 0) | (F(i, j + 1) > 0 ? 1 : 0); if (!c || c === 15) continue;
+    const E = [lerp(i, j, i + 1, j), lerp(i + 1, j, i + 1, j + 1), lerp(i, j + 1, i + 1, j + 1), lerp(i, j, i, j + 1)];   // north, east, south, west
+    const T = [null, [[2, 3]], [[1, 2]], [[1, 3]], [[0, 1]], [[0, 3], [1, 2]], [[0, 2]], [[0, 3]], [[0, 3]], [[0, 2]], [[0, 1], [2, 3]], [[0, 1]], [[1, 3]], [[1, 2]], [[2, 3]]][c];
+    for (const [a, b] of T) segs.push([E[a], E[b]]); }
+  const by = new Map(); for (const s of segs) for (const [p, q] of [[s[0], s[1]], [s[1], s[0]]]) { const k = key(p[0], p[1]); if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
+  const used = new Set(), loops = [];                                                     // the segments joined end to end into loops
+  for (const s of segs) { const k0 = key(s[0][0], s[0][1]); if (used.has(k0)) continue; const L = []; let p = s[0], guard = 0;
+    while (p && guard++ < segs.length * 2) { const k = key(p[0], p[1]); if (used.has(k)) break; used.add(k); L.push(p); p = (by.get(k) || []).find(q => !used.has(key(q[0], q[1]))); }
+    if (L.length >= 3) loops.push(L); }
+  if (!loops.length) return [];
+  let P = loops.reduce((a, L) => Math.abs(polyArea(L)) > Math.abs(polyArea(a)) ? L : a); if (polyArea(P) < 0) P = P.slice().reverse();   // the biggest loop, wound as plateOutline winds
+  P = polySimplify(P, PL_BRUSH.simp);
+  const rnd = plateRng(seed); return P.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]);
+}
+// a closed run of points with every point within tol of the run through the ones kept (Douglas-Peucker, split at the two furthest apart)
+function polySimplify(P, tol) {
+  if (P.length < 6) return P; let b = 1, best = 0; for (let i = 0; i < P.length; i++) { const d = Math.hypot(P[i][0] - P[0][0], P[i][1] - P[0][1]); if (d > best) { best = d; b = i; } }
+  const Q = P.concat([P[0]]), dp = (i0, i1) => { const [ax, ay] = Q[i0], [bx, by] = Q[i1], dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1e-9; let far = -1, fd = tol; for (let i = i0 + 1; i < i1; i++) { const d = Math.abs((Q[i][0] - ax) * dy - (Q[i][1] - ay) * dx) / L; if (d > fd) { fd = d; far = i; } } return far < 0 ? [i0] : dp(i0, far).concat(dp(far, i1)); };
+  return dp(0, b).concat(dp(b, Q.length - 1)).map(i => Q[i]);
 }
 const plateIn = (P, x, y) => { let c = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
 // a plate less a ring that crosses its outline (222): the plate's outline with a notch cut out of it (or in pieces, if
@@ -76,8 +111,11 @@ const plateHas = (p, x, y) => plateIn(p.P, x, y);                               
 const plateKind = thick => thick <= 0.25 ? 'step' : thick <= 0.5 ? 'hop' : thick <= 1 ? 'high' : 'face';
 const plateTop = p => p.base + p.thick;
 const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
-// one plate from its spec (a layout's line): its outline from its seed and turn; under is set by plateLayout
-const plateAdd = (pl, s) => { const p = { x: s.x, y: s.y, w: s.w, h: s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, P: plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0) }; pl.list.push(p); return p; };
+// one plate from its spec (a layout's line): its outline from its seed and turn, or a brush slab's from its stroke
+// (kind 'brush': pts, r); under is set by plateLayout
+const plateAdd = (pl, s) => {
+  const brush = s.kind === 'brush', P = brush ? brushOutline(s.pts, s.r, s.seed) : plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0), b = plateBox(P.length ? P : [[s.x || 0, s.y || 0]]);   // (a brush slab: its outline from its stroke's points and radius; its middle and size are what that comes to)
+  const p = { x: brush ? (b[0] + b[2]) / 2 : s.x, y: brush ? (b[1] + b[3]) / 2 : s.y, w: brush ? b[2] - b[0] : s.w, h: brush ? b[3] - b[1] : s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, brush, P }; pl.list.push(p); return p; };
 // a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
 function plateLayout(pl, id) {
   const L = state.edit && state.edit.id === id ? state.edit.layout : LAYOUTS[id]; if (!L) return;

@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 227: the slab brush (chat)
+B in the editor: [ ] set the brush's reach (a circle at the cursor, 0.3 to 4 tiles, PL_BRUSH), a drag sweeps a strip
+(previewed at the height it will stand), release lays a 0.5 slab in that shape, stacked on whatever the stroke's middle
+lands on, selected with [ ] on its depth; B brushes again. Layout kind 'brush' { kind, pts, r, seed, base, thick, tone,
+under } in the plates list, rebuilt the same way at every load (brushOutline: the swept discs rasterized on a
+quarter-tile grid, the boundary marched with interpolated crossings, the biggest loop kept, Douglas-Peucker to 0.05,
+plateOutline's wear from the seed). It plays as any plate (plateHas on its outline: nothing else changed). L W scale
+its points, A everything, E its reach, R turns its points, U copies with its own points; editUnder is the one lookup
+for what a new slab stands on (N too). Nothing generated: tunnels and caves come from stacking (PL_HEAD). The G tool
+stays. tests/edit.js 15 (a stroke of 10 by 1.5: area 36.8 against 37.1, played at 0.55, S round-trips), plates.js 1b.
+
 ## Build 226: the window and the x-ray's line (chat)
 Ross, from the stills (docs/parked/mock-xray.js, mock-occlusion.js): walking under a slab or a tree's crown opens a
 soft window round you (2.2 tiles, MTN_WIN, over a quarter second) showing what is under it; the x-ray (you faint, a

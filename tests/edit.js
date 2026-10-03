@@ -5,7 +5,7 @@ const src = require('./harness.js').src;
 // collision changes with it: the one shape), a drag moves it with the stack on it, D duplicates up the stack, N lays a
 // plate, P a pit (which cuts the plate under it), C and clicks lay a crack, Delete removes; S's text loads back as the
 // same layout and is the file shipped (src/layouts/mt2.js reads back to what 214 laid); T drops the hero and the game
-// runs, T again parks him; frames draw with the overlay.
+// runs, T again parks him; frames draw with the overlay. B the slab brush (227): a stroke, its area, played, saved.
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
 const tap=k=>{state.keys[k]=true;run(1);state.keys[k]=false;run(1);};
@@ -94,5 +94,17 @@ run(5); const [TX2,TY2]=mtnProj(24,12,0,cc); editMove(TX2,TY2); run(1); tap('t')
 editDown(SW/2,SH/2,1); run(1); editMove(SW/2-720,SH/2); run(1); editUp(SW/2-720,SH/2); run(1); const yawM=F3.yaw, orderM=A().fkey<Bp().fkey, faceM=facing(A());
 tap('v'); const yawV=F3.yaw;
 console.log('14 middle drag 360 px right: turn', (yaw*180/Math.PI).toFixed(0), 'deg | the screen back to the tile', rx.toFixed(2), ry.toFixed(2), 'and', qx.toFixed(2), qy.toFixed(2), '| faces drawn (n, mean normal x y): no turn', face0.join(' '), '> turned', face90.join(' '), '| the west slab painted first: before', order0, 'turned', order90, '(it is the further one', westNearer+')', '| ground on it', ground90.join(' '), '| picked it', pick90, '| S the same', text0===text90, '| T: turn', tryYaw, 'walked into it, held at', held14.toFixed(2), 'back', backYaw.toFixed(2), '| a half turn the other way:', (yawM*180/Math.PI).toFixed(0), 'deg, west first', orderM, 'faces', faceM.join(' '), '| V', yawV);
+// 15. the slab brush (227): B, [ ] set its reach, a drag sweeps a strip, release lays a 0.5 slab in that shape (kind brush),
+// selected, its area about 2 r L + pi r^2; [ ] then change its depth; T on it: the hero stands at its top, walks off its
+// end to the ground; U copies it with its own points; S's text loads back as the same layout and the same outline
+startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[],pits:[],seams:[]})); const F4=state.edit, c4=state.mtn, gp=(x,y)=>mtnProj(x,y,mtnH(MTN.flat,x,y),c4);
+F4.cx=19; F4.cy=12; mtnCamera(0,c4,true); run(1); tap('b'); const r0=F4.brush&&F4.brush.r; tap(']'); tap(']'); tap(']'); const r1=F4.brush.r;
+const [S0,T0]=gp(14,12), [S1,T1]=gp(24,12); editDown(S0,T0); run(1); for(let k=1;k<=20;k++){ editMove(S0+(S1-S0)*k/20, T0+(T1-T0)*k/20); run(1); } const swept=F4.brush&&F4.brush.pts.length, previewed=!!(F4.brush&&F4.brush.pts); editUp(S1,T1); run(1);
+const bp=F4.layout.plates[0], th0=bp.thick, bl=platesLay(MTN.flat).list[0], areaB=Math.abs(polyArea(bl.P)), want=2*r1*10+Math.PI*r1*r1, selB=F4.sel&&F4.sel.kind==='plate'&&F4.sel.i===0&&F4.dim==='d';
+tap(']'); const th1=bp.thick, onB=plateTopAt(platesLay(MTN.flat),19,12), offB=plateTopAt(platesLay(MTN.flat),27,12);
+const [UX,UY]=gp(19,12); editMove(UX,UY); run(1); tap('t'); run(3); const liftOn=+(h.lift||0).toFixed(2); state.keys.arrowright=true; run(220); state.keys.arrowright=false; run(30); const walkedTo=tx().toFixed(1), liftOff=+(h.lift||0).toFixed(2); tap('t');
+F4.sel={kind:'plate',i:0}; tap('u'); const cp=F4.layout.plates[1]; cp.pts[0][0]+=5; const ownPts=bp.pts[0][0]!==cp.pts[0][0]&&cp.under===0&&Math.abs(cp.base-th1)<1e-6; cp.pts[0][0]-=5; F4.sel={kind:'plate',i:1}; tap('delete');
+const textB=editText(F4.layout,'flat'), norm=L2=>JSON.stringify(L2,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.keys(v).sort().reduce((a,q)=>(a[q]=v[q],a),{}):v), sameB=norm(F4.layout), P0=JSON.stringify(bl.P); const okB=editLoad(textB), backB=norm(F4.layout)===sameB, outlineB=JSON.stringify(platesLay(MTN.flat).list[0].P)===P0;
+console.log('15 brush: B reach', r0, '> ] x3', r1, '| swept', swept, 'points, previewed', previewed, '| released: kind', bp.kind, 'thick', th0, 'base', bp.base, 'selected with [ ] on depth', selB, '| area', areaB.toFixed(1), '(2rL + pi r2 =', want.toFixed(1)+', off by', ((areaB/want-1)*100).toFixed(0)+'%) | ] depth', th1, '| ground on it', onB, 'past its end', offB, '| T on it: lift', liftOn, 'walked east to x', walkedTo, 'lift', liftOff, '| U: its own points, stacked on it', ownPts, '| S then O: loaded', okB, 'the same layout', backB, 'the same outline', outlineB, '| the line has kind brush and pts', /"kind": "brush".*"pts": \\[\\[/.test(textB));
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);

@@ -15,6 +15,12 @@ const P=plateOutline(10, 10, 8, 4.5, 60), P2=plateOutline(10, 10, 8, 4.5, 60), P
 const box=P=>{const xs=P.map(q=>q[0]), ys=P.map(q=>q[1]); return [Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys)];}, [bw,bh]=box(P);
 const same=P.every((q,i)=>q[0]===P2[i][0]&&q[1]===P2[i][1]), diff=P.some((q,i)=>q[0]!==P3[i][0]);
 console.log('1 outline: points', P.length, '| spans', bw.toFixed(2), 'x', bh.toFixed(2), '(asked 8 x 4.5) | same seed same shape', same, '| another seed differs', diff);
+// 1b. a brush slab's outline (227): the strip a brush sweeps along a stroke, from a quarter-tile raster; its area about
+// 2 r L + pi r^2 for a straight stroke, a disc for a click, a bent stroke's less by the overlap at the bend; the same
+// again from the same points, radius and seed; a stroke that closes on itself keeps its hole inside (one outline)
+const bA=brushOutline([[10,10],[18,10]],1,5), bB=brushOutline([[10,10]],1,5), bC=brushOutline([[10,10],[14,10],[14,14]],0.8,5), bD=brushOutline([[10,10],[14,10],[14,14],[10,14],[10,10.5]],1,5);
+const ar=P=>Math.abs(polyArea(P)), expA=2*1*8+Math.PI, expC=2*0.8*8+Math.PI*0.64-(4-Math.PI)*0.64*0.5;
+console.log('1b brush outline: a straight stroke of 8 by r 1: points', bA.length, 'area', ar(bA).toFixed(2), '(2rL + pi r2', expA.toFixed(2)+') | a click: area', ar(bB).toFixed(2), '(pi', Math.PI.toFixed(2)+') | a bent stroke', ar(bC).toFixed(2), '(about', expC.toFixed(2)+') | a loop', bD.length, 'points, area', ar(bD).toFixed(1), '(the 6 by 6 it fills, less its corners) | the same again', JSON.stringify(brushOutline([[10,10],[18,10]],1,5))===JSON.stringify(bA), '| another seed differs', JSON.stringify(brushOutline([[10,10],[18,10]],1,6))!==JSON.stringify(bA));
 // 2. the one shape: the middle is in, far out is out, the hold's test is the drawing's
 const p={P}; const hasMid=plateHas(p,10,10), hasOut=plateHas(p,20,10), hasEdge=plateHas(p,10+bw/2*0.9,10), hasPast=plateHas(p,10+bw/2*1.1,10);
 console.log('2 plateHas: middle', hasMid, '| 9/10 of the way out', hasEdge, '| 11/10', hasPast, '| far', hasOut, '| kinds:', [0.2,0.4,0.8,1.2].map(t=>t+' '+plateKind(t)).join(', '));
