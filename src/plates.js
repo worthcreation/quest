@@ -24,8 +24,8 @@
 // Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until layered ground lays the
 // ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
 // What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
-// plates each { x, y, w, h, seed, base, thick, tone, rot, under } or a brush slab { kind: 'brush', pts, r, seed,
-// base, thick, tone, under } (227, brushOutline), pits { x, y, w, h, seed, floor, ledge }, tunnels
+// plates each { x, y, w, h, seed, base, thick, tone, rot, under } or a brush slab { kind: 'brush', strokes: [{ pts, r }],
+// plates: [{ x, y, w, h, seed, rot }], seed, base, thick, tone, under } (227, merged 228: brushOutline), pits { x, y, w, h, seed, floor, ledge }, tunnels
 // { spine, w, floor, roof } (222), seams { spine }. plateLayout reads it (the editor's working copy while that screen is being edited).
 
 const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
@@ -40,17 +40,24 @@ function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                 
   const ct = Math.cos(turn), st = Math.sin(turn);
   return Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]).map(([x, y]) => [cx + (x - cx) * ct - (y - cy) * st, cy + (x - cx) * st + (y - cy) * ct]);
 }
-// a brush slab's outline (227): the strip a round brush of radius r sweeps along a stroke's points, as one outline.
-// The swept discs are rasterized on a quarter-tile grid (the field: r less the distance to the stroke), the boundary
-// marched with each crossing interpolated along its cell edge, the loops joined, the biggest kept (a stroke that closes
-// on itself leaves its hole), the run simplified (Douglas-Peucker, PL_BRUSH.simp tiles) and then worn as plateOutline
-// wears its points, from the seed. Rebuilt the same way from the same points, radius and seed at every load
+// a brush slab's outline (227, merged in 228): one outline for all its parts, the strips a round brush of radius r
+// sweeps along each stroke's points and any plain plates it took in (a plate's outline from its own seed). The parts
+// are rasterized on a quarter-tile grid (the field: the largest of each part's reach, r less the distance to a stroke,
+// a plate's signed distance in), the boundary marched with each crossing interpolated along its cell edge, the loops
+// joined, the biggest kept (parts that close round a hole leave it filled), the run simplified (Douglas-Peucker,
+// PL_BRUSH.simp tiles) and then worn as plateOutline wears its points, from the seed. Rebuilt the same way from the same
+// parts and seed at every load. parts: { strokes: [{ pts, r }], plates: [{ x, y, w, h, seed, rot }] }
 const PL_BRUSH = { g: 0.25, simp: 0.05, min: 0.3, max: 4 };                             // the grid step; the simplifying tolerance; the brush's smallest and largest radius
-function brushOutline(pts, r, seed) {
-  const g = PL_BRUSH.g, n = pts.length; if (!n) return [];
-  const dist = (x, y) => { let d = Infinity; for (let i = 0; i < n; i++) { const [ax, ay] = pts[i], [bx, by] = pts[Math.min(n - 1, i + 1)], dx = bx - ax, dy = by - ay, t = mtnClamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1e-9)), e = Math.hypot(x - ax - dx * t, y - ay - dy * t); if (e < d) d = e; } return d; };
-  const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]), x0 = Math.floor((Math.min(...xs) - r) / g) - 1, y0 = Math.floor((Math.min(...ys) - r) / g) - 1, nx = Math.ceil((Math.max(...xs) + r) / g) + 2 - x0, ny = Math.ceil((Math.max(...ys) + r) / g) + 2 - y0;
-  const f = new Float32Array((nx + 1) * (ny + 1)); for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) f[j * (nx + 1) + i] = r - dist((x0 + i) * g, (y0 + j) * g);   // (positive inside the strip)
+const segDist = (x, y, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, t = mtnClamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1e-9)); return Math.hypot(x - ax - dx * t, y - ay - dy * t); };
+function brushOutline(parts, seed) {
+  const strokes = (parts.strokes || []).filter(s => s.pts && s.pts.length), plates = (parts.plates || []).map(q => plateOutline(q.x, q.y, q.w, q.h, q.seed, PL_N, q.rot || 0)); if (!strokes.length && !plates.length) return [];
+  const field = (x, y) => { let f = -Infinity;                                           // the largest reach of any part at a point (positive inside)
+    for (const { pts, r } of strokes) { let d = Infinity; for (let i = 0; i < pts.length; i++) { const [ax, ay] = pts[i], [bx, by] = pts[Math.min(pts.length - 1, i + 1)], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } if (r - d > f) f = r - d; }
+    for (const P of plates) { let d = Infinity; for (let i = 0; i < P.length; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } const v = plateIn(P, x, y) ? d : -d; if (v > f) f = v; }
+    return f; };
+  let X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity; for (const { pts, r } of strokes) for (const [x, y] of pts) { X0 = Math.min(X0, x - r); Y0 = Math.min(Y0, y - r); X1 = Math.max(X1, x + r); Y1 = Math.max(Y1, y + r); } for (const P of plates) for (const [x, y] of P) { X0 = Math.min(X0, x); Y0 = Math.min(Y0, y); X1 = Math.max(X1, x); Y1 = Math.max(Y1, y); }
+  const g = PL_BRUSH.g, x0 = Math.floor(X0 / g) - 1, y0 = Math.floor(Y0 / g) - 1, nx = Math.ceil(X1 / g) + 2 - x0, ny = Math.ceil(Y1 / g) + 2 - y0;
+  const f = new Float32Array((nx + 1) * (ny + 1)); for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) f[j * (nx + 1) + i] = field((x0 + i) * g, (y0 + j) * g);
   const F = (i, j) => f[j * (nx + 1) + i], key = (x, y) => (Math.round(x * 1e4) + ',' + Math.round(y * 1e4)), segs = [];
   const lerp = (i0, j0, i1, j1) => { const a = F(i0, j0), b = F(i1, j1), t = a / (a - b || 1e-9); return [(x0 + i0 + (i1 - i0) * t) * g, (y0 + j0 + (j1 - j0) * t) * g]; };   // where the field crosses 0 along a cell edge
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {                                // marching squares: the cell's corners (clockwise from the north-west), its edge crossings paired by case
@@ -58,9 +65,9 @@ function brushOutline(pts, r, seed) {
     const E = [lerp(i, j, i + 1, j), lerp(i + 1, j, i + 1, j + 1), lerp(i, j + 1, i + 1, j + 1), lerp(i, j, i, j + 1)];   // north, east, south, west
     const T = [null, [[2, 3]], [[1, 2]], [[1, 3]], [[0, 1]], [[0, 3], [1, 2]], [[0, 2]], [[0, 3]], [[0, 3]], [[0, 2]], [[0, 1], [2, 3]], [[0, 1]], [[1, 3]], [[1, 2]], [[2, 3]]][c];
     for (const [a, b] of T) segs.push([E[a], E[b]]); }
-  const by = new Map(); for (const s of segs) for (const [p, q] of [[s[0], s[1]], [s[1], s[0]]]) { const k = key(p[0], p[1]); if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
+  const by = new Map(); for (const sg of segs) for (const [p, q] of [[sg[0], sg[1]], [sg[1], sg[0]]]) { const k = key(p[0], p[1]); if (!by.has(k)) by.set(k, []); by.get(k).push(q); }
   const used = new Set(), loops = [];                                                     // the segments joined end to end into loops
-  for (const s of segs) { const k0 = key(s[0][0], s[0][1]); if (used.has(k0)) continue; const L = []; let p = s[0], guard = 0;
+  for (const sg of segs) { const k0 = key(sg[0][0], sg[0][1]); if (used.has(k0)) continue; const L = []; let p = sg[0], guard = 0;
     while (p && guard++ < segs.length * 2) { const k = key(p[0], p[1]); if (used.has(k)) break; used.add(k); L.push(p); p = (by.get(k) || []).find(q => !used.has(key(q[0], q[1]))); }
     if (L.length >= 3) loops.push(L); }
   if (!loops.length) return [];
@@ -68,6 +75,8 @@ function brushOutline(pts, r, seed) {
   P = polySimplify(P, PL_BRUSH.simp);
   const rnd = plateRng(seed); return P.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]);
 }
+// a brush slab's parts from its layout line (a 227 line had one stroke as pts and r)
+const brushParts = s => ({ strokes: s.strokes || (s.pts ? [{ pts: s.pts, r: s.r }] : []), plates: s.plates || [] });
 // a closed run of points with every point within tol of the run through the ones kept (Douglas-Peucker, split at the two furthest apart)
 function polySimplify(P, tol) {
   if (P.length < 6) return P; let b = 1, best = 0; for (let i = 0; i < P.length; i++) { const d = Math.hypot(P[i][0] - P[0][0], P[i][1] - P[0][1]); if (d > best) { best = d; b = i; } }
@@ -114,7 +123,7 @@ const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); retu
 // one plate from its spec (a layout's line): its outline from its seed and turn, or a brush slab's from its stroke
 // (kind 'brush': pts, r); under is set by plateLayout
 const plateAdd = (pl, s) => {
-  const brush = s.kind === 'brush', P = brush ? brushOutline(s.pts, s.r, s.seed) : plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0), b = plateBox(P.length ? P : [[s.x || 0, s.y || 0]]);   // (a brush slab: its outline from its stroke's points and radius; its middle and size are what that comes to)
+  const brush = s.kind === 'brush', P = brush ? brushOutline(brushParts(s), s.seed) : plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0), b = plateBox(P.length ? P : [[s.x || 0, s.y || 0]]);   // (a brush slab: its outline from its stroke's points and radius; its middle and size are what that comes to)
   const p = { x: brush ? (b[0] + b[2]) / 2 : s.x, y: brush ? (b[1] + b[3]) / 2 : s.y, w: brush ? b[2] - b[0] : s.w, h: brush ? b[3] - b[1] : s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, brush, P }; pl.list.push(p); return p; };
 // a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
 function plateLayout(pl, id) {

@@ -17,7 +17,10 @@
 // - B the slab brush (227): [ ] set its reach (a circle at the cursor), a drag sweeps a strip (previewed), release
 //   makes a 0.5 slab in that shape (layout kind 'brush': its points and radius, rebuilt the same way at every load,
 //   brushOutline), stacked on whatever its middle lands on and selected, so [ ] then change its thickness as any slab;
-//   B again brushes again. L W scale its points, A everything, E its radius, R turns its points
+//   the brush stays in hand for the next stroke, B puts it away. L W scale its points, A everything, E its radius, R turns its points. A stroke that
+//   crosses a slab at the level it lands on merges into that slab (228, Ross: one shape, no doubled tops or reversed
+//   faces): the slab becomes a brush slab of all its parts (its strokes, and the plain plate it was) at its own
+//   thickness, every slab the stroke crosses at that level folded in; a stroke wholly on a slab's top stacks on it
 // - N a new plate under the cursor (on the plate there, if any), P a pit there, C starts a crack and clicks lay its
 //   points (C again ends it), G a tunnel the same way (G ends it; 1.4 wide, roof 1.2: W, B and E change them), T drops the hero at the cursor to try it (the game runs: T again parks him there)
 // - S saves: copies the layout as the file src/layouts/<scene>.js (the save is pasting it over that file); O opens one
@@ -34,7 +37,7 @@ function startEdit(id) {
   const h = state.hero;
   if (!m || !m.plates) { showScroll('Not a plates screen', `${id} has no layout to edit.`); return; }
   state.edit = { p: mtnView(m, h.x / UNIT), yaw: 0, id, layout: editCopy({ plates: [], pits: [], seams: [], ...(LAYOUTS[id] || {}), tunnels: (LAYOUTS[id] || {}).tunnels || [] }), zoom: 1, cx: h.x / UNIT, cy: h.y / UNIT, sel: null, dim: 'd', help: false, cur: [h.x / UNIT, h.y / UNIT], down: null, crack: null, brush: null, brushR: 1.2, trying: false, msg: '' };
-  editRelay(); mtnCamera(0, state.mtn, true);
+  editNorm(); editRelay(); mtnCamera(0, state.mtn, true);
   showScroll('The editor', 'Arrows pan, the wheel zooms. Click selects, drag moves. H shows the keys.');
 }
 // relay the plates from the editor's copy: collision, drawing and the labels all read the one lay
@@ -63,14 +66,17 @@ function editPick(X, Y) {
 const ED_PMAX = 1.45, ED_TURN = Math.PI / 2 / 360;                                        // the editor's tilt reaches p 1.45: about 79 degrees from straight down; a middle drag of 360 px is a quarter turn
 const ED_LIST = { plate: 'plates', pit: 'pits', seam: 'seams', tunnel: 'tunnels' }, ED_SPINE = { seam: 1, tunnel: 1 };   // a selection's list in the layout; the ones laid as a spine
 const editObj = sel => sel ? state.edit.layout[ED_LIST[sel.kind]][sel.i] : null;
-const editXY = o => { if (o.kind === 'brush') { const b = plateBox(o.pts); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; } return [o.x, o.y]; };   // a layout line's spot: a brush slab's the middle of its stroke
+const brushPts = o => { const B = brushParts(o); return B.strokes.flatMap(st => st.pts).concat(B.plates.map(q => [q.x, q.y])); };   // the points a brush slab's parts are laid by
+const editXY = o => { if (o.kind === 'brush') { const b = plateBox(brushPts(o)); return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]; } return [o.x, o.y]; };   // a layout line's spot: a brush slab's the middle of its parts
+const editNorm = () => { for (const o of state.edit.layout.plates) if (o.kind === 'brush' && !o.strokes) { Object.assign(o, brushParts(o)); delete o.pts; delete o.r; } };   // every brush line in the parts form (a 227 line had one stroke as pts and r)
+const brushEach = (o, fn) => { const B = brushParts(o); for (const st of B.strokes) for (const q of st.pts) { const [x, y] = fn(q[0], q[1]); q[0] = x; q[1] = y; } for (const q of B.plates) { const [x, y] = fn(q.x, q.y); q.x = x; q.y = y; } o.strokes = B.strokes; o.plates = B.plates; delete o.pts; delete o.r; };   // every point of its parts moved by fn (a 227 line becomes a strokes line)
 const editUnder = (m, x, y) => { let under = -1, top = -1; for (const p of platesLay(m).list) if (plateHas(p, x, y) && plateTop(p) > top) { top = plateTop(p); under = p.li; } return { under, base: under >= 0 ? top : 0 }; };   // what a new slab at x, y stands on: the highest plate there (its line), and the base that gives
 const editOn = i => state.edit.layout.plates.map((p, k) => p.under === i ? k : -1).filter(k => k >= 0);   // the plates standing straight on plate i
 // move a plate and every plate stacked on it (a pit, a seam: just itself)
 function editShift(sel, dx, dy) {
   const o = editObj(sel); if (!o) return;
   if (ED_SPINE[sel.kind]) { for (const q of o.spine) { q[0] += dx; q[1] += dy; } return; }
-  if (o.kind === 'brush') for (const q of o.pts) { q[0] += dx; q[1] += dy; } else { o.x += dx; o.y += dy; } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editShift({ kind: 'plate', i: k }, dx, dy);
+  if (o.kind === 'brush') brushEach(o, (x, y) => [x + dx, y + dy]); else { o.x += dx; o.y += dy; } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editShift({ kind: 'plate', i: k }, dx, dy);
 }
 // a plate's base is the top of the one it stands on (the chain settled after any change of thickness or base)
 function editBases() { const P = state.edit.layout.plates; for (let r = 0; r < 8; r++) for (const p of P) if (p.under >= 0 && P[p.under]) p.base = +(P[p.under].base + P[p.under].thick).toFixed(3); }
@@ -109,12 +115,21 @@ function editUp(X, Y) {
 }
 // the stroke released: a 0.5 slab in the swept shape, on whatever the stroke's middle lands on, selected, with [ ] on its thickness
 function editBrushLay() {
-  const E = state.edit, L = E.layout, B = E.brush; E.brush = null; if (!B || !B.pts || !B.pts.length) return;
-  const [mx, my] = editXY({ kind: 'brush', pts: B.pts }), u = editUnder(editM(), mx, my);
-  L.plates.push({ kind: 'brush', pts: B.pts, r: B.r, seed: editSeed(), base: u.base, thick: 0.5, tone: PL_TONE, under: u.under });
-  E.sel = { kind: 'plate', i: L.plates.length - 1 }; E.dim = 'd'; E.msg = 'a brush slab: [ ] change its depth; B brushes again'; editBases(); editRelay();
+  const E = state.edit, L = E.layout, B = E.brush, m = editM(); if (!B || !B.pts || !B.pts.length) return; E.brush = { r: B.r, pts: null };   // (the brush stays in hand for the next stroke; B puts it away)
+  const pl = platesLay(m), stroke = { pts: B.pts, r: B.r }, lands = B.pts.map(([x, y]) => editUnder(m, x, y));   // where each point of the stroke lands
+  const u = lands.every(l => l.under === lands[0].under) ? lands[0] : lands.reduce((a, l) => l.base < a.base ? l : a);   // wholly on one slab's top: it stacks there; else it stands at the lowest level it touches (the ground, if it runs off a slab)
+  const near = (x, y) => { let d = Infinity; for (let i = 0; i < B.pts.length; i++) { const [ax, ay] = B.pts[i], [bx, by] = B.pts[Math.min(B.pts.length - 1, i + 1)], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } return d <= B.r; };
+  const crossed = L.plates.map((q, i) => i).filter(i => Math.abs(L.plates[i].base - u.base) < 0.01 && (() => { const p = pl.list.find(p => p.li === i); return p && (p.P.some(([x, y]) => near(x, y)) || B.pts.some(([x, y]) => plateHas(p, x, y))); })());   // the slabs at the level it lands on that its strip crosses
+  if (crossed.length) {                                                                   // merged (228): the first crossed slab takes the stroke and every other crossed slab's parts, at its own thickness
+    const ti = crossed[0], t = L.plates[ti], parts = q => q.kind === 'brush' ? brushParts(q) : { strokes: [], plates: [{ x: q.x, y: q.y, w: q.w, h: q.h, seed: q.seed, rot: q.rot || 0 }] };
+    const M = { kind: 'brush', strokes: [], plates: [], seed: t.seed, base: t.base, thick: t.thick, tone: t.tone, under: t.under };
+    for (const i of crossed) { const P = parts(L.plates[i]); M.strokes.push(...P.strokes); M.plates.push(...P.plates); } M.strokes.push(stroke);
+    L.plates[ti] = M; for (const i of crossed.slice(1).sort((a, b) => b - a)) { for (const k of editOn(i)) L.plates[k].under = ti; editRemove({ kind: 'plate', i }); }
+    E.sel = { kind: 'plate', i: ti }; E.msg = 'merged into slab ' + ti + ' (' + M.strokes.length + ' strokes, ' + M.plates.length + ' plates)'; }
+  else { L.plates.push({ kind: 'brush', strokes: [stroke], plates: [], seed: editSeed(), base: u.base, thick: 0.5, tone: PL_TONE, under: u.under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; E.msg = 'a brush slab: [ ] change its depth; sweep again, or B puts the brush away'; }
+  E.dim = 'd'; editBases(); editRelay();
 }
-const editRound = sel => { const o = editObj(sel); if (o && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') for (const q of o.pts) { q[0] = +q[0].toFixed(2); q[1] = +q[1].toFixed(2); } else { o.x = +o.x.toFixed(2); o.y = +o.y.toFixed(2); } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editRound({ kind: 'plate', i: k }); editRelay(); } else if (o) { for (const q of o.spine) { q[0] = +q[0].toFixed(3); q[1] = +q[1].toFixed(3); } editRelay(); } };   // (a plate: the slabs carried along on its stack too)
+const editRound = sel => { const o = editObj(sel); if (o && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') brushEach(o, (x, y) => [+x.toFixed(2), +y.toFixed(2)]); else { o.x = +o.x.toFixed(2); o.y = +o.y.toFixed(2); } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editRound({ kind: 'plate', i: k }); editRelay(); } else if (o) { for (const q of o.spine) { q[0] = +q[0].toFixed(3); q[1] = +q[1].toFixed(3); } editRelay(); } };   // (a plate: the slabs carried along on its stack too)
 function editWheel(dy, X, Y, tilt = false) {
   const E = state.edit; if (!E || E.trying) return; const c = state.mtn;
   if (tilt) { E.p = mtnClamp(E.p + (dy > 0 ? 0.05 : -0.05), 0, ED_PMAX); mtnCamera(0, c, true); return; }   // (shift and the wheel: tilt)
@@ -125,17 +140,17 @@ function editWheel(dy, X, Y, tilt = false) {
 function editText(L, id) {
   const n = v => +(+v).toFixed(3), line = o => JSON.stringify(o).replace(/"(\w+)":/g, '"$1": ').replace(/,/g, ', ');
   const pts = P => '[' + P.map(q => '[' + q.map(n).join(', ') + ']').join(', ') + ']';
-  const plates = L.plates.map(p => '    ' + (p.kind === 'brush' ? line({ kind: 'brush', seed: n(p.seed), r: n(p.r), base: n(p.base), thick: n(p.thick), tone: p.tone, under: p.under >= 0 ? p.under : -1 }).slice(0, -1) + ', "pts": ' + pts(p.pts) + '}' : line({ x: n(p.x), y: n(p.y), w: n(p.w), h: n(p.h), seed: n(p.seed), base: n(p.base), thick: n(p.thick), tone: p.tone, rot: n(p.rot || 0), under: p.under >= 0 ? p.under : -1 })));
+  const plates = L.plates.map(p => '    ' + (p.kind === 'brush' ? line({ kind: 'brush', seed: n(p.seed), base: n(p.base), thick: n(p.thick), tone: p.tone, under: p.under >= 0 ? p.under : -1 }).slice(0, -1) + ', "strokes": [' + brushParts(p).strokes.map(st => `{ "r": ${n(st.r)}, "pts": ${pts(st.pts)} }`).join(', ') + '], "plates": [' + brushParts(p).plates.map(q => line({ x: n(q.x), y: n(q.y), w: n(q.w), h: n(q.h), seed: n(q.seed), rot: n(q.rot || 0) })).join(', ') + '] }' : line({ x: n(p.x), y: n(p.y), w: n(p.w), h: n(p.h), seed: n(p.seed), base: n(p.base), thick: n(p.thick), tone: p.tone, rot: n(p.rot || 0), under: p.under >= 0 ? p.under : -1 })));
   const pits = L.pits.map(q => '    ' + line({ x: n(q.x), y: n(q.y), w: n(q.w), h: n(q.h), seed: n(q.seed), floor: n(q.floor), ledge: n(q.ledge) }));
   const seams = L.seams.map(s => '    { "spine": [' + s.spine.map(q => '[' + q.map(n).join(', ') + ']').join(', ') + '] }');
   const tunnels = (L.tunnels || []).map(t => '    { "spine": [' + t.spine.map(q => '[' + q.map(n).join(', ') + ']').join(', ') + `], "w": ${n(t.w)}, "floor": ${n(t.floor)}, "roof": ${n(t.roof)} }`);
   const block = (name, rows) => `  "${name}": [\n${rows.join(',\n')}\n  ]`;
-  return `// ===== layouts/${id}.js: ${id}'s plates, pits and seams, laid in the editor (?edit=${id}; S copies this file: paste it over\n// this one). plateLayout reads it at enterScene. A plate: its middle x, y and size w, h in tiles, its outline's seed and\n// turn (rot), base and thickness above the base plate, tone, and under (the index of the plate it stands on, or -1).\n// A brush slab (kind brush): its stroke's points and the brush's radius r instead of x, y, w, h and rot (brushOutline).\n// A tunnel: its spine in tiles, width w, floor and roof (the plates between are cut along it).\nLAYOUTS.${id} = {\n${[block('plates', plates), block('pits', pits), block('seams', seams)].concat(tunnels.length ? [block('tunnels', tunnels)] : []).join(',\n')}\n};\n`;
+  return `// ===== layouts/${id}.js: ${id}'s plates, pits and seams, laid in the editor (?edit=${id}; S copies this file: paste it over\n// this one). plateLayout reads it at enterScene. A plate: its middle x, y and size w, h in tiles, its outline's seed and\n// turn (rot), base and thickness above the base plate, tone, and under (the index of the plate it stands on, or -1).\n// A brush slab (kind brush): its parts instead of x, y, w, h and rot: strokes (each its points and radius r) and the\n// plain plates merged into it, one outline from all of them (brushOutline).\n// A tunnel: its spine in tiles, width w, floor and roof (the plates between are cut along it).\nLAYOUTS.${id} = {\n${[block('plates', plates), block('pits', pits), block('seams', seams)].concat(tunnels.length ? [block('tunnels', tunnels)] : []).join(',\n')}\n};\n`;
 }
 // a pasted layout: the file above, or its bare object
 function editLoad(text) {
   const E = state.edit; let t = String(text || '').trim(); const i = t.indexOf('{'), j = t.lastIndexOf('}'); if (i < 0 || j < i) return false;
-  try { const L = JSON.parse(t.slice(i, j + 1)); if (!Array.isArray(L.plates)) return false; E.layout = { plates: L.plates, pits: L.pits || [], seams: L.seams || [], tunnels: L.tunnels || [] }; E.sel = null; editBases(); editRelay(); return true; } catch (e) { return false; }
+  try { const L = JSON.parse(t.slice(i, j + 1)); if (!Array.isArray(L.plates)) return false; E.layout = { plates: L.plates, pits: L.pits || [], seams: L.seams || [], tunnels: L.tunnels || [] }; E.sel = null; editNorm(); editBases(); editRelay(); return true; } catch (e) { return false; }
 }
 function editCopyOut() {
   const E = state.edit, text = editText(E.layout, E.id);
@@ -158,7 +173,7 @@ function updateEdit(dt) {
   const [cx, cy] = E.cur.map(v => +v.toFixed(2));
   if (tap('c')) { if (E.crack) { if (E.crack.spine.length >= 2) { L.seams.push({ spine: E.crack.spine }); E.sel = { kind: 'seam', i: L.seams.length - 1 }; } E.crack = null; editRelay(); } else { E.crack = { spine: [], hw: 0.08 }; E.sel = null; E.msg = 'click to lay the crack; C ends it'; } }
   else if (tap('g')) { if (E.tun) { if (E.tun.spine.length >= 2) { L.tunnels.push({ spine: E.tun.spine, w: 1.4, floor: 0, roof: 1.2 }); E.sel = { kind: 'tunnel', i: L.tunnels.length - 1 }; } E.tun = null; editRelay(); } else { E.tun = { spine: [] }; E.crack = null; E.sel = null; E.msg = 'click to lay the tunnel; G ends it'; } }   // a tunnel: 1.4 wide, its roof 1.2 up (walked under: PL_HEAD)
-  else if (tap('b') && !o) { if (E.brush) { E.brush = null; E.msg = ''; } else { E.brush = { r: E.brushR, pts: null }; E.crack = null; E.tun = null; E.msg = '[ ] set the brush; drag to sweep a slab; B puts it away'; } }   // (B with something selected picks the base, as before)
+  else if (tap('b') && (E.brush || !o)) { if (E.brush) { E.brush = null; E.msg = 'brush put away'; } else { E.brush = { r: E.brushR, pts: null }; E.crack = null; E.tun = null; E.msg = '[ ] set the brush; drag to sweep a slab; B puts it away'; } }   // (the brush in hand: a press sweeps, B puts it away; B with something selected and no brush picks the base, as before)
   else if (tap('n')) { const u = editUnder(m, cx, cy); L.plates.push({ x: cx, y: cy, w: 4, h: 2.6, seed: editSeed(), base: u.base, thick: 0.4, tone: PL_TONE, rot: 0, under: u.under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; }
   else if (tap('p')) { L.pits.push({ x: cx, y: cy, w: 3.4, h: 3, seed: editSeed(), floor: 0, ledge: 0.55 }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; }
   else if (tap('h')) E.help = !E.help;
@@ -166,15 +181,15 @@ function updateEdit(dt) {
   else if (tap('o')) { const t = typeof prompt === 'function' ? prompt('Paste a layout (the file, or its object)') : null; E.msg = t == null ? E.msg : editLoad(t) ? 'loaded' : 'that was not a layout'; }
   else if (Object.keys(ED_DIMS).some(k => tap(k) && (E.dim = k))) E.msg = '[ ] change ' + ED_DIMS[E.dim];
   else if (o && (tap('delete') || tap('backspace'))) editRemove(sel);
-  else if (o && tap('u')) { if (sel.kind === 'plate') { L.plates.push({ ...o, ...(o.kind === 'brush' ? { pts: o.pts.map(q => q.slice()) } : {}), seed: editSeed(), base: +(o.base + o.thick).toFixed(3), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } else if (sel.kind === 'tunnel') { L.tunnels.push({ ...o, spine: o.spine.map(([x, y]) => [x + 1, y + 1]) }); E.sel = { kind: 'tunnel', i: L.tunnels.length - 1 }; } }
-  else if (o && tap('r') && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') { const [mx, my] = editXY(o), ct = Math.cos(Math.PI / 12), st = Math.sin(Math.PI / 12); o.pts = o.pts.map(([x, y]) => [+(mx + (x - mx) * ct - (y - my) * st).toFixed(2), +(my + (x - mx) * st + (y - my) * ct).toFixed(2)]); } else o.rot = +((o.rot || 0) + Math.PI / 12).toFixed(3); }
+  else if (o && tap('u')) { if (sel.kind === 'plate') { L.plates.push({ ...o, ...(o.kind === 'brush' ? editCopy(brushParts(o)) : {}), seed: editSeed(), base: +(o.base + o.thick).toFixed(3), under: sel.i }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; } else if (sel.kind === 'pit') { L.pits.push({ ...o, x: o.x + 1, y: o.y + 1, seed: editSeed() }); E.sel = { kind: 'pit', i: L.pits.length - 1 }; } else if (sel.kind === 'tunnel') { L.tunnels.push({ ...o, spine: o.spine.map(([x, y]) => [x + 1, y + 1]) }); E.sel = { kind: 'tunnel', i: L.tunnels.length - 1 }; } }
+  else if (o && tap('r') && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') { const [mx, my] = editXY(o), ct = Math.cos(Math.PI / 12), st = Math.sin(Math.PI / 12); brushEach(o, (x, y) => [+(mx + (x - mx) * ct - (y - my) * st).toFixed(2), +(my + (x - mx) * st + (y - my) * ct).toFixed(2)]); for (const q of o.plates) q.rot = +((q.rot || 0) + Math.PI / 12).toFixed(3); } else o.rot = +((o.rot || 0) + Math.PI / 12).toFixed(3); }
   else if (!o && E.brush && !E.brush.pts) { const dir = (tap(']') ? 1 : 0) - (tap('[') ? 1 : 0); if (!dir) return true; E.brush.r = E.brushR = +mtnClamp(E.brush.r + dir * 0.1, PL_BRUSH.min, PL_BRUSH.max).toFixed(2); E.msg = 'brush ' + E.brush.r.toFixed(1) + ' tiles'; return true; }   // [ ] before the stroke: its reach
   else if (o) {
     const dir = (tap(']') ? 1 : 0) - (tap('[') ? 1 : 0); if (!dir) return true; const k = E.dim, f = dir > 0 ? 1.1 : 1 / 1.1;   // [ ] on the picked dimension: a fifth of a tile across, a twentieth up, all three by a tenth
     if (sel.kind === 'seam') { for (const q of o.spine) q[2] = +mtnClamp(q[2] + dir * 0.02, 0.02, 0.24).toFixed(3); }
     else if (sel.kind === 'tunnel') { if (k === 'w' || k === 'l') o.w = +Math.max(0.6, o.w + dir * 0.1).toFixed(2); else if (k === 'b') o.floor = +Math.max(0, o.floor + dir * 0.05).toFixed(2); else if (k === 'e') o.roof = +Math.max(o.floor + 0.3, o.roof + dir * 0.05).toFixed(2); else return true; }
-    else if (o.kind === 'brush') { const [mx, my] = editXY(o), sc = (fx, fy) => { o.pts = o.pts.map(([x, y]) => [+(mx + (x - mx) * fx).toFixed(2), +(my + (y - my) * fy).toFixed(2)]); };   // a brush slab: its stroke scaled about its middle (L along x, W along y, A both with its radius and depth), E its radius
-      if (k === 'l') sc(f, 1); else if (k === 'w') sc(1, f); else if (k === 'a') { sc(f, f); o.r = +mtnClamp(o.r * f, PL_BRUSH.min, PL_BRUSH.max).toFixed(2); o.thick = +Math.max(0.05, o.thick * f).toFixed(2); } else if (k === 'e') o.r = +mtnClamp(o.r + dir * 0.1, PL_BRUSH.min, PL_BRUSH.max).toFixed(2); else if (k === 'd') o.thick = +Math.max(0.05, o.thick + dir * 0.05).toFixed(2); else if (k === 'b') { o.base = +Math.max(0, o.base + dir * 0.05).toFixed(2); o.under = -1; } else return true; }
+    else if (o.kind === 'brush') { const [mx, my] = editXY(o), sc = (fx, fy) => { brushEach(o, (x, y) => [+(mx + (x - mx) * fx).toFixed(2), +(my + (y - my) * fy).toFixed(2)]); for (const q of o.plates) { q.w = +Math.max(1, q.w * fx).toFixed(2); q.h = +Math.max(1, q.h * fy).toFixed(2); } }, reach = d => { for (const st of brushParts(o).strokes) st.r = +mtnClamp(d(st.r), PL_BRUSH.min, PL_BRUSH.max).toFixed(2); };   // a brush slab: its stroke scaled about its middle (L along x, W along y, A both with its radius and depth), E its radius
+      if (k === 'l') sc(f, 1); else if (k === 'w') sc(1, f); else if (k === 'a') { sc(f, f); reach(r => r * f); o.thick = +Math.max(0.05, o.thick * f).toFixed(2); } else if (k === 'e') reach(r => r + dir * 0.1); else if (k === 'd') o.thick = +Math.max(0.05, o.thick + dir * 0.05).toFixed(2); else if (k === 'b') { o.base = +Math.max(0, o.base + dir * 0.05).toFixed(2); o.under = -1; } else return true; }
     else if (k === 'l') o.w = +Math.max(1, o.w + dir * 0.2).toFixed(2); else if (k === 'w') o.h = +Math.max(1, o.h + dir * 0.2).toFixed(2);
     else if (k === 'a') { o.w = +Math.max(1, o.w * f).toFixed(2); o.h = +Math.max(1, o.h * f).toFixed(2); if (sel.kind === 'plate') o.thick = +Math.max(0.05, o.thick * f).toFixed(2); }
     else if (sel.kind === 'plate') { if (k === 'd') o.thick = +Math.max(0.05, o.thick + dir * 0.05).toFixed(2); else if (k === 'b') { o.base = +Math.max(0, o.base + dir * 0.05).toFixed(2); o.under = -1; } else return true; }
@@ -206,7 +221,7 @@ function drawEdit() {
   }
   // the panel: what is selected and its numbers, which dimension [ ] change, the keys
   const o = editObj(sel), n2 = v => (+v).toFixed(2), onS = sel && sel.kind === 'plate' && o.under >= 0 ? ` (on ${o.under})` : '';
-  const line1 = !sel ? (E.brush ? (E.brush.pts ? `brush: ${E.brush.pts.length} points swept, release lays the slab` : `brush ${E.brush.r.toFixed(1)} tiles: [ ] change it, drag to sweep a slab, B puts it away`) : E.crack ? `crack: ${E.crack.spine.length} points laid, C ends it` : E.tun ? `tunnel: ${E.tun.spine.length} points laid, G ends it` : 'nothing selected: click a plate, a pit, a tunnel or a seam') : sel.kind === 'tunnel' ? `tunnel ${sel.i}: ${o.spine.length} points  width ${n2(o.w)}  floor ${n2(o.floor)}  roof ${n2(o.roof)}` : sel.kind === 'plate' && o.kind === 'brush' ? `brush slab ${sel.i}: ${o.pts.length} points  reach ${n2(o.r)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'plate' ? `plate ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'pit' ? `pit ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  floor ${n2(o.floor)}  ledge ${n2(o.ledge)}` : `seam ${sel.i}: ${o.spine.length} points, width ${n2(Math.max(...o.spine.map(q => q[2])) * 2)}`;
+  const line1 = !sel || (E.brush && E.brush.pts) ? (E.brush ? (E.brush.pts ? `brush: ${E.brush.pts.length} points swept, release lays the slab` : `brush ${E.brush.r.toFixed(1)} tiles: [ ] change it, drag to sweep a slab, B puts it away`) : E.crack ? `crack: ${E.crack.spine.length} points laid, C ends it` : E.tun ? `tunnel: ${E.tun.spine.length} points laid, G ends it` : 'nothing selected: click a plate, a pit, a tunnel or a seam') : sel.kind === 'tunnel' ? `tunnel ${sel.i}: ${o.spine.length} points  width ${n2(o.w)}  floor ${n2(o.floor)}  roof ${n2(o.roof)}` : sel.kind === 'plate' && o.kind === 'brush' ? `brush slab ${sel.i}: ${brushParts(o).strokes.length} strokes, ${brushParts(o).plates.length} plates  reach ${n2(brushParts(o).strokes.length ? brushParts(o).strokes[0].r : 0)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'plate' ? `plate ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  depth ${n2(o.thick)} (${plateKind(o.thick)})  base ${n2(o.base)}${onS}` : sel.kind === 'pit' ? `pit ${sel.i}: length ${n2(o.w)}  width ${n2(o.h)}  floor ${n2(o.floor)}  ledge ${n2(o.ledge)}` : `seam ${sel.i}: ${o.spine.length} points, width ${n2(Math.max(...o.spine.map(q => q[2])) * 2)}`;
   // one line at the bottom: what is selected and its numbers, what [ ] change; H opens the key sheet (Ross, 218: the
   // five-line panel was a mash)
   const fs = 14; ctx.font = `${fs}px "Courier New", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -214,7 +229,7 @@ function drawEdit() {
   ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - fs - 18, Math.min(W - 16, 12 + ctx.measureText(bottom).width + 12), fs + 10); ctx.fillStyle = '#fdf6e3'; ctx.fillText(bottom, 16, H - 14);
   if (E.help && !E.trying) {                                                             // the key sheet: three columns, grouped
     const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', 'Q Z  tilt (or shift+wheel)', 'middle drag  turn', 'V    reset the view', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
-      ['LAY', 'N   new plate here', 'P   pit here', 'C   crack: clicks lay it,', '    C again ends it', 'G   tunnel: the same, G ends', 'B   brush: [ ] its reach, drag', '    sweeps a slab; B puts it away', 'U   copy it on top', 'Delete  remove it', '', 'TRY AND SAVE', 'T   try it (walk; T parks you)', 'S   save (copies the file)', 'O   open a pasted layout'],
+      ['LAY', 'N   new plate here', 'P   pit here', 'C   crack: clicks lay it,', '    C again ends it', 'G   tunnel: the same, G ends', 'B   brush: [ ] its reach, a drag', '    sweeps a slab; B puts it away', 'U   copy it on top', 'Delete  remove it', '', 'TRY AND SAVE', 'T   try it (walk; T parks you)', 'S   save (copies the file)', 'O   open a pasted layout'],
       ['CHANGE THE SELECTED', '[   smaller   ]   bigger', 'in: L length (east-west)', '    W width (north-south)', '    D depth (how thick)', '    A all three (scale)', '    B base, or a pit floor', '    E ledge (pit), roof (tunnel),', '      reach (brush slab)', 'R   turn it', '', `now: ${ED_DIMS[E.dim]}`]];
     const lh = fs + 5, bw = Math.min(W - 40, 3 * 300 + 40), bh = (Math.max(...cols.map(c => c.length)) + 2) * lh + 30, bx = (W - bw) / 2, by = Math.max(10, (H - bh) / 2 - 40);
     ctx.fillStyle = 'rgba(0,0,0,.82)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);

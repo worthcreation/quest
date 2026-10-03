@@ -1,6 +1,18 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 228: strokes merge (chat)
+Ross: an overlapping stroke should add to the slab it crosses, not lay a second slab with doubled tops and reversed
+faces. A stroke that runs across a slab at the level it lands on (the lowest level any of its points touch; a stroke
+wholly on one slab's top still stacks) folds into that slab: the slab becomes a brush slab of all its parts at its own
+thickness, every slab the stroke crosses at that level taken in (the plates on them re-based on the one), one outline
+for the lot (brushOutline from parts: strokes [{ pts, r }] and plates [{ x, y, w, h, seed, rot }], the field the
+largest reach of any part, a plate's its signed distance). The layout line is now { kind: 'brush', strokes, plates, ... }
+(a 227 pts/r line reads back as one stroke, editNorm). The brush stays in hand after a stroke; B puts it away (B with a
+selection and no brush is still the base). L W A scale the parts, E every stroke's reach, R turns them, U copies them.
+Brush only (Ross): plain plates dragged into each other don't merge; a tunnel brush doesn't exist yet. tests/edit.js
+16, plates.js 1b (a stroke and a plate as one loop: area 21.8 against 19.0 + 10.5).
+
 ## Build 227: the slab brush (chat)
 B in the editor: [ ] set the brush's reach (a circle at the cursor, 0.3 to 4 tiles, PL_BRUSH), a drag sweeps a strip
 (previewed at the height it will stand), release lays a 0.5 slab in that shape, stacked on whatever the stroke's middle

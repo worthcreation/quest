@@ -1,4 +1,4 @@
-# Quest: handoff (build 227, 3 Oct 2026)
+# Quest: handoff (build 228, 3 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -231,8 +231,9 @@ scaled by a tenth (Ross's lwd), base (0.05; the plate then stands on nothing; a 
 seam only has its width. R turns (rigidly since 223), U copies it (the same size and spot, stacked straight on it; a pit a tile over), Delete, N a plate under the cursor (on the
 plate there), P a pit, C a crack (clicks lay its points, C ends), G a tunnel the same way (1.4 wide, roof 1.2: W, B, E), B the slab brush (227: [ ] set its reach, a circle at the cursor; a drag sweeps a strip,
 previewed; release lays a 0.5 slab in that shape, kind 'brush' { pts, r } rebuilt from its stroke at every load by
-brushOutline, stacked where its middle lands, selected with [ ] on its depth; L W scale its points, A everything, E its
-reach, R turns its points), T try it (the game runs; T parks you where you
+brushOutline, selected with [ ] on its depth; the brush stays in hand, B puts it away; a stroke across a slab at the
+level it lands on merges into it (228: the slab becomes a brush slab of its parts, strokes and plates, one outline, its
+own thickness; wholly on a slab's top it stacks); L W scale its parts, A everything, E its reach, R turns them), T try it (the game runs; T parks you where you
 stand). S copies src/layouts/<scene>.js to the clipboard (the save: paste it over that file, rebuild); O opens a
 pasted one. One line at the bottom: the selected thing's numbers and the picked dimension; H opens the key sheet
 (three columns), H closes it. A pit or tunnel crossing a slab's edge notches its outline (222: polyDiff; the notch's walls are faces). A pit cuts the plates standing on the base only: on open ground it does nothing yet
@@ -248,7 +249,8 @@ tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the
 
 ## Next task (on Opus unless marked: WAYS 7a)
 NEXT: Ross lays with the brush (?edit=flat or ?edit=mt2, B) and says what is off; then (b), (c), (d) below as he
-picks, or cleanup item 1.
+picks, or cleanup item 1. Not built: plain plates merging when dragged together (Ross: brush only for now); a tunnel
+brush (a stroke that cuts a passage through what it crosses) if he wants one.
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.
@@ -260,7 +262,8 @@ the stills in docs/parked/mock-pit-clean.js, with a cast-shadow look D Ross did 
 and plates; tests/occlusion.js). Watch (g2): a 1.2 wall with you at its edge hides 73 percent, near the line; if it
 flickers in play, MTN_XRAY 0.65 (Opus, one line).
 ~~(f) the slab brush~~ (227: B in the editor; kind 'brush' rebuilt from its points and radius; stacked where it lands;
-tests/edit.js 15, plates.js 1b; HISTORY). Open from it: a stroke that closes on itself fills its hole (one outline;
+tests/edit.js 15, plates.js 1b; HISTORY). ~~(f2) overlapping strokes merge~~ (228: into the slab crossed at the
+level the stroke lands on, one outline of all its parts; HISTORY). Open from it: a stroke that closes on itself fills its hole (one outline;
 a ring would need the hole as a hole); the raster is a quarter tile, so a reach under 0.3 is refused (PL_BRUSH.min);
 undo is still O with the last S.
 
