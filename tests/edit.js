@@ -130,5 +130,16 @@ const snap6=()=>({yaw:+F6.yaw.toFixed(3), p:+F6.p.toFixed(3), cx:+F6.cx.toFixed(
 const s0=snap6(); drag(1,{},120,-90); const s1=snap6(); drag(1,{},0,150); const s2=snap6(); const g0=editTile(SW/2,SH/2); drag(1,{shift:true},80,40); const s3=snap6(), g1=editTile(SW/2+80,SH/2+40);
 drag(0,{alt:true},-120,0); const s4=snap6(); drag(1,{alt:true},-60,0); const s5=snap6(); drag(2,{alt:true},100,0); const s6=snap6(); drag(0,{},50,0); const s7=snap6(); tap('v'); const s8=snap6();
 console.log('17 camera: start', JSON.stringify(s0), '| middle 120 right 90 up: turn', s1.yaw, 'tilt', s0.p, '>', s1.p, '| middle 150 down: tilt', s2.p, '| shift+middle: pan', s2.cx+','+s2.cy, '>', s3.cx+','+s3.cy, 'the tile under the hand stayed', Math.hypot(g1[0]-g0[0],g1[1]-g0[1]).toFixed(2), 'turn and tilt kept', s3.yaw===s2.yaw&&s3.p===s2.p, '| alt+left: turn', s4.yaw, '| alt+middle: pan', s5.cx, '| alt+right 100: zoom', s5.zoom, '>', s6.zoom, '| plain left on open ground: pan', s6.cx, '>', s7.cx, 'turn kept', s7.yaw===s6.yaw, '| V', JSON.stringify(s8));
+// 18. a big stroke stays light (229, Ross: drawing larger shapes lagged): nothing is traced while the button is down
+// (brushTrace not called), the outline once at release on a stroke thinned to what keeps its shape, and a relay after it
+// (a ], a drag) traces nothing (the outline cached by its parts, a move the same outline shifted)
+startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[],pits:[],seams:[]})); const F7=state.edit, c7=state.mtn, g7=(x,y)=>mtnProj(x,y,mtnH(MTN.flat,x,y),c7), ms=()=>Number(process.hrtime.bigint())/1e6;
+F7.cx=20; F7.cy=12; F7.zoom=0.4; mtnCamera(0,c7,true); run(1); tap('b'); for(let i=0;i<25;i++) tap(']');
+let traces=0; const tr0=brushTrace; brushTrace=(...a)=>{ traces++; return tr0(...a); };
+const sp7=[]; for(let k=0;k<=400;k++){ const a=k/400*Math.PI*4; sp7.push([20+Math.cos(a)*(4+k/40), 12+Math.sin(a)*(3+k/60)]); }
+editDown(...g7(...sp7[0])); let worst7=0; for(const q of sp7){ const t0=ms(); editMove(...g7(...q)); run(1); worst7=Math.max(worst7, ms()-t0); } const during=traces, swept7=F7.brush.pts.length;
+let t7=ms(); editUp(...g7(...sp7[sp7.length-1])); const rel7=ms()-t7, atRel=traces, kept7=F7.layout.plates[0].strokes[0].pts.length;
+t7=ms(); tap(']'); const rl7=ms()-t7; tap('b'); const [MX,MY]=mtnProj(24,12,mtnH(MTN.flat,24,12)+F7.layout.plates[0].thick,c7); editDown(MX,MY); run(1); const pick7=!!(F7.down&&F7.down.pick); editMove(MX+40,MY); run(1); editUp(MX+40,MY); run(1); const afterMove=traces, moved7=F7.layout.plates[0].strokes[0].pts[0][0]-24; brushTrace=tr0;
+console.log('18 a big spiral stroke, reach', F7.layout.plates[0].strokes[0].r, ': traced while down', during, '| swept', swept7, 'points, kept', kept7, '| release', rel7.toFixed(0), 'ms, traced', atRel, '| a ] after it', rl7.toFixed(0), 'ms | dragged the slab (picked', pick7+', moved', moved7.toFixed(2), 'tiles): traced', afterMove-atRel, '| worst frame while drawing', worst7.toFixed(0), 'ms (the harness)');
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);

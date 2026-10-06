@@ -49,15 +49,21 @@ function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                 
 // parts and seed at every load. parts: { strokes: [{ pts, r }], plates: [{ x, y, w, h, seed, rot }] }
 const PL_BRUSH = { g: 0.25, simp: 0.05, min: 0.3, max: 4 };                             // the grid step; the simplifying tolerance; the brush's smallest and largest radius
 const segDist = (x, y, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, t = mtnClamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1e-9)); return Math.hypot(x - ax - dx * t, y - ay - dy * t); };
+const PL_BRUSHC = new Map();                                                              // outlines by their parts and seed, each worked out once (229: a relay redid every brush slab's outline, 300 ms for a big one)
 function brushOutline(parts, seed) {
-  const strokes = (parts.strokes || []).filter(s => s.pts && s.pts.length), plates = (parts.plates || []).map(q => plateOutline(q.x, q.y, q.w, q.h, q.seed, PL_N, q.rot || 0)); if (!strokes.length && !plates.length) return [];
-  const field = (x, y) => { let f = -Infinity;                                           // the largest reach of any part at a point (positive inside)
-    for (const { pts, r } of strokes) { let d = Infinity; for (let i = 0; i < pts.length; i++) { const [ax, ay] = pts[i], [bx, by] = pts[Math.min(pts.length - 1, i + 1)], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } if (r - d > f) f = r - d; }
-    for (const P of plates) { let d = Infinity; for (let i = 0; i < P.length; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } const v = plateIn(P, x, y) ? d : -d; if (v > f) f = v; }
-    return f; };
+  const strokes = (parts.strokes || []).filter(s => s.pts && s.pts.length), plates = parts.plates || []; if (!strokes.length && !plates.length) return [];
+  const [ox, oy] = strokes.length ? strokes[0].pts[0] : [plates[0].x, plates[0].y], rel = JSON.stringify([seed, strokes.map(st => [st.r, st.pts.map(([x, y]) => [+(x - ox).toFixed(3), +(y - oy).toFixed(3)])]), plates.map(q => [+(q.x - ox).toFixed(3), +(q.y - oy).toFixed(3), q.w, q.h, q.seed, q.rot || 0])]);   // (moved as a whole, the same outline shifted)
+  if (!PL_BRUSHC.has(rel)) { if (PL_BRUSHC.size > 64) PL_BRUSHC.clear(); PL_BRUSHC.set(rel, brushTrace(strokes.map(st => ({ r: st.r, pts: st.pts.map(([x, y]) => [x - ox, y - oy]) })), plates.map(q => ({ ...q, x: q.x - ox, y: q.y - oy })), seed)); }
+  return PL_BRUSHC.get(rel).map(([x, y]) => [x + ox, y + oy]);
+}
+function brushTrace(strokes, plates0, seed) {
+  const plates = plates0.map(q => plateOutline(q.x, q.y, q.w, q.h, q.seed, PL_N, q.rot || 0));
   let X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity; for (const { pts, r } of strokes) for (const [x, y] of pts) { X0 = Math.min(X0, x - r); Y0 = Math.min(Y0, y - r); X1 = Math.max(X1, x + r); Y1 = Math.max(Y1, y + r); } for (const P of plates) for (const [x, y] of P) { X0 = Math.min(X0, x); Y0 = Math.min(Y0, y); X1 = Math.max(X1, x); Y1 = Math.max(Y1, y); }
-  const g = PL_BRUSH.g, x0 = Math.floor(X0 / g) - 1, y0 = Math.floor(Y0 / g) - 1, nx = Math.ceil(X1 / g) + 2 - x0, ny = Math.ceil(Y1 / g) + 2 - y0;
-  const f = new Float32Array((nx + 1) * (ny + 1)); for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) f[j * (nx + 1) + i] = field((x0 + i) * g, (y0 + j) * g);
+  const g = PL_BRUSH.g, x0 = Math.floor(X0 / g) - 1, y0 = Math.floor(Y0 / g) - 1, nx = Math.ceil(X1 / g) + 2 - x0, ny = Math.ceil(Y1 / g) + 2 - y0, W1 = nx + 1;
+  const f = new Float32Array(W1 * (ny + 1)).fill(-1);                                      // the field, stamped part by part over only the cells each part reaches (positive inside; -1 is far outside)
+  const stamp = (bx0, by0, bx1, by1, fn) => { const i0 = Math.max(0, Math.floor(bx0 / g) - x0), i1 = Math.min(nx, Math.ceil(bx1 / g) - x0), j0 = Math.max(0, Math.floor(by0 / g) - y0), j1 = Math.min(ny, Math.ceil(by1 / g) - y0); for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const v = fn((x0 + i) * g, (y0 + j) * g), k = j * W1 + i; if (v > f[k]) f[k] = v; } };
+  for (const { pts, r } of strokes) for (let i = 0; i < pts.length; i++) { const [ax, ay] = pts[i], [bx, by] = pts[Math.min(pts.length - 1, i + 1)]; if (i && i === pts.length - 1) continue; stamp(Math.min(ax, bx) - r - g, Math.min(ay, by) - r - g, Math.max(ax, bx) + r + g, Math.max(ay, by) + r + g, (x, y) => r - segDist(x, y, ax, ay, bx, by)); }   // each segment: its capsule
+  for (const P of plates) { const b = plateBox(P); stamp(b[0] - g, b[1] - g, b[2] + g, b[3] + g, (x, y) => { let d = Infinity; for (let i = 0; i < P.length; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % P.length], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } return plateIn(P, x, y) ? d : -d; }); }
   const F = (i, j) => f[j * (nx + 1) + i], key = (x, y) => (Math.round(x * 1e4) + ',' + Math.round(y * 1e4)), segs = [];
   const lerp = (i0, j0, i1, j1) => { const a = F(i0, j0), b = F(i1, j1), t = a / (a - b || 1e-9); return [(x0 + i0 + (i1 - i0) * t) * g, (y0 + j0 + (j1 - j0) * t) * g]; };   // where the field crosses 0 along a cell edge
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {                                // marching squares: the cell's corners (clockwise from the north-west), its edge crossings paired by case
@@ -77,6 +83,11 @@ function brushOutline(parts, seed) {
 }
 // a brush slab's parts from its layout line (a 227 line had one stroke as pts and r)
 const brushParts = s => ({ strokes: s.strokes || (s.pts ? [{ pts: s.pts, r: s.r }] : []), plates: s.plates || [] });
+// an open run of points with every point within tol of the run through the ones kept (Douglas-Peucker; a brush stroke at release)
+function polyThin(P, tol) {
+  if (P.length < 3) return P.map(q => q.slice()); const dp = (i0, i1) => { const [ax, ay] = P[i0], [bx, by] = P[i1]; let far = -1, fd = tol; for (let i = i0 + 1; i < i1; i++) { const d = segDist(P[i][0], P[i][1], ax, ay, bx, by); if (d > fd) { fd = d; far = i; } } return far < 0 ? [i0] : dp(i0, far).concat(dp(far, i1)); };
+  return dp(0, P.length - 1).concat([P.length - 1]).map(i => P[i].slice());
+}
 // a closed run of points with every point within tol of the run through the ones kept (Douglas-Peucker, split at the two furthest apart)
 function polySimplify(P, tol) {
   if (P.length < 6) return P; let b = 1, best = 0; for (let i = 0; i < P.length; i++) { const d = Math.hypot(P[i][0] - P[0][0], P[i][1] - P[0][1]); if (d > best) { best = d; b = i; } }

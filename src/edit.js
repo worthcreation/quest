@@ -95,7 +95,7 @@ const ED_TILT = ED_PMAX / 300;                                                  
 // and the middle pans; alt and the left tumbles, alt and the middle pans, alt and the right zooms
 const editCamDrag = (button, mods = {}) => mods.alt ? ['tumble', 'pan', 'zoom'][button] || null : button === 1 ? (mods.shift ? 'pan' : 'tumble') : null;
 function editDown(X, Y, button = 0, mods = {}) { const E = state.edit; if (!E || E.trying || state.menu) return; const cam = editCamDrag(button, mods); if (cam) { E.turn = { x: X, y: Y, X, Y, mode: cam }; return; }
-  if (E.brush) { const [x, y] = editTile(X, Y); E.brush.pts = [[+x.toFixed(2), +y.toFixed(2)]]; E.down = { X, Y, x: X, y: Y, moved: false, stroke: true }; return; }   // the brush: a press starts the stroke E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) }; }   // (the middle button: a turn starts)
+  if (E.brush) { const [x, y] = editTile(X, Y); E.brush.pts = [[+x.toFixed(2), +y.toFixed(2)]]; E.brush.z = editUnder(editM(), x, y).base; E.down = { X, Y, x: X, y: Y, moved: false, stroke: true }; return; }   // the brush: a press starts the stroke E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) }; }   // (the middle button: a turn starts)
   E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) };
 }
 function editMove(X, Y) {
@@ -126,9 +126,9 @@ function editUp(X, Y) {
 // the stroke released: a 0.5 slab in the swept shape, on whatever the stroke's middle lands on, selected, with [ ] on its thickness
 function editBrushLay() {
   const E = state.edit, L = E.layout, B = E.brush, m = editM(); if (!B || !B.pts || !B.pts.length) return; E.brush = { r: B.r, pts: null };   // (the brush stays in hand for the next stroke; B puts it away)
-  const pl = platesLay(m), stroke = { pts: B.pts, r: B.r }, lands = B.pts.map(([x, y]) => editUnder(m, x, y));   // where each point of the stroke lands
+  const pl = platesLay(m), stroke = { pts: polyThin(B.pts, 0.03), r: B.r }, lands = B.pts.map(([x, y]) => editUnder(m, x, y));   // where each point of the stroke lands
   const u = lands.every(l => l.under === lands[0].under) ? lands[0] : lands.reduce((a, l) => l.base < a.base ? l : a);   // wholly on one slab's top: it stacks there; else it stands at the lowest level it touches (the ground, if it runs off a slab)
-  const near = (x, y) => { let d = Infinity; for (let i = 0; i < B.pts.length; i++) { const [ax, ay] = B.pts[i], [bx, by] = B.pts[Math.min(B.pts.length - 1, i + 1)], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } return d <= B.r; };
+  const S = stroke.pts, near = (x, y) => { let d = Infinity; for (let i = 0; i < S.length; i++) { const [ax, ay] = S[i], [bx, by] = S[Math.min(S.length - 1, i + 1)], e = segDist(x, y, ax, ay, bx, by); if (e < d) d = e; } return d <= B.r; };
   const crossed = L.plates.map((q, i) => i).filter(i => Math.abs(L.plates[i].base - u.base) < 0.01 && (() => { const p = pl.list.find(p => p.li === i); return p && (p.P.some(([x, y]) => near(x, y)) || B.pts.some(([x, y]) => plateHas(p, x, y))); })());   // the slabs at the level it lands on that its strip crosses
   if (crossed.length) {                                                                   // merged (228): the first crossed slab takes the stroke and every other crossed slab's parts, at its own thickness
     const ti = crossed[0], t = L.plates[ti], parts = q => q.kind === 'brush' ? brushParts(q) : { strokes: [], plates: [{ x: q.x, y: q.y, w: q.w, h: q.h, seed: q.seed, rot: q.rot || 0 }] };
@@ -139,7 +139,8 @@ function editBrushLay() {
   else { L.plates.push({ kind: 'brush', strokes: [stroke], plates: [], seed: editSeed(), base: u.base, thick: 0.5, tone: PL_TONE, under: u.under }); E.sel = { kind: 'plate', i: L.plates.length - 1 }; E.msg = 'a brush slab: [ ] change its depth; sweep again, or B puts the brush away'; }
   E.dim = 'd'; editBases(); editRelay();
 }
-const editRound = sel => { const o = editObj(sel); if (o && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') brushEach(o, (x, y) => [+x.toFixed(2), +y.toFixed(2)]); else { o.x = +o.x.toFixed(2); o.y = +o.y.toFixed(2); } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editRound({ kind: 'plate', i: k }); editRelay(); } else if (o) { for (const q of o.spine) { q[0] = +q[0].toFixed(3); q[1] = +q[1].toFixed(3); } editRelay(); } };   // (a plate: the slabs carried along on its stack too)
+// (editRound: a brush slab is shifted as a whole onto the hundredth, so its shape, and its cached outline, stay as they were)
+const editRound = sel => { const o = editObj(sel); if (o && !ED_SPINE[sel.kind]) { if (o.kind === 'brush') { const [x0, y0] = brushPts(o)[0], dx = +x0.toFixed(2) - x0, dy = +y0.toFixed(2) - y0; brushEach(o, (x, y) => [+(x + dx).toFixed(4), +(y + dy).toFixed(4)]); } else { o.x = +o.x.toFixed(2); o.y = +o.y.toFixed(2); } if (sel.kind === 'plate') for (const k of editOn(sel.i)) editRound({ kind: 'plate', i: k }); editRelay(); } else if (o) { for (const q of o.spine) { q[0] = +q[0].toFixed(3); q[1] = +q[1].toFixed(3); } editRelay(); } };   // (a plate: the slabs carried along on its stack too)
 function editWheel(dy, X, Y, tilt = false) {
   const E = state.edit; if (!E || E.trying) return; const c = state.mtn;
   if (tilt) { E.p = mtnClamp(E.p + (dy > 0 ? 0.05 : -0.05), 0, ED_PMAX); mtnCamera(0, c, true); return; }   // (shift and the wheel: tilt)
@@ -221,7 +222,7 @@ function drawEdit() {
     pl.pits.filter(q => !q.tunnel).forEach((q, i) => { const R = q.P.map(([x, y]) => pr(x, y, q.top)), [X, Y] = mid(R), on = sel && sel.kind === 'pit' && sel.i === i; if (on) dashed(R); label(X, Y, `pit floor ${q.floor.toFixed(2)} ledge ${q.ledge.toFixed(2)}`, '#9fd8ff'); });
     pl.pits.filter(q => q.tunnel).forEach((q, i) => { const R = q.P.map(([x, y]) => pr(x, y, q.floor)), on = sel && sel.kind === 'tunnel' && sel.i === i; if (on) dashed(R); else { ctx.save(); ctx.strokeStyle = 'rgba(160,220,255,.6)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); plPath(R); ctx.stroke(); ctx.restore(); } const [X, Y] = mid(R); label(X, Y, `tunnel floor ${q.floor.toFixed(2)} roof ${q.roof.toFixed(2)} width ${q.w.toFixed(2)}`, '#9fd8ff'); });
     pl.seams.forEach((sm, i) => { const C = sm.spine.map(([x, y]) => pr(x, y, 0)), on = sel && sel.kind === 'seam' && sel.i === i; if (on) { ctx.save(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); C.forEach(([X, Y], k) => k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); ctx.restore(); } const [X, Y] = C[Math.floor(C.length / 2)]; label(X, Y, `seam ${(Math.max(...sm.spine.map(q => q[2])) * 2).toFixed(2)}`, '#d0c8ff'); });
-    if (E.brush) { const c = state.mtn, B = E.brush, P = B.pts && B.pts.length ? B.pts : [E.cur], [mx, my] = editXY({ kind: 'brush', pts: P }), z = editUnder(m, mx, my).base, k = mtnPush(mtnH(m, mx, my) + z, c) * us;   // the brush: a circle at the cursor; while dragging, the strip it has swept, at the height it will stand
+    if (E.brush) { const c = state.mtn, B = E.brush, P = B.pts && B.pts.length ? B.pts : [E.cur], [mx, my] = P[0], z = B.pts ? B.z || 0 : 0, k = mtnPush(mtnH(m, mx, my) + z, c) * us;   // the brush: a circle at the cursor; while dragging, only the strip it has swept, a wide line at the height it was pressed on (229: nothing is worked out until the button comes up)
       const C = P.map(([x, y]) => pr(x, y, z)); ctx.save(); ctx.strokeStyle = 'rgba(255,230,140,.45)'; ctx.fillStyle = 'rgba(255,230,140,.45)'; ctx.lineWidth = Math.max(2, 2 * B.r * k); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       if (C.length > 1) { ctx.beginPath(); C.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.stroke(); } else { ctx.beginPath(); ctx.ellipse(C[0][0], C[0][1], B.r * k, B.r * k * Math.cos(m.tilt * E.p), 0, 0, 6.28); ctx.fill(); }
       ctx.restore(); }

@@ -1,4 +1,4 @@
-# Quest: handoff (build 229, 6 Oct 2026)
+# Quest: handoff (build 230, 6 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -249,6 +249,7 @@ trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape 
 tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
 
 ## Next task (on Opus unless marked: WAYS 7a)
+A brush stroke is traced once at release (230: nothing while the button is down; outlines cached by shape, PL_BRUSHC).
 Plates paint as layers (229): a top keeps its place in the ground order, moved later only by plates it overlaps
 (platesOrder; tests/layers.js), so you stand in front of a slab south of you and a stacked slab keeps its walls.
 NEXT: Ross lays with the brush (?edit=flat or ?edit=mt2, B) and says what is off; then (b), (c), (d) below as he

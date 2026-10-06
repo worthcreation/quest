@@ -1,6 +1,15 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 230: a big brush stroke stays light (chat)
+Ross: drawing larger shapes lagged. Measured: the preview was cheap, the outline was not (244 ms for a 400-point spiral
+of reach 3.7), and every relay after it (each ], each step of a drag, each later stroke) traced every brush slab again
+(337 ms). Now nothing is worked out while the button is down (the preview is one wide line at the height pressed on);
+at release the stroke is thinned (polyThin, 0.03 tiles: 378 points kept 104) and traced once; the field is stamped
+segment by segment over only the cells each reaches (brushTrace); outlines are cached by their parts relative to the
+first point (PL_BRUSHC), so a move or a change of depth traces nothing (a brush slab's drag rounds as a whole). Release
+255 to 29 ms, a relay 337 to 1. tests/edit.js 18.
+
 ## Build 229: plates paint as layers; the camera as Maya's (chat)
 Ross, from two screenshots after 228: on the ground south of a slab its top was painted over you, and a slab stacked on
 another lost its walls under the top it stands on. Since 220 every top came after everything on the ground (PL_TOPKEY,
