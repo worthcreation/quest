@@ -4,8 +4,10 @@
 // (plateLayout reads the editor's copy), so collision and the drawing are the one shape as in play. Keys:
 // - arrows pan, the wheel zooms about the cursor (Ross: a scroll never edits by accident); drag on open ground pans;
 //   Q and Z (or shift and the wheel) tilt the view, from straight down to nearly level (223); a drag with the middle
-//   button (the wheel pressed) turns the view left or right (224: state.edit.yaw, the camera's c.yaw; mtnProj turns
-//   the ground about the view's middle and every draw key is a depth along the turned south, platesOrder); V resets
+//   button (the wheel pressed) orbits as Maya tumbles (229, Ross): across turns the view left or right (224:
+//   state.edit.yaw, the camera's c.yaw; mtnProj turns the ground about the view's middle and every draw key is a depth
+//   along the turned south, platesOrder), up and down tilts it; shift and the middle drag pans; alt and a left drag
+//   tumbles too, alt and the middle pans, alt and the right drag zooms (Maya's own keys); V resets
 //   the view, T tries the layout at the game's own camera (never turned)
 // - click selects (a pit inside a plate before the plate, a seam by its line), drag moves it (a plate takes the ones
 //   stacked on it along); click on open ground clears the selection
@@ -88,13 +90,21 @@ function editRemove(sel) {
 }
 const editSeed = () => +(Math.max(0, ...state.edit.layout.plates.map(p => p.seed), ...state.edit.layout.pits.map(q => q.seed)) + 7).toFixed(2);
 // the mouse (edit.js listens on the canvas; the test calls these): a press, a move with it held, its release, the wheel
-function editDown(X, Y, button = 0) { const E = state.edit; if (!E || E.trying || state.menu) return; if (button === 1) { E.turn = { x: X }; return; }
+const ED_TILT = ED_PMAX / 300;                                                           // a middle drag of 300 px up or down tilts the whole range
+// the camera's drag (229): 'tumble' (across turns, up and down tilts), 'pan', 'zoom'; Maya's: the middle tumbles, shift
+// and the middle pans; alt and the left tumbles, alt and the middle pans, alt and the right zooms
+const editCamDrag = (button, mods = {}) => mods.alt ? ['tumble', 'pan', 'zoom'][button] || null : button === 1 ? (mods.shift ? 'pan' : 'tumble') : null;
+function editDown(X, Y, button = 0, mods = {}) { const E = state.edit; if (!E || E.trying || state.menu) return; const cam = editCamDrag(button, mods); if (cam) { E.turn = { x: X, y: Y, X, Y, mode: cam }; return; }
   if (E.brush) { const [x, y] = editTile(X, Y); E.brush.pts = [[+x.toFixed(2), +y.toFixed(2)]]; E.down = { X, Y, x: X, y: Y, moved: false, stroke: true }; return; }   // the brush: a press starts the stroke E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) }; }   // (the middle button: a turn starts)
   E.down = { X, Y, x: X, y: Y, moved: false, pick: E.crack || E.tun ? null : editPick(X, Y) };
 }
 function editMove(X, Y) {
   const E = state.edit; if (!E) return; E.cur = editTile(X, Y);
-  if (E.turn && !E.trying) { E.yaw = ((E.yaw + (X - E.turn.x) * ED_TURN + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; E.turn.x = X; mtnCamera(0, state.mtn, true); E.cur = editTile(X, Y); return; }   // a drag with the wheel pressed turns the view (right turns the view right: the ground slides left)
+  if (E.turn && !E.trying) { const T = E.turn, dx = X - T.x, dy = Y - T.y, c = state.mtn;   // a camera drag (229): tumble, pan or zoom
+    if (T.mode === 'tumble') { E.yaw = ((E.yaw + dx * ED_TURN + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; E.p = mtnClamp(E.p - dy * ED_TILT, 0, ED_PMAX); mtnCamera(0, c, true); }   // (right turns the view right: the ground slides left; up tips it toward level, down toward straight down)
+    else if (T.mode === 'pan') { const k = UNIT * mtnZoom(c.p, c.m), [ux, uy] = editUnturn(dx / k, dy / (k * Math.cos(c.m.tilt * c.p))); E.cx -= ux; E.cy -= uy; mtnCamera(0, c, true); }   // (the ground follows the hand)
+    else if (T.mode === 'zoom') { E.zoom = mtnClamp(E.zoom * Math.exp((dx - dy) * 0.005), 0.3, 4); mtnCamera(0, c, true); }   // (right or up zooms in)
+    T.x = X; T.y = Y; E.cur = editTile(X, Y); return; }
   const d = E.down; if (!d || E.trying) return;
   if (d.stroke) { const [x, y] = E.cur, P = E.brush.pts, [lx, ly] = P[P.length - 1]; if (Math.hypot(x - lx, y - ly) >= 0.15) P.push([+x.toFixed(2), +y.toFixed(2)]); return; }   // the stroke: a point every 0.15 tiles
   if (!d.moved && Math.hypot(X - d.X, Y - d.Y) < 3) return; d.moved = true;
@@ -228,7 +238,7 @@ function drawEdit() {
   const bottom = E.trying ? `trying it   T parks you where you stand   ${E.msg}` : `${line1}   [ ] change ${ED_DIMS[E.dim]}   tilt ${Math.round(state.mtn.m.tilt * E.p * 180 / Math.PI)} deg   turn ${Math.round(E.yaw * 180 / Math.PI)} deg   H keys   ${E.msg}`;
   ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(8, H - fs - 18, Math.min(W - 16, 12 + ctx.measureText(bottom).width + 12), fs + 10); ctx.fillStyle = '#fdf6e3'; ctx.fillText(bottom, 16, H - 14);
   if (E.help && !E.trying) {                                                             // the key sheet: three columns, grouped
-    const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', 'Q Z  tilt (or shift+wheel)', 'middle drag  turn', 'V    reset the view', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
+    const cols = [['LOOK', 'arrows      pan', 'wheel       zoom', 'drag ground pan', 'Q Z  tilt (or shift+wheel)', 'middle drag  orbit (turn, tilt)', 'shift+middle  pan', 'alt+left orbit, alt+middle pan,', '  alt+right zoom (Maya)', 'V    reset the view', '', 'PICK', 'click       select', 'drag        move it', 'click ground  clear'],
       ['LAY', 'N   new plate here', 'P   pit here', 'C   crack: clicks lay it,', '    C again ends it', 'G   tunnel: the same, G ends', 'B   brush: [ ] its reach, a drag', '    sweeps a slab; B puts it away', 'U   copy it on top', 'Delete  remove it', '', 'TRY AND SAVE', 'T   try it (walk; T parks you)', 'S   save (copies the file)', 'O   open a pasted layout'],
       ['CHANGE THE SELECTED', '[   smaller   ]   bigger', 'in: L length (east-west)', '    W width (north-south)', '    D depth (how thick)', '    A all three (scale)', '    B base, or a pit floor', '    E ledge (pit), roof (tunnel),', '      reach (brush slab)', 'R   turn it', '', `now: ${ED_DIMS[E.dim]}`]];
     const lh = fs + 5, bw = Math.min(W - 40, 3 * 300 + 40), bh = (Math.max(...cols.map(c => c.length)) + 2) * lh + 30, bx = (W - bw) / 2, by = Math.max(10, (H - bh) / 2 - 40);
@@ -238,7 +248,8 @@ function drawEdit() {
   }
 }
 if (typeof canvas !== 'undefined' && canvas && canvas.addEventListener && EDIT_SCENE) {
-  canvas.addEventListener('pointerdown', e => { if (e.button === 0 || e.button === 1) editDown(e.clientX, e.clientY, e.button); });
+  canvas.addEventListener('pointerdown', e => { if (e.button <= 2 && (e.button !== 2 || e.altKey)) editDown(e.clientX, e.clientY, e.button, { shift: e.shiftKey, alt: e.altKey }); });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());                          // (alt and the right drag zooms: no menu)
   canvas.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });                       // (the middle button's autoscroll stays off)
   canvas.addEventListener('auxclick', e => e.preventDefault());
   canvas.addEventListener('pointermove', e => editMove(e.clientX, e.clientY));

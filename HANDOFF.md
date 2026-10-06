@@ -1,4 +1,4 @@
-# Quest: handoff (build 228, 3 Oct 2026)
+# Quest: handoff (build 229, 6 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -16,7 +16,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 68 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 73 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
@@ -156,7 +156,7 @@ before and after a world.js refactor, --total for the one line).
 acorn-skill arena book-tiles plates camp-patch camp-talk camp-tour climb combat-crops combat-rhythm craft-sections crafting
 fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy-stone high-reaches hole homecoming
 hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
-pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits reminders rise riverbank
+pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits layers reminders rise riverbank
 robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones rise-ravines reeds-hold
 text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
@@ -222,7 +222,8 @@ wash (a still first).
 ## The editor (215, keys remade in 216; ?edit=<scene>, src/edit.js)
 On a plates screen (one with LAYOUTS[id]: mt2, and flat, the empty board). The world stands still, the hero parked
 at the way in, drawn faint. Arrows pan, the wheel zooms about the cursor, a drag on open ground pans; Q and Z (or
-shift and the wheel) tilt the view (223, state.edit.p, to p 1.45); a drag with the middle button turns it (224,
+shift and the wheel) tilt the view (223, state.edit.p, to p 1.45); a drag with the middle button orbits it as Maya tumbles (224 turn, 229 tilt
+too; shift and the middle pans; alt and left, middle, right tumble, pan, zoom: editCamDrag) (
 state.edit.yaw, the camera's c.yaw: mtnProj turns the ground, mtnDepth is every draw key, platesOrder the plates'
 order per turn); V resets tilt and turn; T tries it at the game's own view (never turned). Click selects (a
 pit inside a plate before the plate, a seam by its line), drag moves (a plate takes its stack along), click on open
@@ -248,6 +249,8 @@ trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape 
 tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
 
 ## Next task (on Opus unless marked: WAYS 7a)
+Plates paint as layers (229): a top keeps its place in the ground order, moved later only by plates it overlaps
+(platesOrder; tests/layers.js), so you stand in front of a slab south of you and a stacked slab keeps its walls.
 NEXT: Ross lays with the brush (?edit=flat or ?edit=mt2, B) and says what is off; then (b), (c), (d) below as he
 picks, or cleanup item 1. Not built: plain plates merging when dragged together (Ross: brush only for now); a tunnel
 brush (a stroke that cuts a passage through what it crosses) if he wants one.

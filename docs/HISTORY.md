@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 229: plates paint as layers; the camera as Maya's (chat)
+Ross, from two screenshots after 228: on the ground south of a slab its top was painted over you, and a slab stacked on
+another lost its walls under the top it stands on. Since 220 every top came after everything on the ground (PL_TOPKEY,
+gone). Now a top keeps its place in the ground order and only plates it overlaps move it: worked out lowest first, a
+plate's walls come after the top of every overlapping plate it stands at or above, its top after its walls and after
+every overlapping lower top (platesOrder). The editor's middle drag orbits as Maya tumbles (across turns, up tips toward
+level, down toward straight down); shift and the middle pans; alt and the left tumbles, alt and the middle pans, alt
+and the right zooms (editCamDrag). tests/layers.js (the real paint order: you after a slab's top south of it, before it
+north of it, the stacked slab's walls after the top under it; fails on 228), edit.js 17, overhang.js 3 updated.
+
 ## Build 228: strokes merge (chat)
 Ross: an overlapping stroke should add to the slab it crosses, not lay a second slab with doubled tops and reversed
 faces. A stroke that runs across a slab at the level it lands on (the lowest level any of its points touch; a stroke

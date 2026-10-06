@@ -30,7 +30,7 @@
 
 const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
 let PL_HERO = null;                                                                     // down a pit: { pit, lift, box } (drawMtn sets it each frame: the far walls above you leave your box out)
-const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map(), PL_TOPKEY = 1000;   // (PL_TOPKEY: the tops' draw keys start past any tile y)                                            // texture px per tile; outline points before the cutting; the first plate's grey
+const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map();                                            // texture px per tile; outline points before the cutting; the first plate's grey
 function plateRng(seed) { const R = mulberry32((Math.floor(seed * 7919) * 2654435761) >>> 0); return (a = 0, b = 1) => a + R() * (b - a); }
 // a plate's outline in tiles: squarish (a superellipse), corners knocked, a jog or two; worn, not cut
 function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                        // turn: the editor's R, radians: the finished outline turned rigidly about its middle (223: it was folded into the seed's skew, so it stretched the slab)
@@ -167,7 +167,8 @@ function platesLay(m) {
 // where plates overlap on the ground (217, Ross: a plate laid partly inside another showed the other's wall over it):
 // what stands on a plate comes after it, a plate wholly above another's top comes after it, and two that share height
 // are ordered by whose foot lies further south where they overlap, not by their whole outline; the keys are then
-// nudged so the list's order holds (a key never moves north). fkey is the faces' turn; key the top's, by height
+// nudged so the list's order holds (a key never moves north). fkey is the faces' turn; key the top's (229: in the
+// ground order, later only for what it overlaps)
 function platesOrder(pl, yaw) {
   const c = { yaw }, L = pl.list;
   for (const p of L) { p.key = undefined; let a0 = Infinity, a1 = -Infinity, d1 = -Infinity; p.D = p.P.map(([x, y]) => { const a = mtnAcross(x, y, c), d = mtnDepth(x, y, c); if (a < a0) a0 = a; if (a > a1) a1 = a; if (d > d1) d1 = d; return [a, d]; }); p.dbox = [a0, d1, a1]; }   // (its outline turned: across, depth; its span across and its far edge)
@@ -184,7 +185,15 @@ function platesOrder(pl, yaw) {
   while (left.size) { let pick = null; for (const p of left) if (![...left].some(q => q !== p && after.get(q).has(p)) && (!pick || p.key < pick.key)) pick = p; if (!pick) for (const p of left) if (!pick || p.key < pick.key) pick = p; out.push(pick); left.delete(pick); }
   pl.list = out;
   let prev = -Infinity; for (const p of pl.list) { p.fkey = Math.max(p.key, prev + 1e-3); prev = p.fkey; }   // the faces' turn
-  const byTop = pl.list.slice().sort((a, b) => (plateTop(a) - plateTop(b)) || (a.fkey - b.fkey)); byTop.forEach((p, i) => { p.key = PL_TOPKEY + i; });   // the tops' turn: by height (equal tops by the ground order), all after everything on the ground
+  // the tops' turn (229, Ross: a slab's top was painted over you standing south of it, and a stacked slab's walls lost
+  // under the top it stands on: since 220 every top came after everything on the ground). A top keeps its place in the
+  // ground order; only a plate it overlaps on the ground moves it later: worked out lowest first, a plate's walls come
+  // after the top of every overlapping plate it stands at or above, its top after its walls and after the top of every
+  // overlapping plate lower than it (equal tops by the ground order). So what stands south of a slab is drawn after it
+  const ov = (a, b) => a.box[0] < b.box[2] && b.box[0] < a.box[2] && a.box[1] < b.box[3] && b.box[1] < a.box[3];
+  const byTop = pl.list.slice().sort((a, b) => (plateTop(a) - plateTop(b)) || (a.fkey - b.fkey)), done = [];
+  for (const p of byTop) { for (const q of done) if (ov(p, q)) { if (plateTop(q) <= p.base + 1e-6) p.fkey = Math.max(p.fkey, q.key + 1e-3); }
+    p.key = p.fkey + 1e-4; for (const q of done) if (ov(p, q)) p.key = Math.max(p.key, q.key + 1e-3); done.push(p); }
   for (const q of pl.pits) q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null);
   pl.yaw = yaw;
 }
