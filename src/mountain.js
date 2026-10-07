@@ -78,7 +78,32 @@ const FLAT = {
   scene: { area: 'field', depth: 4, msg: 'The flat board.', music: 'field', amb: 'wind', floor: '#8f9188', speed: 0.45, accel: 8 },
   finish(sc) { const m = this; sc.mtnHold = a => mtnHold(m, a) || (a === state.hero ? plateStepHero(m, a) : plateHold(m, a)); },
 };
-const MTN = { rise: RISE, mt2: M2, flat: FLAT };                                // every screen of the family, by scene id
+// The canyon (scene epic, 236; composed 7 Oct as the test of the stone's look, Ross: Grand Canyon and Everest): 64 by
+// 40 tiles of grey stone; two bottomless ravines from the rise's generator, hand-widened, as the south and west
+// boundaries (the canyon about 6 tiles across, the side canyon in from the north); the mountain's own face at the east
+// with crags heaped at it and big ones on the canyon's rims; brush slabs (src/layouts/epic.js): a cliff band three
+// tiles thick with a second band on it, a cave (two walls and a roof with a mouth south), a shelf with a tier and a
+// ravine through it, a ridge by the side canyon, a crack on the band's crown. Off the map, no way in or out (the
+// edges and the ravines hold): ?scene=epic, ?edit=epic. The mocks (docs/parked/mock-epic*.js) render it from here.
+const EPIC = {
+  id: 'epic', len: 64, D: 40, flat: 0, grade: 0.004, mid: 20, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 30, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
+  X0: -16, X1: 110, Y0: -8, Y1: 70, seed: 41, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true }, ravs: null, isls: null,
+  foot: y => 52 + Math.sin(y * 0.3) * 2.5 + Math.sin(y * 0.8) * 0.9,                     // the mountain's face: the stone rises east of here
+  pathY() { return this.mid; }, pathD: () => 99,                                           // (no way: inX only parks you at 30, 20, in the open)
+  layout(lay) { const m = this, { put, rnd, clearOf } = lay;
+    if (!m.ravs) { const seed = m.seed * 101;
+      const canyon = genRavine('long', seed + 1, [-6, 30], 0.12, 60, 0.7); for (const q of canyon.spine[0]) q[2] = Math.min(3.0, q[2] * 1.4 + 0.6);   // the canyon along the south, about 6 tiles (wider breaks the outline tracing: the rows go black, (u))
+      const side = genRavine('long', seed + 2, [12, -8], Math.PI / 2 + 0.25, 30, 0.6); for (const q of side.spine[0]) q[2] = Math.min(2.4, q[2] * 1.2 + 0.4);   // a side canyon in from the north
+      m.ravs = [canyon, side]; m.ravDraw = null; }
+    for (let i = 0; i < 90; i++) { const y = m.Y0 + rnd() * (m.Y1 - m.Y0), x = m.foot(y) + 0.5 + rnd() * 30, r = 1.0 + rnd() * 1.4; if (!clearOf(x, y, r * 0.6)) continue; put('crag', x, y, r, true); }   // the face: crags heaped
+    for (let i = 0; i < 40; i++) { const x = m.X0 + rnd() * (m.foot(20) - m.X0), y = m.Y0 + rnd() * (m.Y1 - m.Y0), r = 0.9 + rnd() * 1.1; if (!mtnGap(m, x, y, r + 2.2) || mtnGap(m, x, y, r + 0.4) || !clearOf(x, y, r)) continue; put('crag', x, y, r, true); }   // big crags along the canyon rims
+    for (let i = 0; i < 40; i++) { const x = m.X0 + rnd() * (m.foot(20) - m.X0 - 2), y = m.Y0 + rnd() * (m.Y1 - m.Y0), r = 0.5 + rnd() * 0.6; if (mtnGap(m, x, y, r + 0.4) || !clearOf(x, y, r)) continue; put(rnd() < 0.6 ? 'boulder' : 'crag', x, y, r, true); }
+  },
+  plates: pl => plateLayout(pl, 'epic'),
+  scene: { area: 'field', depth: 4, msg: 'The canyon.', music: 'field', amb: 'wind', floor: '#8f9188', speed: 0.45, accel: 8 },
+  finish(sc) { const m = this; sc.mtnHold = a => mtnHold(m, a) || (a === state.hero ? plateStepHero(m, a) : plateHold(m, a)); },
+};
+const MTN = { rise: RISE, mt2: M2, flat: FLAT, epic: EPIC };                    // every screen of the family, by scene id
 // the lowest a moving view pulls back: never so far that you're a speck (a phone keeps you at least 20 px)
 const mtnZoomMin = () => Math.max(0.5, 20 / UNIT);
 // the ground's height in tiles: a gentle grade from the first step, steepening as it goes, then the mountain (cut by the way on)

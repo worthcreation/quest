@@ -1,6 +1,16 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 236: the canyon, playable (chat)
+Ross: where is the epic scene, playable? Then: move and create. The canyon composed in the mocks on 7 Oct is a scene
+of its own: EPIC in mountain.js (64 by 40, the two widened ravines, the face with its crags), registered with the
+world like the flat board (addMtn, no rng: the rest of the world is laid as before), its layout src/layouts/epic.js
+(eight brush slabs, the crack on the band's crown, the ravine through the shelf). Off the map: ?scene=epic, ?edit=epic
+(tools/links.js). The mocks (docs/parked/mock-epic*.js) render it from the build instead of carrying a copy.
+tests/epic.js, at 1280x800 and 390x844: parked at 30, 19.7 on the ground; into the cave to y 17.8, the window open;
+held at the cliff band's foot (y 8.8); a held jump at the 1.6 shelf stays at 0; walked south into the canyon, dropped
+(furthest y 30) and put back on the rim (28.6); a frame 7.2 and 4.0 ms; the editor's text holds every part.
+
 ## Build 235: the stone's look (chat)
 Ross's look notes of 7 Oct built from the mocks (docs/parked/mock-epic-blend.js to mock-epic-seam.js, mock-vslopes.js):
 every outline roughened at three scales with the odd bite or spur (roughRing on plateOutline and brushTrace, PL_ROUGH

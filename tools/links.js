@@ -12,4 +12,4 @@ const unzip = local ? '' : `Expand-Archive -Force ~\\Downloads\\${zip} .; Remove
 console.log(`cd ~\\quest -ErrorAction Stop; git fetch origin; git reset --hard origin/main; ${unzip}git add -A; git commit -m "${msg.replace(/"/g, "'")}"; git push`);   // (fetch and reset first: both machines push, 234)
 console.log('```\n');
 if (!local) { console.log('```zsh'); console.log(`cd ~/quest && git fetch origin && git reset --hard origin/main && unzip -o ~/Downloads/${zip} -d . && rm ~/Downloads/${zip} && git add -A && git commit -m "${msg.replace(/"/g, "'")}" && git push`); console.log('```\n'); }   // (the Mac's line, the same)
-for (const q of [`?seed=${seed}`, '?arena', '?puzzle', '?mountain', `?scene=${scene}`, '?edit=mt2', '?edit=flat', `?overview=${seed}`, '?model']) console.log(`- ${base}${q}`);
+for (const q of [`?seed=${seed}`, '?arena', '?puzzle', '?mountain', `?scene=${scene}`, '?edit=mt2', '?edit=flat', '?scene=epic', '?edit=epic', `?overview=${seed}`, '?model']) console.log(`- ${base}${q}`);
