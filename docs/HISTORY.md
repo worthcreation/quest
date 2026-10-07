@@ -1,6 +1,58 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 234: the ravine's depth (chat)
+Ross: the V reads as a large pill; give it depth, consider the edges, show steeper and less steep slopes. Built into
+drawRavineSlope: the side facing the view lit and the near side in its own shade (a wider spread), value falling off
+with depth (0.6 of it at the floor), grain cell to cell, the near rim's shadow cast across the floor, the strata and
+the rim as broken runs that swell and taper, the top darkening into the fall just outside the rim; the strip's ring
+roughened at three scales (roughRing, PL_ROUGH: the rim a broken edge, the same ring for collision). docs/parked/
+mock-vslopes.js: five slopes side by side, 0.3 (a near cliff, the floor nearly the whole width) to 3 (a scree you
+walk up), pulled back and tipped, and close. The sides still show their cells as bands; the stone build dresses them.
+
+## Build 233: angled edges (chat)
+Ross: move this way instead: angled edges spanning the layers, ravine edges you slide into, a jump may get out
+depending on how far you've slipped. Built: a ravine's inside is a V (ravineH, one shape for collision and drawing):
+from the rim the ground falls 1/slope a tile inward (slope: the run per tile of depth, 1 is 45 degrees; E then [ ]
+on the ravine brush and on a laid ravine, PL_RAV.sMin to sMax) to the floor or the spine, closing in a bowl at each
+end (capsuleRing). plateTopAt returns the V's height inside the strip. On a side (ravineSlope): going up a gentle
+side (grade under PL_RAV.slide, 0.7) you are slowed, a steep one holds you; it pulls you down, a slide that gathers
+on a steep side (PL_RAV.pull), a drift on a gentle one when you are not pushing up; your feet stay on it going down
+(no air for a drop under a step). A jump is the way out while the rim is within its reach. Drawn once at the lowest
+cut layer's turn (drawRavineSlope): the strip sampled along and across, each cell shaded by its lean and depth, the
+floor darkest, the rim and each layer's base the slope crosses drawn as a line across it (strata). You are drawn
+after that layer (plateKeyUnder). The 232 terraces are gone. state.dtLast carries the frame's step to
+plateStepHero. Look: a first pass, blocky; the stone's look (the mocks) comes next. tests/plates.js 11 (heights
+1.4, 0.9, 0.4, 0, 0 a half tile at a time in from the rim; stepped on, slid to the floor; walking up 45 degrees for a
+second: 0; jumps toward the rim: a tap from 0.43 down out, held from 0.8 out, held from 1.1 not, from the floor not;
+the gentle side walked out in 0.6 s), edit.js 19; docs/parked/mock-vedge.js.
+
+## Build 232: the ravine brush (chat)
+Ross: a V-shaped crack with an adjustable width and wall depth, the depth deciding whether the ravine has stairs
+(jumpable ledges in and out); another brush. Built: X the ravine brush, [ ] its width, D then [ ] its depth; a drag
+cuts a ravine on the layer its first point lands on (plateRavine, layout ravines { spine, w, depth, top, seed }). The
+depth snaps down to the base of the lowest layer it enters (a cut never stops inside a slab). Deeper than a hop it is
+terraced: ledges a hop down each on the north wall (the stroke's left), narrowing in (the V, the floor 0.35 of the
+width), each at least half a tile wide (fewer, taller steps up to a held jump when they would be narrower; narrower
+still, one drop, no stairs). The ledges are brush slabs of the ravine's own (p.rav), rebuilt at every load; a ravine
+is picked by its strip or a ledge; W D [ ] change it, B its layer. The floor is washed by depth (lighter than 231's
+crack wash: 0.22 + 0.28 a tile, to 0.62). Readability (docs/parked/mock-ravine.js, quest-ravine.png): the stairs read,
+the ravine does not yet: a flat wash, no far wall lit, no strata or stones; next, its walls by the mountain's ravine
+painter (drawMtnDrop's lean, strata, set-in stones) with stills first. tests/plates.js 11 (a 2.4 by 1.4 ravine on a
+1.4 slab: two terraces 0.56 and 0.52 wide, hopped out 0 > 0.47 > 0.93 > 1.4), edit.js 19.
+
+## Build 231: a crack belongs to its layer (chat)
+Ross: get rid of the crack in its current use; a crack passes through one layer and affects only the ones below it:
+on the base very small, on top of many stacked plates a ravine. Built: C's first click picks the layer under it. On
+the base (top 0) the crack is a hairline on the base only, no longer painted on tops or jogging up faces. On a layer
+it is a slit from that layer's top down to the base through everything under it, PL_CRACK wide (0.25 + 0.4 a tile of
+depth, up to 2: a tall stack gives a ravine), laid as a cut like a tunnel's with its roof just over the layer, so a
+plate laid over it later spans it. Its floor is washed dark by its depth. Under a tile wide (PL_SLIT) the ground
+ignores it and you step over; wider, you drop in. A seam's layout line is { spine, top } (old width-per-point lines
+load as base cracks; mt2.js rewritten). [ ] on a crack move its layer. The editor picks a slit by its strip at its
+layer, labels it with its depth and width. tests/plates.js 10, edit.js 7 updated; docs/parked/mock-crack.js.
+Also in this zip: docs/mountain-beats.md (the mood arc), docs/parked/mock-ledges.js and mock-beats.js (the stills).
+
 ## Build 230: a big brush stroke stays light (chat)
 Ross: drawing larger shapes lagged. Measured: the preview was cheap, the outline was not (244 ms for a 400-point spiral
 of reach 3.7), and every relay after it (each ], each step of a drag, each later stroke) traced every brush slab again

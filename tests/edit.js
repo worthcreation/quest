@@ -48,13 +48,14 @@ console.log('5 U on the crown: plates', nBefore, '>', nBefore+1, '| the new one 
 const [NX,NY]=pr(14,20,0); editMove(NX,NY); run(1); tap('n'); const np=LY().plates[LY().plates.length-1]; tap('p'); const q=pl().pits[pl().pits.length-1];
 const inPit=plateTopAt(pl(),14,20), onPlate=plateTopAt(pl(),14+1.6,20);
 console.log('6 N at 14,20: a plate at', np.x, np.y, 'base', np.base, 'thick', np.thick, '| P: pits', pl().pits.length, 'cutting', q.cut.length, 'plate | ground in the pit', inPit, 'beside it', onPlate);
-// 7. C, three clicks, C: a seam of three points; its width [ ]; then Delete it, the pit and the plate (the layout back to 214's)
+// 7. C, three clicks, C: a crack of three points on the base (a hairline, cutting nothing); ] moves it to the layer at
+// 0.05 (a slit through what is under it: here the plate N laid above, so it cuts it); then Delete it, the pit and the plate (the layout back to 214's)
 tap('c'); for (const [x,y] of [[16,18],[17,19],[18,21]]) { const [CX,CY]=pr(x,y,0); click(CX,CY); } const laid=E.crack.spine.length; tap('c');
-const sm=LY().seams[LY().seams.length-1], w0=sm.spine[0][2]; tap('w'); tap(']'); const w1=sm.spine[0][2]; tap('delete');
+const sm=LY().seams[LY().seams.length-1], w0=sm.top, cut0=pl().pits.filter(q=>q.crack).length; tap(']'); const w1=sm.top, cut1=pl().pits.filter(q=>q.crack).length; tap('delete');
 click(...pl().pits[pl().pits.length-1].P.slice(0,1).map(([x,y])=>pr(x,y,0.4)).map(v=>v)); if(!(E.sel&&E.sel.kind==='pit')) { const Q=pl().pits[pl().pits.length-1]; click(...mid(Q.P.map(([x,y])=>pr(x,y,Q.top)))); } const pitSel=E.sel&&E.sel.kind==='pit'; tap('delete');
 click(...topMid(byS(np.seed))); tap('delete');
 const n1=[pl().list.length, pl().pits.length, pl().seams.length];
-console.log('7 crack: laid', laid, 'points, seams', LY().seams.length+1, '> width', w0, '>', w1, '| deleted: pit selected by its ring', pitSel, '| back to plates', n1[0], 'pits', n1[1], 'seams', n1[2]);
+console.log('7 crack: laid', laid, 'points, seams', LY().seams.length+1, '> on the base (top', w0+', slits', cut0+') > ] on the layer at', w1, '(slits', cut1+') | deleted: pit selected by its ring', pitSel, '| back to plates', n1[0], 'pits', n1[1], 'seams', n1[2]);
 // 8. S's text loads back as the same layout; the shipped file reads back as what 214 laid (the old test's numbers)
 const text=editText(LY(),'mt2'), same=JSON.stringify(LY()); const okLoad=editLoad(text), back=JSON.stringify(LY())===same; if(!back) console.log(same, JSON.stringify(LY()));
 const fromFile=LAYOUTS.mt2, shippedSame=JSON.stringify(JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}')+1)))===JSON.stringify({plates:fromFile.plates.map(p=>({...p,x:+(p.x+(p.seed>=80&&p.seed<84?movedBy:p.seed>=60&&p.seed<64?moved60:0)).toFixed(2)})),pits:fromFile.pits,seams:fromFile.seams});
@@ -141,5 +142,17 @@ editDown(...g7(...sp7[0])); let worst7=0; for(const q of sp7){ const t0=ms(); ed
 let t7=ms(); editUp(...g7(...sp7[sp7.length-1])); const rel7=ms()-t7, atRel=traces, kept7=F7.layout.plates[0].strokes[0].pts.length;
 t7=ms(); tap(']'); const rl7=ms()-t7; tap('b'); const [MX,MY]=mtnProj(24,12,mtnH(MTN.flat,24,12)+F7.layout.plates[0].thick,c7); editDown(MX,MY); run(1); const pick7=!!(F7.down&&F7.down.pick); editMove(MX+40,MY); run(1); editUp(MX+40,MY); run(1); const afterMove=traces, moved7=F7.layout.plates[0].strokes[0].pts[0][0]-24; brushTrace=tr0;
 console.log('18 a big spiral stroke, reach', F7.layout.plates[0].strokes[0].r, ': traced while down', during, '| swept', swept7, 'points, kept', kept7, '| release', rel7.toFixed(0), 'ms, traced', atRel, '| a ] after it', rl7.toFixed(0), 'ms | dragged the slab (picked', pick7+', moved', moved7.toFixed(2), 'tiles): traced', afterMove-atRel, '| worst frame while drawing', worst7.toFixed(0), 'ms (the harness)');
+// 19. the ravine brush (232, angled edges 233): X, [ ] set the width, D [ ] the depth, E [ ] the slope, a drag across a
+// 1.4 slab cuts a ravine on it with a V inside (the ground falls from the rim), selected; W [ ] widen it, E [ ] steepen
+// it; S round-trips its line; Delete removes it
+startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[{x:20,y:12,w:12,h:8,seed:4,base:0,thick:1.4,tone:134,rot:0,under:-1}],pits:[],seams:[]})); const F8=state.edit, c8=state.mtn, g8=(x,y)=>mtnProj(x,y,mtnH(MTN.flat,x,y),c8);
+F8.cx=20; F8.cy=12; mtnCamera(0,c8,true); run(1); tap('x'); const rw0=F8.ravW, rd0=F8.ravD, rs0=F8.ravS; tap(']'); tap(']'); tap('d'); tap('['); tap('['); tap('e'); tap(']'); tap(']'); const rw1=F8.ravW, rd1=F8.ravD, rs1=F8.ravS;
+const [A0,B0]=g8(16,12), [A1,B1]=g8(24,12); editDown(A0,B0); run(1); for(let k=1;k<=10;k++){ editMove(A0+(A1-A0)*k/10, B0+(B1-B0)*k/10); run(1); } editUp(A1,B1); run(1);
+const rl=F8.layout.ravines, r8=rl[0], rwCut=r8.w, q8=platesLay(MTN.flat).pits.find(q=>q.rav===0), sel8=F8.sel&&F8.sel.kind==='ravine'&&F8.sel.i===0, inHand8=!!(F8.brush&&F8.brush.rav);
+const vs=[0,0.6,1.4].map(d=>+plateTopAt(platesLay(MTN.flat),20,12-rwCut/2+d).toFixed(2));
+tap('x'); click(...mid(q8.P.map(([x,y])=>mtnProj(x,y,mtnH(MTN.flat,x,y)+q8.top0,c8)))); const pickStrip=F8.sel&&F8.sel.kind==='ravine';
+tap('w'); tap(']'); const rw2=r8.w; tap('e'); tap('['); const rs2=r8.slope; const text8=editText(F8.layout,'flat'), same8=JSON.stringify(F8.layout.ravines); editLoad(text8); const back8=JSON.stringify(F8.layout.ravines)===same8;
+F8.sel={kind:'ravine',i:0}; tap('delete'); const gone=F8.layout.ravines.length+platesLay(MTN.flat).pits.filter(q=>q.rav!=null).length;
+console.log('19 ravine brush: width', rw0, '> ]]', rw1, 'depth', rd0, '> D [[', rd1, 'slope', rs0, '> E ]]', rs1, '| the drag cut one on the layer at', r8.top, 'width', rwCut, 'depth', r8.depth, 'slope', r8.slope, '| floor', q8&&q8.floor, '| the V: ground at the rim, 0.6 and 1.4 in', vs.join(', '), '| selected', sel8, 'brush kept', inHand8, '| clicking the strip picks it', pickStrip, '| W ] widened to', rw2, 'E [ slope', rs2, '| S then O the same', back8, 'the line', /"ravines": \\[\\n    \\{ "spine"/.test(text8), '| Delete: left', gone);
 const ms0=Date.now(); for(let i=0;i<30;i++) draw(); console.log("10 a drawn frame with the overlay", ((Date.now()-ms0)/30).toFixed(1), 'ms | BUILD', BUILD, '| errs', errs);
 `);

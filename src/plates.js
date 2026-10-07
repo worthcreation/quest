@@ -18,15 +18,14 @@
 //   the top lip, lit by its own shade (0.8 to 0.96) and darker the deeper; inside the rim the ledges keep their
 //   texture under a wash that deepens with depth, the floor darkest, one lip at the rim and nothing else (225).
 //   Nothing of a hole is painted outside its lip.
-// - seams: a crack under half a tile wide, its tones inside its own width (mid-dark, the east half near black),
-//   painted on the base, then on each top after that top, clipped to it: it jogs up every face and a plate nearer the
-//   eye hides it; it stops at a pit's rim.
+// - cracks (231): drawn on the base, a hairline on the base only; drawn on a layer, a slit down through every layer
+//   under it to the base, wider the deeper (plateCrack), a plate laid over it spanning it.
 // Kinds by thickness (plateKind): step up to 0.25, hop to 0.5, high hop to 1, face over 1. Until layered ground lays the
 // ground in layers, every plate but the hero's holds (plateHold: the foot ring is a wall, as the mountain is).
 // What a screen lays comes from its layout (LAYOUTS[id], src/layouts/<id>.js, laid in the editor: edit.js, 215):
 // plates each { x, y, w, h, seed, base, thick, tone, rot, under } or a brush slab { kind: 'brush', strokes: [{ pts, r }],
 // plates: [{ x, y, w, h, seed, rot }], seed, base, thick, tone, under } (227, merged 228: brushOutline), pits { x, y, w, h, seed, floor, ledge }, tunnels
-// { spine, w, floor, roof } (222), seams { spine }. plateLayout reads it (the editor's working copy while that screen is being edited).
+// { spine, w, floor, roof } (222), seams { spine, top } (a crack on the layer whose top is top; 0 the base), ravines { spine, w, depth, top, seed } (232). plateLayout reads it (the editor's working copy while that screen is being edited).
 
 const LAYOUTS = {};                                                                     // a screen's laid plates by scene id (src/layouts/<id>.js fills it)
 let PL_HERO = null;                                                                     // down a pit: { pit, lift, box } (drawMtn sets it each frame: the far walls above you leave your box out)
@@ -127,6 +126,52 @@ function tunnelRing(spine, w) {
   for (let i = 0; i < n; i++) { const [x0, y0] = spine[Math.max(0, i - 1)], [x1, y1] = spine[Math.min(n - 1, i + 1)], d = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / d * w / 2, ny = (x1 - x0) / d * w / 2, [x, y] = spine[i]; L.push([x + nx, y + ny]); R.push([x - nx, y - ny]); }
   return L.concat(R.reverse());
 }
+// a ravine (232; angled edges 233, Ross: the rim falls away as a slope through the layers, you slide in, a jump gets
+// out while the rim is within reach): laid with the ravine brush (X) on the layer its first point lands on, a strip
+// W wide cut from that layer's top down by its depth (snapped down to the base of the lowest layer it enters: a cut
+// never stops inside a slab). Inside the strip the ground is a V: from the rim the height falls by 1/slope a tile
+// inward (slope: the run per tile of depth, 1 is 45 degrees) until it reaches the floor, or the spine, whichever
+// comes first (ravineH: one shape for collision and the drawing). The slope cuts every layer it crosses, each layer's
+// edge a line across it. The cut is a tunnel-like pit (its roof just over the layer: plates laid over it span it).
+// Rebuilt from its line { spine, w, depth, slope, top, seed } at every load. The 232 terraces are gone (this is the
+// better answer to the same question)
+const PL_RAV = { slope: 1, slide: 0.7, pull: 9, climb: 0.45, wMin: 0.6, wMax: 6, dMin: 0.2, dMax: 4, sMin: 0.15, sMax: 3 };   // slide: the grade (rise per run) past which you slide; pull: the downhill pull, tiles a second a second per unit grade; climb: how much of your walk is left going uphill on a grade of 1
+function plateRavine(pl, rv, li) {
+  const spine = rv.spine.map(q => [q[0], q[1]]), top = rv.top || 0, W = rv.w; if (spine.length < 2 || W <= 0) return;
+  const strip = roughRing(capsuleRing(spine, W), rv.seed * 3 + 1, 1, 0.35), across = p => p.P.some(([x, y]) => plateIn(strip, x, y)) || strip.some(([x, y]) => plateHas(p, x, y));
+  let floor = Math.max(0, top - rv.depth); for (let k = 0; k < 8; k++) { const p = pl.list.find(p => across(p) && p.base < floor - 1e-6 && plateTop(p) > floor + 1e-6); if (!p) break; floor = p.base; }   // (snapped down to a layer's base)
+  const D = top - floor; if (D <= 1e-6) return;
+  pl.pits.push({ tunnel: true, crack: true, rav: li, spine, w: W, top0: top, floor, roof: top + 1e-3, ledge: 0, P: strip, box: plateBox(strip), depth: D, slope: rv.slope || PL_RAV.slope });
+}
+const ravIn = (q, x, y) => x >= q.box[0] && x <= q.box[2] && y >= q.box[1] && y <= q.box[3] && plateIn(q.P, x, y);   // (its box first: the strip's ring is long)
+// the distance from a point to a ravine's spine
+const spineDist = (q, x, y) => { let d = Infinity; const S = q.spine; for (let i = 1; i < S.length; i++) { const e = segDist(x, y, S[i - 1][0], S[i - 1][1], S[i][0], S[i][1]); if (e < d) d = e; } return d; };
+// the ground inside a sloped ravine at a point: the rim's height less the fall over the distance in from the rim
+// the slope under a point, if it stands on a sloped ravine's side (not its floor, not a slab's top): its grade (rise
+// per run) and the uphill direction (away from the spine), or null
+function ravineSlope(pl, x, y) {
+  for (const q of pl.pits) { if (!q.slope || !q.cut.length || !ravIn(q, x, y)) continue; const hr = ravineH(q, x, y); if (hr <= q.floor + 1e-6 || hr < plateTopAt(pl, x, y, null, false) - 1e-6) continue;
+    const S = q.spine; let bd = Infinity, bx = x, by = y; for (let i = 1; i < S.length; i++) { const [ax, ay] = S[i - 1], [cx, cy] = S[i], dx = cx - ax, dy = cy - ay, t = mtnClamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy || 1e-9)), qx = ax + dx * t, qy = ay + dy * t, d = Math.hypot(x - qx, y - qy); if (d < bd) { bd = d; bx = qx; by = qy; } }
+    const L = Math.hypot(x - bx, y - by) || 1; return { g: 1 / q.slope, ux: (x - bx) / L, uy: (y - by) / L, q }; }
+  return null;
+}
+const ravineH = (q, x, y) => { const d = Math.max(0, q.w / 2 - spineDist(q, x, y)); return Math.max(q.floor, q.top0 - d / q.slope); };
+// a strip with round ends (233): a tunnelRing with a half circle at each end of the spine, so a ravine's V closes in a
+// bowl at its ends rather than a square corner
+function capsuleRing(spine, w) {
+  const n = spine.length, R = tunnelRing(spine, w), half = R.length / 2, L = R.slice(0, half), Rr = R.slice(half), arc = (c, from, to, k = 7) => { const out = []; for (let i = 1; i < k; i++) { const a = from + (to - from) * i / k; out.push([c[0] + Math.cos(a) * w / 2, c[1] + Math.sin(a) * w / 2]); } return out; };
+  const e = spine[n - 1], [ex, ey] = L[n - 1], a1 = Math.atan2(ey - e[1], ex - e[0]), s0 = spine[0], [sx, sy] = Rr[Rr.length - 1], a0 = Math.atan2(sy - s0[1], sx - s0[0]);
+  return L.concat(arc(e, a1, a1 - Math.PI), Rr, arc(s0, a0, a0 - Math.PI));
+}
+// a ring roughened (234): resampled every PL_ROUGH.step and each point moved along its outward normal by noise at
+// three scales (slow bulges, a mid wobble, a fine tooth), so an edge is broken the way a rock's is, never a drawn
+// curve; the same shape then serves collision and drawing
+const PL_ROUGH = { step: 0.18, slow: 0.16, mid: 0.06, fine: 0.025 }, plNoise = (t, seed) => Math.sin(t * 1.7 + seed) * 0.5 + Math.sin(t * 3.1 + seed * 1.3) * 0.3 + Math.sin(t * 7.3 + seed * 0.7) * 0.2;
+function roughRing(P, seed, amt = 1, step = PL_ROUGH.step) {
+  const n = P.length, pts = []; for (let i = 0; i < n; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % n], L = Math.hypot(bx - ax, by - ay), k = Math.max(1, Math.round(L / step)); for (let j = 0; j < k; j++) { const t = j / k; pts.push([ax + (bx - ax) * t, ay + (by - ay) * t]); } }
+  const m = pts.length, Q = []; let s = 0; for (let i = 0; i < m; i++) { const [px, py] = pts[(i - 1 + m) % m], [nx, ny] = pts[(i + 1) % m], ex = nx - px, ey = ny - py, L = Math.hypot(ex, ey) || 1, ox = ey / L, oy = -ex / L; s += L / 2; const d = (plNoise(s * 0.5, seed) * PL_ROUGH.slow + plNoise(s * 1.6, seed + 5) * PL_ROUGH.mid + plNoise(s * 5.5, seed + 9) * PL_ROUGH.fine) * amt; Q.push([pts[i][0] + ox * d, pts[i][1] + oy * d]); }
+  return polyArea(Q) < 0 ? Q.reverse() : Q;
+}
 const plateHas = (p, x, y) => plateIn(p.P, x, y);                                       // the one shape: inside this plate's outline (and so on it, or held off its face)
 const plateKind = thick => thick <= 0.25 ? 'step' : thick <= 0.5 ? 'hop' : thick <= 1 ? 'high' : 'face';
 const plateTop = p => p.base + p.thick;
@@ -142,7 +187,8 @@ function plateLayout(pl, id) {
   const ps = (L.plates || []).map(s => plateAdd(pl, s)); ps.forEach((p, i) => { p.li = i; const u = L.plates[i].under; p.under = u >= 0 && ps[u] && ps[u] !== p ? ps[u] : null; });   // (li: its line in the layout; the list's own order is the painter's, platesLay)
   for (const q of L.pits || []) platePit(pl, q.x, q.y, q.w, q.h, q.seed, q.floor, q.ledge);
   for (const t of L.tunnels || []) if (t.spine && t.spine.length >= 2) pl.pits.push({ tunnel: true, spine: t.spine, w: t.w, floor: t.floor, roof: t.roof, ledge: 0, P: tunnelRing(t.spine, t.w) });   // (a tunnel is a pit with a roof: the plates between its floor and its roof are cut along its strip, the ones over it stay)
-  for (const sm of L.seams || []) plateSeam(pl, sm.spine);
+  (L.seams || []).forEach((sm, i) => plateCrack(pl, sm, i));
+  (L.ravines || []).forEach((rv, i) => plateRavine(pl, rv, i));
 }
 // a pit: a ring punched straight down through every plate it crosses to floor (Ross: like punching out a hole; each
 // plate shows its own cut face inside it). ledge (tiles): the way out, a staircase. Each plate down, the ring is cut
@@ -151,7 +197,17 @@ function plateLayout(pl, id) {
 // camera can see it (the view tips south: the near side of a deep hole is under its rim's overhang); from the floor
 // you hop up them, south-west
 const platePit = (pl, x, y, w, h, seed, floor, ledge = 0) => pl.pits.push({ x, y, floor, ledge, P: plateOutline(x, y, w, h, seed, 9) });
-const plateSeam = (pl, spine) => pl.seams.push({ spine });                                // [[x, y, halfwidth]...] in tiles, hw under 0.25
+// a crack (231, Ross: a crack belongs to the layer it is drawn on): on the base (top 0) a hairline, drawn on the base
+// only (pl.seams: a plate over it spans it); drawn on a layer, a slit from that layer's top down to the base through
+// every layer under it, its width by its depth (PL_CRACK: a tall stack gives a ravine), laid as a cut like a tunnel's
+// (a pit with a roof just over the layer: plates at or above the roof are untouched). Under PL_SLIT wide you step
+// over it (the ground ignores it); wider, you drop in. li: its line in the layout (the editor's pick)
+const PL_CRACK = { w0: 0.25, perTile: 0.4, max: 2.0 }, PL_SLIT = 1.0, crackWidth = top => top > 0 ? +Math.min(PL_CRACK.max, PL_CRACK.w0 + PL_CRACK.perTile * top).toFixed(3) : 0;
+function plateCrack(pl, sm, li) {
+  const spine = sm.spine.map(q => [q[0], q[1]]), top = sm.top || 0;
+  if (top <= 0 || spine.length < 2) { pl.seams.push({ spine, top: 0, li }); return; }
+  const w = crackWidth(top); pl.pits.push({ tunnel: true, crack: true, li, spine, w, top0: top, floor: 0, roof: top + 1e-3, ledge: 0, P: tunnelRing(spine, w) });
+}
 // what a screen laid, worked out once: each pit's cut plates (the ones containing its middle from its floor up), its
 // floor and its top lip, each plate's pieces and holes; then the painter's order (platesOrder), worked out again
 // whenever the view turns (224: the editor's camera; m.pl.yaw is the turn it was worked out for)
@@ -160,7 +216,7 @@ function platesLay(m) {
   if (m.pl) { if (m.pl.yaw !== yaw) platesOrder(m.pl, yaw); return m.pl; }
   const pl = { list: [], pits: [], seams: [], tone: m.plateTone || 143, yaw: null }; m.plates(pl);
   for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); }
-  for (const q of pl.pits) { q.cut = pl.list.filter(p => p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.roof == null || p.base < q.roof - 0.01) && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
+  for (const q of pl.pits) { q.cut = pl.list.filter(p => !(q.rav != null && p.rav === q.rav) && p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.roof == null || p.base < q.roof - 0.01) && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
     for (const p of q.cut.slice().sort((a, b) => plateTop(b) - plateTop(a))) { q.ring.set(p, R); if (q.ledge > 0) { const ax = Math.max(...R.map(v => v[0])), ay = Math.min(...R.map(v => v[1])), ny = Math.max(...R.map(v => v[1])), f = Math.max(0.2, 1 - q.ledge / Math.max(0.01, ny - ay)); R = R.map(([x, y]) => [ax + (x - ax) * f, ay + (y - ay) * f]); } } }
@@ -208,9 +264,10 @@ function platesOrder(pl, yaw) {
   for (const q of pl.pits) q.last = q.cut.reduce((a, p) => !a || p.key > a.key ? p : a, null);
   pl.yaw = yaw;
 }
-const pitHas = (q, p, x, y) => q.ring.has(p) && plateIn(q.ring.get(p), x, y);
+const pitHas = (q, p, x, y) => !(q.crack && q.rav == null && q.w < PL_SLIT) && q.ring.has(p) && plateIn(q.ring.get(p), x, y);   // (a slit under PL_SLIT wide is stepped over: the ground ignores it)
 // the ground's height in tiles above the base at a point: the top of the highest plate there, less the pits (0 off every plate)
-function plateTopAt(pl, x, y, ok = null) { let h = 0; for (const p of pl.list) if ((!ok || ok(p)) && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p)); return h; }   // (in a pit: whatever is left under the cut, its floor or a ledge; ok: only the plates it passes)
+function plateTopAt(pl, x, y, ok = null, rav = true) { let h = 0; for (const p of pl.list) if ((!ok || ok(p)) && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y))) h = Math.max(h, plateTop(p));
+  if (rav) for (const q of pl.pits) if (q.slope && q.cut.length && ravIn(q, x, y)) h = Math.max(h, ravineH(q, x, y)); return h; }   // (inside a sloped ravine: its V, from the rim down)   // (in a pit: whatever is left under the cut, its floor or a ledge; ok: only the plates it passes)
 // the hero on the plates (213): his ground is the top of the plate he stands on (h.lift, tiles above the base). A
 // plate no more than PL_STEP above it is walked up; a higher one is a wall unless he is in the air at or above its
 // top, and then he lands on it; walking or jumping off an edge drops him to the ground below (in the air at the
@@ -218,22 +275,33 @@ function plateTopAt(pl, x, y, ok = null) { let h = 0; for (const p of pl.list) i
 const PL_STEP = 0.25, PL_BODY = 0.35, PL_HEAD = 1.1;                                     // a step you walk up; how far round your middle your body reaches (a wall stops it, not just your middle); your height: a plate whose underside is that far above your ground you walk under (217)
 function plateStepHero(m, h) {
   const pl = platesLay(m), x = h.x / UNIT, y = h.y / UNIT;
-  if (h.liftAt !== state.scene) { h.liftAt = state.scene; let c = 0; for (let k = 0; k < 4; k++) c = plateTopAt(pl, x, y, p => p.base < c + PL_HEAD); h.lift = c; h.plPrev = [h.x, h.y]; }   // put down here: on the ground, then up whatever stands within head room of it (never on an overhang)
+  if (h.liftAt !== state.scene) { h.liftAt = state.scene; let c = 0; for (let k = 0; k < 4; k++) c = plateTopAt(pl, x, y, p => p.base < c + PL_HEAD); h.lift = c; h.plPrev = [h.x, h.y]; h.slideV = 0; }   // put down here: on the ground, then up whatever stands within head room of it (never on an overhang)
   const cur = h.lift, air = Math.max(0, h.z) / UNIT, up = T => T > cur + PL_STEP + 1e-6 && cur + air < T - 0.02;   // too high to walk up, and not above it in the air
   const under = p => p.base >= cur + PL_HEAD - 1e-6 && cur + air < plateTop(p) - 0.02, topAt = (x, y) => plateTopAt(pl, x, y, p => !under(p));   // an overhang clear of your head is passed under (unless you are in the air at or above its top: then you land on it)
-  const body = (x, y) => { let t = topAt(x, y); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; t = Math.max(t, topAt(x + Math.cos(a) * PL_BODY, y + Math.sin(a) * PL_BODY)); } return t; };   // the highest ground under your body, not just your middle: no standing half inside a wall
-  let T = topAt(x, y), wall = false; const was = h.plPrev ? body(h.plPrev[0] / UNIT, h.plPrev[1] / UNIT) : 0, into = (b) => up(b) && b > was + 1e-6;   // (a wall only stops you moving into it: stepping off a plate with your back against a higher one is fine)
-  if (up(T) || into(body(x, y))) { const [px, py] = h.plPrev || [h.x, h.y]; wall = true;            // held: slide along the face if one axis is free
-    if (!up(topAt(px / UNIT, y)) && !into(body(px / UNIT, y))) { h.x = px; h.vx = 0; } else if (!up(topAt(x, py / UNIT)) && !into(body(x, py / UNIT))) { h.y = py; h.vy = 0; } else { h.x = px; h.y = py; h.vx = h.vy = 0; }
+  const body = (x, y) => { let t = plateTopAt(pl, x, y, p => !under(p), false); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; t = Math.max(t, plateTopAt(pl, x + Math.cos(a) * PL_BODY, y + Math.sin(a) * PL_BODY, p => !under(p), false)); } return t; };   // the highest ground under your body, not just your middle: no standing half inside a wall (the slabs only: a slope is not a wall)
+  // a slope (233): the ground's grade where you stood; going up it you are slowed (or held, past PL_RAV.slide), and
+  // it pulls you down it, faster the steeper, a slide that carries on a little; a jump is the way out while the rim is
+  // within its reach
+  const dt = state.dtLast || 1 / 60, [px, py] = h.plPrev || [h.x, h.y], sl = ravineSlope(pl, px / UNIT, py / UNIT) || ravineSlope(pl, x, y), g = sl ? sl.g : 0;   // (the slope where you stood, or the one you just stepped onto)
+  if (g > 0.05 && h.z <= 0) { const { ux, uy } = sl, mx = h.x - px, my = h.y - py, upm = mx * ux + my * uy;   // (ux, uy: uphill)
+    const steep = g >= PL_RAV.slide; if (upm > 0) { const keep = steep ? 0 : Math.max(0.2, 1 - PL_RAV.climb * g); h.x -= ux * upm * (1 - keep); h.y -= uy * upm * (1 - keep); }   // going up: slowed on a gentle side, held on a steep one
+    h.slideV = steep ? Math.min(6, (h.slideV || 0) + g * PL_RAV.pull * dt) : upm > 0 ? 0 : Math.min(g * 1.5, (h.slideV || 0) + g * PL_RAV.pull * 0.35 * dt);   // a steep side: a slide that gathers; a gentle one: a drift down when you are not pushing up
+    h.x -= ux * h.slideV * dt * UNIT; h.y -= uy * h.slideV * dt * UNIT; h.sliding = steep; }
+  else { h.slideV = (h.slideV || 0) * 0.6; h.sliding = false; }
+  const hx = h.x / UNIT, hy = h.y / UNIT;
+  let T = topAt(hx, hy), wall = false; const was = h.plPrev ? body(px / UNIT, py / UNIT) : 0, into = (b) => up(b) && b > was + 1e-6;   // (a wall only stops you moving into it: stepping off a plate with your back against a higher one is fine)
+  if (up(T) || into(body(hx, hy))) { wall = true;            // held: slide along the face if one axis is free
+    if (!up(topAt(px / UNIT, hy)) && !into(body(px / UNIT, hy))) { h.x = px; h.vx = 0; } else if (!up(topAt(hx, py / UNIT)) && !into(body(hx, py / UNIT))) { h.y = py; h.vy = 0; } else { h.x = px; h.y = py; h.vx = h.vy = 0; }
     T = topAt(h.x / UNIT, h.y / UNIT); }
   if (T > cur) { h.z = Math.max(0, h.z - (T - cur) * UNIT); if (h.z <= 0) { h.z = 0; h.vz = Math.max(0, h.vz); if (h.vz === 0 && air > 0) spark(h.x, h.y + UNIT * 0.4, 'rgba(160,140,110,.8)', 4, 1.5); } }   // up a step, or landing on a top
-  else if (T < cur) { h.z += (cur - T) * UNIT; if (h.vz === 0) h.airDist = 0; }                                    // off an edge: in the air, falling to the ground below
+  else if (T < cur) { if (cur - T < PL_STEP && h.z <= 0 && (g > 0.05 || ravineSlope(pl, h.x / UNIT, h.y / UNIT))) { /* down a slope: your feet stay on it */ } else { h.z += (cur - T) * UNIT; if (h.vz === 0) h.airDist = 0; } }   // off an edge: in the air, falling to the ground below
   h.lift = T; h.plPrev = [h.x, h.y];
   return wall;
 }
 // what stands on the plates is drawn after the plate it stands on: the key of the highest plate under a point at or
 // below a height (drawMtn's list)
-const plateKeyUnder = (pl, x, y, z) => pl.list.reduce((k, p) => plateTop(p) <= z + 1e-6 && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y)) ? Math.max(k, p.key + 1e-3) : k, -Infinity);
+const plateKeyUnder = (pl, x, y, z) => { let k = pl.list.reduce((k, p) => plateTop(p) <= z + 1e-6 && plateHas(p, x, y) && !pl.pits.some(q => pitHas(q, p, x, y)) ? Math.max(k, p.key + 1e-3) : k, -Infinity);
+  for (const q of pl.pits) if (q.slope && q.cut.length && ravIn(q, x, y)) { const low = q.cut.reduce((a, p) => !a || p.base < a.base ? p : a, null); if (low) k = Math.max(k, low.key + 1e-3); } return k; };   // (on a sloped ravine's side or floor: after the layer that draws its V)
 // the plates over you (their underside clear of your head, over your middle): you are drawn before the first of them, so
 // they cover you and the x-ray shows you through (the key of the first such plate, or Infinity)
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
@@ -297,9 +365,9 @@ function plateLay(tex, p, x0, y0, x1, y1, pr, z, clip = false) {
 // the faces: walls from the foot ring F to the top ring T (on the screen), on the edges whose foot lies outward of
 // the lip and south of it; plain (Ross, 220, still E): one flat shade each, lit by its facing from the west, nothing
 // painted on it (no band under the lip, no strata, no set-in stones: the stones' feathered wash showed as light smears)
-function platePaintFaces(T, F, tone) {
-  const n = T.length, drawn = [];                                                        // (drawn: the edges painted, for tests/edit.js)
-  for (let i = 0; i < n; i++) { const j = (i + 1) % n, ex = T[j][0] - T[i][0], ey = T[j][1] - T[i][1], L = Math.hypot(ex, ey) || 1, nx = ey / L, ny = -ex / L, mx = (T[i][0] + T[j][0]) / 2, my = (T[i][1] + T[j][1]) / 2, fx = (F[i][0] + F[j][0]) / 2, fy = (F[i][1] + F[j][1]) / 2;
+function platePaintFaces(T, F, tone, skip = null) {
+  const n = T.length, drawn = [];                                                        // (drawn: the edges painted, for tests/edit.js; skip: edges that are no wall, a sloped ravine's)
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; if (skip && skip(i, j)) continue; const ex = T[j][0] - T[i][0], ey = T[j][1] - T[i][1], L = Math.hypot(ex, ey) || 1, nx = ey / L, ny = -ex / L, mx = (T[i][0] + T[j][0]) / 2, my = (T[i][1] + T[j][1]) / 2, fx = (F[i][0] + F[j][0]) / 2, fy = (F[i][1] + F[j][1]) / 2;
     if (!((fx - mx) * nx + (fy - my) * ny > 0.2 && fy > my + 0.2)) continue;
     const lit = mtnClamp(0.72 + 0.28 * (-nx) - 0.08 * ny, 0.5, 1);
     ctx.beginPath(); ctx.moveTo(T[i][0], T[i][1]); ctx.lineTo(T[j][0], T[j][1]); ctx.lineTo(F[j][0], F[j][1]); ctx.lineTo(F[i][0], F[i][1]); ctx.closePath(); ctx.fillStyle = plRgb(tone * 0.78 * lit); ctx.fill(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.6; ctx.stroke(); drawn.push(i); }   // (stroked in its own colour: no hairline between neighbours)
@@ -311,7 +379,7 @@ function platePaintSeam(sm, z, clip, pits, pr, us) {
   ctx.save(); if (clip) { plPath(clip); ctx.clip(); }
   if (pits.length) { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); for (const q of pits) { const R = q.P.map(([x, y]) => pr(x, y, z)); R.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); } ctx.clip('evenodd'); }
   const C = sm.spine.map(([x, y]) => pr(x, y, z)); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (let i = 1; i < C.length; i++) { const w = Math.max(2, sm.spine[i][2] * 2 * us);
+  for (let i = 1; i < C.length; i++) { const w = Math.max(1, 0.06 * us);                  // a hairline
     ctx.strokeStyle = 'rgb(44,44,40)'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(C[i - 1][0], C[i - 1][1]); ctx.lineTo(C[i][0], C[i][1]); ctx.stroke();
     ctx.strokeStyle = 'rgb(14,14,12)'; ctx.lineWidth = w * 0.5; ctx.beginPath(); ctx.moveTo(C[i - 1][0] + w * 0.25, C[i - 1][1]); ctx.lineTo(C[i][0] + w * 0.25, C[i][1]); ctx.stroke(); }
   ctx.restore();
@@ -355,7 +423,7 @@ function plateTopPaint(m, p, pr, s) {
   const rimPath = q => plPath(q.P.map(([x, y]) => pr(x, y, top)));
   const tex = plateTex(p, m), lay = () => { if (tex) plateLay(tex, p, p.box[0], p.box[1], p.box[2], p.box[3], pr, top); else { ctx.fillStyle = plRgb(p.tone); ctx.fillRect(-W, -H, W * 3, H * 3); } };
   ctx.save(); if (rims.length) { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); for (const q of rims) q.P.forEach(([x, y], i) => { const [X, Y] = pr(x, y, top); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.clip('evenodd'); }   // outside every rim above it: as any top
-  ctx.save(); pieces(); lay(); for (const sm of pl.seams) platePaintSeam(sm, top, null, [], pr, us); ctx.restore();
+  ctx.save(); pieces(); lay(); ctx.restore();                                            // (no seam on a top since 231: a crack drawn on the base stays on the base)
   for (const T of Os) { ctx.save(); plPath(T); ctx.clip(); platePaintBrink(T, us); ctx.restore(); platePaintLip(T, s); }
   ctx.restore();
   for (const q of rims) { ctx.save(); pieces(); rimPath(q); ctx.clip(); lay(); ctx.fillStyle = 'rgba(18,18,16,' + (PL_WASH[0] + PL_WASH[1] * pitDepth(q, top)).toFixed(2) + ')'; ctx.fillRect(-W, -H, W * 3, H * 3); ctx.restore(); }   // inside a rim: its ledge, textured, under the depth's wash
@@ -368,19 +436,22 @@ const plateScreenBox = (p, pr) => { let x0 = Infinity, y0 = Infinity, x1 = -Infi
 // screen: the eye is over you, and what is higher is nearer it)
 function drawPlateFaces(m, p, pr, s) {
   const pl = platesLay(m), us = UNIT * s, top = plateTop(p);
-  for (const q of pl.pits) if (q.tunnel && p.base >= q.roof - 0.01 && p.box[0] < q.box[2] && q.box[0] < p.box[2] && p.box[1] < q.box[3] && q.box[1] < p.box[3]) {   // over a tunnel: the passage under it in shadow (seen through its mouths)
+  for (const q of pl.pits) if (q.tunnel && !q.crack && p.base >= q.roof - 0.01 && p.box[0] < q.box[2] && q.box[0] < p.box[2] && p.box[1] < q.box[3] && q.box[1] < p.box[3]) {   // over a tunnel: the passage under it in shadow (seen through its mouths)
     ctx.save(); plPath(p.P.map(([x, y]) => pr(x, y, q.floor))); ctx.clip(); plPath(q.P.map(([x, y]) => pr(x, y, q.floor))); ctx.fillStyle = 'rgba(10,10,12,.62)'; ctx.fill(); ctx.restore(); }
-  for (const O of p.O) { const T = O.map(([x, y]) => pr(x, y, top)), F = O.map(([x, y]) => pr(x, y, p.base)); if (plOn(T, us * 2) || plOn(F, us * 2)) platePaintFaces(T, F, p.tone); }   // (each piece's own walls: a notch's sides included)
+  for (const q of pl.pits) if (q.crack && !q.slope && p.base <= q.floor + 0.01 && q.cut.includes(p)) { ctx.save(); plPath(p.P.map(([x, y]) => pr(x, y, q.floor))); ctx.clip(); plPath(q.P.map(([x, y]) => pr(x, y, q.floor))); ctx.fillStyle = 'rgba(18,18,16,' + Math.min(0.62, 0.22 + 0.28 * (q.depth || q.top0)).toFixed(2) + ')'; ctx.fill(); ctx.restore(); }   // a crack's floor through this bottom layer, dark by its depth (its strip crosses the outline: a notch, so no hole paints it)
+  const sloped = pl.pits.filter(q => q.slope && q.cut.includes(p)), inSlope = (x, y) => sloped.some(q => plateIn(q.P, x, y));
+  for (const O of p.O) { const T = O.map(([x, y]) => pr(x, y, top)), F = O.map(([x, y]) => pr(x, y, p.base)); if (plOn(T, us * 2) || plOn(F, us * 2)) platePaintFaces(T, F, p.tone, sloped.length ? (i, j) => inSlope((O[i][0] + O[j][0]) / 2, (O[i][1] + O[j][1]) / 2) : null); }   // (each piece's own walls: a notch's sides included; not a sloped ravine's: its side is a surface, drawRavineSlope)
 }
 function drawPlate(m, p, pr, s) {
   const pl = platesLay(m), us = UNIT * s, top = plateTop(p), T = p.P.map(([x, y]) => pr(x, y, top));
   if (!plOn(T, us * 2)) return;
   const cuts = p.holes, ring = (q, z) => q.ring.get(p).map(([x, y]) => pr(x, y, z));       // (a hole wholly inside it; a ring across its edge is a notch, its walls the faces)
   plateTopPaint(m, p, pr, s);
-  for (const q of cuts) { const R = ring(q, top), B = ring(q, p.base), n = R.length, rim = q.top <= top + 1e-6, d = pitDepth(q, top);
+  for (const q of pl.pits) if (q.slope && q.cut.includes(p) && p.base <= q.floor + 0.01) drawRavineSlope(m, q, pr, s);   // a sloped ravine: its V, drawn once, at its lowest layer's turn (233)
+  for (const q of cuts) { if (q.slope) continue; const R = ring(q, top), B = ring(q, p.base), n = R.length, rim = q.top <= top + 1e-6, d = pitDepth(q, top);
     ctx.save(); plPath(T); ctx.clip(); plPath(R); ctx.clip();
     let cx = 0, cy = 0; for (const [X, Y] of R) { cx += X / n; cy += Y / n; }
-    if (!q.tunnel && p.base <= q.floor + 0.01) { plPath(B); ctx.fillStyle = 'rgba(18,18,16,' + PL_WASH[2] + ')'; ctx.fill(); }   // the floor, darkest (before the hero's box is left out: he stands on it)
+    if ((!q.tunnel || q.crack) && p.base <= q.floor + 0.01) { plPath(B); ctx.fillStyle = 'rgba(18,18,16,' + (q.crack ? Math.min(0.62, 0.22 + 0.28 * (q.depth || q.top0)) : PL_WASH[2]).toFixed(2) + ')'; ctx.fill(); }   // the floor, darkest (before the hero's box is left out: he stands on it); a crack's darker the deeper
     plateBehindHero(p, top);                                                                // (down this pit below this plate: its far walls are behind you)
     for (let i = 0; i < n; i++) { const j = (i + 1) % n, mx = (R[i][0] + R[j][0]) / 2, my = (R[i][1] + R[j][1]) / 2, bx = (B[i][0] + B[j][0]) / 2, by = (B[i][1] + B[j][1]) / 2;
       if ((bx - mx) * (cx - mx) + (by - my) * (cy - my) <= 0.2) continue;                  // the far walls: their foot lies in toward the hole's middle
@@ -389,6 +460,34 @@ function drawPlate(m, p, pr, s) {
       ctx.beginPath(); ctx.moveTo(R[i][0], R[i][1]); ctx.lineTo(R[j][0], R[j][1]); ctx.lineTo(B[j][0], B[j][1]); ctx.lineTo(B[i][0], B[i][1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke(); }
     ctx.restore();
     if (rim) { ctx.save(); plPath(T); ctx.clip(); platePaintLip(R, s); ctx.restore(); } }   // the one lip: the rim's (no brink inside it, no line at a layer's base: 225)
+}
+// a sloped ravine's V on the screen (233, depth 234): the strip sampled along its spine and across it, each cell a
+// quad at the surface's height, shaded by its lean (the side facing the view lit, the near side in its own shade),
+// its value falling off with depth, the floor darkest; the near rim's shadow cast across the floor; each layer's edge
+// a broken run across the slope where the surface crosses that layer's base (and the rim), the strata; the top
+// darkening into the fall just outside the rim (the shoulder)
+function drawRavineSlope(m, q, pr, s) {
+  const us = UNIT * s, S0 = q.spine, S = []; for (let i = 1; i < S0.length; i++) { const [ax, ay] = S0[i - 1], [bx, by] = S0[i], k = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5)); for (let j = 0; j < k; j++) S.push([ax + (bx - ax) * j / k, ay + (by - ay) * j / k]); } S.push(S0[S0.length - 1]);
+  { const [ax, ay] = S[0], [bx, by] = S[1], d = Math.hypot(bx - ax, by - ay) || 1; S.unshift([ax - (bx - ax) / d * q.w / 2, ay - (by - ay) / d * q.w / 2]); } { const m2 = S.length, [ax, ay] = S[m2 - 2], [bx, by] = S[m2 - 1], d = Math.hypot(bx - ax, by - ay) || 1; S.push([bx + (bx - ax) / d * q.w / 2, by + (by - ay) / d * q.w / 2]); }   // (and half a width past each end: the bowls)
+  const n = S.length, NA = 12, W2 = q.w / 2, N = S.map((_, i) => { const [x0, y0] = S[Math.max(0, i - 1)], [x1, y1] = S[Math.min(n - 1, i + 1)], d = Math.hypot(x1 - x0, y1 - y0) || 1; return [-(y1 - y0) / d, (x1 - x0) / d]; }), nrm = i => N[i];   // (the normals: to the left of the stroke's direction, once)
+  const at = (i, t) => { const [nx, ny] = N[i], x = S[i][0] + nx * t * W2 * 1.15, y = S[i][1] + ny * t * W2 * 1.15; return [x, y, ravineH(q, x, y)]; };
+  const tone = q.cut[0].tone, dmax = Math.max(0.01, q.top0 - q.floor), rnd = plateRng(q.rav * 5 + 2);
+  ctx.save(); plPath(q.P.map(([x, y]) => pr(x, y, q.top0))); ctx.clip();
+  for (let i = 0; i < n - 1; i++) for (let k = 0; k < NA; k++) { const t0 = -1 + 2 * k / NA, t1 = -1 + 2 * (k + 1) / NA, a = at(i, t0), b = at(i, t1), c = at(i + 1, t1), d = at(i + 1, t0);
+    const zm = (a[2] + b[2] + c[2] + d[2]) / 4, deep = (q.top0 - zm) / dmax; if (zm > q.top0 - 1e-3) continue; const [nx, ny] = nrm(i), side = (t0 + t1) / 2 < 0 ? -1 : 1, flat = Math.abs(b[2] - a[2]) < 1e-3 && Math.abs(c[2] - a[2]) < 1e-3;
+    const ux = nx * side, uy = ny * side, lit = flat ? 0.5 : mtnClamp(0.82 - 0.36 * uy - 0.14 * ux, 0.35, 1.08), grain = 1 + 0.06 * plNoise(i * 0.9 + k * 1.7, q.rav);   // the side facing the view (its uphill north) lit, the near side in its own shade; value falls off with depth; a little grain cell to cell
+    const g = plRgb(tone * lit * (1 - 0.6 * deep) * grain);
+    const A = pr(a[0], a[1], a[2]), B = pr(b[0], b[1], b[2]), C = pr(c[0], c[1], c[2]), D = pr(d[0], d[1], d[2]);
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke(); }
+  for (let i = 0; i < n - 1; i++) { const [, ny] = nrm(i), south = ny > 0 ? 1 : -1, r0 = at(i, south), r1 = at(i + 1, south), f0 = at(i, south * 0.05), f1 = at(i + 1, south * 0.05);   // the near rim's cast shadow: from the south rim across the floor, fading toward the far side
+    const R0 = pr(r0[0], r0[1], r0[2]), R1 = pr(r1[0], r1[1], r1[2]), F0 = pr(f0[0], f0[1], f0[2]), F1 = pr(f1[0], f1[1], f1[2]), g = ctx.createLinearGradient(0, (R0[1] + R1[1]) / 2, 0, (F0[1] + F1[1]) / 2); g.addColorStop(0, 'rgba(8,10,12,.5)'); g.addColorStop(0.5, 'rgba(8,10,12,.25)'); g.addColorStop(1, 'rgba(8,10,12,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(R0[0], R0[1]); ctx.lineTo(R1[0], R1[1]); ctx.lineTo(F1[0], F1[1]); ctx.lineTo(F0[0], F0[1]); ctx.closePath(); ctx.fill(); }
+  const levels = [q.top0].concat(q.cut.map(p => p.base).filter(b => b > q.floor + 1e-6 && b < q.top0 - 1e-6)); ctx.lineCap = 'round';   // the rim, and each layer's base the slope crosses: strata, as broken runs that swell and taper
+  for (const z of levels) { const ds = W2 - (q.top0 - z) * q.slope; if (ds <= 0.02) continue; const R = tunnelRing(S, ds * 2), h = R.length / 2;
+    for (const side of [R.slice(0, h), R.slice(h)]) { const C = side.map(([x, y]) => pr(x, y, z)); let i = 0; while (i < C.length - 1) { if (rnd() < 0.25) { i += 1 + Math.floor(rnd() * 2); continue; } const len = 2 + Math.floor(rnd() * 5);
+        for (let k2 = 0; k2 < len && i + k2 < C.length - 1; k2++) { const t = k2 / len, w = (z === q.top0 ? 1.8 : 1.2) * s * (0.4 + 0.9 * Math.sin(t * Math.PI)); ctx.strokeStyle = z === q.top0 ? 'rgba(28,28,24,.6)' : 'rgba(26,24,20,.45)'; ctx.lineWidth = Math.max(0.6, w); ctx.beginPath(); ctx.moveTo(C[i + k2][0], C[i + k2][1]); ctx.lineTo(C[i + k2 + 1][0], C[i + k2 + 1][1]); ctx.stroke(); } i += len + 1; } } }
+  ctx.restore(); ctx.save(); ctx.lineJoin = 'round'; const RP = q.P.map(([x, y]) => pr(x, y, q.top0));   // the shoulder: just outside the rim the top darkens into the fall
+  for (const [w, a] of [[0.5, 0.06], [0.3, 0.08], [0.15, 0.11]]) { ctx.strokeStyle = 'rgba(20,20,18,' + a + ')'; ctx.lineWidth = w * us; plPath(RP); ctx.stroke(); } ctx.restore();
 }
 // System > Show tiles on a plates screen: the tiles lightened by the ground's height there (a pit is dark again)
 function drawPlateTiles(m, pr) {

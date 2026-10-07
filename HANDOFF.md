@@ -1,4 +1,4 @@
-# Quest: handoff (build 230, 6 Oct 2026)
+# Quest: handoff (build 234, 7 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -230,7 +230,10 @@ pit inside a plate before the plate, a seam by its line), drag moves (a plate ta
 ground clears. L W D A B E pick what [ ] change: length (x, 0.2), width (y, 0.2), depth (thickness, 0.05), all three
 scaled by a tenth (Ross's lwd), base (0.05; the plate then stands on nothing; a pit: its floor), ledge (a pit's); a
 seam only has its width. R turns (rigidly since 223), U copies it (the same size and spot, stacked straight on it; a pit a tile over), Delete, N a plate under the cursor (on the
-plate there), P a pit, C a crack (clicks lay its points, C ends), G a tunnel the same way (1.4 wide, roof 1.2: W, B, E), B the slab brush (227: [ ] set its reach, a circle at the cursor; a drag sweeps a strip,
+plate there), P a pit, C a crack (clicks lay its points, C ends; 231: the first click picks its layer, on the base a hairline, on a
+layer a slit down to the base through everything under it, wider the deeper, a plate over it spanning it; [ ] its
+layer), G a tunnel the same way (1.4 wide, roof 1.2: W, B, E), X the ravine brush (232: [ ] width, D [ ] depth, E [ ] slope; a drag cuts
+a V ravine on the layer pressed on, 233), B the slab brush (227: [ ] set its reach, a circle at the cursor; a drag sweeps a strip,
 previewed; release lays a 0.5 slab in that shape, kind 'brush' { pts, r } rebuilt from its stroke at every load by
 brushOutline, selected with [ ] on its depth; the brush stays in hand, B puts it away; a stroke across a slab at the
 level it lands on merges into it (228: the slab becomes a brush slab of its parts, strokes and plates, one outline, its
@@ -249,6 +252,13 @@ trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape 
 tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
 
 ## Next task (on Opus unless marked: WAYS 7a)
+The ravine brush (232, X; plateRavine, PL_RAV) cuts a V (233, angled edges: ravineH, E [ ] the slope): you slide in
+(ravineSlope in plateStepHero), a jump gets out while the rim is within reach; drawRavineSlope draws it with depth (234: lit far side, shaded near side, value by depth, the near rim's cast
+shadow, strata as broken runs, the rim roughened by roughRing). Ross's look notes, 7 Oct, are the stone build next (docs/parked/mock-epic-*.js: married to the ground, lines,
+no right angles, inner walls occluded, tops as tops, seamless stacks); docs/mountain-beats.md the mood arc.
+A crack belongs to its layer (231, plateCrack: PL_CRACK the width by depth, PL_SLIT what you step over).
+Ross, 6 Oct: the mountain feels empty, make it more rugged (docs/mountain-beats.md has the mood arc; the light and a
+rugged still are next).
 A brush stroke is traced once at release (230: nothing while the button is down; outlines cached by shape, PL_BRUSHC).
 Plates paint as layers (229): a top keeps its place in the ground order, moved later only by plates it overlaps
 (platesOrder; tests/layers.js), so you stand in front of a slab south of you and a stacked slab keeps its walls.

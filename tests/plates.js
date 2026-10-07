@@ -41,8 +41,8 @@ console.log('4 push-out on mt2: x', push.toFixed(3), '(want', (1+2/m.eye).toFixe
 // 5. faces north only: of a far plate's foot ring on the screen, every face drawn has its foot south of its lip
 const far=pl.list.find(p=>p.seed===120), pr=(x,y,z)=>mtnProj(x,y,mtnH(m,x,y)+z,c), T=far.P.map(([x,y])=>pr(x,y,far.thick)), F=far.P.map(([x,y])=>pr(x,y,0)); let seen=0, north=0;   // (a plate well away from the eye, which is over you: the north bank's two-step)
 for(let i=0;i<T.length;i++){ const j=(i+1)%T.length, ex=T[j][0]-T[i][0], ey=T[j][1]-T[i][1], L=Math.hypot(ex,ey)||1, nx=ey/L, ny=-ex/L, mx=(T[i][0]+T[j][0])/2, my=(T[i][1]+T[j][1])/2, fx=(F[i][0]+F[j][0])/2, fy=(F[i][1]+F[j][1])/2; const out=(fx-mx)*nx+(fy-my)*ny>0.2; if(out&&fy>my+0.2) seen++; if(out&&fy<=my+0.2) north++; }
-const seamW=Math.max(...pl.seams[0].spine.map(q=>q[2]*2));
-console.log('5 a far plate: edges with the foot outward', seen+north, '| drawn (foot south of the lip)', seen, '| skipped north faces', north, '| the seam at most', seamW.toFixed(2), 'tiles wide');
+const seamW=pl.seams[0].top;   // (231: mt2's seam is a crack on the base, top 0)
+console.log('5 a far plate: edges with the foot outward', seen+north, '| drawn (foot south of the lip)', seen, '| skipped north faces', north, '| the base crack on the layer at', seamW);
 // 6. walked into the face stack's 0.4 foot from the west (a hop, so it holds you); then a drawn frame's cost
 h.x=0.6*UNIT; h.y=15.6*UNIT; h.vx=h.vy=0; const stack2=pl.list.find(p=>p.seed===80); let inside=false; state.keys.arrowright=true; for(let k=0;k<180;k++){ run(1); if(plateHas(stack2,tx(),ty())) inside=true; } off(); const stopX=tx(); let edgeX=0; while(!plateHas(stack2,edgeX,ty())&&edgeX<5) edgeX+=0.01;
 const t0=Date.now(); for(let k=0;k<30;k++) draw(); const ms=(Date.now()-t0)/30;
@@ -76,9 +76,32 @@ const xPit=xr(6.6,19.7,0), xLedge=xr(4.1,20.6,1.2), xBehind=xr(2.6,13.7,0), xOpe
 console.log('9 x-ray (shown, % of you hidden): down the pit', xPit.join(' '), '| on its 1.2 ledge', xLedge.join(' '), '| north of the face stack', xBehind.join(' '), '| out in the open', xOpen.join(' '));
 if (!(P.length===48 && Math.abs(bw-8)<1.6 && Math.abs(bh-4.5)<1.2 && same && diff && hasMid && hasEdge && !hasPast && !hasOut)) errs++;
 if (!(pl.list.length>=9 && pl.pits.length===1 && pl.seams.length===1 && hAtFoot===0.4 && Math.abs(hTop-1.65)<1e-6 && hPit===0 && pit.cut.length===4 && steps.every((v,i)=>!i||v<steps[i-1]-0.4) && hOff===0)) errs++;
-if (!(Math.abs(push-(1+2/m.eye))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && seen<T.length && seamW<0.5 && !inside)) errs++;
+if (!(Math.abs(push-(1+2/m.eye))<0.01 && Math.abs((r2[0]-SW/2)/(r0[0]-SW/2)-1)<1e-9 && mtnZoom(c.p,m)===0.825 && seen>0 && seen<T.length && seamW===0 && !inside)) errs++;
 if (!(heldBack===0 && onFoot===0.4 && on2===0.85 && keyOK && on3===1.2 && on4===1.65 && inPit===0 && way.join()==='0.4,0.85,1.2,1.65')) errs++;
 if (!(before>0 && off1===0 && landed && onStep===0.25 && onShelf===0.4 && atFace===0.4)) errs++;
 if (!(xBehind[0] && !xOpen[0] && !xPit[0] && !xLedge[0])) errs++;   // (down the pit a rim hides only an edge of you: under the line)
+// 10. cracks (231): on the flat board a stack of three (0.4, 0.4, 0.4) with a crack drawn on its crown: a slit through
+// all three to the base, its width by its depth (1.2: 0.25 + 0.4 x 1.2 = 0.73); narrower than a tile, you walk over it
+// (the ground ignores it); a crack on the base beside it cuts nothing (a hairline); a plate laid over the crack spans it
+LAYOUTS.flat={plates:[{x:20,y:12,w:8,h:5,seed:4,base:0,thick:0.4,tone:134,rot:0,under:-1},{x:20,y:12,w:7,h:4.4,seed:5,base:0.4,thick:0.4,tone:134,rot:0,under:0},{x:20,y:12,w:6,h:3.8,seed:6,base:0.8,thick:0.4,tone:134,rot:0,under:1},{x:20,y:12,w:2.4,h:1.2,seed:7,base:1.2,thick:0.3,tone:134,rot:0,under:2}],pits:[],seams:[{spine:[[20,9.5],[20,14.5]],top:1.2},{spine:[[10,20],[30,20]],top:0}]};
+FLAT.pl=null; startTestScene('flat', 0.5, 0.5); run(3); const fp=platesLay(FLAT), cr=fp.pits.find(q=>q.crack), onCrown=plateTopAt(fp,20,13), onLid=plateTopAt(fp,20,12), beside=plateTopAt(fp,18.5,13);
+h.x=18.3*UNIT; h.y=13*UNIT; h.vx=h.vy=0; h.z=0; h.liftAt=null; run(3); const liftA=h.lift; state.keys.arrowright=true; run(28); off(); run(3); const liftB=+(h.lift||0).toFixed(2), xB=tx().toFixed(1);
+console.log('10 cracks: on the crown of a 1.2 stack: cuts', cr.cut.length, 'plates, roof', cr.roof.toFixed(3), 'width', cr.w, '(0.25 + 0.4 x 1.2) | the ground on it ignores it', onCrown, '| the lid laid over it spans it', onLid, '| beside', beside, '| the base crack cut nothing (pits', fp.pits.length+', seams', fp.seams.length+') | walked east across it: lift', liftA, '>', liftB, 'at x', xB);
+if (!(cr && cr.cut.length===3 && Math.abs(cr.w-0.73)<1e-6 && Math.abs(onCrown-1.2)<1e-9 && Math.abs(onLid-1.5)<1e-9 && fp.pits.length===1 && fp.seams.length===1 && liftB===1.2 && +xB>21)) errs++;
+// 11. a ravine with angled edges (233): on a 1.4 slab, 4 wide, 1.4 deep, slope 1 (45 degrees): from the rim the
+// ground falls a tile a tile to a flat floor 1.2 wide; step onto the edge and you slide to the floor; walking up a
+// 45-degree side gets you nowhere; a jump gets out while the rim is within its reach (a tap 0.56, held 0.95): from 0.4
+// down a tap, from 0.8 a held jump, from 1.1 not even held, from the floor not at all; a gentle side (slope 2.5) you
+// walk up and out
+LAYOUTS.flat={plates:[{x:20,y:12,w:14,h:16,seed:4,base:0,thick:1.4,tone:134,rot:0,under:-1}],pits:[],seams:[],ravines:[{spine:[[14,10],[26,10]],w:4,depth:1.4,top:1.4,seed:9,slope:1},{spine:[[14,17],[26,17]],w:5,depth:1.4,top:1.4,seed:10,slope:2.5}]};
+FLAT.pl=null; startTestScene('flat', 0.5, 0.5); run(3); const rp=platesLay(FLAT), rv=rp.pits.find(q=>q.rav===0), hs=[0,0.5,1,1.4,2].map(d=>+plateTopAt(rp,20,8+d).toFixed(2));
+const placeH=(x,y)=>{ h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.liftAt=null; h.plPrev=null; h.vig=maxVig(); run(2); return +(h.lift||0).toFixed(2); };
+placeH(20,7.6); state.keys.arrowdown=true; run(20); off(); let slid=false, lowest=9; for(let k=0;k<120;k++){ run(1); if(h.sliding) slid=true; lowest=Math.min(lowest,+(h.lift||0).toFixed(2)); } const settled=+(h.lift||0).toFixed(2), yEnd=ty().toFixed(2);
+placeH(20,8.9); const liftS=+(h.lift||0).toFixed(2); state.keys.arrowup=true; run(60); off(); run(5); const climbed=+(h.lift||0).toFixed(2);
+const jumpOut=(y,hold)=>{ placeH(20,y); const from=+(h.lift||0).toFixed(2); state.keys.arrowup=true; run(2); state.keys.btnjump=true; run(1); for(let k=0;k<hold;k++) run(1); state.keys.btnjump=false; run(3); for(let k=0;k<60&&(h.z>0||h.vz>0);k++) run(1); off(); run(30); return from+' > '+(+(h.lift||0).toFixed(2)); };   // (steered at the rim only while in the air: landed, you let go)
+const rj1=jumpOut(8.4,0), rj2=jumpOut(8.8,14), rj3=jumpOut(9.1,14), rj4=jumpOut(10,14);
+placeH(20,14.3); state.keys.arrowdown=true; run(30); off(); run(60); const gentleIn=+(h.lift||0).toFixed(2); state.keys.arrowup=true; let upF=0; while(upF++<240 && (h.lift||0)<1.39) run(1); off(); run(5); const gentleOut=+(h.lift||0).toFixed(2), upSecs=(upF/60).toFixed(1);
+console.log('11 angled edges: heights 0, 0.5, 1, 1.4, 2 tiles in from the rim', hs.join(', '), '(the floor is 1.2 wide) | stepped onto the edge: slid', slid, 'lowest', lowest, 'settled at', settled, 'y', yEnd, '| walking up the 45-degree side from', liftS, 'for a second:', climbed, '| jumps toward the rim: tap from 0.4 down', rj1, '| held from 0.8', rj2, '| held from 1.1', rj3, '| held from the floor', rj4, '| the gentle side (slope 2.5): slid to', gentleIn, 'walked up and out to', gentleOut, 'in', upSecs, 's');
+if (!(hs[0]===1.4 && Math.abs(hs[1]-0.9)<1e-6 && Math.abs(hs[2]-0.4)<1e-6 && hs[3]===0 && hs[4]===0 && slid && settled===0 && climbed<=liftS+0.05 && rj1.endsWith('> 1.4') && rj2.endsWith('> 1.4') && !rj3.endsWith('> 1.4') && !rj4.endsWith('> 1.4') && gentleOut===1.4)) errs++;
 console.log('BUILD', BUILD, '| errs', errs);
 `);

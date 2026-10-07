@@ -245,6 +245,7 @@ function newGame() {
 // own code; drawing and the HUD use the screen (SW, SH)
 function update(dt) {
   if (state.slowmo > 0) { state.slowmo -= dt; dt *= 0.3; }   // a beat of slow motion (a dodge, a relic): counts down in real time
+  state.dtLast = dt;                                         // (this frame's step, for what runs outside update's reach: the plates' slopes, plateStepHero)
   const sv = [W, H]; [W, H] = sceneSize(state.scene);
   try { updateWorld(dt); } finally { [W, H] = sv; }
   if (state.mtn) mtnCamera(dt);
