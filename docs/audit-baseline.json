@@ -1,21 +1,21 @@
 {
  "unused": 0,
- "lines": 12577,
- "longLines": 851,
+ "lines": 12609,
+ "longLines": 857,
  "stateFields": 162,
  "files": {
-  "world.js": 864,
+  "world.js": 863,
   "highlands.js": 247,
   "climb.js": 314,
-  "plates.js": 564,
+  "plates.js": 576,
   "layouts/mt2.js": 29,
   "layouts/flat.js": 11,
   "layouts/epic.js": 39,
-  "mountain.js": 828,
+  "mountain.js": 848,
   "edit.js": 278,
   "input.js": 422,
   "text.js": 112,
-  "engine.js": 724,
+  "engine.js": 725,
   "items.js": 436,
   "combat.js": 229,
   "critters.js": 781,
@@ -38,11 +38,11 @@
   "puzzles.js": 77,
   "boot.js": 30
  },
- "bigFns": 0,
+ "bigFns": 1,
  "repeats": 0,
- "frameAvg": 1.57,
+ "frameAvg": 1.47,
  "slowScreens": 6,
  "frameErrors": 0,
  "date": "2026-10-07",
- "build": 237
+ "build": 239
 }

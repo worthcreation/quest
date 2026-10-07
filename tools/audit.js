@@ -71,11 +71,11 @@ reps.slice(0, 10).forEach(([s, v]) => say(`  ${String(v.n).padStart(3)}x  ${s.sl
 
 // frames
 const frames = (function () {
-  const src = require('../tests/harness.js').src, rows = [];
+  const src = require('../tests/harness.js').drawn, rows = [];
   let res;
   eval(src + `;
     begin(); for (let k = 0; k < 10; k++) update(1 / 60);
-    const ids = Object.keys(WORLD), ms = t0 => Number(process.hrtime.bigint() - t0) / 1e6;
+    const ids = [...new Set(Object.keys(WORLD).concat(Object.keys(MTN).filter(id => MTN[id].late)))], ms = t0 => Number(process.hrtime.bigint() - t0) / 1e6;   // (the late screens too: built when entered, 238)
     for (const id of ids) {
       try {
         enterScene(id); state.cut = null; state.intro = null; state.hero.hp = 99;

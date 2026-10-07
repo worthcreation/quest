@@ -112,6 +112,10 @@ Say what the player should see and feel, and the rule. Batch related changes int
 reference image plus a few words; "render a still" gets a mockup, no build. If a chat compacts, say so. Start a
 fresh chat or session when the topic changes, after a heavy one (a big refactor, many large reads), or after a
 compaction; otherwise keep going. HANDOFF carries everything, so a handoff comes first.
+Waiting (Ross, after 239 took over 30 minutes): a diagnostic scan covers only the spot in question and finishes in
+under 30 s (the canyon at every quarter tile is 5 minutes; the corner by the step was seconds); a whole-screen scan
+runs once, as the final check, and what it finds becomes a test of the worst spots. A background run is polled with
+sleep 30, never slept on for minutes: finished work should not sit idle.
 
 ## 7a. Which model: FABLE or Opus (enforce this, every chat)
 Every reply opens with a line naming the model the task in it needs, "Model: FABLE" or "Model: Opus" and a few

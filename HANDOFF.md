@@ -36,7 +36,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after build 237, 7 Oct): audit: 12577 lines, 0 unused, 0 functions over 150, 0 repeats, 162 state fields, frames avg 1.51 ms (6 slow, 0 errors): epic draws 16.0 ms, mt2 14.3, rise 9.4 (harness).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 239, 7 Oct): audit: 12609 lines, 0 unused, 1 functions over 150 (drawMtn 161), 0 repeats, 162 state fields, frames avg 1.47 ms (6 slow, 0 errors): epic draws 14.3 ms, mt2 14.2, rise 7.7 (harness; since 239 the audit draws, and builds the late canyon).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -271,17 +271,22 @@ Plates paint as layers (229, platesOrder; tests/layers.js).
 Ross, 6 and 7 Oct, the direction: the mountain feels empty and thin; think Grand Canyon and Everest; no 90-degree
 angles, nature's lines; angled edges you slide into; things married to the environment, not stamps.
 docs/mountain-beats.md: the mood arc and the three rules, to go into the docs once he takes them (o).
-Ross, 7 Oct, on turn length (20 to 30 minutes a build): the time is the test suite (6.5 min, run once or twice a
-build, past one tool call so run detached and waited on blind), not the model or the source. Agreed: (ad) first,
-and the working rules in PROJECT_INSTRUCTIONS (the full suite once at ship, poll a background run every 30 s, stills
-only when asked and two shots, one build a reply, debugging stops at two tries and reports).
-NEXT, Opus, fresh chat: (ad) A FAST TEST SUITE, one build, no change in play: tests/run.js prints each test's time
-(measure first: which tests cost what); tests step the game without drawing unless they check the picture (a
-run(n, draw=false) in each, or a harness switch; keep draw() where a test reads draw order, the x-ray, the window or
-pixels); EPIC's land and plates built only when the canyon is entered or edited (addMtn for it lazily, or mtnLand
-deferred; the world's rng untouched); the goal is the whole suite under 3 minutes in the container, inside one tool
-call. Then the list below as Ross picks.
-Open: (ae) tests/run.js in parallel on machines with more than one core (the container has one), Opus. (ac) the
+Since 238 the suite runs in about 160 s inside one tool call (tests step without drawing unless they read the screen;
+the canyon built at its first visit; HANDOFF "Build, test, ship"). Since 239 you are drawn in front of what is behind
+you next to a boulder or a step (drawMtn raises a stone south of you past you; plateHeroPick settles a plate conflict
+by what hides less of you; tests/hero-order.js). Ross, 7 Oct, after 239 took over 30 minutes: the time was four
+whole-canyon scans of 5 minutes each and sleeping minutes on background runs; the rules now in WAYS 7 and
+PROJECT_INSTRUCTIONS (a diagnostic scan under 30 s on the spot in question, one whole-screen scan at the end, poll with
+sleep 30).
+NEXT, Opus, fresh chat: Ross picks from the list. If he has no pick, the audit's flag first: (cleanup 2) drawMtn is
+161 lines since 239, over the 150 limit: move the plates' part (the base, the hero among a pit's layers, the hero's
+key with plateHeroPick and the stones raised, the x-ray's shapes) into plates.js, no change in play, one build, Opus.
+Open: (ai) the 7 wedged spots left by the canyon scan (you between a low plate in front and a taller one behind on the
+screen: 32, 18.75 and 18.25, 21.25 show the x-ray): draw you in two parts, clipped between the plates, FABLE. (af) play
+state set in draw code (woods-gremlins' ducking, spores-map's trapdoor only work when drawn: tests found it in 238;
+move it into update), Opus. (ag) combat-rhythm's landing-shadow block never runs (no ride happens): delete it or make
+a ride happen, Opus. (ae) tests/run.js in parallel on machines with more than one core (the container has one), Opus.
+Parked: rise and mt2 land built lazily (about 50 s off the suite; not needed while it is under 3 minutes). (ac) the
 outline's bites make small notches you can walk into, and a slab seen through a notch's sides can still overlap you;
 watch in play, fewer bites on brush slabs if it shows (PL_ROUGH.bites), Opus. (x) the tops' tint and the bites as
 Ross judges in play (PL_GROUND, PL_ROUGH), Opus. (y) the editor re-bakes the base texture on every plate move (its key
@@ -292,8 +297,8 @@ and slope on the ground, a still, Opus. (p) beat 0 (the ornithologist passes cam
 (mock-ledges.js), FABLE. (k) m3 the hush, FABLE. tests/plates.js 11 (the slope play) into its own file, Opus. (o)
 docs/mountain-beats.md's rules into the docs once Ross takes them, Opus. Not built: plain plates merging when dragged
 (Ross: brush only for now); a tunnel brush if he wants one.
-Done this chat: ~~(w) the stone's look~~ (235), ~~(z) the canyon playable~~ (236), ~~(ab) the canyon climbable and
-the clipping behind bent slabs~~ (237).
+Done this chat: ~~(ad) a fast test suite~~ (238), ~~(ah) clipping behind plates next to a boulder or a step~~ (239),
+~~(aj) the waiting rules into WAYS and PROJECT_INSTRUCTIONS~~ (handoff after 239).
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.
@@ -333,7 +338,7 @@ gone: the rise's pass leads onto mt2. Ross's calls for the editor (2 Oct): the h
 the wheel zooms, [ ] set thickness (so a scroll never edits by accident). Both built in 215.
 Cleanup list (one build each, when it suits): (1) mt2's draw cost, 15 ms in the harness: cache plateScreenBox and each
 pit's projected rings per frame, skip heroHid's shapes unless a box meets yours first, plateTopAt for items and
-creatures from a grid at a fifth of a tile (as the ravines' ravGrid). Opus. (2) drawMtn at 131 lines: split the
+creatures from a grid at a fifth of a tile (as the ravines' ravGrid). Opus. (2) drawMtn at 161 lines (over 150 since 239, the audit flags it): split the
 plates' part (base, plates, the hero among a pit's layers, the x-ray) into plates.js. Opus.
 
 FABLE: the mountain as PLATES (Ross, 2 Oct, a second design chat after 211; fifteen stills, no build). The look is
