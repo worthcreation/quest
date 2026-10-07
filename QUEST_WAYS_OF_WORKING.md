@@ -35,7 +35,7 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 3. Write or extend a headless test that plays it like a person (walk, press, wait); add a bot where scale matters.
 4. While working: `node tools/build.js` and `node tests/<name>.js` for the tests it touches. No renders unless asked.
 5. Write the one short HISTORY entry, then ship in one call: `node tools/ship-local.js NN "Build NN: ..." [scene]
-   --zip`. It bumps BUILD, builds, runs dead.js, every test (about 2 minutes) and the overlap check, stops at the
+   --zip`. It bumps BUILD, builds, runs dead.js, every test (about 6.5 minutes since 236; (ad) aims under 3) and the overlap check, stops at the
    first failure, packages /mnt/user-data/outputs/quest-bNN.zip and prints the commit line (it unzips first) and every
    play-test link with a fresh prime (tools/links.js holds the list). Never commit or push: Ross runs the line.
 6. Deliver: the zip as a download; what changed (grouped by what the player sees), what was tested with numbers,

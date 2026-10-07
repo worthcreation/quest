@@ -1,4 +1,4 @@
-# Quest: handoff (build 234, 7 Oct 2026)
+# Quest: handoff (build 237, 7 Oct 2026)
 Current state only. What changed build by build is in docs/HISTORY.md (newest first). How we work is in
 QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when the task touches them.
 
@@ -16,7 +16,9 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 73 tests, one after another, about 2 minutes in the container. Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 74 tests, one after another, about 6.5 minutes in the container since 236 (one core;
+  past one tool call's 5 minutes, so ship-local runs detached: `setsid nohup ... &`, then poll the log every 30 s;
+  (ad) is to bring it under 3). Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists
@@ -32,7 +34,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after build 234, 7 Oct): audit: 12444 lines, 0 unused, 0 functions over 150, 0 repeats, 162 state fields, frames avg 1.19 ms (5 slow, 0 errors). Before that (after 226, 3 Oct): 12201 lines, 161 state fields, frames avg 1.24 ms; mt2's draw 14.5 ms in the harness, the rise 9.6, flat 6.3 (up from 6.9 and 3.9: platesOrder per view and the 8 by 8 cover sample; cleanup item 1). drawMtn still long (cleanup item 2).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 237, 7 Oct): audit: 12577 lines, 0 unused, 0 functions over 150, 0 repeats, 162 state fields, frames avg 1.51 ms (6 slow, 0 errors): epic draws 16.0 ms, mt2 14.3, rise 9.4 (harness).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -47,7 +49,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   the rise (eight spots: the way in, along it by the ravines, the way out; plus the tiles; SW=390 SH=844 for a phone).
 - Links (every reply that ships gives all of them, as tools/links.js prints them; that file is the one list): `?seed=N` (a fresh 7-digit prime each build; the jetty opening), `?arena`,
   `?puzzle`, `?mountain` (keys 1-4 jump between mt2 and climb3 to climb5, 0 to the first field, [ ] and - = tune the
-  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?edit=mt2` and `?edit=flat` (the layout editor, 215; flat is the empty board), `?overview=N` (the same world as
+  shadow), `?scene=<id>` (start on any screen id in MAP_LAYOUT, rise included, or climb1-climb5; there is no f2 now), `?edit=mt2`, `?edit=flat` and `?edit=epic` (the layout editor, 215; flat is the empty board), `?scene=epic` (the canyon, 236: the stone's test screen, off the map), `?overview=N` (the same world as
   one map; bare ?overview for a random one), `?model` (the drawn hero outside the arena). Any of them combine with
   &seed=N. If a link is added, renamed or removed in src/, change this list in the same build.
 
@@ -158,7 +160,8 @@ fluff garden-robin garden gather-skill gathering growth-gusts-shroom gusts heavy
 hud-banners intro-wander lanes ledge-ride lesson opening pack patch-hints pickup-sparkles
 pip-ahead pip-bounce pip-brambles pip-leading pip-post pip-teaches place-tag plot-tips puzzles quests rabbits layers reminders rise riverbank
 robin-drop robin-home rocks-banners scene-smoke slots smoke speech spores-map stepping-stones sticks-trees stones rise-ravines reeds-hold
-text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods. scene-smoke visits every screen with every
+text-layout tips-prompts tour wind-rocks wood-sword woods-gremlins woods epic (the canyon played: its climbs, the
+clipping at the shelf, at both screen shapes). scene-smoke visits every screen with every
 creature woken from a stun (it would have caught the High Reaches freeze).
 
 ## The climb, where it stands (tune with ?mountain)
@@ -252,32 +255,43 @@ trees, reeds and grass never; inside a G tunnel neither (unshown). boulderShape 
 tests/occlusion.js. Inside a pit's rim (225): ledges textured under PL_WASH, the floor darkest, one lip at the rim.
 
 ## Next task (on Opus unless marked: WAYS 7a)
-The ravine brush (232, X; plateRavine, PL_RAV) cuts a V (233, angled edges: ravineH, E [ ] the slope): you slide in
-(ravineSlope in plateStepHero), a jump gets out while the rim is within reach; drawRavineSlope draws it with depth (234: lit far side, shaded near side, value by depth, the near rim's cast
-shadow, strata as broken runs, the rim roughened by roughRing). Ross's look notes, 7 Oct, are the stone build next (docs/parked/mock-epic-*.js: married to the ground, lines,
-no right angles, inner walls occluded, tops as tops, seamless stacks); docs/mountain-beats.md the mood arc.
-A crack belongs to its layer (231, plateCrack: PL_CRACK the width by depth, PL_SLIT what you step over).
-Ross, 6 Oct: the mountain feels empty, make it more rugged (docs/mountain-beats.md has the mood arc; the light and a
-rugged still are next).
-A brush stroke is traced once at release (230: nothing while the button is down; outlines cached by shape, PL_BRUSHC).
-Plates paint as layers (229): a top keeps its place in the ground order, moved later only by plates it overlaps
-(platesOrder; tests/layers.js), so you stand in front of a slab south of you and a stacked slab keeps its walls.
-NEXT, FABLE, fresh chat: (w) THE STONE'S LOOK, one build, the mocks the reference (docs/parked/mock-epic-blend.js
-through mock-epic-seam.js, mock-vslopes.js; mock-epic.js the scene): slab tops take the ground's colour under them;
-contact shadow and scree only at a foot on the base; outlines roughened at three scales (roughRing is in since 234;
-apply it to plates and brush slabs, the faces rib by it); lips as tapering broken runs; cracks that taper and branch;
-rounded shoulders, battered walls, talus into the ground's colour; inner walls like outer, occluded; tops as tops
-(the shoulder scaled by the slab); seamless stacks; the V's cells smoothed. One shape still drives collision and
-drawing; bake outlines once; measure the frame on the epic scene before and after. Then the list below as Ross picks.
+The canyon (scene epic, 236; src/layouts/epic.js, EPIC in mountain.js): the stone's test screen, off the map
+(?scene=epic, ?edit=epic), the mocks (docs/parked/mock-epic*.js) render it from the build. Climbable since 237: steps
+of 0.5 to 0.8 against every face (layouts/epic.js 8 to 18; a held jump reaches about 1.0 at full vigor, less when
+tired); you start at 28, 20. Drawn among plates by plateHeroKey (237): a plate with nothing south of your feet across
+your body is behind you, so a long bent brush slab no longer paints over your head. The stone's look is in (235:
+outlines roughRing'd with bites, plateWall, tops in the ground's colour with shoulder and broken lip baked in, the
+contact and scree baked on the base, seamless stacks, occluded pit walls, tapering cracks, the V smoothed).
+The ravine brush (232, X; plateRavine, PL_RAV) cuts a V (233: ravineH, E [ ] the slope): you slide in, a jump gets
+out while the rim is within reach; drawRavineSlope draws it with depth (234).
+A crack belongs to its layer (231, plateCrack, crackRing since 235). A brush stroke is traced once at release (230).
+Plates paint as layers (229, platesOrder; tests/layers.js).
 Ross, 6 and 7 Oct, the direction: the mountain feels empty and thin; think Grand Canyon and Everest; no 90-degree
-angles, nature's lines; angled edges you slide into (built, 233); things married to the environment, not stamps.
+angles, nature's lines; angled edges you slide into; things married to the environment, not stamps.
 docs/mountain-beats.md: the mood arc and the three rules, to go into the docs once he takes them (o).
-Open: (u) the ravine tracer breaks past about 3 tiles of half-width (the rows go black), Opus. (s) the eye at 14, 20,
-40 on the epic scene, a still, FABLE. (m) light and slope on the ground, a still, Opus. (p) beat 0 (the ornithologist
-passes camp, the feather, Pip stays), FABLE. (n) the looking-back ledge on the rise, Opus. (l) shadow under a slab
-you walk under, Opus. (j) m2 the Ledges laid (mock-ledges.js), FABLE. (k) m3 the hush, FABLE. tests/plates.js 11
-(the slope play, 10 s) into its own file, Opus. Not built: plain plates merging when dragged together (Ross: brush
-only for now); a tunnel brush if he wants one.
+Ross, 7 Oct, on turn length (20 to 30 minutes a build): the time is the test suite (6.5 min, run once or twice a
+build, past one tool call so run detached and waited on blind), not the model or the source. Agreed: (ad) first,
+and the working rules in PROJECT_INSTRUCTIONS (the full suite once at ship, poll a background run every 30 s, stills
+only when asked and two shots, one build a reply, debugging stops at two tries and reports).
+NEXT, Opus, fresh chat: (ad) A FAST TEST SUITE, one build, no change in play: tests/run.js prints each test's time
+(measure first: which tests cost what); tests step the game without drawing unless they check the picture (a
+run(n, draw=false) in each, or a harness switch; keep draw() where a test reads draw order, the x-ray, the window or
+pixels); EPIC's land and plates built only when the canyon is entered or edited (addMtn for it lazily, or mtnLand
+deferred; the world's rng untouched); the goal is the whole suite under 3 minutes in the container, inside one tool
+call. Then the list below as Ross picks.
+Open: (ae) tests/run.js in parallel on machines with more than one core (the container has one), Opus. (ac) the
+outline's bites make small notches you can walk into, and a slab seen through a notch's sides can still overlap you;
+watch in play, fewer bites on brush slabs if it shows (PL_ROUGH.bites), Opus. (x) the tops' tint and the bites as
+Ross judges in play (PL_GROUND, PL_ROUGH), Opus. (y) the editor re-bakes the base texture on every plate move (its key
+holds what stands on the base); watch for a stutter on a big screen, Opus. (u) the ravine tracer breaks past about 3
+tiles of half-width (the rows go black), Opus. (s) the eye at 14, 20, 40 on the epic scene, a still, FABLE. (m) light
+and slope on the ground, a still, Opus. (p) beat 0 (the ornithologist passes camp, the feather, Pip stays), FABLE.
+(n) the looking-back ledge on the rise, Opus. (l) shadow under a slab you walk under, Opus. (j) m2 the Ledges laid
+(mock-ledges.js), FABLE. (k) m3 the hush, FABLE. tests/plates.js 11 (the slope play) into its own file, Opus. (o)
+docs/mountain-beats.md's rules into the docs once Ross takes them, Opus. Not built: plain plates merging when dragged
+(Ross: brush only for now); a tunnel brush if he wants one.
+Done this chat: ~~(w) the stone's look~~ (235), ~~(z) the canyon playable~~ (236), ~~(ab) the canyon climbable and
+the clipping behind bent slabs~~ (237).
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.
