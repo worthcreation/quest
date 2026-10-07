@@ -44,6 +44,7 @@ function saveScene() {
 }
 
 function enterScene(id, fx, fy) {
+  worldScene(id);                                                                       // (a late screen, the canyon, is built here)
   if (WORLD[state.scene] && RT[state.scene]) saveScene();                              // (at the old scene's own size: a mountain screen's items were being saved at the next screen's, build 211)
   const sv = [W, H]; [W, H] = sceneSize(id);
   try { enterSceneIn(id, fx, fy); } finally { [W, H] = sv; }

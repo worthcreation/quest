@@ -1,5 +1,5 @@
 global.location = { search: '?puzzle' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 eval(src+`;
 const step=n=>{for(let i=0;i<n;i++){update(1/60);draw();}};
 const tap=k=>{state.keys[k]=true;step(2);state.keys[k]=false;step(2);};

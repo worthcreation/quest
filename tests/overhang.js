@@ -1,5 +1,5 @@
 global.location = { search: '?edit=flat&seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // Build 217 (Ross, from a screenshot of the editor): an overhang clear of your head is walked under, the x-ray showing
 // you through it; a plate laid partly inside another is painted by whose foot lies south where they overlap, so the
 // one in front shows over the other's wall. Laid on the flat board through the editor's loader, then played.

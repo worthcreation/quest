@@ -1,5 +1,5 @@
 global.location = { search: '?scene=epic&seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // Build 236 (Ross: "where is the epic scene? playable?", then "move and create"): the canyon, composed in the mocks
 // on 7 Oct as the stone's test screen, is a scene of its own (EPIC in mountain.js, src/layouts/epic.js), off the map
 // (?scene=epic, ?edit=epic). Played like a person at both screen shapes: parked in the open at 28, 20; walked to the
@@ -11,7 +11,8 @@ const src = require('./harness.js').src;
 // wherever an edge stops you; and at the shelf's south face, which runs south of you further east, you are drawn
 // after it and nothing hides you (plateHeroKey).
 eval(src+`;
-let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\\\\\n').slice(1,3).join(' | '));} }};
+// (238) run(n) steps without drawing; run(n, true) draws, where a check reads what drawMtn sets (the window, cover)
+let errs=0; const run=(n,d)=>{for(let k=0;k<n;k++){ try{update(1/60); if(d) draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\\\\\n').slice(1,3).join(' | '));} }};
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
 const h=state.hero, m=MTN.epic, tx=()=>h.x/UNIT, ty=()=>h.y/UNIT, lift=()=>+(h.lift||0).toFixed(2);
 const put=(x,y)=>{ h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.vz=0; h.lift=0; h.liftAt=state.scene; h.plPrev=[h.x,h.y]; run(2); };
@@ -20,7 +21,7 @@ const out=[];
 for (const [w,hh] of [[1280,800],[390,844]]) { window.innerWidth=w; window.innerHeight=hh; resize();
   begin(); state.intro=null; state.pip=null; startTestScene('epic', 28/64, 20/40); run(5); state.texts=[]; state.enemies=[];
   const pl=platesLay(m), at0=[+tx().toFixed(1), +ty().toFixed(1)], on0=lift();
-  put(22.7,23.5); go(22.7,18.0); const inCave=[+ty().toFixed(1), lift(), !!state.mtn.win];                        // in at the mouth, under the roof (1.8 up)
+  put(22.7,23.5); go(22.7,18.0); run(4,true); const inCave=[+ty().toFixed(1), lift(), !!state.mtn.win];                        // in at the mouth, under the roof (1.8 up)
   put(31,13.5); go(31,8.5,3); const atBand=[+ty().toFixed(1), lift()];                                           // north at the cliff band: its foot holds you
   put(40,22.5); go(40,19.5,2); state.keys.arrowup=true; state.keys.btnjump=true; run(30); state.keys.btnjump=false; run(20); off(); run(10); const atShelf=[+ty().toFixed(1), lift()];   // a held jump at the 1.6 shelf: no
   put(14,26.5); const startY=ty(); let dropped=false, deepest=startY; { const f0=update; for(let t=0;t<180;t++){ state.keys.arrowdown=true; run(1); if(h.falling>0) dropped=true; deepest=Math.max(deepest,ty()); } off(); run(90); } const fell=state.scene==='epic' && (dropped || deepest-startY<4) && ty()<deepest+0.01;      // south into the canyon: you drop in (or its edge holds you) and are back on the rim
@@ -41,7 +42,7 @@ for (const [w,hh] of [[1280,800],[390,844]]) { window.innerWidth=w; window.inner
   console.log('the ways up: the ridge', ridge.join(' > '), '| the band', band.join(' > '), '| the shelf and its tier', shelf.join(' > '), '| the cave', cave.join(' > '));
   if (!(up(ridge) && ridge.pop()===1.2 && up(band) && band.pop()===5.4 && up(shelf) && shelf.pop()===3 && up(cave) && cave.pop()===2.8)) errs++;
   // the shelf's south face, jumped at: you are drawn after the shelf and nothing covers you (it reaches y 22.7 further east)
-  let worst=0; for (const x of [33,35,38,41]) { put(x,21); state.keys.arrowup=true; run(60); state.keys.btnjump=true; for(let k=0;k<30;k++){ run(1); worst=Math.max(worst,state.mtn.cover||0); } state.keys.btnjump=false; state.keys.arrowup=false; run(30); }
+  let worst=0; for (const x of [33,35,38,41]) { put(x,21); state.keys.arrowup=true; run(60); state.keys.btnjump=true; for(let k=0;k<30;k++){ run(1,true); worst=Math.max(worst,state.mtn.cover||0); } state.keys.btnjump=false; state.keys.arrowup=false; run(30); }
   console.log('at the shelf\\'s south face, jumping: the most of you hidden', Math.round(worst*100)+'%', '(the x-ray needs', MTN_XRAY*100+'%)');
   if (!(worst < 0.3)) errs++; }
 // the editor: ?edit=epic opens it, its text holds what was laid

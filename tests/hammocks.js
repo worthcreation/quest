@@ -1,6 +1,6 @@
 // the two hammocks in the lean-to: laid out in tiles, Pip's body blocks you on foot, a landing on either free one
 // drops you in (his only while he's out of it; he tips you out to have it back) and rocks it, a nap after a second, any key gets you out, Pip hops in and out at dusk, the lantern by his
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }};
 run(5); state.intro=null; state.texts=[]; const inv=state.inv, h=state.hero; inv.story=STORY.adventure;

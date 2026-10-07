@@ -1,5 +1,5 @@
 global.location = { search: '?edit=mt2&seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // The editor (build 215, edit.js) on ?edit=mt2, driven as a person would with the mouse and keys: the hero stays parked
 // while the arrows pan and the wheel zooms about the cursor; a click selects a plate, [ ] change its thickness (and the
 // collision changes with it: the one shape), a drag moves it with the stack on it, D duplicates up the stack, N lays a
@@ -7,7 +7,8 @@ const src = require('./harness.js').src;
 // same layout and is the file shipped (src/layouts/mt2.js reads back to what 214 laid); T drops the hero and the game
 // runs, T again parks him; frames draw with the overlay. B the slab brush (227): a stroke, its area, played, saved.
 eval(src+`;
-begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
+// (238) run steps without drawing unless drawing is on (18 times frames while drawing); other checks draw for themselves
+let drawing=false; begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60); if(drawing) draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
 const tap=k=>{state.keys[k]=true;run(1);state.keys[k]=false;run(1);};
 const h=state.hero, m=M2, E=state.edit, LY=()=>E.layout, pl=()=>platesLay(m), tx=()=>h.x/UNIT, ty=()=>h.y/UNIT, c=state.mtn;
 run(5); state.texts=[];
@@ -134,14 +135,14 @@ console.log('17 camera: start', JSON.stringify(s0), '| middle 120 right 90 up: t
 // 18. a big stroke stays light (229, Ross: drawing larger shapes lagged): nothing is traced while the button is down
 // (brushTrace not called), the outline once at release on a stroke thinned to what keeps its shape, and a relay after it
 // (a ], a drag) traces nothing (the outline cached by its parts, a move the same outline shifted)
-startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[],pits:[],seams:[]})); const F7=state.edit, c7=state.mtn, g7=(x,y)=>mtnProj(x,y,mtnH(MTN.flat,x,y),c7), ms=()=>Number(process.hrtime.bigint())/1e6;
+drawing=true; startEdit('flat'); run(3); editLoad(JSON.stringify({plates:[],pits:[],seams:[]})); const F7=state.edit, c7=state.mtn, g7=(x,y)=>mtnProj(x,y,mtnH(MTN.flat,x,y),c7), ms=()=>Number(process.hrtime.bigint())/1e6;
 F7.cx=20; F7.cy=12; F7.zoom=0.4; mtnCamera(0,c7,true); run(1); tap('b'); for(let i=0;i<25;i++) tap(']');
 let traces=0; const tr0=brushTrace; brushTrace=(...a)=>{ traces++; return tr0(...a); };
 const sp7=[]; for(let k=0;k<=400;k++){ const a=k/400*Math.PI*4; sp7.push([20+Math.cos(a)*(4+k/40), 12+Math.sin(a)*(3+k/60)]); }
 editDown(...g7(...sp7[0])); let worst7=0; for(const q of sp7){ const t0=ms(); editMove(...g7(...q)); run(1); worst7=Math.max(worst7, ms()-t0); } const during=traces, swept7=F7.brush.pts.length;
 let t7=ms(); editUp(...g7(...sp7[sp7.length-1])); const rel7=ms()-t7, atRel=traces, kept7=F7.layout.plates[0].strokes[0].pts.length;
 t7=ms(); tap(']'); const rl7=ms()-t7; tap('b'); const [MX,MY]=mtnProj(24,12,mtnH(MTN.flat,24,12)+F7.layout.plates[0].thick,c7); editDown(MX,MY); run(1); const pick7=!!(F7.down&&F7.down.pick); editMove(MX+40,MY); run(1); editUp(MX+40,MY); run(1); const afterMove=traces, moved7=F7.layout.plates[0].strokes[0].pts[0][0]-24; brushTrace=tr0;
-console.log('18 a big spiral stroke, reach', F7.layout.plates[0].strokes[0].r, ': traced while down', during, '| swept', swept7, 'points, kept', kept7, '| release', rel7.toFixed(0), 'ms, traced', atRel, '| a ] after it', rl7.toFixed(0), 'ms | dragged the slab (picked', pick7+', moved', moved7.toFixed(2), 'tiles): traced', afterMove-atRel, '| worst frame while drawing', worst7.toFixed(0), 'ms (the harness)');
+console.log('18 a big spiral stroke, reach', F7.layout.plates[0].strokes[0].r, ': traced while down', during, '| swept', swept7, 'points, kept', kept7, '| release', rel7.toFixed(0), 'ms, traced', atRel, '| a ] after it', rl7.toFixed(0), 'ms | dragged the slab (picked', pick7+', moved', moved7.toFixed(2), 'tiles): traced', afterMove-atRel, '| worst frame while drawing', worst7.toFixed(0), 'ms (the harness)'); drawing=false;
 // 19. the ravine brush (232, angled edges 233): X, [ ] set the width, D [ ] the depth, E [ ] the slope, a drag across a
 // 1.4 slab cuts a ravine on it with a V inside (the ground falls from the rim), selected; W [ ] widen it, E [ ] steepen
 // it; S round-trips its line; Delete removes it

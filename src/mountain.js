@@ -99,7 +99,7 @@ const EPIC = {
     for (let i = 0; i < 40; i++) { const x = m.X0 + rnd() * (m.foot(20) - m.X0), y = m.Y0 + rnd() * (m.Y1 - m.Y0), r = 0.9 + rnd() * 1.1; if (!mtnGap(m, x, y, r + 2.2) || mtnGap(m, x, y, r + 0.4) || !clearOf(x, y, r)) continue; put('crag', x, y, r, true); }   // big crags along the canyon rims
     for (let i = 0; i < 40; i++) { const x = m.X0 + rnd() * (m.foot(20) - m.X0 - 2), y = m.Y0 + rnd() * (m.Y1 - m.Y0), r = 0.5 + rnd() * 0.6; if (mtnGap(m, x, y, r + 0.4) || !clearOf(x, y, r)) continue; put(rnd() < 0.6 ? 'boulder' : 'crag', x, y, r, true); }
   },
-  plates: pl => plateLayout(pl, 'epic'),
+  plates: pl => plateLayout(pl, 'epic'), late: true,                                      // built at its first visit (worldScene)
   scene: { area: 'field', depth: 4, msg: 'The canyon.', music: 'field', amb: 'wind', floor: '#8f9188', speed: 0.45, accel: 8 },
   finish(sc) { const m = this; sc.mtnHold = a => mtnHold(m, a) || (a === state.hero ? plateStepHero(m, a) : plateHold(m, a)); },
 };
@@ -405,6 +405,14 @@ function addMtn(S, add, m) {
   for (const p of land.solids) sc.solids.push({ fx: p.x / len, fy: p.y / D, r: p.k === 'tree' ? p.r : p.r / MTN_F[p.k], kind: MTN_KIND[p.k], v: p.v, flip: p.seed > 4.5, pal: 'green', rise: p.k, rr: p.r, seed: p.seed });
   m.finish(sc, S);
   return sc;
+}
+// a screen built only when it is first entered or edited (238: the canyon, EPIC.late): genWorld leaves it out, so the
+// world's rng never sees it and a test that never goes there never pays for it. Built as buildWorld builds, at GEN's size
+function worldScene(id) {
+  const m = MTN[id];
+  if (WORLD[id] || !m || !m.late) return WORLD[id];
+  const saved = [W, H, UNIT]; W = GEN.W; H = GEN.H; computeUnit();
+  try { return addMtn(WORLD, sc => (WORLD[sc.id] = sc), m); } finally { [W, H, UNIT] = saved; }
 }
 // the rise, where f2 was: the first field's south way leads in at the north-west corner, and the pass at the far end
 // leads south onto the stepping path (213; the wind shelf, mt1, from 207 to 212)

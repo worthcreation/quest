@@ -2,9 +2,10 @@
 // north edge down to the reeds (with them it shuts the way east), a slit edge to edge at x 40 jumped where the path
 // crosses it, a short one in from the north at x 58. No walls of stone: the screen's edges hold, and east of its foot
 // the mountain itself holds, except along the way through the pass. Nothing stands in a ravine.
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 eval(src+`;
-begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
+// (238) run steps without drawing; a check that reads the picture draws for itself
+begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\n').slice(1,3).join(' | '));} }};
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
 const tx=()=>state.hero.x/UNIT, ty=()=>state.hero.y/UNIT;
 const at=(x,y)=>{ const h=state.hero; h.x=x*UNIT; h.y=y*UNIT; h.vx=h.vy=0; h.z=0; h.falling=0; h.safe=null; run(3); };

@@ -1,4 +1,4 @@
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // The plate (build 212, plates.js): the mountain's stone kind, laid on mt2's banks as a test layout. The outline is
 // worn and squarish from its seed; one shape (plateHas) for drawing and the hold; stacks add their thicknesses,
 // a pit through a stack drops to its floor; kinds by thickness; the one projection pushes what stands above the
@@ -6,7 +6,8 @@ const src = require('./harness.js').src;
 // seam stays under half a tile. The hero (213) walks up a step, hops or high-hops onto a plate, is held by a face, drops
 // off an edge and out of a pit's floor with a held jump. Played like a person: steered, jumping where an edge stops him.
 eval(src+`;
-begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\\\\\n').slice(1,3).join(' | '));} }};
+// (238) run steps without drawing: the checks that read the picture draw for themselves (the frame cost, xr, the painters)
+begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);}catch(e){errs++; if(errs<4) console.log('ERR',state.scene,e.message,String(e.stack).split('\\\\\\\\n').slice(1,3).join(' | '));} }};
 const keys=['arrowleft','arrowright','arrowup','arrowdown'], off=()=>keys.forEach(k=>state.keys[k]=false);
 const tx=()=>state.hero.x/UNIT, ty=()=>state.hero.y/UNIT, h=state.hero, m=M2;
 run(5); state.intro=null; state.pip=null; state.texts=[];
@@ -27,11 +28,13 @@ console.log('1b brush outline: a straight stroke of 8 by r 1: points', bA.length
 const p={P}; const hasMid=plateHas(p,10,10), hasOut=plateHas(p,20,10), hasEdge=plateHas(p,10+bw/2*0.9,10), hasPast=plateHas(p,10+bw/2*1.1,10);
 console.log('2 plateHas: middle', hasMid, '| 9/10 of the way out', hasEdge, '| 11/10', hasPast, '| far', hasOut, '| kinds:', [0.2,0.4,0.8,1.2].map(t=>t+' '+plateKind(t)).join(', '));
 // 3. mt2's layout: plates, pits, seams; heights add up a stack; the pit's floor; off every plate the ground is 0
-startTestScene('mt2', 3/m.len, 17.5/m.D); run(5); state.enemies=[]; const pl=platesLay(m), st=pl.list.filter(p=>p.seed>=60&&p.seed<66), foot=st[0], topS=st[st.length-1];
+startTestScene('mt2', 3/m.len, 17.5/m.D); state.gustPhase='lull'; state.gustT=0; state.gustDur=1e9; run(5);   // (238: the wind held in a lull: its timing comes off Math.random, and the walks here test the plates, not the wind)
+ state.enemies=[]; const pl=platesLay(m), st=pl.list.filter(p=>p.seed>=60&&p.seed<66), foot=st[0], topS=st[st.length-1];
 const hAtFoot=plateTopAt(pl, 2.0, 22.8), hTop=plateTopAt(pl, topS.x-1.6, topS.y-1.2), pit=pl.pits[0], hPit=plateTopAt(pl, 6.6, 19.7), hOff=plateTopAt(pl, 20, 3), steps=[...pit.ring.keys()].map(p=>plateBox(pit.ring.get(p))[3]);   // (each plate's ring ends further north: its south edge a ledge)
 console.log('3 laid: plates', pl.list.length, 'pits', pl.pits.length, 'seams', pl.seams.length, '| the pitted stack', st.length, 'high: on its foot', hAtFoot.toFixed(2), 'on its crown', hTop.toFixed(2), '(sum', st.map(p=>p.thick).reduce((a,b)=>a+b).toFixed(2)+') | the pit cuts', pit.cut.length, 'plates down to', pit.floor, '| at its bottom', hPit.toFixed(2), '| each plate\\'s ring ends at y', steps.map(v=>v.toFixed(2)).join(', '), '| off every plate', hOff);
 // 3b. the cutout clean (225; 235: a top's own lip and shoulder are baked into its texture): drawn, a lower layer of
 // the pit paints no lip (its ledge is bare texture under the wash) and the top layer one, the rim's
+for (let k=0;k<4;k++) draw();   // (238: the frames drawn so far bake the tops textures, as in play; run no longer draws)
 { let lips=0; const lip0=platePaintLip; platePaintLip=(R,s2,sd,g)=>{ lips++; lip0(R,s2,sd,g); };
   const c2={...state.mtn, cx:5.5, cy:20}, pr2=(x,y,z)=>mtnProj(x,y,mtnH(m,x,y)+z,c2), low=pit.cut.find(p=>p.base<=pit.floor+0.01), topP=pit.cut.find(p=>plateTop(p)>=pit.top-1e-6);
   drawPlate(m,low,pr2,1); const lipsLow=lips; lips=0; drawPlate(m,topP,pr2,1); const lipsTop=lips; platePaintLip=lip0;

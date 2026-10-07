@@ -1,5 +1,5 @@
 global.location = { search: '?edit=flat&seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // The plates' draw order as layers (229, Ross from two screenshots after 228): standing on the ground south of a slab
 // you are painted after its top (in front of it), north of it before (it hides you); a slab stacked on another has its
 // walls painted after the top it stands on (they showed under it); on the slab's top you are after it. Read from the

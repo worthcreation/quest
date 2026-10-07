@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 238: a fast test suite (chat)
+Ross, 7 Oct: builds took 20 to 30 minutes, the time being the suite (348 s, past one tool call). No change in play.
+tests/run.js prints each test's time and the slowest eight. The canyon is built at its first visit (EPIC.late,
+worldScene in mountain.js, called by enterScene and the ?scene/?edit start): genWorld no longer lays it, about 0.4 s
+off every test's load; worlds hash the same as 237's for three seeds with epic set aside. The harness exports src
+(draw() returns at once) and drawn (draws, the world every 4th frame); FULL_DRAW=1 draws everything everywhere.
+33 tests read the screen (hints, labels, HUD boxes, bubbles, the text box, paint order, the x-ray, the window) and
+use drawn, found by running every test both ways with draw() on its own random stream and diffing; scene-smoke
+stays drawn so every screen is still drawn once. epic, plates, rise-ravines and edit step without drawing and draw
+only for the checks that read the picture (epic 27 to 5 s, plates 24 to 4, rise-ravines 13 to 3, edit 14 to 6).
+plates.js holds mt2's wind in a lull: the walk into the pit landed by the gust timing (Math.random), so it failed on
+other random seeds. Found: some play state is set in draw code (woods-gremlins' ducking, spores-map's trapdoor) and
+combat-rhythm's landing-shadow block never runs (no ride happens). Suite: 348 s to 146 s.
+
 ## Build 237: the canyon climbable, and you in front of what is behind you (chat)
 Ross, playing 236: cannot jump onto platforms, and clipping behind them. Two causes. (1) Every face in the canyon
 (1.2 to 3.0) is over the tile a held jump reaches (5.8 tiles a second up, about 1.0 at full vigor), so all of them

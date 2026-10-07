@@ -25,6 +25,11 @@ global.setTimeout=(f)=>{f()}; global.setInterval=noop; global.requestAnimationFr
 // The world seed is fixed too (unless the test set its own location, as ?arena / ?puzzle tests do), so the same world every run.
 if (!global.location) global.location = { search: '?seed=' + (process.env.WORLD_SEED || '1000003') };
 // The page source, ready for the test to eval. (Each test evals it in its own scope so its globals stay local.)
-// Faster: the world layer draws every 4th frame in tests (UI, text boxes, hints and HUD still every frame). FULL_DRAW=1 restores it.
+// Two of it (238): `src` steps the game without drawing (draw() returns at once: most tests check play, and drawing
+// was most of their time); `drawn` draws, for a test that checks the picture (draw order, the x-ray, the window,
+// what is on screen). In `drawn` the world layer draws every 4th frame (UI, text boxes, hints and HUD every frame).
+// FULL_DRAW=1 makes both draw everything every frame: the slow, thorough run.
 const fast = (process.env.FULL_DRAW ? src : src.replace('let DRAW_SCENE_STRIDE = 1;', 'let DRAW_SCENE_STRIDE = 4;')).replace('const TEST_MODE = false;', 'const TEST_MODE = true;');
-module.exports = { src: fast };
+const still = process.env.FULL_DRAW ? fast : fast.replace('function draw() {', 'function draw() { return;                                // (tests: not drawn, harness.js)');
+if (still === fast && !process.env.FULL_DRAW) throw new Error('harness: draw() not found to switch off');
+module.exports = { src: still, drawn: fast };

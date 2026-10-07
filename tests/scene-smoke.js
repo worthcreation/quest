@@ -1,6 +1,6 @@
 // every scene, a few seconds of walking, swinging, throwing and pounding with its creatures awake: no errors anywhere
 // (this is the test that would have caught the High Reaches freeze)
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 eval(src+`; begin(); const errsBy={}; let cur=''; const _ce=console.error; console.error=(...a)=>{ errsBy[cur]=(errsBy[cur]||0)+1; };
 const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){ errsBy[cur]=(errsBy[cur]||0)+1; if(errsBy[cur]<2) console.log('ERR',cur,e.message); } }};
 run(5); state.intro=null; const inv=state.inv, h=state.hero; inv.story=STORY.adventure; inv.tortoise=true; inv.sword=true; inv.fire=true; inv.acorns=20; state.pip=null;

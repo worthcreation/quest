@@ -942,7 +942,7 @@ function begin() {
   state.started = true;
   startEl.remove();
   state.texts = []; state.title = null;
-  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, RISE.pathY(RISE.barX + 2) / RISE.D); else if (EDIT_SCENE && WORLD[EDIT_SCENE]) startEdit(EDIT_SCENE); else if (START_SCENE && WORLD[START_SCENE]) startTestScene(START_SCENE); else startIntro();
+  if (ARENA) startArena(); else if (PUZZLE) startPuzzleHub(); else if (MOUNTAIN) startTestScene('rise', (RISE.barX + 2) / RISE.len, RISE.pathY(RISE.barX + 2) / RISE.D); else if (EDIT_SCENE && worldScene(EDIT_SCENE)) startEdit(EDIT_SCENE); else if (START_SCENE && worldScene(START_SCENE)) startTestScene(START_SCENE); else startIntro();
   startMusic();
 }
 function resizeCanvasOnly() {

@@ -1,5 +1,5 @@
 global.location = { search: '?seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // Build 226 (Ross, from the stills in docs/parked/mock-occlusion.js): under a slab or a tree's crown a soft window
 // round you shows what is under it; the x-ray (you faint, a dashed box) only when a boulder, crag or plate in front
 // hides 70 percent of you or more; trees, reeds and grass never x-ray; a G tunnel is unshown. The six cases of the

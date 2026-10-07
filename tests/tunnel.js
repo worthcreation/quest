@@ -1,5 +1,5 @@
 global.location = { search: '?edit=flat&seed=1000003' };
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 // Build 222 (Ross: "edges need to meet, go for tunnels as well"). A pit across a slab's edge cuts a notch out of the
 // slab's outline (polyDiff), its walls the slab's own faces; a tunnel is a pit with a roof along a strip: the plates
 // between its floor and roof are cut, the ones over it stay and are walked under. Laid on the flat board with the

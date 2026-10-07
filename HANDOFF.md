@@ -16,9 +16,11 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   index.html, then checks the script parses (fails the build if not). Edit src/, never index.html. BUILD number:
   `const BUILD` in src/draw.js (shown bottom-right in game).
 - Test: `node tests/run.js` runs every tests/*.js through tests/harness.js (fake canvas, seeded Math.random, world
-  seed 1000003, TEST_MODE on). 74 tests, one after another, about 6.5 minutes in the container since 236 (one core;
-  past one tool call's 5 minutes, so ship-local runs detached: `setsid nohup ... &`, then poll the log every 30 s;
-  (ad) is to bring it under 3). Each prints `errs N`;
+  seed 1000003, TEST_MODE on). 74 tests, one after another, 146 s in the container since 238, each one's time
+  printed. Tests step the game without drawing (`require('./harness.js').src`, draw() returns at once); a test that
+  reads the screen (hints, labels, HUD, paint order, the x-ray, the window, pixels) takes `.drawn`, and a slow one
+  may draw only around the checks that need it (epic, plates, edit, rise-ravines). FULL_DRAW=1 draws everywhere.
+  Off-map screens built at first visit (EPIC.late, worldScene) cost a test nothing until it goes there. Each prints `errs N`;
   0 is a pass (robin-drop prints none and passes). While working, run only the ones you touch: `node tests/<name>.js`.
   `node tools/overlap.js` checks 300 worlds for overlapping things (want 0).
 - Ship: `node tools/ship-local.js NN "Build NN: ..." [scene]` bumps BUILD, builds, stops if `node tools/dead.js` lists

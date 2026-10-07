@@ -1,4 +1,4 @@
-const src = require('./harness.js').src;
+const src = require('./harness.js').drawn;
 eval(src+`;
 begin(); let errs=0; const run=n=>{for(let k=0;k<n;k++){ try{update(1/60);draw();}catch(e){errs++; if(errs<4) console.log('ERR',e.message);} }};
 const seen=[]; const ft=ctx.fillText; ctx.fillText=function(t,x,y){ seen.push([String(t),x,y]); return ft.apply(this,arguments); };
