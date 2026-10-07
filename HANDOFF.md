@@ -32,7 +32,7 @@ QUEST_WAYS_OF_WORKING.md (WAYS). Start with Next task; read other sections when 
   -ErrorAction Stop; Expand-Archive -Force ~\Downloads\quest-bNN.zip .; Remove-Item ~\Downloads\quest-bNN.zip; git
   add -A; git commit -m "Build NN: ..."; git push`, and every play-test link.
 - Audit: `node tools/audit.js` (about 6 s; WAYS 5) at the start of a cleanup chat and at every handoff; `--save` at a
-  handoff updates docs/audit-baseline.json. Last run (handoff after build 226, 3 Oct): audit: 12201 lines, 0 unused, 0 functions over 150, 0 repeats, 161 state fields, frames avg 1.24 ms (5 slow, 0 errors); mt2's draw 14.5 ms in the harness, the rise 9.6, flat 6.3 (up from 6.9 and 3.9: platesOrder per view and the 8 by 8 cover sample; cleanup item 1). drawMtn still long (cleanup item 2).
+  handoff updates docs/audit-baseline.json. Last run (handoff after build 234, 7 Oct): audit: 12444 lines, 0 unused, 0 functions over 150, 0 repeats, 162 state fields, frames avg 1.19 ms (5 slow, 0 errors). Before that (after 226, 3 Oct): 12201 lines, 161 state fields, frames avg 1.24 ms; mt2's draw 14.5 ms in the harness, the rise 9.6, flat 6.3 (up from 6.9 and 3.9: platesOrder per view and the 8 by 8 cover sample; cleanup item 1). drawMtn still long (cleanup item 2).
   in the model menu.
 - Handoff (end of a chat, or when Ross says "handoff"): HANDOFF's current state and Next task, `node tools/audit.js
   --save` with its line copied in, PROJECT_INSTRUCTIONS.md to match, docs/design-rules.md's Story so far if the story
@@ -262,9 +262,22 @@ rugged still are next).
 A brush stroke is traced once at release (230: nothing while the button is down; outlines cached by shape, PL_BRUSHC).
 Plates paint as layers (229): a top keeps its place in the ground order, moved later only by plates it overlaps
 (platesOrder; tests/layers.js), so you stand in front of a slab south of you and a stacked slab keeps its walls.
-NEXT: Ross lays with the brush (?edit=flat or ?edit=mt2, B) and says what is off; then (b), (c), (d) below as he
-picks, or cleanup item 1. Not built: plain plates merging when dragged together (Ross: brush only for now); a tunnel
-brush (a stroke that cuts a passage through what it crosses) if he wants one.
+NEXT, FABLE, fresh chat: (w) THE STONE'S LOOK, one build, the mocks the reference (docs/parked/mock-epic-blend.js
+through mock-epic-seam.js, mock-vslopes.js; mock-epic.js the scene): slab tops take the ground's colour under them;
+contact shadow and scree only at a foot on the base; outlines roughened at three scales (roughRing is in since 234;
+apply it to plates and brush slabs, the faces rib by it); lips as tapering broken runs; cracks that taper and branch;
+rounded shoulders, battered walls, talus into the ground's colour; inner walls like outer, occluded; tops as tops
+(the shoulder scaled by the slab); seamless stacks; the V's cells smoothed. One shape still drives collision and
+drawing; bake outlines once; measure the frame on the epic scene before and after. Then the list below as Ross picks.
+Ross, 6 and 7 Oct, the direction: the mountain feels empty and thin; think Grand Canyon and Everest; no 90-degree
+angles, nature's lines; angled edges you slide into (built, 233); things married to the environment, not stamps.
+docs/mountain-beats.md: the mood arc and the three rules, to go into the docs once he takes them (o).
+Open: (u) the ravine tracer breaks past about 3 tiles of half-width (the rows go black), Opus. (s) the eye at 14, 20,
+40 on the epic scene, a still, FABLE. (m) light and slope on the ground, a still, Opus. (p) beat 0 (the ornithologist
+passes camp, the feather, Pip stays), FABLE. (n) the looking-back ledge on the rise, Opus. (l) shadow under a slab
+you walk under, Opus. (j) m2 the Ledges laid (mock-ledges.js), FABLE. (k) m3 the hush, FABLE. tests/plates.js 11
+(the slope play, 10 s) into its own file, Opus. Not built: plain plates merging when dragged together (Ross: brush
+only for now); a tunnel brush if he wants one.
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.

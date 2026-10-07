@@ -9,6 +9,7 @@ let seed = 1000000 + Math.floor(Math.random() * 8999999); while (!isPrime(seed))
 const base = 'https://worthcreation.github.io/quest/', zip = `quest-b${n}.zip`;
 console.log('```powershell');
 const unzip = local ? '' : `Expand-Archive -Force ~\\Downloads\\${zip} .; Remove-Item ~\\Downloads\\${zip}; `;
-console.log(`cd ~\\quest -ErrorAction Stop; ${unzip}git add -A; git commit -m "${msg.replace(/"/g, "'")}"; git push`);
+console.log(`cd ~\\quest -ErrorAction Stop; git fetch origin; git reset --hard origin/main; ${unzip}git add -A; git commit -m "${msg.replace(/"/g, "'")}"; git push`);   // (fetch and reset first: both machines push, 234)
 console.log('```\n');
+if (!local) { console.log('```zsh'); console.log(`cd ~/quest && git fetch origin && git reset --hard origin/main && unzip -o ~/Downloads/${zip} -d . && rm ~/Downloads/${zip} && git add -A && git commit -m "${msg.replace(/"/g, "'")}" && git push`); console.log('```\n'); }   // (the Mac's line, the same)
 for (const q of [`?seed=${seed}`, '?arena', '?puzzle', '?mountain', `?scene=${scene}`, '?edit=mt2', '?edit=flat', `?overview=${seed}`, '?model']) console.log(`- ${base}${q}`);
