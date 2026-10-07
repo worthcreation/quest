@@ -316,6 +316,18 @@ const plateKeyUnder = (pl, x, y, z) => { let k = pl.list.reduce((k, p) => plateT
   for (const q of pl.pits) if (q.slope && q.cut.length && ravIn(q, x, y)) { const low = q.cut.reduce((a, p) => !a || p.base < a.base ? p : a, null); if (low) k = Math.max(k, low.key + 1e-3); } return k; };   // (on a sloped ravine's side or floor: after the layer that draws its V)
 // the plates over you (their underside clear of your head, over your middle): you are drawn before the first of them, so
 // they cover you and the x-ray shows you through (the key of the first such plate, or Infinity)
+// you among plates ordered as wholes (237, Ross: clipping behind the shelf): a plate is drawn at its foot's far edge,
+// so a long bent slab (a brush stroke) whose east end reaches south of you is drawn after you even where it stands
+// north of you, and its wall and top paint over your head. Across your body (PL_BODY a side), a plate with none of
+// its outline south of you is behind you: you are drawn after it (and the x-ray leaves it out), unless something in
+// front of you comes first (front: the least key of what stands south of you; a plate there counts too)
+function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity) {
+  let back = -Infinity;
+  for (const p of pl.list) { const k = Math.max(p.key, p.fkey); if (k <= hk || p.base >= hz + PL_HEAD - 1e-6 || p.box[0] > hx + 0.6 || p.box[2] < hx - 0.6 || p.box[3] < hy - 3) continue;
+    let south = false; for (let x = hx - PL_BODY; x <= hx + PL_BODY + 1e-6 && !south; x += PL_BODY / 2) for (let y = hy + 0.15; y <= p.box[3] + 1e-6; y += 0.2) if (plateHas(p, x, y)) { south = true; break; }
+    if (south) front = Math.min(front, p.key); else back = Math.max(back, k); }
+  return back > hk ? Math.max(hk, Math.min(back + 1e-4, front - 1e-4)) : hk;
+}
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
 // you're put back just outside its nearest edge, as the mountain holds

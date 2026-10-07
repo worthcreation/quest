@@ -1795,6 +1795,18 @@ const plateKeyUnder = (pl, x, y, z) => { let k = pl.list.reduce((k, p) => plateT
   for (const q of pl.pits) if (q.slope && q.cut.length && ravIn(q, x, y)) { const low = q.cut.reduce((a, p) => !a || p.base < a.base ? p : a, null); if (low) k = Math.max(k, low.key + 1e-3); } return k; };   // (on a sloped ravine's side or floor: after the layer that draws its V)
 // the plates over you (their underside clear of your head, over your middle): you are drawn before the first of them, so
 // they cover you and the x-ray shows you through (the key of the first such plate, or Infinity)
+// you among plates ordered as wholes (237, Ross: clipping behind the shelf): a plate is drawn at its foot's far edge,
+// so a long bent slab (a brush stroke) whose east end reaches south of you is drawn after you even where it stands
+// north of you, and its wall and top paint over your head. Across your body (PL_BODY a side), a plate with none of
+// its outline south of you is behind you: you are drawn after it (and the x-ray leaves it out), unless something in
+// front of you comes first (front: the least key of what stands south of you; a plate there counts too)
+function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity) {
+  let back = -Infinity;
+  for (const p of pl.list) { const k = Math.max(p.key, p.fkey); if (k <= hk || p.base >= hz + PL_HEAD - 1e-6 || p.box[0] > hx + 0.6 || p.box[2] < hx - 0.6 || p.box[3] < hy - 3) continue;
+    let south = false; for (let x = hx - PL_BODY; x <= hx + PL_BODY + 1e-6 && !south; x += PL_BODY / 2) for (let y = hy + 0.15; y <= p.box[3] + 1e-6; y += 0.2) if (plateHas(p, x, y)) { south = true; break; }
+    if (south) front = Math.min(front, p.key); else back = Math.max(back, k); }
+  return back > hk ? Math.max(hk, Math.min(back + 1e-4, front - 1e-4)) : hk;
+}
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
 // you're put back just outside its nearest edge, as the mountain holds
@@ -2070,17 +2082,30 @@ LAYOUTS.flat = {
 // one). Composed 7 Oct as the stone's test screen (docs/parked/mock-epic.js), moved into the game in 236. The format
 // is layouts/mt2.js's: 0 the north cliff band three tiles thick, 1 a second band on it, 2 and 3 the cave's walls, 4 its
 // roof with a mouth south, 5 a shelf east, 6 a tier on it, 7 a ridge by the side canyon; a crack on the band's crown;
-// a ravine through the shelf.
+// a ravine through the shelf. 8 to 17 the ways up (237, Ross: cannot jump onto platforms; a held jump reaches about a
+// tile, every face here is over it): steps of 0.5 to 0.8 against each face, discs of brush: 8 the ridge's, 9 to 13 a
+// stair up the band's west end to the second band, 14 the shelf's (at its west end, clear of the ravine's rim), 15 the tier's, 16, 18 and 17 the cave's wall and roof (0.6, 1.2, the wall 1.8, 2.3, the roof 2.8).
 LAYOUTS.epic = {
   "plates": [
-    {"kind":  "brush", "seed":  11, "base":  0, "thick":  3.0, "tone":  134, "under":  -1, "strokes":  [{"r":  3.2, "pts":  [[18, 6], [30, 5], [42, 7]]}], "plates":  []},
-    {"kind":  "brush", "seed":  12, "base":  3.0, "thick":  2.4, "tone":  134, "under":  0, "strokes":  [{"r":  2.2, "pts":  [[22, 5], [40, 6]]}], "plates":  []},
-    {"kind":  "brush", "seed":  21, "base":  0, "thick":  1.8, "tone":  134, "under":  -1, "strokes":  [{"r":  1.4, "pts":  [[20, 14], [20, 22]]}], "plates":  []},
-    {"kind":  "brush", "seed":  22, "base":  0, "thick":  1.8, "tone":  134, "under":  -1, "strokes":  [{"r":  1.4, "pts":  [[25.5, 14], [25.5, 22]]}], "plates":  []},
-    {"kind":  "brush", "seed":  23, "base":  1.8, "thick":  1.0, "tone":  134, "under":  -1, "strokes":  [{"r":  3.4, "pts":  [[22.7, 13.5], [22.7, 19]]}], "plates":  []},
-    {"kind":  "brush", "seed":  31, "base":  0, "thick":  1.6, "tone":  134, "under":  -1, "strokes":  [{"r":  2.6, "pts":  [[32, 16], [44, 15], [48, 20]]}], "plates":  []},
-    {"kind":  "brush", "seed":  32, "base":  1.6, "thick":  1.4, "tone":  134, "under":  5, "strokes":  [{"r":  2.0, "pts":  [[36, 12], [46, 12.5]]}], "plates":  []},
-    {"kind":  "brush", "seed":  41, "base":  0, "thick":  1.2, "tone":  134, "under":  -1, "strokes":  [{"r":  1.6, "pts":  [[8, 10], [12, 18]]}], "plates":  []}
+    {"kind": "brush", "seed": 11, "base": 0, "thick": 3.0, "tone": 134, "under": -1, "strokes": [{"r": 3.2, "pts": [[18, 6], [30, 5], [42, 7]]}], "plates": []},
+    {"kind": "brush", "seed": 12, "base": 3.0, "thick": 2.4, "tone": 134, "under": 0, "strokes": [{"r": 2.2, "pts": [[22, 5], [40, 6]]}], "plates": []},
+    {"kind": "brush", "seed": 21, "base": 0, "thick": 1.8, "tone": 134, "under": -1, "strokes": [{"r": 1.4, "pts": [[20, 14], [20, 22]]}], "plates": []},
+    {"kind": "brush", "seed": 22, "base": 0, "thick": 1.8, "tone": 134, "under": -1, "strokes": [{"r": 1.4, "pts": [[25.5, 14], [25.5, 22]]}], "plates": []},
+    {"kind": "brush", "seed": 23, "base": 1.8, "thick": 1.0, "tone": 134, "under": -1, "strokes": [{"r": 3.4, "pts": [[22.7, 13.5], [22.7, 19]]}], "plates": []},
+    {"kind": "brush", "seed": 31, "base": 0, "thick": 1.6, "tone": 134, "under": -1, "strokes": [{"r": 2.6, "pts": [[32, 16], [44, 15], [48, 20]]}], "plates": []},
+    {"kind": "brush", "seed": 32, "base": 1.6, "thick": 1.4, "tone": 134, "under": 5, "strokes": [{"r": 2.0, "pts": [[36, 12], [46, 12.5]]}], "plates": []},
+    {"kind": "brush", "seed": 41, "base": 0, "thick": 1.2, "tone": 134, "under": -1, "strokes": [{"r": 1.6, "pts": [[8, 10], [12, 18]]}], "plates": []},
+    {"kind": "brush", "seed": 51, "base": 0, "thick": 0.6, "tone": 134, "under": -1, "strokes": [{"r": 0.9, "pts": [[13.0, 19.6]]}], "plates": []},
+    {"kind": "brush", "seed": 52, "base": 0, "thick": 0.8, "tone": 134, "under": -1, "strokes": [{"r": 1.0, "pts": [[12.6, 9.6]]}], "plates": []},
+    {"kind": "brush", "seed": 53, "base": 0, "thick": 1.6, "tone": 134, "under": -1, "strokes": [{"r": 1.0, "pts": [[13.6, 8.4]]}], "plates": []},
+    {"kind": "brush", "seed": 54, "base": 0, "thick": 2.3, "tone": 134, "under": -1, "strokes": [{"r": 1.0, "pts": [[14.8, 7.2]]}], "plates": []},
+    {"kind": "brush", "seed": 55, "base": 3.0, "thick": 0.8, "tone": 134, "under": 0, "strokes": [{"r": 0.9, "pts": [[19.0, 7.0]]}], "plates": []},
+    {"kind": "brush", "seed": 56, "base": 3.0, "thick": 1.6, "tone": 134, "under": 0, "strokes": [{"r": 0.9, "pts": [[20.4, 6.6]]}], "plates": []},
+    {"kind": "brush", "seed": 57, "base": 0, "thick": 0.8, "tone": 134, "under": -1, "strokes": [{"r": 1.1, "pts": [[30.6, 18.9]]}], "plates": []},
+    {"kind": "brush", "seed": 58, "base": 1.6, "thick": 0.7, "tone": 134, "under": 5, "strokes": [{"r": 1.0, "pts": [[33.6, 13.6]]}], "plates": []},
+    {"kind": "brush", "seed": 59, "base": 0, "thick": 1.2, "tone": 134, "under": -1, "strokes": [{"r": 1.0, "pts": [[18.0, 20.6]]}], "plates": []},
+    {"kind": "brush", "seed": 60, "base": 1.8, "thick": 0.5, "tone": 134, "under": 2, "strokes": [{"r": 0.8, "pts": [[19.8, 21.6]]}], "plates": []},
+    {"kind": "brush", "seed": 61, "base": 0, "thick": 0.6, "tone": 134, "under": -1, "strokes": [{"r": 1.0, "pts": [[16.8, 21.3]]}], "plates": []}
   ],
   "pits": [
   ],
@@ -2179,10 +2204,10 @@ const FLAT = {
 // ravine through it, a ridge by the side canyon, a crack on the band's crown. Off the map, no way in or out (the
 // edges and the ravines hold): ?scene=epic, ?edit=epic. The mocks (docs/parked/mock-epic*.js) render it from here.
 const EPIC = {
-  id: 'epic', len: 64, D: 40, flat: 0, grade: 0.004, mid: 20, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 30, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
+  id: 'epic', len: 64, D: 40, flat: 0, grade: 0.004, mid: 20, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 28, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
   X0: -16, X1: 110, Y0: -8, Y1: 70, seed: 41, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true }, ravs: null, isls: null,
   foot: y => 52 + Math.sin(y * 0.3) * 2.5 + Math.sin(y * 0.8) * 0.9,                     // the mountain's face: the stone rises east of here
-  pathY() { return this.mid; }, pathD: () => 99,                                           // (no way: inX only parks you at 30, 20, in the open)
+  pathY() { return this.mid; }, pathD: () => 99,                                           // (no way: inX only parks you at 28, 20, in the open)
   layout(lay) { const m = this, { put, rnd, clearOf } = lay;
     if (!m.ravs) { const seed = m.seed * 101;
       const canyon = genRavine('long', seed + 1, [-6, 30], 0.12, 60, 0.7); for (const q of canyon.spine[0]) q[2] = Math.min(3.0, q[2] * 1.4 + 0.6);   // the canyon along the south, about 6 tiles (wider breaks the outline tracing: the rows go black, (u))
@@ -2656,7 +2681,8 @@ function drawMtn() {
     // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
-    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+    const hk0 = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+    const hk = pl && !pit ? plateHeroKey(pl, hx, hy, hz, hk0, state.solids.reduce((k, o) => o.rise && o.rise !== 'tree' && o.y / UNIT > hy && Math.abs(o.x / UNIT - hx) < (o.rr || 0.5) + 0.8 ? Math.min(k, dep(o.x / UNIT, o.y / UNIT) + (o.rr || 0.5) * 0.9) : k, Infinity)) : hk0;   // (a plate wholly north of you across your width is behind you, 237; a stone south of you stays in front)
     list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);
     // what you are under (226, Ross: a window when you walk under a slab or a tree's crown; the x-ray only behind big
     // things, and never in a tunnel the G tool made, which is unshown): a plate whose underside clears your head where
@@ -10135,7 +10161,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 236';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 237';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look

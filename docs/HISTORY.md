@@ -1,6 +1,20 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 237: the canyon climbable, and you in front of what is behind you (chat)
+Ross, playing 236: cannot jump onto platforms, and clipping behind them. Two causes. (1) Every face in the canyon
+(1.2 to 3.0) is over the tile a held jump reaches (5.8 tiles a second up, about 1.0 at full vigor), so all of them
+were walls: the layout gets steps of 0.5 to 0.8 against each, discs of brush (layouts/epic.js 8 to 18): the ridge's,
+a stair up the band's west end to the second band (5.4), the shelf's at its west end (clear of the ravine's rim,
+where the top beside the V is 0.4 wide) and the tier's, two at the cave's west wall and one on it to the roof (2.8);
+the start moved to 28, 20 (the shelf's step covers 30, 20). (2) Plates are drawn as wholes at their foot's far edge,
+so the shelf (a bent stroke reaching y 22.7 at its east end) was drawn after you (your key 18.64) even where it
+stands north of you: its wall and top painted over your head and the x-ray counted it (cover 100 percent, the dashed
+outline). plateHeroKey: across your body (PL_BODY a side), a plate with nothing south of your feet (0.15) is behind
+you and you are drawn after it, unless a plate or stone south of you comes first. tests/epic.js: the four routes
+climbed as a person would, a held jump where an edge stops you (0.6 > 1.2; 0.8 to 5.4; 0.8 to 3.0; 0.6 to 2.8), and
+jumping at the shelf's face at four spots hides at most 0 percent of you (was 100).
+
 ## Build 236: the canyon, playable (chat)
 Ross: where is the epic scene, playable? Then: move and create. The canyon composed in the mocks on 7 Oct is a scene
 of its own: EPIC in mountain.js (64 by 40, the two widened ravines, the face with its crags), registered with the

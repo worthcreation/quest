@@ -86,10 +86,10 @@ const FLAT = {
 // ravine through it, a ridge by the side canyon, a crack on the band's crown. Off the map, no way in or out (the
 // edges and the ravines hold): ?scene=epic, ?edit=epic. The mocks (docs/parked/mock-epic*.js) render it from here.
 const EPIC = {
-  id: 'epic', len: 64, D: 40, flat: 0, grade: 0.004, mid: 20, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 30, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
+  id: 'epic', len: 64, D: 40, flat: 0, grade: 0.004, mid: 20, floor: '#8f9188', stone: [143, 145, 136], stoneAt: -9, inX: 28, outX: 200, tilt: 0.95, lead: 0, lift: 2.5, eye: 40,
   X0: -16, X1: 110, Y0: -8, Y1: 70, seed: 41, dx: 0.5, fine: 9, fixed: { p: 0.35, zoom: 0.825, follow: true }, ravs: null, isls: null,
   foot: y => 52 + Math.sin(y * 0.3) * 2.5 + Math.sin(y * 0.8) * 0.9,                     // the mountain's face: the stone rises east of here
-  pathY() { return this.mid; }, pathD: () => 99,                                           // (no way: inX only parks you at 30, 20, in the open)
+  pathY() { return this.mid; }, pathD: () => 99,                                           // (no way: inX only parks you at 28, 20, in the open)
   layout(lay) { const m = this, { put, rnd, clearOf } = lay;
     if (!m.ravs) { const seed = m.seed * 101;
       const canyon = genRavine('long', seed + 1, [-6, 30], 0.12, 60, 0.7); for (const q of canyon.spine[0]) q[2] = Math.min(3.0, q[2] * 1.4 + 0.6);   // the canyon along the south, about 6 tiles (wider breaks the outline tracing: the rows go black, (u))
@@ -563,7 +563,8 @@ function drawMtn() {
     // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
-    const hk = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+    const hk0 = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+    const hk = pl && !pit ? plateHeroKey(pl, hx, hy, hz, hk0, state.solids.reduce((k, o) => o.rise && o.rise !== 'tree' && o.y / UNIT > hy && Math.abs(o.x / UNIT - hx) < (o.rr || 0.5) + 0.8 ? Math.min(k, dep(o.x / UNIT, o.y / UNIT) + (o.rr || 0.5) * 0.9) : k, Infinity)) : hk0;   // (a plate wholly north of you across your width is behind you, 237; a stone south of you stays in front)
     list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);
     // what you are under (226, Ross: a window when you walk under a slab or a tree's crown; the x-ray only behind big
     // things, and never in a tunnel the G tool made, which is unshown): a plate whose underside clears your head where
