@@ -70,7 +70,9 @@ and in pip/quests/tutorial only to keep the story out. Never in movement, combat
 - Plates (the mountain's stone, 212): plateOutline, plateHas (the one shape for drawing and the hold), plateAdd/
   platePit/plateSeam, plateLayout (a screen's m.plates reads LAYOUTS[id], src/layouts/<id>.js), platesLay (p.O a plate's pieces, p.holes its holes: polyDiff), tunnelRing, brushOutline (a brush slab's
   outline from its stroke, 227; polySimplify),
-  plateTopAt, plateHold, drawPlate; mtnProj is the one projection (m.eye); ravPal for a ravine's colours [plates,
+  plateTopAt, plateHold, drawPlate; roughRing for every broken edge (235), plateWall for every wall, platePaintLip
+  for every lip, platePaintContact/platePropContact for a shadow and scree on the ground, plateGround/plateTopCol for
+  the ground's and a top's colour; mtnProj is the one projection (m.eye); ravPal for a ravine's colours [plates,
   mountain]. The editor (215): ?edit=<scene>, startEdit, editTile, editPick, editDown/Move/Up/Wheel, updateEdit,
   editText/editLoad, drawEdit [edit]; a new layout key goes in plateAdd, editText and the file's header comment.
 - Mode flags: ARENA, PUZZLE, MODEL_ON, MOUNTAIN, START_SCENE, EDIT_SCENE (state.edit while it runs), TEST_MODE (tests only), and only where section 1 says.

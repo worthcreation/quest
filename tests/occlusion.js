@@ -21,7 +21,7 @@ const cases=[
   ['a mid boulder r 1.3', [], [['boulder',20,15.0,1.3]], 'none'],
   ['a small boulder r 0.9', [], [['boulder',20.6,14.9,0.9]], 'none'],
   ['a tree', [], [['tree',20,14.8,1]], 'window'],
-  ['a 1.2 wall, you at its north edge', [wall(15.7,6)], [], 'xray'],
+  ['a 1.2 wall, you at its north edge', [wall(15.6,6)], [], 'xray'],
   ['out in the open', [], [], 'none'],
 ];
 const res=[]; for(const [name,plates,solids,want] of cases){ const o=look(plates,solids), got=o.win?'window':o.xray?'xray':'none'; res.push(name+': '+got+' (hidden '+o.cover+'%)'); if(got!==want){ errs++; res[res.length-1]+=' WANT '+want; } }

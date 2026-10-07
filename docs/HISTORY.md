@@ -1,6 +1,21 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 235: the stone's look (chat)
+Ross's look notes of 7 Oct built from the mocks (docs/parked/mock-epic-blend.js to mock-epic-seam.js, mock-vslopes.js):
+every outline roughened at three scales with the odd bite or spur (roughRing on plateOutline and brushTrace, PL_ROUGH
+plate 1.3, brush 1.6; a pit's ring 0.6, no bites: its ledges are narrow), baked once and the same shape for collision
+(plateHas tests the box first); walls as gradients (plateWall: the crown lit under the shoulder, the stone, the foot
+battered outward 0.22 and grading into the ground's colour, or into the top under it for a stacked slab: seamless
+stacks); tops take the ground's colour under them (PL_GROUND 0.55 of mtnColor), the shoulder inside the rim scaled by
+the slab and the lip as tapering broken runs, baked into the top's texture (platePaintBrink gone); the contact (a soft
+shadow offset south-east and scree) only at a foot on the base, and under crags and boulders, baked into the base's
+texture (platesGround: no frame cost); a pit's walls painted by the same rule, occluded by depth, battered a little
+inward; the rim lip for a hole or a notch; crack strips taper to points (crackRing); base seams taper and branch;
+the V's cells smoothed (a gradient across each cell, square to its along edge, a slow grain). The epic scene's frame
+in the harness: 1185, 1174, 3517, 1058 ms before (B, C, A, the band) and 994, 1010, 2990, 879 after. tests/plates.js
+1, 3, 3b, 7, 8, 10 and occlusion.js's wall case moved to the broken outlines.
+
 ## Build 234: the ravine's depth (chat)
 Ross: the V reads as a large pill; give it depth, consider the edges, show steeper and less steep slopes. Built into
 drawRavineSlope: the side facing the view lit and the near side in its own shade (a wider spread), value falling off

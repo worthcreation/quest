@@ -1481,14 +1481,15 @@ function drawSideClimb(c) {
 // base and a thickness in tiles above the scene's base plate. One shape for drawing and collision (plateHas). Drawn
 // with the mountain's one projection (mtnProj: the rise's tilt and zoom, then the eye's push-out from the screen's
 // centre, 1 + z / m.eye). What a screen lays (m.plates, at mtnLand) becomes m.pl: plates, pits and seams.
-// - faces: quads from the foot ring to the top ring on the edges whose foot lies outward of the lip and south of it
-//   (faces north only, Ross 2 Oct: you see the faces of what stands north of you and the lips of what lies south);
-//   one gradient per plate straight down the screen (the dark overhang band under the lip, lit stone, darker to the
-//   foot), each face's facing only nudging it (0.5 to 1, lit from the west); strata as continuous rings over 0.3
-//   thick; stones set in (drawJagged, clipped to their wall, feathered in) only on faces over 1.5.
-// - tops: one texture each, painted once in tile space (plateTex: grit, short cracks and the odd long seam, lichen,
-//   tone drift) and laid on through the projection each frame; then the brink (three strokes inside the edge, half
-//   the ravine's weight) and the lip (a dark line and a light rim) round the whole ring, so a step is never invisible.
+// - the look (235, docs/parked/mock-epic-*.js, Ross 7 Oct: married to the ground, nature's lines, no right angles,
+//   inner walls like outer, tops as tops, seamless stacks): every outline roughened at three scales with bites
+//   (roughRing, baked once, the same shape for collision); faces on the edges whose foot lies outward of the lip and
+//   south of it (faces north only, Ross 2 Oct), one gradient each straight down the screen (plateWall: the crown lit,
+//   the stone, the foot battered outward and grading into what it stands on: the ground's colour, or the top under
+//   it); tops take the ground's colour under them (PL_GROUND of mtnColor), the shoulder darkening into the rim (scaled
+//   by the slab) and the lip as tapering broken runs, all baked into the top's texture; the contact (a soft shadow on
+//   the ground and scree) only at a foot on the base and under crags and boulders, baked into the base's texture;
+//   a pit's walls painted by the same rule, occluded by depth; cracks taper to points; base seams taper and branch.
 // - the base: one plate under the scene, its surface the slope and the generator's bumps (the ground's own rows,
 //   their lean shading), the same texture denser as a wash over them (no fill of its own), loose stones lying on it,
 //   laid in chunks of a few tiles and running PL_MARGIN tiles past the scene's edges so no edge of it shows.
@@ -1510,12 +1511,12 @@ let PL_HERO = null;                                                             
 const PL_PX = 40, PL_N = 12, PL_TONE = 134, PL_MARGIN = 8, PL_TEX = new Map();                                            // texture px per tile; outline points before the cutting; the first plate's grey
 function plateRng(seed) { const R = mulberry32((Math.floor(seed * 7919) * 2654435761) >>> 0); return (a = 0, b = 1) => a + R() * (b - a); }
 // a plate's outline in tiles: squarish (a superellipse), corners knocked, a jog or two; worn, not cut
-function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0) {                        // turn: the editor's R, radians: the finished outline turned rigidly about its middle (223: it was folded into the seed's skew, so it stretched the slab)
+function plateOutline(cx, cy, w, h, seed, n = PL_N, turn = 0, rough = PL_ROUGH.plate, bites = PL_ROUGH.bites) {   // rough, bites: how broken (235); a pit's ring gets less and no bites, its ledges are narrow                        // turn: the editor's R, radians: the finished outline turned rigidly about its middle (223: it was folded into the seed's skew, so it stretched the slab)
   const rnd = plateRng(seed), P = [], rot = rnd(-0.5, 0.5) * 0.35;
   for (let k = 0; k < n; k++) { const a = k / n * 6.28 + rnd(-0.5, 0.5) * 0.25, ex = Math.cos(a), ey = Math.sin(a), rr = Math.pow(Math.pow(Math.abs(ex), 4) + Math.pow(Math.abs(ey), 4), -1 / 4), j = rnd(0.86, 1.1), px = ex * rr * w / 2 * j, py = ey * rr * h / 2 * j; P.push([cx + px * Math.cos(rot) - py * Math.sin(rot) * 0.5, cy + py * Math.cos(rot) + px * Math.sin(rot) * 0.5]); }
   let Q = P; for (let r = 0; r < 2; r++) { const R = []; for (let k = 0; k < Q.length; k++) { const [ax, ay] = Q[k], [bx, by] = Q[(k + 1) % Q.length]; R.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25], [ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75]); } Q = R; }
   const ct = Math.cos(turn), st = Math.sin(turn);
-  return Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]).map(([x, y]) => [cx + (x - cx) * ct - (y - cy) * st, cy + (x - cx) * st + (y - cy) * ct]);
+  return roughRing(Q.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]).map(([x, y]) => [cx + (x - cx) * ct - (y - cy) * st, cy + (x - cx) * st + (y - cy) * ct]), seed, rough, PL_ROUGH.step, bites);   // (235: broken at three scales, with bites)
 }
 // a brush slab's outline (227, merged in 228): one outline for all its parts, the strips a round brush of radius r
 // sweeps along each stroke's points and any plain plates it took in (a plate's outline from its own seed). The parts
@@ -1556,7 +1557,7 @@ function brushTrace(strokes, plates0, seed) {
   if (!loops.length) return [];
   let P = loops.reduce((a, L) => Math.abs(polyArea(L)) > Math.abs(polyArea(a)) ? L : a); if (polyArea(P) < 0) P = P.slice().reverse();   // the biggest loop, wound as plateOutline winds
   P = polySimplify(P, PL_BRUSH.simp);
-  const rnd = plateRng(seed); return P.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]);
+  const rnd = plateRng(seed); return roughRing(P.map(([x, y]) => [x + rnd(-0.5, 0.5) * 0.12, y + rnd(-0.5, 0.5) * 0.08]), seed, PL_ROUGH.brush, PL_ROUGH.step, PL_ROUGH.bites);   // (235: roughened as a plate's outline is, a little more)
 }
 // a brush slab's parts from its layout line (a 227 line had one stroke as pts and r)
 const brushParts = s => ({ strokes: s.strokes || (s.pts ? [{ pts: s.pts, r: s.r }] : []), plates: s.plates || [] });
@@ -1644,13 +1645,16 @@ function capsuleRing(spine, w) {
 // a ring roughened (234): resampled every PL_ROUGH.step and each point moved along its outward normal by noise at
 // three scales (slow bulges, a mid wobble, a fine tooth), so an edge is broken the way a rock's is, never a drawn
 // curve; the same shape then serves collision and drawing
-const PL_ROUGH = { step: 0.18, slow: 0.16, mid: 0.06, fine: 0.025 }, plNoise = (t, seed) => Math.sin(t * 1.7 + seed) * 0.5 + Math.sin(t * 3.1 + seed * 1.3) * 0.3 + Math.sin(t * 7.3 + seed * 0.7) * 0.2;
-function roughRing(P, seed, amt = 1, step = PL_ROUGH.step) {
+const PL_ROUGH = { step: 0.18, slow: 0.16, mid: 0.06, fine: 0.025, plate: 1.3, brush: 1.6, bites: 3 }, plNoise = (t, seed) => Math.sin(t * 1.7 + seed) * 0.5 + Math.sin(t * 3.1 + seed * 1.3) * 0.3 + Math.sin(t * 7.3 + seed * 0.7) * 0.2;   // plate, brush: how much of it a plate's and a brush slab's outline get (a ravine's rim 1); bites: about how many bites in or spurs out a slab gets (235)
+function roughRing(P, seed, amt = 1, step = PL_ROUGH.step, bites = 0) {
   const n = P.length, pts = []; for (let i = 0; i < n; i++) { const [ax, ay] = P[i], [bx, by] = P[(i + 1) % n], L = Math.hypot(bx - ax, by - ay), k = Math.max(1, Math.round(L / step)); for (let j = 0; j < k; j++) { const t = j / k; pts.push([ax + (bx - ax) * t, ay + (by - ay) * t]); } }
-  const m = pts.length, Q = []; let s = 0; for (let i = 0; i < m; i++) { const [px, py] = pts[(i - 1 + m) % m], [nx, ny] = pts[(i + 1) % m], ex = nx - px, ey = ny - py, L = Math.hypot(ex, ey) || 1, ox = ey / L, oy = -ex / L; s += L / 2; const d = (plNoise(s * 0.5, seed) * PL_ROUGH.slow + plNoise(s * 1.6, seed + 5) * PL_ROUGH.mid + plNoise(s * 5.5, seed + 9) * PL_ROUGH.fine) * amt; Q.push([pts[i][0] + ox * d, pts[i][1] + oy * d]); }
+  const m = pts.length, Q = [], rnd = plateRng(seed * 13 + 1), B = []; for (let b = 0; b < bites + Math.floor(rnd(0, 2)); b++) B.push([rnd(0, m), (rnd() < 0.5 ? -1 : 1) * rnd(0.25, 0.65) * amt / PL_ROUGH.plate, Math.max(2, (2 + rnd(0, 5)) * 0.18 / step)]);   // the bites: where, how deep (in or out, tiles), how wide (points)
+  let s = 0; for (let i = 0; i < m; i++) { const [px, py] = pts[(i - 1 + m) % m], [nx, ny] = pts[(i + 1) % m], ex = nx - px, ey = ny - py, L = Math.hypot(ex, ey) || 1, ox = ey / L, oy = -ex / L; s += L / 2; let d = (plNoise(s * 0.5, seed) * PL_ROUGH.slow + plNoise(s * 1.6, seed + 5) * PL_ROUGH.mid + plNoise(s * 5.5, seed + 9) * PL_ROUGH.fine) * amt;
+    for (const [at, dep, w] of B) { const dd = Math.min(Math.abs(i - at), m - Math.abs(i - at)); if (dd < w) d += dep * (1 - dd / w) * (1 - dd / w); }
+    Q.push([pts[i][0] + ox * d, pts[i][1] + oy * d]); }
   return polyArea(Q) < 0 ? Q.reverse() : Q;
 }
-const plateHas = (p, x, y) => plateIn(p.P, x, y);                                       // the one shape: inside this plate's outline (and so on it, or held off its face)
+const plateHas = (p, x, y) => (!p.box || (x >= p.box[0] && x <= p.box[2] && y >= p.box[1] && y <= p.box[3])) && plateIn(p.P, x, y);   // the one shape: inside this plate's outline (and so on it, or held off its face); its box first (235: a roughened outline has a few hundred points)
 const plateKind = thick => thick <= 0.25 ? 'step' : thick <= 0.5 ? 'hop' : thick <= 1 ? 'high' : 'face';
 const plateTop = p => p.base + p.thick;
 const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)]; };
@@ -1658,7 +1662,7 @@ const plateBox = P => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]); retu
 // (kind 'brush': pts, r); under is set by plateLayout
 const plateAdd = (pl, s) => {
   const brush = s.kind === 'brush', P = brush ? brushOutline(brushParts(s), s.seed) : plateOutline(s.x, s.y, s.w, s.h, s.seed, PL_N, s.rot || 0), b = plateBox(P.length ? P : [[s.x || 0, s.y || 0]]);   // (a brush slab: its outline from its stroke's points and radius; its middle and size are what that comes to)
-  const p = { x: brush ? (b[0] + b[2]) / 2 : s.x, y: brush ? (b[1] + b[3]) / 2 : s.y, w: brush ? b[2] - b[0] : s.w, h: brush ? b[3] - b[1] : s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, brush, P }; pl.list.push(p); return p; };
+  const p = { x: brush ? (b[0] + b[2]) / 2 : s.x, y: brush ? (b[1] + b[3]) / 2 : s.y, w: brush ? b[2] - b[0] : s.w, h: brush ? b[3] - b[1] : s.h, seed: s.seed, base: s.base || 0, thick: s.thick, tone: s.tone || PL_TONE, rot: s.rot || 0, under: null, brush, P, box: b }; pl.list.push(p); return p; };
 // a screen's layout laid: LAYOUTS[id] (src/layouts/<id>.js), or the editor's working copy of it while it is being edited
 function plateLayout(pl, id) {
   const L = state.edit && state.edit.id === id ? state.edit.layout : LAYOUTS[id]; if (!L) return;
@@ -1674,7 +1678,7 @@ function plateLayout(pl, id) {
 // one keeps an L of its top inside the hole, a hop above the one below, and the floor lies on the far side, where the
 // camera can see it (the view tips south: the near side of a deep hole is under its rim's overhang); from the floor
 // you hop up them, south-west
-const platePit = (pl, x, y, w, h, seed, floor, ledge = 0) => pl.pits.push({ x, y, floor, ledge, P: plateOutline(x, y, w, h, seed, 9) });
+const platePit = (pl, x, y, w, h, seed, floor, ledge = 0) => pl.pits.push({ x, y, floor, ledge, P: plateOutline(x, y, w, h, seed, 9, 0, 0.6, 0) });
 // a crack (231, Ross: a crack belongs to the layer it is drawn on): on the base (top 0) a hairline, drawn on the base
 // only (pl.seams: a plate over it spans it); drawn on a layer, a slit from that layer's top down to the base through
 // every layer under it, its width by its depth (PL_CRACK: a tall stack gives a ravine), laid as a cut like a tunnel's
@@ -1684,7 +1688,15 @@ const PL_CRACK = { w0: 0.25, perTile: 0.4, max: 2.0 }, PL_SLIT = 1.0, crackWidth
 function plateCrack(pl, sm, li) {
   const spine = sm.spine.map(q => [q[0], q[1]]), top = sm.top || 0;
   if (top <= 0 || spine.length < 2) { pl.seams.push({ spine, top: 0, li }); return; }
-  const w = crackWidth(top); pl.pits.push({ tunnel: true, crack: true, li, spine, w, top0: top, floor: 0, roof: top + 1e-3, ledge: 0, P: tunnelRing(spine, w) });
+  const w = crackWidth(top); pl.pits.push({ tunnel: true, crack: true, li, spine, w, top0: top, floor: 0, roof: top + 1e-3, ledge: 0, P: crackRing(spine, w, li) });
+}
+// a crack's strip (235, Ross: no right angles): the spine resampled every half tile, the strip tapering to a point over
+// its last tile and a half at each end, then roughened as every edge is; one shape for the cut and the drawing
+function crackRing(spine0, w, seed) {
+  const spine = []; for (let i = 1; i < spine0.length; i++) { const [ax, ay] = spine0[i - 1], [bx, by] = spine0[i], k = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.5)); for (let j = 0; j < k; j++) spine.push([ax + (bx - ax) * j / k, ay + (by - ay) * j / k]); } spine.push(spine0[spine0.length - 1]);
+  const n = spine.length, L = [], R = [], cum = [0]; let tot = 0; for (let i = 1; i < n; i++) { tot += Math.hypot(spine[i][0] - spine[i - 1][0], spine[i][1] - spine[i - 1][1]); cum.push(tot); }
+  for (let i = 0; i < n; i++) { const [x0, y0] = spine[Math.max(0, i - 1)], [x1, y1] = spine[Math.min(n - 1, i + 1)], d = Math.hypot(x1 - x0, y1 - y0) || 1, t = Math.min(1, Math.min(cum[i], tot - cum[i]) / 1.5), k = w / 2 * (0.08 + 0.92 * Math.sqrt(t)), nx = -(y1 - y0) / d * k, ny = (x1 - x0) / d * k, [x, y] = spine[i]; L.push([x + nx, y + ny]); R.push([x - nx, y - ny]); }
+  return roughRing(L.concat(R.reverse()), seed * 7 + 3, Math.min(1, w), 0.25);
 }
 // what a screen laid, worked out once: each pit's cut plates (the ones containing its middle from its floor up), its
 // floor and its top lip, each plate's pieces and holes; then the painter's order (platesOrder), worked out again
@@ -1693,7 +1705,7 @@ function platesLay(m) {
   const yaw = state.mtn && state.mtn.m === m ? state.mtn.yaw || 0 : 0;
   if (m.pl) { if (m.pl.yaw !== yaw) platesOrder(m.pl, yaw); return m.pl; }
   const pl = { list: [], pits: [], seams: [], tone: m.plateTone || 143, yaw: null }; m.plates(pl);
-  for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); }
+  for (const p of pl.list) { p.box = plateBox(p.P); p.kind = plateKind(p.thick); p.tone += pl.tone - PL_TONE; }   // (235: tops in the ground's tone, a stack's own steps kept)
   for (const q of pl.pits) { q.cut = pl.list.filter(p => !(q.rav != null && p.rav === q.rav) && p.base >= q.floor - 0.01 && plateTop(p) > q.floor + 0.01 && (q.roof == null || p.base < q.roof - 0.01) && (q.P.some(([x, y]) => plateHas(p, x, y)) || p.P.some(([x, y]) => plateIn(q.P, x, y))));   // every plate the ring crosses, from its floor up
     q.top = q.cut.length ? Math.max(...q.cut.map(plateTop)) : q.floor; q.box = plateBox(q.P);
     q.ring = new Map(); let R = q.P;                                                       // each cut plate's own ring: the top one the whole ring, each one down cut back by the ledge
@@ -1801,20 +1813,48 @@ const platesAt = (pl, x, y, pad = 0) => pl.list.some(p => p.base === 0 && [[0, 0
 // ground's height added); s the view's zoom, us the tile in px at it
 const plPath = (R, dy = 0, g = ctx) => { g.beginPath(); R.forEach(([X, Y], i) => i ? g.lineTo(X, Y + dy) : g.moveTo(X, Y + dy)); g.closePath(); };
 const plRgb = (v, d = 0) => 'rgb(' + Math.round(v) + ',' + Math.round(v + 2 + d) + ',' + Math.round(v - 5 + d) + ')';
-// the brink and lip, as the rise's ravines have them at half weight, in grey: inside the edge three strokes darkest
-// at it, then the lip, a dark line where the stone breaks off and a lighter rim above it, all the way round
-function platePaintBrink(R, us) { ctx.save(); plPath(R); ctx.clip(); ctx.lineJoin = 'round';
-  for (const [wk, col] of [[0.7, 'rgba(40,38,32,.07)'], [0.42, 'rgba(40,38,32,.1)'], [0.2, 'rgba(30,28,24,.18)']]) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(1, wk * us); plPath(R); ctx.stroke(); }
-  ctx.restore(); }
-function platePaintLip(R, s) { ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(28,28,24,.6)'; ctx.lineWidth = Math.max(1, 1.8 * s); plPath(R); ctx.stroke();
-  ctx.strokeStyle = 'rgba(225,222,200,.3)'; ctx.lineWidth = Math.max(1, 1.2 * s); plPath(R, -1.6 * s); ctx.stroke(); }
+// the lip (235, Ross: nature's lines are not crisp): not one stroke round the ring but runs that taper and lift, a
+// heavier dark where the stone breaks and a light rim that comes and goes; on g (the screen, or a top's texture), R
+// in g's px, s the stroke's scale, seeded so it never flickers
+function platePaintLip(R, s, seed, g = ctx) { const n = R.length, rnd = plateRng(seed * 3 + 7); g.lineJoin = 'round'; g.lineCap = 'round';
+  for (const [col, wk, dy, keep] of [['rgba(28,28,24,.75)', 2.2, 0, 0.85], ['rgba(225,222,200,.4)', 1.2, -1.6, 0.65]]) { let i = 0; g.strokeStyle = col; while (i < n) { if (rnd() > keep) { i += 2 + Math.floor(rnd(0, 4)); continue; } const len = 3 + Math.floor(rnd(0, 9));
+      for (let k = 0; k < len && i + k < n; k++) { const t = k / len, w = wk * s * (0.4 + 0.9 * Math.sin(t * Math.PI)) * rnd(0.7, 1.3); g.lineWidth = Math.max(0.6, w); g.beginPath(); g.moveTo(R[(i + k) % n][0], R[(i + k) % n][1] + dy * s); g.lineTo(R[(i + k + 1) % n][0], R[(i + k + 1) % n][1] + dy * s); g.stroke(); } i += len + 1 + Math.floor(rnd(0, 3)); } } }
+// the shoulder (235, no right angles): inside the rim the top darkens into the edge, so it rolls over into the face;
+// scaled by the slab (sh: a hair on a stair ledge, the full roll on a cliff). On g, clipped to the ring by the caller
+function platePaintShoulder(R, px, sh, g = ctx) { g.lineJoin = 'round';
+  for (const [w, a] of [[0.7, 0.05], [0.42, 0.09], [0.2, 0.14], [0.08, 0.2]]) { g.strokeStyle = 'rgba(24,24,20,' + (a * sh).toFixed(3) + ')'; g.lineWidth = Math.max(1, w * px * sh); plPath(R, 0, g); g.stroke(); } }
+// a colour string blended toward another (both 'rgb(r,g,b)')
+const plBlend = (a, b, t) => { const A = a.match(/\d+/g).map(Number), B = b.match(/\d+/g).map(Number); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(',') + ')'; };
+// the ground's colour under a plate (mtnColor: the slope's shading and the stone by height at its middle), and its
+// top's colour as it is painted (PL_GROUND of the ground's colour over its own tone: a slab on dark high ground is
+// dark, one on the pale foot pale); worked out once a plate
+const PL_GROUND = 0.55, plateGround = (m, p) => p.gcol || (p.gcol = mtnColor(m, p.x, p.y)), plateTopCol = (m, p) => plBlend(plRgb(p.tone), plateGround(m, p), PL_GROUND);
+// the contact (235, Ross: married to the ground): a soft shadow on the ground round a foot ring that stands on the
+// base (strokes outside it, each fainter and wider, offset south-east as the light falls from the north-west) and
+// scree, pebbles and grit scattered along the foot; the same under a crag or boulder (a disc). Painted into the base
+// plate's texture once (platesGround): nothing of it costs a frame. R in texture px; px a tile in them
+function platePaintContact(g, R, px, seed, strength = 1) {
+  g.lineJoin = 'round'; for (const [w, a, dx, dy] of [[1.1, 0.07, 0.25, 0.3], [0.7, 0.1, 0.18, 0.22], [0.35, 0.16, 0.1, 0.12], [0.14, 0.22, 0.04, 0.05]]) { g.strokeStyle = 'rgba(16,16,14,' + (a * strength).toFixed(3) + ')'; g.lineWidth = Math.max(1, w * px); plPath(R.map(([X, Y]) => [X + dx * px, Y + dy * px]), 0, g); g.stroke(); }
+  const rnd = plateRng(seed * 7 + 1), n = R.length; let cx = 0, cy = 0; for (const [X, Y] of R) { cx += X / n; cy += Y / n; }
+  for (let i = 0; i < n; i++) { const [x0, y0] = R[i], [x1, y1] = R[(i + 1) % n], L = Math.hypot(x1 - x0, y1 - y0) / px; let nx = (y1 - y0) / (L * px || 1), ny = -(x1 - x0) / (L * px || 1); if (((x0 + x1) / 2 - cx) * nx + ((y0 + y1) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny; }   // (outward, whichever way the ring winds)
+    for (let k = 0; k < L * 3 * strength; k++) { const t = rnd(), d = rnd() * rnd() * 0.5 + 0.05; plateScree(g, x0 + (x1 - x0) * t + nx * d * px, y0 + (y1 - y0) * t + ny * d * px, px * (0.03 + rnd() * 0.05 * (1.2 - d)), rnd); } }
+}
+const plateScree = (g, X, Y, r, rnd) => { g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(X + 1, Y + 1, r, r * 0.65, 0, 0, 6.28); g.fill(); g.fillStyle = plRgb(118 + rnd() * 30); g.beginPath(); g.ellipse(X, Y, r, r * 0.65, 0, 0, 6.28); g.fill(); };
+function platePropContact(g, X, Y, r, seed) { const gr = g.createRadialGradient(X + r * 0.3, Y + r * 0.15, r * 0.2, X + r * 0.3, Y + r * 0.15, r * 1.5); gr.addColorStop(0, 'rgba(16,16,14,.4)'); gr.addColorStop(1, 'rgba(16,16,14,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(X + r * 0.3, Y + r * 0.15, r * 1.5, r * 0.8, 0, 0, 6.28); g.fill();
+  const rnd = plateRng(seed * 31 + 5); for (let k = 0; k < 10; k++) { const a = rnd() * 6.28, d = r * (0.9 + rnd() * 0.5); plateScree(g, X + Math.cos(a) * d, Y + Math.sin(a) * d * 0.55 + r * 0.2, r * (0.04 + rnd() * 0.06), rnd); } }
+// everything on the base's ground, into its texture: the contact under every foot on the base, and under every crag
+// and boulder (the land's props: mtnLand). A stacked slab gets none (seamless stacks, Ross 7 Oct)
+function platesGround(g, m, pl, box) {
+  const px = PL_PX, X = x => (x - box[0]) * px, Y = y => (y - box[1]) * px;
+  for (const p of pl.list) if (p.base <= 1e-6) platePaintContact(g, p.P.map(([x, y]) => [X(x), Y(y)]), px, p.seed, Math.min(1.4, 0.7 + p.thick * 0.3));
+  const land = m.land; if (!land) return; for (const q of land.deco.concat(land.solids)) if (q.k === 'crag' || q.k === 'boulder') platePropContact(g, X(q.x), Y(q.y), q.r * px * (q.k === 'crag' ? 0.9 : 0.8), q.seed);
+}
 // a top's texture, painted once in tile space (PL_PX px a tile, the plate's box): its grey (the base's: the ground's
 // own colour tile by tile, the lean's shading in it), tone drift, grit, pebbles, short cracks and the odd long one,
 // lichen flakes; the base denser, with loose stones lying on it. Laid on the screen through the projection each frame
 function plateTex(p, m) {
   if (p.tex !== undefined) return p.tex;
-  const key = [p.base_ ? 'b' : 'p', p.seed, p.tone, (p.box[2] - p.box[0]).toFixed(3), (p.box[3] - p.box[1]).toFixed(3)].join('|');   // the same seed and size paint the same texture (the editor relays the plates at every change: a move keeps its top)
+  const pl = platesLay(m), key = [p.base_ ? 'b' : 'p', p.seed, p.tone, (p.box[2] - p.box[0]).toFixed(3), (p.box[3] - p.box[1]).toFixed(3), p.base_ ? pl.list.filter(q => q.base <= 1e-6).map(q => q.seed + ':' + q.x.toFixed(2) + ':' + q.y.toFixed(2) + ':' + q.w.toFixed(2)).join() : p.rot + '|' + p.P.length + '|' + plateGround(m, p)].join('|');   // the same seed and size paint the same texture (the editor relays the plates at every change: a move keeps its top); the base's holds what stands on it (235), a top its ground's colour and its outline
   if (PL_TEX.has(key)) return (p.tex = PL_TEX.get(key));
   let tex = null;
   try { const [x0, y0, x1, y1] = p.box, wpx = Math.ceil((x1 - x0) * PL_PX), hpx = Math.ceil((y1 - y0) * PL_PX), cv = document.createElement('canvas'); cv.width = wpx; cv.height = hpx; const g = cv.getContext && cv.getContext('2d');
@@ -1829,8 +1869,12 @@ function plateTex(p, m) {
         g.strokeStyle = long ? 'rgba(18,16,14,.55)' : 'rgba(26,24,20,.42)'; g.beginPath(); pts.forEach(([X, Y], k) => k ? g.lineTo(X, Y) : g.moveTo(X, Y)); g.stroke(); }
       for (let i = 0; i < area / 40000 * more; i++) { if (rnd() < 0.5) continue; g.fillStyle = 'rgba(176,186,160,.3)'; const x = rnd(0, wpx), y = rnd(0, hpx); for (let k = 0; k < 4; k++) { g.beginPath(); g.ellipse(x + rnd(-5, 5), y + rnd(-3, 3), rnd(2, 5), rnd(1.5, 3), rnd(0, 3), 0, 6.28); g.fill(); } }
       if (p.base_) for (let i = 0; i < area / 7000; i++) { const x = rnd(0, wpx), y = rnd(0, hpx), r = rnd(1.5, 3.5); g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.ellipse(x + 1.2, y + 1.2, r, r * 0.6, 0, 0, 6.28); g.fill(); drawJagged(x, y, r, i * 0.7, ['#8c8a80', '#a09e94', '#6a6860'], null, g); }   // loose stones lying on the base
+      if (p.base_) platesGround(g, m, pl, p.box);                                           // the contact under every foot on it (235)
+      else { const R = p.P.map(([x, y]) => [(x - x0) * PL_PX, (y - y0) * PL_PX]), sh = Math.min(1, Math.min(x1 - x0, y1 - y0) / 2.5);   // a top (235): the ground's colour over it, the shoulder inside its rim, the lip round it, all baked here: tops as tops
+        g.fillStyle = plateGround(m, p); g.globalAlpha = PL_GROUND; g.fillRect(0, 0, wpx, hpx); g.globalAlpha = 1;
+        g.save(); plPath(R, 0, g); g.clip(); platePaintShoulder(R, PL_PX, sh, g); g.restore(); platePaintLip(R, PL_PX / 40, p.seed, g); }
       tex = cv; } } catch (e) { tex = null; }
-  if (tex) PL_TEX.set(key, tex);
+  if (tex) { if (PL_TEX.size > 40) PL_TEX.clear(); PL_TEX.set(key, tex); }
   return (p.tex = tex);
 }
 // the texture's tiles [x0, y0] to [x1, y1] laid on the screen between the three corners the projection gives (one
@@ -1840,15 +1884,23 @@ function plateLay(tex, p, x0, y0, x1, y1, pr, z, clip = false) {
   ctx.save(); if (clip) { plPath([[X0, Y0], [X1, Y1], pr(x1, y1, z), [X2, Y2]]); ctx.clip(); }   // (a base chunk: cut to its own quad, the whole texture drawn through it, so no edge texel blends with nothing and neighbours meet on one line)
   ctx.transform((X1 - X0) / sw, (Y1 - Y0) / sw, (X2 - X0) / sh, (Y2 - Y0) / sh, X0, Y0); ctx.drawImage(tex, -(x0 - bx0) * PL_PX, -(y0 - by0) * PL_PX); ctx.restore();
 }
+// one wall (235): a quad from the top edge Ti Tj to the foot Fi Fj, painted top to bottom through its stops (the
+// crown lit, the stone, the foot), in one gradient straight down the screen; stroked in its own colour so no hairline
+// shows between neighbours
+function plateWall(Ti, Tj, Fi, Fj, stops) {
+  const g = ctx.createLinearGradient(0, (Ti[1] + Tj[1]) / 2, 0, (Fi[1] + Fj[1]) / 2); for (const [t, c] of stops) g.addColorStop(t, c);
+  ctx.beginPath(); ctx.moveTo(Ti[0], Ti[1]); ctx.lineTo(Tj[0], Tj[1]); ctx.lineTo(Fj[0], Fj[1]); ctx.lineTo(Fi[0], Fi[1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke();
+}
 // the faces: walls from the foot ring F to the top ring T (on the screen), on the edges whose foot lies outward of
-// the lip and south of it; plain (Ross, 220, still E): one flat shade each, lit by its facing from the west, nothing
-// painted on it (no band under the lip, no strata, no set-in stones: the stones' feathered wash showed as light smears)
-function platePaintFaces(T, F, tone, skip = null) {
+// the lip and south of it, lit by their facing from the west; each (235, no right angles) its crown lit under the
+// shoulder, the stone, and its foot battered outward (0.22 of its height) and grading into gc, the colour of what it
+// stands on: the ground (and the talus baked under it), or the top of the slab under it (seamless stacks)
+function platePaintFaces(T, F, tone, skip = null, gc = plRgb(tone * 0.72)) {
   const n = T.length, drawn = [];                                                        // (drawn: the edges painted, for tests/edit.js; skip: edges that are no wall, a sloped ravine's)
   for (let i = 0; i < n; i++) { const j = (i + 1) % n; if (skip && skip(i, j)) continue; const ex = T[j][0] - T[i][0], ey = T[j][1] - T[i][1], L = Math.hypot(ex, ey) || 1, nx = ey / L, ny = -ex / L, mx = (T[i][0] + T[j][0]) / 2, my = (T[i][1] + T[j][1]) / 2, fx = (F[i][0] + F[j][0]) / 2, fy = (F[i][1] + F[j][1]) / 2;
     if (!((fx - mx) * nx + (fy - my) * ny > 0.2 && fy > my + 0.2)) continue;
-    const lit = mtnClamp(0.72 + 0.28 * (-nx) - 0.08 * ny, 0.5, 1);
-    ctx.beginPath(); ctx.moveTo(T[i][0], T[i][1]); ctx.lineTo(T[j][0], T[j][1]); ctx.lineTo(F[j][0], F[j][1]); ctx.lineTo(F[i][0], F[i][1]); ctx.closePath(); ctx.fillStyle = plRgb(tone * 0.78 * lit); ctx.fill(); ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 0.6; ctx.stroke(); drawn.push(i); }   // (stroked in its own colour: no hairline between neighbours)
+    const lit = mtnClamp(0.72 + 0.28 * (-nx) - 0.08 * ny, 0.5, 1), bat = 0.22 * Math.max(1, fy - my), ox = nx * bat, oy = ny * bat + bat * 0.4;
+    plateWall(T[i], T[j], [F[i][0] + ox, F[i][1] + oy], [F[j][0] + ox, F[j][1] + oy], [[0, plRgb(tone * 0.92 * lit)], [0.18, plRgb(tone * 0.78 * lit)], [0.7, plRgb(tone * 0.72 * lit)], [1, gc]]); drawn.push(i); }
   return drawn;
 }
 // a seam at one height, clipped to a top (or the base): the dark of the slit as wide as the crack, its east half
@@ -1856,10 +1908,12 @@ function platePaintFaces(T, F, tone, skip = null) {
 function platePaintSeam(sm, z, clip, pits, pr, us) {
   ctx.save(); if (clip) { plPath(clip); ctx.clip(); }
   if (pits.length) { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); for (const q of pits) { const R = q.P.map(([x, y]) => pr(x, y, z)); R.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.closePath(); } ctx.clip('evenodd'); }
-  const C = sm.spine.map(([x, y]) => pr(x, y, z)); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  for (let i = 1; i < C.length; i++) { const w = Math.max(1, 0.06 * us);                  // a hairline
+  const S0 = sm.spine, S = []; for (let i = 1; i < S0.length; i++) { const [ax, ay] = S0[i - 1], [bx, by] = S0[i], k = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 0.6)); for (let j = 0; j < k; j++) S.push([ax + (bx - ax) * j / k, ay + (by - ay) * j / k]); } S.push(S0[S0.length - 1]);
+  const C = S.map(([x, y]) => pr(x, y, z)), n = C.length, rnd = plateRng((sm.li || 0) * 17 + 3); ctx.lineCap = 'round'; ctx.lineJoin = 'round';   // (235: the hairline tapers to nothing at its ends and throws a branch here and there; seeded, so it holds still)
+  for (let i = 1; i < n; i++) { const t = (i - 0.5) / (n - 1), w = Math.max(0.8, 0.07 * us * Math.sin(t * Math.PI) * rnd(0.6, 1.4));
     ctx.strokeStyle = 'rgb(44,44,40)'; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(C[i - 1][0], C[i - 1][1]); ctx.lineTo(C[i][0], C[i][1]); ctx.stroke();
-    ctx.strokeStyle = 'rgb(14,14,12)'; ctx.lineWidth = w * 0.5; ctx.beginPath(); ctx.moveTo(C[i - 1][0] + w * 0.25, C[i - 1][1]); ctx.lineTo(C[i][0] + w * 0.25, C[i][1]); ctx.stroke(); }
+    ctx.strokeStyle = 'rgb(14,14,12)'; ctx.lineWidth = w * 0.5; ctx.beginPath(); ctx.moveTo(C[i - 1][0] + w * 0.25, C[i - 1][1]); ctx.lineTo(C[i][0] + w * 0.25, C[i][1]); ctx.stroke();
+    if (rnd() < 0.35) { const a = Math.atan2(C[i][1] - C[i - 1][1], C[i][0] - C[i - 1][0]) + (rnd() < 0.5 ? 1 : -1) * rnd(0.6, 1.4), L = us * rnd(0.3, 1.2); ctx.strokeStyle = 'rgb(44,44,40)'; ctx.lineWidth = Math.max(0.6, w * 0.5); ctx.beginPath(); ctx.moveTo(C[i][0], C[i][1]); ctx.quadraticCurveTo(C[i][0] + Math.cos(a) * L * 0.5, C[i][1] + Math.sin(a) * L * 0.5 + 2, C[i][0] + Math.cos(a + 0.3) * L, C[i][1] + Math.sin(a + 0.3) * L); ctx.stroke(); } }   // a branch
   ctx.restore();
 }
 const plOn = (R, mg) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (const [X, Y] of R) { if (X < x0) x0 = X; if (X > x1) x1 = X; if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; } return x1 > -mg && x0 < W + mg && y1 > -mg && y0 < H + mg; };
@@ -1895,14 +1949,13 @@ const PL_WASH = [0.08, 0.45, 0.5];                                              
 const plateRims = (pl, p, top) => pl.pits.filter(q => !q.tunnel && q.ring.has(p) && q.top > top + 1e-6);   // the pits this plate is a lower layer of (their rims above its top)
 const pitDepth = (q, z) => (q.top - z) / Math.max(0.01, q.top - q.floor);                // 0 at the rim, 1 at the floor
 function plateTopPaint(m, p, pr, s) {
-  const pl = platesLay(m), us = UNIT * s, top = plateTop(p), Os = p.O.map(O => O.map(([x, y]) => pr(x, y, top))), rims = plateRims(pl, p, top);
+  const pl = platesLay(m), top = plateTop(p), Os = p.O.map(O => O.map(([x, y]) => pr(x, y, top))), rims = plateRims(pl, p, top);
   if (!Os.length) return;
   const pieces = () => { ctx.beginPath(); for (const T of Os) T.forEach(([X, Y], i) => i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y)); ctx.clip(); for (const q of p.holes) { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); q.ring.get(p).forEach(([x, y], i) => { const [X, Y] = pr(x, y, top); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.clip('evenodd'); } };   // (its pieces: a ring that crosses its edge is cut out of its outline; a ring inside it is a hole)
   const rimPath = q => plPath(q.P.map(([x, y]) => pr(x, y, top)));
   const tex = plateTex(p, m), lay = () => { if (tex) plateLay(tex, p, p.box[0], p.box[1], p.box[2], p.box[3], pr, top); else { ctx.fillStyle = plRgb(p.tone); ctx.fillRect(-W, -H, W * 3, H * 3); } };
   ctx.save(); if (rims.length) { ctx.beginPath(); ctx.rect(-W, -H, W * 3, H * 3); for (const q of rims) q.P.forEach(([x, y], i) => { const [X, Y] = pr(x, y, top); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); ctx.clip('evenodd'); }   // outside every rim above it: as any top
-  ctx.save(); pieces(); lay(); ctx.restore();                                            // (no seam on a top since 231: a crack drawn on the base stays on the base)
-  for (const T of Os) { ctx.save(); plPath(T); ctx.clip(); platePaintBrink(T, us); ctx.restore(); platePaintLip(T, s); }
+  ctx.save(); pieces(); lay(); ctx.restore();                                            // (no seam on a top since 231: a crack drawn on the base stays on the base; its shoulder and lip are in its texture, 235)
   ctx.restore();
   for (const q of rims) { ctx.save(); pieces(); rimPath(q); ctx.clip(); lay(); ctx.fillStyle = 'rgba(18,18,16,' + (PL_WASH[0] + PL_WASH[1] * pitDepth(q, top)).toFixed(2) + ')'; ctx.fillRect(-W, -H, W * 3, H * 3); ctx.restore(); }   // inside a rim: its ledge, textured, under the depth's wash
 }
@@ -1918,7 +1971,8 @@ function drawPlateFaces(m, p, pr, s) {
     ctx.save(); plPath(p.P.map(([x, y]) => pr(x, y, q.floor))); ctx.clip(); plPath(q.P.map(([x, y]) => pr(x, y, q.floor))); ctx.fillStyle = 'rgba(10,10,12,.62)'; ctx.fill(); ctx.restore(); }
   for (const q of pl.pits) if (q.crack && !q.slope && p.base <= q.floor + 0.01 && q.cut.includes(p)) { ctx.save(); plPath(p.P.map(([x, y]) => pr(x, y, q.floor))); ctx.clip(); plPath(q.P.map(([x, y]) => pr(x, y, q.floor))); ctx.fillStyle = 'rgba(18,18,16,' + Math.min(0.62, 0.22 + 0.28 * (q.depth || q.top0)).toFixed(2) + ')'; ctx.fill(); ctx.restore(); }   // a crack's floor through this bottom layer, dark by its depth (its strip crosses the outline: a notch, so no hole paints it)
   const sloped = pl.pits.filter(q => q.slope && q.cut.includes(p)), inSlope = (x, y) => sloped.some(q => plateIn(q.P, x, y));
-  for (const O of p.O) { const T = O.map(([x, y]) => pr(x, y, top)), F = O.map(([x, y]) => pr(x, y, p.base)); if (plOn(T, us * 2) || plOn(F, us * 2)) platePaintFaces(T, F, p.tone, sloped.length ? (i, j) => inSlope((O[i][0] + O[j][0]) / 2, (O[i][1] + O[j][1]) / 2) : null); }   // (each piece's own walls: a notch's sides included; not a sloped ravine's: its side is a surface, drawRavineSlope)
+  const gc = p.base <= 1e-6 ? plateGround(m, p) : plBlend(plateTopCol(m, p.under || p), 'rgb(0,0,0)', 0.04);   // the foot's colour: the ground, or the top it stands on (235: seamless stacks)
+  for (const O of p.O) { const T = O.map(([x, y]) => pr(x, y, top)), F = O.map(([x, y]) => pr(x, y, p.base)); if (plOn(T, us * 2) || plOn(F, us * 2)) platePaintFaces(T, F, p.tone, sloped.length ? (i, j) => inSlope((O[i][0] + O[j][0]) / 2, (O[i][1] + O[j][1]) / 2) : null, gc); }   // (each piece's own walls: a notch's sides included; not a sloped ravine's: its side is a surface, drawRavineSlope)
 }
 function drawPlate(m, p, pr, s) {
   const pl = platesLay(m), us = UNIT * s, top = plateTop(p), T = p.P.map(([x, y]) => pr(x, y, top));
@@ -1926,7 +1980,7 @@ function drawPlate(m, p, pr, s) {
   const cuts = p.holes, ring = (q, z) => q.ring.get(p).map(([x, y]) => pr(x, y, z));       // (a hole wholly inside it; a ring across its edge is a notch, its walls the faces)
   plateTopPaint(m, p, pr, s);
   for (const q of pl.pits) if (q.slope && q.cut.includes(p) && p.base <= q.floor + 0.01) drawRavineSlope(m, q, pr, s);   // a sloped ravine: its V, drawn once, at its lowest layer's turn (233)
-  for (const q of cuts) { if (q.slope) continue; const R = ring(q, top), B = ring(q, p.base), n = R.length, rim = q.top <= top + 1e-6, d = pitDepth(q, top);
+  for (const q of cuts) { if (q.slope) continue; const R = ring(q, top), B = ring(q, p.base), n = R.length, d = pitDepth(q, top);
     ctx.save(); plPath(T); ctx.clip(); plPath(R); ctx.clip();
     let cx = 0, cy = 0; for (const [X, Y] of R) { cx += X / n; cy += Y / n; }
     if ((!q.tunnel || q.crack) && p.base <= q.floor + 0.01) { plPath(B); ctx.fillStyle = 'rgba(18,18,16,' + (q.crack ? Math.min(0.62, 0.22 + 0.28 * (q.depth || q.top0)) : PL_WASH[2]).toFixed(2) + ')'; ctx.fill(); }   // the floor, darkest (before the hero's box is left out: he stands on it); a crack's darker the deeper
@@ -1934,10 +1988,11 @@ function drawPlate(m, p, pr, s) {
     for (let i = 0; i < n; i++) { const j = (i + 1) % n, mx = (R[i][0] + R[j][0]) / 2, my = (R[i][1] + R[j][1]) / 2, bx = (B[i][0] + B[j][0]) / 2, by = (B[i][1] + B[j][1]) / 2;
       if ((bx - mx) * (cx - mx) + (by - my) * (cy - my) <= 0.2) continue;                  // the far walls: their foot lies in toward the hole's middle
       const ex = R[j][0] - R[i][0], ey = R[j][1] - R[i][1], L = Math.hypot(ex, ey) || 1; let nx = ey / L; if ((mx - cx) * nx + (my - cy) * (-ex / L) > 0) nx = -nx;
-      const lit = mtnClamp(0.86 + 0.1 * (-nx), 0.8, 0.96), g = plRgb(p.tone * 0.8 * lit * (1 - 0.3 * d));   // (a pit's walls plain, no shade over the hole: Ross, 220; darker the deeper, 225)
-      ctx.beginPath(); ctx.moveTo(R[i][0], R[i][1]); ctx.lineTo(R[j][0], R[j][1]); ctx.lineTo(B[j][0], B[j][1]); ctx.lineTo(B[i][0], B[i][1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke(); }
+      const lit = mtnClamp(0.78 + 0.18 * (-nx), 0.6, 1) * (1 - 0.45 * d), bat = 0.15 * Math.max(1, by - my), Bi = [B[i][0] + (cx - B[i][0]) * 0.03, B[i][1] + bat * 0.3], Bj = [B[j][0] + (cx - B[j][0]) * 0.03, B[j][1] + bat * 0.3];   // (235: an inner wall like an outer one, its crown lit, battered a little inward, occluded the deeper it sits under the rim, its foot the floor's dark)
+      plateWall(R[i], R[j], Bi, Bj, [[0, plRgb(p.tone * 0.9 * lit)], [0.2, plRgb(p.tone * 0.76 * lit)], [0.75, plRgb(p.tone * 0.6 * lit)], [1, plRgb(p.tone * 0.42 * lit)]]); }
     ctx.restore();
-    if (rim) { ctx.save(); plPath(T); ctx.clip(); platePaintLip(R, s); ctx.restore(); } }   // the one lip: the rim's (no brink inside it, no line at a layer's base: 225)
+  }
+  for (const q of pl.pits) if (!q.slope && q.ring.has(p) && q.top <= top + 1e-6) { ctx.save(); plPath(T); ctx.clip(); platePaintLip(ring(q, top), s, q.P[0][0] * 7 + q.P[0][1]); ctx.restore(); }   // the one lip: the rim's, a hole's or a notch's (no brink inside it, no line at a layer's base: 225; 235: a top's own lip is in its texture)
 }
 // a sloped ravine's V on the screen (233, depth 234): the strip sampled along its spine and across it, each cell a
 // quad at the surface's height, shaded by its lean (the side facing the view lit, the near side in its own shade),
@@ -1952,10 +2007,10 @@ function drawRavineSlope(m, q, pr, s) {
   const tone = q.cut[0].tone, dmax = Math.max(0.01, q.top0 - q.floor), rnd = plateRng(q.rav * 5 + 2);
   ctx.save(); plPath(q.P.map(([x, y]) => pr(x, y, q.top0))); ctx.clip();
   for (let i = 0; i < n - 1; i++) for (let k = 0; k < NA; k++) { const t0 = -1 + 2 * k / NA, t1 = -1 + 2 * (k + 1) / NA, a = at(i, t0), b = at(i, t1), c = at(i + 1, t1), d = at(i + 1, t0);
-    const zm = (a[2] + b[2] + c[2] + d[2]) / 4, deep = (q.top0 - zm) / dmax; if (zm > q.top0 - 1e-3) continue; const [nx, ny] = nrm(i), side = (t0 + t1) / 2 < 0 ? -1 : 1, flat = Math.abs(b[2] - a[2]) < 1e-3 && Math.abs(c[2] - a[2]) < 1e-3;
-    const ux = nx * side, uy = ny * side, lit = flat ? 0.5 : mtnClamp(0.82 - 0.36 * uy - 0.14 * ux, 0.35, 1.08), grain = 1 + 0.06 * plNoise(i * 0.9 + k * 1.7, q.rav);   // the side facing the view (its uphill north) lit, the near side in its own shade; value falls off with depth; a little grain cell to cell
-    const g = plRgb(tone * lit * (1 - 0.6 * deep) * grain);
-    const A = pr(a[0], a[1], a[2]), B = pr(b[0], b[1], b[2]), C = pr(c[0], c[1], c[2]), D = pr(d[0], d[1], d[2]);
+    const zm = (a[2] + b[2] + c[2] + d[2]) / 4; if (zm > q.top0 - 1e-3) continue; const [nx, ny] = nrm(i), side = (t0 + t1) / 2 < 0 ? -1 : 1, flat = Math.abs(b[2] - a[2]) < 1e-3 && Math.abs(c[2] - a[2]) < 1e-3;
+    const ux = nx * side, uy = ny * side, lit = flat ? 0.5 : mtnClamp(0.82 - 0.36 * uy - 0.14 * ux, 0.35, 1.08);   // the side facing the view (its uphill north) lit, the near side in its own shade; value falls off with depth
+    const val = (u, v) => plRgb(tone * lit * (1 - 0.6 * (q.top0 - (u[2] + v[2]) / 2) / dmax) * (1 + 0.05 * plNoise((u[0] + v[0]) * 0.3 + (u[1] + v[1]) * 0.22, q.rav)));   // (235: the value at a cell's edge, a slow grain by place; a gradient across the cell between its two edges, so the cells read as one slope, not bands)
+    const A = pr(a[0], a[1], a[2]), B = pr(b[0], b[1], b[2]), C = pr(c[0], c[1], c[2]), D = pr(d[0], d[1], d[2]), P0 = [(A[0] + D[0]) / 2, (A[1] + D[1]) / 2], ex = D[0] - A[0], ey = D[1] - A[1], eL = Math.hypot(ex, ey) || 1, dx = (B[0] + C[0]) / 2 - P0[0], dy = (B[1] + C[1]) / 2 - P0[1], along = (dx * ex + dy * ey) / eL, g = ctx.createLinearGradient(P0[0], P0[1], P0[0] + dx - ex / eL * along, P0[1] + dy - ey / eL * along); g.addColorStop(0, val(a, d)); g.addColorStop(1, val(b, c));   // (the gradient square to the cell's along edge, so its bands run along the slope, never leaning cell by cell)
     ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.closePath(); ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = g; ctx.lineWidth = 0.6; ctx.stroke(); }
   for (let i = 0; i < n - 1; i++) { const [, ny] = nrm(i), south = ny > 0 ? 1 : -1, r0 = at(i, south), r1 = at(i + 1, south), f0 = at(i, south * 0.05), f1 = at(i + 1, south * 0.05);   // the near rim's cast shadow: from the south rim across the floor, fading toward the far side
     const R0 = pr(r0[0], r0[1], r0[2]), R1 = pr(r1[0], r1[1], r1[2]), F0 = pr(f0[0], f0[1], f0[2]), F1 = pr(f1[0], f1[1], f1[2]), g = ctx.createLinearGradient(0, (R0[1] + R1[1]) / 2, 0, (F0[1] + F1[1]) / 2); g.addColorStop(0, 'rgba(8,10,12,.5)'); g.addColorStop(0.5, 'rgba(8,10,12,.25)'); g.addColorStop(1, 'rgba(8,10,12,0)');
@@ -10029,7 +10084,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 234';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 235';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
