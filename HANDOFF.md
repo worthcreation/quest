@@ -278,9 +278,9 @@ by what hides less of you; tests/hero-order.js). Ross, 7 Oct, after 239 took ove
 whole-canyon scans of 5 minutes each and sleeping minutes on background runs; the rules now in WAYS 7 and
 PROJECT_INSTRUCTIONS (a diagnostic scan under 30 s on the spot in question, one whole-screen scan at the end, poll with
 sleep 30).
-NEXT, Opus, fresh chat: Ross picks from the list. If he has no pick, the audit's flag first: (cleanup 2) drawMtn is
-161 lines since 239, over the 150 limit: move the plates' part (the base, the hero among a pit's layers, the hero's
-key with plateHeroPick and the stones raised, the x-ray's shapes) into plates.js, no change in play, one build, Opus.
+Since 240 drawMtn is 109 lines: your turn among the plates is plateHeroTurn, the base and plates' list entries
+platesListed (plates.js).
+NEXT, Opus: Ross picks from the list.
 Open: (ai) the 7 wedged spots left by the canyon scan (you between a low plate in front and a taller one behind on the
 screen: 32, 18.75 and 18.25, 21.25 show the x-ray): draw you in two parts, clipped between the plates, FABLE. (af) play
 state set in draw code (woods-gremlins' ducking, spores-map's trapdoor only work when drawn: tests found it in 238;
@@ -298,7 +298,8 @@ and slope on the ground, a still, Opus. (p) beat 0 (the ornithologist passes cam
 docs/mountain-beats.md's rules into the docs once Ross takes them, Opus. Not built: plain plates merging when dragged
 (Ross: brush only for now); a tunnel brush if he wants one.
 Done this chat: ~~(ad) a fast test suite~~ (238), ~~(ah) clipping behind plates next to a boulder or a step~~ (239),
-~~(aj) the waiting rules into WAYS and PROJECT_INSTRUCTIONS~~ (handoff after 239).
+~~(aj) the waiting rules into WAYS and PROJECT_INSTRUCTIONS~~ (handoff after 239),
+~~(cleanup 2) drawMtn's plates part into plates.js~~ (240).
 ~~FABLE: 224 THE EDITOR'S CAMERA TURNS (yaw)~~ (224: a middle drag turns the view; HISTORY). Open from it: the
 base's row colours run across the screen, not along the turned rows (grey screens only, invisible); the far range
 and sky line (hz) still read the north edge.

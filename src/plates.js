@@ -341,6 +341,70 @@ function plateHeroPick(hk, o, cov) {
   return cov(hide) > cov(show) ? o.after : hk;
 }
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
+// you among the plates, drawMtn's turn for you (moved here from drawMtn in 240): your draw key (down a pit among its
+// layers; next to a stone south of you, the stone raised past you: 239), the window over what you are under, PL_HERO,
+// and heroHid, the x-ray's covering shapes (read after everything is drawn). c: drawMtn's view (stoneE: a stone's
+// entry in its list, raised in place)
+function plateHeroTurn(c) {
+  const { m, r, pl, h, pr, gp, dep, us, s, stoneE } = c, raised = new Map(); let win = null, heroHid = () => null;
+  const hz = pl && h.liftAt === state.scene ? h.lift || 0 : 0, hx = h.x / UNIT, hy = h.y / UNIT, pit = pl ? pl.pits.find(q => !q.tunnel && q.last && hz < q.top - 1e-6 && plateIn(q.P, hx, hy)) : null;
+  // down a pit (on its floor or a ledge in it): drawn among its plates, right after the ones at or under your
+  // ground and before the ones above you. The camera looks down, so only the layer nearest it shows: a layer above
+  // you covers you wherever its top overlaps you (the x-ray shows you through it), its shade darkens you, and the
+  // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
+  const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
+  const hk0 = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
+  const near = pl && !pit ? state.solids.filter(o => o.rise && o.rise !== 'tree' && o.y / UNIT > hy && Math.abs(o.x / UNIT - hx) < (o.rr || 0.5) + 0.8) : [], sk = o => dep(o.x / UNIT, o.y / UNIT) + (o.rr || 0.5) * 0.9;
+  const plCov = ps => { if (!ps.length) return 0; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], sh = [];   // the share of your box these plates cover (top, foot, walls)
+    for (const p of ps) { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); sh.push(T, F); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; sh.push([T[i], T[j], F[j], F[i]]); } }
+    let hit = 0; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = b[0] + (b[2] - b[0]) * (i + 0.5) / 4, y = b[1] + (b[3] - b[1]) * (j + 0.5) / 4; if (sh.some(P => plateIn(P, x, y))) hit++; } return hit / 16; };
+  const place = front => { const o = { backs: [], fronts: [] }; return plateHeroPick(plateHeroKey(pl, hx, hy, hz, hk0, front, o), o, plCov); };
+  let hk = pl && !pit ? place(near.reduce((k, o) => Math.min(k, sk(o)), Infinity)) : hk0;
+  // (238, Ross: clipping behind a step with a boulder below you) a plate behind you can outrank a stone south of you
+  // (a bent slab's turn is its far south end, and the steps it touches share its turn): one list cannot put you after
+  // the plate and before the stone, so the stone is raised to just after you instead, unless a plate stands south
+  // of the stone in between (then the old order holds)
+  if (near.length) { const hb = place(Infinity), low = near.filter(o => sk(o) < hb).sort((a, b) => sk(a) - sk(b));
+    const free = o => { const ox = o.x / UNIT, oy = o.y / UNIT, rr = o.rr || 0.5; return !pl.list.some(p => p.key > sk(o) && p.key <= hb && [-0.5, 0, 0.5].some(d => plateHas(p, ox + d * rr, oy + 0.3))); };
+    if (hb > hk && low.every(free)) { hk = hb; low.forEach((o, i) => { const e = stoneE.get(o); if (e) { e[0] = hb + 2e-4 + i * 1e-6; raised.set(o, e[0]); } }); } }   // (a plate wholly north of you across your width is behind you, 237; a stone south of you stays in front)
+  // what you are under (226, Ross: a window when you walk under a slab or a tree's crown; the x-ray only behind big
+  // things, and never in a tunnel the G tool made, which is unshown): a plate whose underside clears your head where
+  // you stand, a crown drawn after you that covers you. Each is drawn as usual, then what was under it is laid back
+  // over it through a soft window round you (mtnWindow)
+  const inTun = pl && pl.pits.some(q => q.tunnel && plateIn(q.P, hx, hy) && hz >= q.floor - 1e-6 && hz < (q.roof == null ? Infinity : q.roof));
+  const [WX, WY] = pr(hx, hy, hz), crown = o => { const [OX, OY] = gp(o.x / UNIT, o.y / UNIT); return [OX, OY - 1.25 * us, 0.95 * us]; };
+  const roofs = inTun || !pl ? [] : pl.list.filter(p => p.base >= hz + PL_HEAD - 1e-6 && plateHas(p, hx, hy));
+  const crowns = inTun ? [] : state.solids.filter(o => o.rise === 'tree' && dep(o.x / UNIT, o.y / UNIT) + 0.3 > hk && (([X, Y, R]) => Math.hypot(WX - X, (WY - h.z * s - us * 0.3 - Y) / 0.95) < R)(crown(o)));
+  win = roofs.length || crowns.length ? { X: WX, Y: WY - h.z * s - us * 0.4, R: MTN_WIN * us, plates: new Set(roofs), trees: new Set(crowns) } : null;
+  const dtw = Math.min(0.1, Math.max(0, state.time - (r.winT || 0))); r.winT = state.time; r.winK = win ? Math.min(1, (r.winK || 0) + dtw / 0.25) : 0; r.win = !!win;   // (it opens over a quarter second)   // (on a plate: after it; down a pit: among its plates; parked faint while the editor is up)
+  PL_HERO = null; if (pit) { const [X, Y] = pr(hx, hy, hz), w = us * mtnPush(mtnH(m, hx, hy) + hz, r); PL_HERO = { pit, lift: hz, hx, hy, box: [X - w * 0.55, Y - h.z * s - w * 0.6, X + w * 0.55, Y - h.z * s + w * 0.55] }; }
+  const rims = over;
+  // the x-ray: what is drawn after you and over you leaves you showing through, faint, but only where it covers you.
+  // heroHid gives the covering shapes as one path (each shape wound the same way: nonzero fills their union): the
+  // tops of a pit's layers above you (less their holes, wound the other way), a plate drawn after you that stands
+  // higher (its top, its foot, the walls between), a stone, tree or reeds south of you (an outline round each)
+  heroHid = () => { if (state.hammock || h.falling > 0 || inTun) return null; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], meets = (a) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+    const shapes = [], area = P => { let a = 0; for (let i = 0; i < P.length; i++) { const [x0, y0] = P[i], [x1, y1] = P[(i + 1) % P.length]; a += x0 * y1 - x1 * y0; } return a; }, wind = (P, cw) => (area(P) > 0) === cw ? P : P.slice().reverse();
+    const pts = [[X, b[3]], [b[0] + us * 0.15, b[3]], [b[2] - us * 0.15, b[3]], [X, (b[1] + b[3]) / 2], [b[0] + us * 0.15, b[1] + us * 0.1], [b[2] - us * 0.15, b[1] + us * 0.1]];
+    for (const p of rims) { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), R = pit.ring.get(p).map(([x, y]) => pr(x, y, plateTop(p)));
+      if (pts.some(([px, py]) => plateIn(T, px, py) && !plateIn(R, px, py))) shapes.push(wind(T, true), wind(R, false)); }   // a layer above you, down its pit: its top, less its hole
+    if (pl) for (const p of pl.list) { if (!(p.key > hk && plateTop(p) > hz + 0.05 && !(pit && pit.ring.has(p)) && !(win && win.plates.has(p)) && meets(plateScreenBox(p, pr)))) continue;
+      const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); shapes.push(wind(T, true), wind(F, true)); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; shapes.push(wind([T[i], T[j], F[j], F[i]], true)); } }   // a plate in front: its top, foot and the walls between
+    for (const o of state.solids) { if (!o.rise || o.rise === 'tree') continue; const oy = o.y / UNIT, od = dep(o.x / UNIT, oy), ok = raised.has(o) ? raised.get(o) : od + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;   // a boulder or crag south of you (trees have the window, reeds and grass nothing)
+      const [OX, OY] = gp(o.x / UNIT, oy), [ex, ey, rx, ry] = boulderShape(OX, OY, (o.rr || 0.5) * us);   // (its body as drawMtnProp draws it)
+      if (!meets([ex - rx, ey - ry, ex + rx, ey + ry])) continue; const E = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; E.push([ex + Math.cos(a) * rx, ey + Math.sin(a) * ry]); } shapes.push(wind(E, true)); }
+    // only when they hide most of you (MTN_XRAY of your box): partly behind a thing, the rest of you shows
+    let n = 0, hid = 0; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { const x = b[0] + (b[2] - b[0]) * (i + 0.5) / 8, y = b[1] + (b[3] - b[1]) * (j + 0.5) / 8; n++; if (shapes.some(P => plateIn(P, x, y)) && windAt(shapes, x, y)) hid++; }
+    r.cover = hid / n; if (r.cover < MTN_XRAY) return null;
+    return shapes.length ? shapes : null; };
+  return { hk, win, hid: heroHid };
+}
+// a plates screen's turns in drawMtn's list: the base plate first (the rows inside its ring, the seams on it), then
+// every plate, its faces at its foot's turn and its top by height (moved here from drawMtn in 240)
+function platesListed(list, m, pl, pr, s, us, baseIn, hole, fillRows, winOf) {
+  list.push([-Infinity, () => { ctx.save(); if (baseIn) { ctx.clip(baseIn); ctx.clip(hole, 'evenodd'); } fillRows(-UNIT * 2, H + UNIT * 2, -UNIT * 2, W + UNIT * 2, true); for (const sm of pl.seams) platePaintSeam(sm, 0, null, pl.pits.filter(q => q.floor <= 0), pr, us); ctx.restore(); }]);
+  for (const p of pl.list) { list.push([p.fkey, winOf(p, () => drawPlateFaces(m, p, pr, s))]); list.push([p.key, winOf(p, () => drawPlate(m, p, pr, s))]); }
+}
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
 // you're put back just outside its nearest edge, as the mountain holds
 function plateHold(m, a) {

@@ -1,6 +1,11 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 240: drawMtn's plates part into plates.js (chat)
+The audit's flag: drawMtn was 161 lines. Your turn among the plates (the pit's layers, your key with plateHeroKey and
+plateHeroPick, the stones raised past you, the window, PL_HERO, the x-ray's shapes) is plateHeroTurn, and the base
+and plates' list entries are platesListed, both in plates.js. drawMtn is 109 lines; no change in play.
+
 ## Build 239: drawn in front of what is behind you, next to a boulder or a step (chat)
 Ross, two screenshots in the canyon: clipping behind what should be a jumpable plate. A scan of the canyon (every
 quarter tile, a frame each) found 186 spots where a plate wholly north of your feet was painted over you; two causes,
