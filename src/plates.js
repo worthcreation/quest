@@ -321,12 +321,24 @@ const plateKeyUnder = (pl, x, y, z) => { let k = pl.list.reduce((k, p) => plateT
 // north of you, and its wall and top paint over your head. Across your body (PL_BODY a side), a plate with none of
 // its outline south of you is behind you: you are drawn after it (and the x-ray leaves it out), unless something in
 // front of you comes first (front: the least key of what stands south of you; a plate there counts too)
-function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity) {
+// (238) out, if given, gets the plates either side (out.backs: wholly north of you, out.fronts: reaching south of
+// you) and out.after, your turn after every back plate: where a front plate's turn comes before a back plate's, one
+// list cannot have both right, and drawMtn picks the one that hides or shows less of you wrongly (plateHeroPick)
+function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity, out = null) {
   let back = -Infinity;
   for (const p of pl.list) { const k = Math.max(p.key, p.fkey); if (k <= hk || p.base >= hz + PL_HEAD - 1e-6 || p.box[0] > hx + 0.6 || p.box[2] < hx - 0.6 || p.box[3] < hy - 3) continue;
     let south = false; for (let x = hx - PL_BODY; x <= hx + PL_BODY + 1e-6 && !south; x += PL_BODY / 2) for (let y = hy + 0.15; y <= p.box[3] + 1e-6; y += 0.2) if (plateHas(p, x, y)) { south = true; break; }
-    if (south) front = Math.min(front, p.key); else back = Math.max(back, k); }
+    if (south) front = Math.min(front, p.key); else back = Math.max(back, k);
+    if (out) (south ? out.fronts : out.backs).push(p); }
+  if (out) out.after = back > hk ? back + 1e-4 : hk;
   return back > hk ? Math.max(hk, Math.min(back + 1e-4, front - 1e-4)) : hk;
+}
+// (238) a front plate drawn before you leaves you over it, a back plate drawn after you covers you: of the two
+// placements, the one whose wrong plates cover less of your box on the screen (cov: the share a set of plates covers)
+function plateHeroPick(hk, o, cov) {
+  if (!(o.after > hk)) return hk;
+  const hide = o.backs.filter(p => Math.max(p.key, p.fkey) > hk), show = o.fronts.filter(p => p.key < o.after);
+  return cov(hide) > cov(show) ? o.after : hk;
 }
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline

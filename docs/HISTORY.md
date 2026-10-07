@@ -1,6 +1,17 @@
 # Quest: build history (newest first)
 Moved out of HANDOFF.md in build 156. One short entry per build goes at the top.
 
+## Build 239: drawn in front of what is behind you, next to a boulder or a step (chat)
+Ross, two screenshots in the canyon: clipping behind what should be a jumpable plate. A scan of the canyon (every
+quarter tile, a frame each) found 186 spots where a plate wholly north of your feet was painted over you; two causes,
+both one paint list holding you, plates and stones at a single number each. (1) A stone south of you whose turn came
+before a plate behind you (the shelf is bent, its turn its far south end, 22.73, and its step shares it; a boulder at
+30, 21 is 21.9): drawMtn now raises such a stone to just after you, unless a plate stands south of it in between.
+(2) A plate reaching south of your body edge whose turn came just before one behind you (the step's corner and the
+shelf): plateHeroKey reports both sides and plateHeroPick takes the order whose wrong plates cover less of your box.
+186 spots to 7; the 7 are wedged between a low plate in front and a taller one behind on the screen (list (ai)).
+tests/hero-order.js: the scan's worst spots (errs 10 on 238, 0 now) and a walk past the step.
+
 ## Build 238: a fast test suite (chat)
 Ross, 7 Oct: builds took 20 to 30 minutes, the time being the suite (348 s, past one tool call). No change in play.
 tests/run.js prints each test's time and the slowest eight. The canyon is built at its first visit (EPIC.late,

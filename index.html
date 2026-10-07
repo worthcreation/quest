@@ -1799,12 +1799,24 @@ const plateKeyUnder = (pl, x, y, z) => { let k = pl.list.reduce((k, p) => plateT
 // north of you, and its wall and top paint over your head. Across your body (PL_BODY a side), a plate with none of
 // its outline south of you is behind you: you are drawn after it (and the x-ray leaves it out), unless something in
 // front of you comes first (front: the least key of what stands south of you; a plate there counts too)
-function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity) {
+// (238) out, if given, gets the plates either side (out.backs: wholly north of you, out.fronts: reaching south of
+// you) and out.after, your turn after every back plate: where a front plate's turn comes before a back plate's, one
+// list cannot have both right, and drawMtn picks the one that hides or shows less of you wrongly (plateHeroPick)
+function plateHeroKey(pl, hx, hy, hz, hk, front = Infinity, out = null) {
   let back = -Infinity;
   for (const p of pl.list) { const k = Math.max(p.key, p.fkey); if (k <= hk || p.base >= hz + PL_HEAD - 1e-6 || p.box[0] > hx + 0.6 || p.box[2] < hx - 0.6 || p.box[3] < hy - 3) continue;
     let south = false; for (let x = hx - PL_BODY; x <= hx + PL_BODY + 1e-6 && !south; x += PL_BODY / 2) for (let y = hy + 0.15; y <= p.box[3] + 1e-6; y += 0.2) if (plateHas(p, x, y)) { south = true; break; }
-    if (south) front = Math.min(front, p.key); else back = Math.max(back, k); }
+    if (south) front = Math.min(front, p.key); else back = Math.max(back, k);
+    if (out) (south ? out.fronts : out.backs).push(p); }
+  if (out) out.after = back > hk ? back + 1e-4 : hk;
   return back > hk ? Math.max(hk, Math.min(back + 1e-4, front - 1e-4)) : hk;
+}
+// (238) a front plate drawn before you leaves you over it, a back plate drawn after you covers you: of the two
+// placements, the one whose wrong plates cover less of your box on the screen (cov: the share a set of plates covers)
+function plateHeroPick(hk, o, cov) {
+  if (!(o.after > hk)) return hk;
+  const hide = o.backs.filter(p => Math.max(p.key, p.fkey) > hk), show = o.fronts.filter(p => p.key < o.after);
+  return cov(hide) > cov(show) ? o.after : hk;
 }
 const plateOverHero = (pl, x, y, z) => pl.list.reduce((k, p) => p.base >= z + PL_HEAD - 1e-6 && plateHas(p, x, y) ? Math.min(k, p.key) : k, Infinity);
 // held off every plate (everything but the hero, until 214 lays the ground in layers): inside a foot plate's outline
@@ -2636,10 +2648,10 @@ function drawMtn() {
   const one = (key, o, fn) => { const all = state[key]; state[key] = [o]; try { fn(); } finally { state[key] = all; } };   // the game's draw for a list, for one of them
   const list = [];
   for (const p of land.deco) list.push([dep(p.x, p.y) + (p.by - p.y), () => drawMtnProp(m, p, gp, us, s)]);
-  const sc = sceneDef(), h = state.hero; let heroHid = () => null;
+  const sc = sceneDef(), h = state.hero, stoneE = new Map(), raised = new Map(); let heroHid = () => null;   // (stoneE: a stone's place in the list, to raise it past you: 238)
   for (const o of state.solids) {
     if (o.rise === 'tree' || o.kind === 'reeds') list.push([dep(o.x / UNIT, o.y / UNIT) + (o.kind === 'reeds' ? o.r / UNIT + 0.2 : 0.3), winOf(o, () => at(o.x, o.y, () => o.kind === 'reeds' ? drawSolid(o) : drawTree(o)))]);
-    else if (o.rise) list.push([dep(o.x / UNIT, o.y / UNIT) + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]);
+    else if (o.rise) { const e = [dep(o.x / UNIT, o.y / UNIT) + o.rr * 0.9, () => drawMtnProp(m, { k: o.rise, x: o.x / UNIT, y: o.y / UNIT, r: o.rr, seed: o.seed }, gp, us, s)]; list.push(e); stoneE.set(o, e); }
   }
   let hole = null;                                                                      // the ravine: a hole in the ground's rows, painted once right after the row its north lip first reaches
   if ((mtnRavs(m).length || pl) && typeof Path2D === 'function') { hole = new Path2D(); hole.rect(-W, -H, W * 3, H * 3); }
@@ -2689,7 +2701,19 @@ function drawMtn() {
     // hole's far walls stay behind you (drawPlate leaves your box out of them: PL_HERO)
     const under = pit ? pit.cut.filter(p => plateTop(p) <= hz + 1e-6) : [], over = pit ? pit.cut.filter(p => plateTop(p) > hz + 1e-6) : [];
     const hk0 = pit ? (under.length ? Math.max(...under.map(p => p.key)) + 1e-4 : Math.min(...over.map(p => p.key)) - 1e-4) : Math.min(Math.max(dep(hx, hy) + 0.6, pl && hz > 0 ? plateKeyUnder(pl, hx, hy, hz) : -Infinity), pl ? plateOverHero(pl, hx, hy, hz) - 1e-4 : Infinity);   // (under an overhang: before it, so it covers you and the x-ray shows you, 217)
-    const hk = pl && !pit ? plateHeroKey(pl, hx, hy, hz, hk0, state.solids.reduce((k, o) => o.rise && o.rise !== 'tree' && o.y / UNIT > hy && Math.abs(o.x / UNIT - hx) < (o.rr || 0.5) + 0.8 ? Math.min(k, dep(o.x / UNIT, o.y / UNIT) + (o.rr || 0.5) * 0.9) : k, Infinity)) : hk0;   // (a plate wholly north of you across your width is behind you, 237; a stone south of you stays in front)
+    const near = pl && !pit ? state.solids.filter(o => o.rise && o.rise !== 'tree' && o.y / UNIT > hy && Math.abs(o.x / UNIT - hx) < (o.rr || 0.5) + 0.8) : [], sk = o => dep(o.x / UNIT, o.y / UNIT) + (o.rr || 0.5) * 0.9;
+    const plCov = ps => { if (!ps.length) return 0; const [X, Y] = pr(hx, hy, hz), b = [X - us * 0.5, Y - h.z * s - us * 0.55, X + us * 0.5, Y - h.z * s + us * 0.5], sh = [];   // the share of your box these plates cover (top, foot, walls)
+      for (const p of ps) { const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); sh.push(T, F); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; sh.push([T[i], T[j], F[j], F[i]]); } }
+      let hit = 0; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const x = b[0] + (b[2] - b[0]) * (i + 0.5) / 4, y = b[1] + (b[3] - b[1]) * (j + 0.5) / 4; if (sh.some(P => plateIn(P, x, y))) hit++; } return hit / 16; };
+    const place = front => { const o = { backs: [], fronts: [] }; return plateHeroPick(plateHeroKey(pl, hx, hy, hz, hk0, front, o), o, plCov); };
+    let hk = pl && !pit ? place(near.reduce((k, o) => Math.min(k, sk(o)), Infinity)) : hk0;
+    // (238, Ross: clipping behind a step with a boulder below you) a plate behind you can outrank a stone south of you
+    // (a bent slab's turn is its far south end, and the steps it touches share its turn): one list cannot put you after
+    // the plate and before the stone, so the stone is raised to just after you instead, unless a plate stands south
+    // of the stone in between (then the old order holds)
+    if (near.length) { const hb = place(Infinity), low = near.filter(o => sk(o) < hb).sort((a, b) => sk(a) - sk(b));
+      const free = o => { const ox = o.x / UNIT, oy = o.y / UNIT, rr = o.rr || 0.5; return !pl.list.some(p => p.key > sk(o) && p.key <= hb && [-0.5, 0, 0.5].some(d => plateHas(p, ox + d * rr, oy + 0.3))); };
+      if (hb > hk && low.every(free)) { hk = hb; low.forEach((o, i) => { const e = stoneE.get(o); if (e) { e[0] = hb + 2e-4 + i * 1e-6; raised.set(o, e[0]); } }); } }   // (a plate wholly north of you across your width is behind you, 237; a stone south of you stays in front)
     list.push([hk, () => at(h.x, h.y, () => { if (state.edit && !state.edit.trying) ctx.globalAlpha = 0.35; drawHero(); }, 4, h)]);
     // what you are under (226, Ross: a window when you walk under a slab or a tree's crown; the x-ray only behind big
     // things, and never in a tunnel the G tool made, which is unshown): a plate whose underside clears your head where
@@ -2716,7 +2740,7 @@ function drawMtn() {
         if (pts.some(([px, py]) => plateIn(T, px, py) && !plateIn(R, px, py))) shapes.push(wind(T, true), wind(R, false)); }   // a layer above you, down its pit: its top, less its hole
       if (pl) for (const p of pl.list) { if (!(p.key > hk && plateTop(p) > hz + 0.05 && !(pit && pit.ring.has(p)) && !(win && win.plates.has(p)) && meets(plateScreenBox(p, pr)))) continue;
         const T = p.P.map(([x, y]) => pr(x, y, plateTop(p))), F = p.P.map(([x, y]) => pr(x, y, p.base)); shapes.push(wind(T, true), wind(F, true)); for (let i = 0; i < T.length; i++) { const j = (i + 1) % T.length; shapes.push(wind([T[i], T[j], F[j], F[i]], true)); } }   // a plate in front: its top, foot and the walls between
-      for (const o of state.solids) { if (!o.rise || o.rise === 'tree') continue; const oy = o.y / UNIT, od = dep(o.x / UNIT, oy), ok = od + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;   // a boulder or crag south of you (trees have the window, reeds and grass nothing)
+      for (const o of state.solids) { if (!o.rise || o.rise === 'tree') continue; const oy = o.y / UNIT, od = dep(o.x / UNIT, oy), ok = raised.has(o) ? raised.get(o) : od + (o.rr || 0.5) * 0.9; if (ok <= hk) continue;   // a boulder or crag south of you (trees have the window, reeds and grass nothing)
         const [OX, OY] = gp(o.x / UNIT, oy), [ex, ey, rx, ry] = boulderShape(OX, OY, (o.rr || 0.5) * us);   // (its body as drawMtnProp draws it)
         if (!meets([ex - rx, ey - ry, ex + rx, ey + ry])) continue; const E = []; for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; E.push([ex + Math.cos(a) * rx, ey + Math.sin(a) * ry]); } shapes.push(wind(E, true)); }
       // only when they hide most of you (MTN_XRAY of your box): partly behind a thing, the rest of you shows
@@ -10169,7 +10193,7 @@ function tipLibrary() {
   if (Object.keys(inv.shrooms || {}).length) t.push('Traveler\'s mushrooms grow spores for fast travel.');
   return t.concat(state.tipPool || []);
 }
-const BUILD = 'build 238';                            // shown on the pause screen so you can tell which version is running
+const BUILD = 'build 239';                            // shown on the pause screen so you can tell which version is running
 
 // =====================================================================
 // The wind puzzle, made readable: landing ledges on every bank, your shadow as the aim, and ravines that look
